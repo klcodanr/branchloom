@@ -95,10 +95,10 @@ jobs:
           echo "value=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
       - name: Verify source
-        run: gradle --no-daemon -PreleaseVersion=${{ steps.version.outputs.value }} check
+        run: gradle --no-daemon "-PreleaseVersion=${{ steps.version.outputs.value }}" check
 
       - name: Build native installer
-        run: gradle --no-daemon -PreleaseVersion=${{ steps.version.outputs.value }} jpackageInstaller
+        run: gradle --no-daemon "-PreleaseVersion=${{ steps.version.outputs.value }}" jpackageInstaller
 
       - name: Attach installer to release
         shell: bash
