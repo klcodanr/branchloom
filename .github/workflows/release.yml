@@ -10,7 +10,7 @@ permissions:
 jobs:
   release:
     name: Create release
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       value: ${{ steps.version.outputs.value }}
@@ -67,20 +67,20 @@ jobs:
 
     steps:
       - name: Check out release tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ needs.release.outputs.tag }}
 
       - name: Set up Java 25
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: '9.7'
+          gradle-version: '9.7.1'
 
       - name: Validate and read release version
         id: version
@@ -101,38 +101,16 @@ jobs:
         run: gradle --no-daemon -PreleaseVersion=${{ steps.version.outputs.value }} jpackageInstaller
 
       - name: Attach installer to release
-        if: matrix.platform != 'macOS'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.release.outputs.tag }}
         run: gh release upload "$RELEASE_TAG" build/jpackage/* --clobber
 
-      - name: Attach macOS installer to release
-        if: matrix.platform == 'macOS'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.release.outputs.tag }}
-          RELEASE_VERSION: ${{ needs.release.outputs.value }}
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          installers=(build/jpackage/*.dmg)
-          if (( ${#installers[@]} == 0 )); then
-            echo "No macOS DMG was generated"
-            ls -la build/jpackage
-            exit 1
-          fi
-          installer="${installers[0]}"
-          target="build/jpackage/branchloom-${RELEASE_VERSION}.dmg"
-          mv "$installer" "$target"
-          gh release upload "$RELEASE_TAG" "$target" --clobber
-
   publish-cask:
     needs: [release, build]
     name: Publish Homebrew cask
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Download macOS installer
         env:
@@ -152,7 +130,7 @@ jobs:
           echo "sha256=$(sha256sum "$installer" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
       - name: Check out Homebrew tap
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: klcodanr/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
