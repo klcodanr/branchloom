@@ -16,7 +16,7 @@ jobs:
       value: ${{ steps.version.outputs.value }}
     steps:
       - name: Check out main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -65,7 +65,7 @@ jobs:
 
     steps:
       - name: Check out release tag
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.release.outputs.tag }}
 
@@ -128,7 +128,7 @@ jobs:
           echo "sha256=$(sha256sum "$installer" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
       - name: Check out Homebrew tap
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: klcodanr/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
