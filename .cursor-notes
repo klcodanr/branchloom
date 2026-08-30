@@ -1,0 +1,201 @@
+# Action Encapsulation Plan
+
+## Status
+
+- [x] Find behavior moved to `NavigationController`.
+- [x] Settings, Resource Usage, Refresh, Problems, shortcuts, and About behavior moved behind `HelpController`/application operations.
+- [x] Project creation, opening, import, removal, terminal, path, directory, and command workflows moved to `ProjectWorkflow`.
+- [x] Session creation, removal, terminal, summary, rename, path, and directory workflows moved to `SessionWorkflow`.
+- [x] Concrete action definitions moved into the `actions` package and composed by `AppActionCatalog`.
+- [x] Menus and command palette consume the coordinator-owned action registry.
+- [x] `AppCoordinator` owns selection, cached views, content replacement, and navigation state.
+- [x] `AppView` is below the enforced 800-line source limit.
+- [~] Clipboard and filesystem behavior remain focused methods on project/session workflows rather than separate ports; extracting them further would add no value until those effects need independent implementations.
+
+## Goal
+
+Actions should own workflows or depend on focused controllers and ports. They should not be named wrappers that call methods implemented by `AppView`.
+
+## Application Actions
+
+### FindAction
+
+Move behavior into `NavigationController`.
+
+- `NavigationController` owns project/session/terminal indexing and chooser behavior.
+- `FindAction` invokes `NavigationPort.find()`.
+- `AppView` only wires the controller during shell construction.
+
+### SettingsAction [x]
+
+Move behavior into `SettingsController`.
+
+- Own opening global settings and save completion.
+- Apply themes and refresh views through the coordinator.
+- Expose `SettingsPort.openGlobalSettings()`.
+
+### ResourceUsageAction [x]
+
+Move behavior into `ResourceUsageController`.
+
+- Own creation/display of `ResourceUsageView`.
+- Expose `ResourceUsagePort.showResourceUsage()`.
+- Let `AppCoordinator` own content replacement.
+
+### RefreshAction [x]
+
+Move behavior into `RefreshController`.
+
+- Decide whether to refresh projects, sessions, or the current view.
+- Own refresh sequencing and selection reconciliation.
+- Expose `RefreshPort.refresh()`.
+
+### ProblemsAction [x]
+
+Move behavior into `ProblemsController`.
+
+- Own opening `ProblemsView`.
+- Own clearing problems, persistence, and returning to the previous view.
+- Remove `toggleProblems()` and `showProblems()` from `AppView`.
+
+### ShortcutsAction and AboutAction [x]
+
+Move dialog construction into `HelpController`.
+
+- `HelpController.showShortcuts(Window)`.
+- `HelpController.showAbout(Window)`.
+- Store shortcut definitions in one shared source used by both key bindings and the dialog.
+- Source application metadata from build/application metadata instead of hardcoding it in UI code.
+
+## Project Actions
+
+### CreateProjectAction [x]
+
+Keep the workflow in `ProjectWorkflow`.
+
+- Validate project name and repository path.
+- Handle GitHub auth selection.
+- Persist and refresh project state.
+
+### OpenProjectAction [x]
+
+Use `ProjectWorkflow.open(Project)` and `NavigationPort`.
+
+- Select the project.
+- Open the project view.
+- Do not call `AppView` directly.
+
+### ImportBranchAction [x]
+
+Keep branch listing, branch/session dialogs, worktree creation, setup progress, persistence, and navigation in `ProjectWorkflow`.
+
+### ImportWorktreeAction [x]
+
+Keep worktree discovery, duplicate detection, session creation, setup progress, persistence, and navigation in `ProjectWorkflow`.
+
+### RemoveProjectAction [x]
+
+Add explicitly to `ProjectWorkflow`.
+
+- Own confirmation.
+- Dispose cached project views.
+- Remove the project and persist.
+- Clear selection and navigate Home.
+
+### Project Terminal, Path, and Directory Actions [x]
+
+Keep these in `ProjectWorkflow` or focused ports:
+
+- `CreateProjectTerminalAction`.
+- `CopyProjectPathAction`.
+- `OpenProjectDirectoryAction`.
+- Project command execution.
+
+## Session Actions
+
+### CreateSessionAction [x]
+
+Keep session dialog, agent selection, prompt handling, worktree creation, startup commands, setup progress, selection, and persistence in `SessionWorkflow`.
+
+### RemoveSessionAction [x]
+
+Keep confirmation, optional worktree deletion, view disposal, persistence, and navigation in `SessionWorkflow`.
+
+### RenameSessionAction [x]
+
+Move rename UI and persistence into `SessionWorkflow`.
+
+- Update navigation labels.
+- Update terminal resource display names.
+- Persist state.
+
+### Terminal Actions [x]
+
+`SessionWorkflow` owns the terminal workflow directly:
+
+- `CreateTerminalAction`.
+- `CloseTerminalAction`.
+- `RenameTerminalAction`.
+- `SelectTerminalAction`.
+
+It should own terminal-view lookup, tab mutation, disposal, persistence, and resource usage names.
+
+### OpenSessionSummaryAction [x]
+
+Move into `SessionWorkflow`.
+
+- Ensure the session view exists.
+- Select the summary tab.
+- Do not require `AppView`.
+
+### Session Path and Directory Actions [x]
+
+Keep these in `SessionWorkflow` or focused ports:
+
+- `CopySessionPathAction`.
+- `OpenSessionDirectoryAction`.
+- Use `ClipboardPort` and `FileSystemPort` for external effects.
+
+## Focused Ports
+
+```java
+interface NavigationPort {
+    void home();
+    void selectProject(Project project);
+    void selectSession(Project project, Session session);
+    void showProject();
+    void showSession();
+    void showProblems();
+    void showSettings();
+    void showResourceUsage();
+}
+
+interface PersistencePort {
+    void save();
+}
+
+interface ErrorPort {
+    void report(String title, Throwable error);
+    void reportCommandFailure(String title, String output);
+}
+
+interface ClipboardPort {
+    void copy(String value);
+}
+
+interface FileSystemPort {
+    void openDirectory(Path path);
+}
+```
+
+## Target Flow
+
+```text
+Menu or command palette
+    -> AppAction
+    -> focused workflow/controller
+    -> focused ports
+    -> AppCoordinator or service
+```
+
+`AppView` should compose the JFrame shell and dependency graph only. It should not implement action behavior.

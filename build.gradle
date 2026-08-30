@@ -1,0 +1,243 @@
+import java.nio.file.FileSystems
+import java.nio.file.Files
+import java.nio.file.StandardWatchEventKinds
+
+plugins {
+    id 'application'
+    id 'com.diffplug.spotless' version '7.0.2'
+    id 'pmd'
+    id 'com.github.spotbugs' version '6.4.2'
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://packages.jetbrains.team/maven/p/ij/intellij-dependencies' }
+}
+
+version = providers.gradleProperty('releaseVersion').orElse('1.0.0').get()
+
+dependencies {
+    compileOnly 'org.jetbrains:annotations:26.0.2'
+    implementation 'com.formdev:flatlaf:3.7.2'
+    implementation 'com.formdev:flatlaf-extras:3.7.2'
+    implementation 'com.google.code.gson:gson:2.14.0'
+    implementation 'org.jetbrains.pty4j:pty4j:0.13.10'
+    implementation 'org.jetbrains.jediterm:jediterm-core:3.74'
+    implementation 'org.jetbrains.jediterm:jediterm-ui:3.74'
+}
+
+application {
+    mainClass = 'com.jagent.desktop.ui.Branchloom'
+    applicationDefaultJvmArgs = ['--enable-native-access=ALL-UNNAMED']
+}
+
+ext {
+    packageName = 'Branchloom'
+    packageIdentifier = 'com.branchloom.desktop'
+    packageVendor = 'Branchloom'
+    packageDescription = 'A desktop application for organizing Git projects and agent sessions.'
+    packageCopyright = 'Copyright 2026 Dan Klco'
+}
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(25) }
+}
+
+spotless {
+    java {
+        target 'src/**/*.java'
+        googleJavaFormat('1.36.1').aosp()
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}
+
+pmd {
+    toolVersion = '7.14.0'
+    consoleOutput = true
+    ignoreFailures = false
+    ruleSets = []
+    ruleSetFiles = files('config/pmd/pmd-ruleset.xml')
+}
+
+spotbugs {
+    ignoreFailures = false
+    effort = com.github.spotbugs.snom.Effort.valueOf('MAX')
+    reportLevel = com.github.spotbugs.snom.Confidence.valueOf('LOW')
+    excludeFilter = file('config/spotbugs/exclude.xml')
+}
+
+tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach {
+    auxClassPaths.from(configurations.runtimeClasspath)
+    reports {
+        html.required = true
+        xml.required = false
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('spotlessCheck'), tasks.named('pmdMain'), tasks.named('spotbugsMain'), tasks.named('sourceFileLengthCheck')
+}
+
+def maxSourceFileLines = 800
+tasks.register('sourceFileLengthCheck') {
+    group = 'verification'
+    description = "Fails when a Java source file exceeds ${maxSourceFileLines} lines."
+    doLast {
+        def violations = fileTree('src/main/java').matching { include '**/*.java' }
+                .collect { source ->
+                    def lines = source.readLines().size()
+                    lines > maxSourceFileLines ? "${source}: ${lines} lines (maximum ${maxSourceFileLines})" : null
+                }
+                .findAll { it != null }
+        if (!violations.isEmpty()) {
+            throw new GradleException('Source file length violations:\n' + violations.join('\n'))
+        }
+    }
+}
+
+def jpackageJava = javaToolchains.launcherFor {
+    languageVersion = JavaLanguageVersion.of(25)
+}
+
+def jpackageExecutable = {
+    def javaExecutable = jpackageJava.get().executablePath.asFile
+    new File(javaExecutable.parentFile, 'jpackage').absolutePath
+}
+
+def distributionDirectory = layout.buildDirectory.dir("install/${project.name}/lib")
+def packageDirectory = layout.buildDirectory.dir('jpackage')
+
+tasks.register('jpackage', Exec) {
+    dependsOn tasks.named('installDist')
+
+    doFirst {
+        def outputDirectory = packageDirectory.get().asFile
+        delete outputDirectory
+        commandLine jpackageExecutable(),
+                '--type', 'app-image',
+                '--name', packageName,
+                '--app-version', project.version.toString(),
+                '--vendor', packageVendor,
+                '--description', packageDescription,
+                '--copyright', packageCopyright,
+                '--input', distributionDirectory.get().asFile.absolutePath,
+                '--main-jar', tasks.named('jar').get().archiveFileName.get(),
+                '--main-class', application.mainClass.get(),
+                '--dest', outputDirectory.absolutePath
+    }
+}
+
+tasks.register('jpackageInstaller', Exec) {
+    dependsOn tasks.named('installDist')
+
+    doFirst {
+        def outputDirectory = packageDirectory.get().asFile
+        delete outputDirectory
+        def osName = System.getProperty('os.name').toLowerCase(Locale.ROOT)
+        def installerType
+        def platformArguments = []
+        if (osName.contains('mac')) {
+            installerType = 'dmg'
+            platformArguments.addAll('--mac-package-identifier', packageIdentifier,
+                    '--mac-package-name', packageName)
+        } else if (osName.contains('win')) {
+            installerType = 'msi'
+            platformArguments.addAll('--win-menu', '--win-shortcut',
+                    '--win-dir-chooser')
+        } else if (osName.contains('linux')) {
+            installerType = 'deb'
+            platformArguments.add('--linux-shortcut')
+        } else {
+            throw new GradleException("Unsupported packaging platform: ${osName}")
+        }
+
+        def macSigningKey = System.getenv('BRANCHLOOM_MAC_SIGNING_KEY')
+        if (osName.contains('mac') && macSigningKey) {
+            platformArguments.addAll('--mac-sign', '--mac-signing-key-user-name', macSigningKey)
+            def keychain = System.getenv('BRANCHLOOM_MAC_SIGNING_KEYCHAIN')
+            if (keychain) platformArguments.addAll('--mac-signing-keychain', keychain)
+        }
+
+        def windowsKeyStore = System.getenv('BRANCHLOOM_WIN_SIGNING_KEYSTORE')
+        if (osName.contains('win') && windowsKeyStore) {
+            platformArguments.addAll('--win-sign', '--win-signing-key-store', windowsKeyStore)
+            def keyAlias = System.getenv('BRANCHLOOM_WIN_SIGNING_KEY_ALIAS')
+            def keyStoreType = System.getenv('BRANCHLOOM_WIN_SIGNING_KEYSTORE_TYPE')
+            if (keyAlias) platformArguments.addAll('--win-signing-key-alias', keyAlias)
+            if (keyStoreType) platformArguments.addAll('--win-signing-key-store-type', keyStoreType)
+        }
+
+        commandLine jpackageExecutable(),
+                '--type', installerType,
+                '--name', packageName,
+                '--app-version', project.version.toString(),
+                '--vendor', packageVendor,
+                '--description', packageDescription,
+                '--copyright', packageCopyright,
+                '--input', distributionDirectory.get().asFile.absolutePath,
+                '--main-jar', tasks.named('jar').get().archiveFileName.get(),
+                '--main-class', application.mainClass.get(),
+                '--dest', outputDirectory.absolutePath,
+                *platformArguments
+    }
+}
+
+tasks.register('dev') {
+    dependsOn tasks.named('classes')
+
+    doLast {
+        def sourceDirectories = files('src/main/java', 'src/main/resources')
+                .findAll { it.isDirectory() }
+        def watchService = FileSystems.getDefault().newWatchService()
+        sourceDirectories.each { sourceDirectory ->
+            Files.walk(sourceDirectory.toPath()).filter { Files.isDirectory(it) }.forEach { directory ->
+                directory.register(
+                        watchService,
+                        StandardWatchEventKinds.ENTRY_CREATE,
+                        StandardWatchEventKinds.ENTRY_MODIFY,
+                        StandardWatchEventKinds.ENTRY_DELETE)
+            }
+        }
+
+        def javaExecutable = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(25)
+        }.get().executablePath.asFile.absolutePath
+        def classpath = sourceSets.main.runtimeClasspath.asPath
+        def startApplication = {
+            new ProcessBuilder([javaExecutable, '-cp', classpath, application.mainClass.get()])
+                    .inheritIO()
+                    .start()
+        }
+
+        def applicationProcess = startApplication()
+        println 'Development mode: watching src/main for changes. Press Ctrl-C to stop.'
+        try {
+            while (true) {
+                def key = watchService.take()
+                def changed = key.pollEvents().any { event ->
+                    event.kind() != StandardWatchEventKinds.OVERFLOW
+                }
+                key.reset()
+                if (!changed) {
+                    continue
+                }
+
+                applicationProcess.destroy()
+                applicationProcess.waitFor()
+                def compileProcess = new ProcessBuilder('gradle', 'classes', '--quiet')
+                        .inheritIO()
+                        .start()
+                if (compileProcess.waitFor() != 0) {
+                    println 'Compilation failed; keeping the current application running.'
+                    continue
+                }
+                applicationProcess = startApplication()
+            }
+        } finally {
+            applicationProcess.destroy()
+            watchService.close()
+        }
+    }
+}

@@ -1,0 +1,190 @@
+name: Build Release Installers
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create release
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      value: ${{ steps.version.outputs.value }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate UTC release version
+        id: version
+        shell: bash
+        run: |
+          value=$(date -u +'%Y%m%d.%H%M%S')
+          tag="v${value}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "value=$value" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push release tag
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if ! git rev-parse "$RELEASE_TAG" >/dev/null 2>&1; then
+            git tag "$RELEASE_TAG" "$GITHUB_SHA"
+            git push origin "$RELEASE_TAG"
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --target "$GITHUB_SHA" \
+              --title "$RELEASE_TAG" \
+              --generate-notes
+          fi
+
+  build:
+    needs: release
+    name: Build ${{ matrix.platform }} installer
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            platform: macOS
+          - os: windows-2022
+            platform: Windows
+          - os: ubuntu-24.04
+            platform: Linux
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.7'
+
+      - name: Validate and read release version
+        id: version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]{8}\.[0-9]{6}$ ]]; then
+            echo "Release tag must use the UTC timestamp format vYYYYMMDD.HHMMSS: $RELEASE_TAG"
+            exit 1
+          fi
+          echo "value=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify source
+        run: gradle --no-daemon -PreleaseVersion=${{ steps.version.outputs.value }} check
+
+      - name: Build native installer
+        run: gradle --no-daemon -PreleaseVersion=${{ steps.version.outputs.value }} jpackageInstaller
+
+      - name: Attach installer to release
+        if: matrix.platform != 'macOS'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+        run: gh release upload "$RELEASE_TAG" build/jpackage/* --clobber
+
+      - name: Attach macOS installer to release
+        if: matrix.platform == 'macOS'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.release.outputs.value }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          installers=(build/jpackage/*.dmg)
+          if (( ${#installers[@]} == 0 )); then
+            echo "No macOS DMG was generated"
+            ls -la build/jpackage
+            exit 1
+          fi
+          installer="${installers[0]}"
+          target="build/jpackage/branchloom-${RELEASE_VERSION}.dmg"
+          mv "$installer" "$target"
+          gh release upload "$RELEASE_TAG" "$target" --clobber
+
+  publish-cask:
+    needs: [release, build]
+    name: Publish Homebrew cask
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download macOS installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          gh release download "$RELEASE_TAG" \
+            --repo "${{ github.repository }}" \
+            --pattern 'branchloom-*.dmg' \
+            --dir release
+
+      - name: Calculate installer checksum
+        id: checksum
+        shell: bash
+        run: |
+          installer=$(printf '%s\n' release/*.dmg)
+          echo "sha256=$(sha256sum "$installer" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out Homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: klcodanr/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Update cask
+        env:
+          RELEASE_VERSION: ${{ needs.release.outputs.value }}
+          SHA256: ${{ steps.checksum.outputs.sha256 }}
+        run: |
+          mkdir -p tap/Casks
+          cat > tap/Casks/branchloom.rb <<EOF
+          cask "branchloom" do
+            version "$RELEASE_VERSION"
+            sha256 "$SHA256"
+
+            url "https://github.com/klcodanr/branchloom/releases/download/v#{version}/branchloom-#{version}.dmg"
+            name "Branchloom"
+            desc "Desktop application for organizing Git projects and agent sessions"
+            homepage "https://github.com/klcodanr/branchloom"
+
+            app "Branchloom.app"
+          end
+          EOF
+
+      - name: Commit cask update
+        working-directory: tap
+        env:
+          RELEASE_VERSION: ${{ needs.release.outputs.value }}
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add Casks/branchloom.rb
+          git commit -m "Update branchloom to $RELEASE_VERSION" || exit 0
+          git push

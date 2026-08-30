@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- Swing components are serializable for framework reasons, not persistence. -->
+    <Match><Bug code="SE" /></Match>
+    <!-- Application state and Swing references are intentionally shared, not copied. -->
+    <Match><Bug pattern="EI_EXPOSE_REP" /></Match>
+    <Match><Bug pattern="EI_EXPOSE_REP2" /></Match>
+    <Match><Bug pattern="MS_EXPOSE_REP" /></Match>
+    <Match><Bug pattern="SE_BAD_FIELD" /></Match>
+    <Match><Bug pattern="SE_BAD_FIELD_STORE" /></Match>
+    <Match><Bug pattern="SE_TRANSIENT_FIELD_NOT_RESTORED" /></Match>
+
+    <!-- Progress operations deliberately report any failure to the user. -->
+    <Match>
+        <Class name="com.jagent.desktop.ui.dialogs.ProgressOperation$Operation" />
+        <Bug pattern="THROWS_METHOD_THROWS_CLAUSE_BASIC_EXCEPTION" />
+    </Match>
+</FindBugsFilter>
