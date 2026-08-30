@@ -141,7 +141,8 @@ tasks.register('jpackageInstaller', Exec) {
         if (osName.contains('mac')) {
             installerType = 'dmg'
             platformArguments.addAll('--mac-package-identifier', packageIdentifier,
-                    '--mac-package-name', packageName)
+                    '--mac-package-name', packageName,
+                    '--icon', file('src/main/resources/Branchloom.icns').absolutePath)
         } else if (osName.contains('win')) {
             installerType = 'msi'
             platformArguments.addAll('--win-menu', '--win-shortcut',
