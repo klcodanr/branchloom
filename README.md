@@ -188,10 +188,9 @@ under `build/reports/`; intentional Swing/framework findings are documented in
 
 Every push to `main` creates a release automatically. The workflow creates a
 UTC timestamp tag and GitHub Release, generates release notes, and attaches one
-native installer for each platform:
+native installers for macOS and Linux:
 
 - macOS: DMG
-- Windows: MSI
 - Linux: DEB
 
 Release tags use the UTC `vYYYYMMDD.HHMMSS` format, for example
