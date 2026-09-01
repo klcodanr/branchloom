@@ -1,9 +1,12 @@
 package com.jagent.desktop.services;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
@@ -63,5 +66,20 @@ class PlatformCommandsTest {
             assertFalse(PlatformCommands.isMac(), CONDITION_MESSAGE);
             assertTrue(PlatformCommands.terminalCommand().contains("terminal"), CONDITION_MESSAGE);
         }
+    }
+
+    @Test
+    void preparedShellUsesTheLoginEnvironmentPath() throws IOException, InterruptedException {
+        final ProcessBuilder builder =
+                PlatformCommands.prepare(
+                        new ProcessBuilder(PlatformCommands.shell("command -v sh")));
+
+        final Process process = builder.start();
+        final String output =
+                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+        assertEquals(0, process.waitFor(), "shell command should succeed");
+        assertTrue(output.contains("sh"), "login shell PATH should resolve sh");
+        assertFalse(builder.environment().get("PATH").isBlank(), "PATH should be populated");
     }
 }

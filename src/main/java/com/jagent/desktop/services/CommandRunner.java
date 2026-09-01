@@ -26,26 +26,27 @@ public final class CommandRunner {
                 "Commands",
                 "command-runner",
                 () -> {
+                    final ProcessBuilder builder =
+                            PlatformCommands.prepare(
+                                            new ProcessBuilder(PlatformCommands.shell(command)))
+                                    .directory(directory.toFile())
+                                    .redirectErrorStream(true);
                     try {
-                        final Process process = startProcess(command, directory);
+                        final Process process = builder.start();
                         final String output = readOutput(process, onOutput);
                         final int exitCode = process.waitFor();
+                        if (exitCode != 0) {
+                            PlatformCommands.logFailure(builder, exitCode, output);
+                        }
                         notifyCompletion(exitCode, output, onSuccess, onFailure);
                     } catch (IOException exception) {
+                        PlatformCommands.logStartFailure(builder, exception);
                         SwingUtilities.invokeLater(() -> onFailure.accept(exception.getMessage()));
                     } catch (InterruptedException exception) {
                         Thread.currentThread().interrupt();
                         SwingUtilities.invokeLater(() -> onFailure.accept(exception.getMessage()));
                     }
                 });
-    }
-
-    private static Process startProcess(final String command, final Path directory)
-            throws IOException {
-        return new ProcessBuilder(PlatformCommands.shell(command))
-                .directory(directory.toFile())
-                .redirectErrorStream(true)
-                .start();
     }
 
     private static String readOutput(final Process process, final Consumer<String> onOutput)

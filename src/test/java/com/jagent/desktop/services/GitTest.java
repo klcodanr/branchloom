@@ -51,6 +51,17 @@ class GitTest {
     }
 
     @Test
+    void repositoryValidationUsesGit(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+
+        assertTrue(Git.isRepository(directory), "initialized repository should validate");
+        assertFalse(
+                Git.isRepository(directory.resolve("missing")),
+                "missing directory should not validate as a repository");
+    }
+
+    @Test
     void statusFilesReadsModifiedAndUntrackedFiles(@TempDir final Path directory)
             throws IOException, InterruptedException {
         run(directory, "git init -q");

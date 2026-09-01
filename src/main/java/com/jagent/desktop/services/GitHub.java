@@ -53,14 +53,22 @@ public final class GitHub {
         try {
             final String expression =
                     ".hosts | to_entries[] | .key as $host | .value[] | [$host, .login] | @tsv";
-            final Process process =
-                    new ProcessBuilder(
-                                    "gh", "auth", "status", "--json", "hosts", "--jq", expression)
-                            .redirectErrorStream(true)
-                            .start();
+            final ProcessBuilder builder =
+                    PlatformCommands.prepare(
+                                    new ProcessBuilder(
+                                            PlatformCommands.executable("gh"),
+                                            "auth",
+                                            "status",
+                                            "--json",
+                                            "hosts",
+                                            "--jq",
+                                            expression))
+                            .redirectErrorStream(true);
+            final Process process = builder.start();
             final String output =
                     new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             if (process.waitFor() != 0) {
+                PlatformCommands.logFailure(builder, process.exitValue(), output);
                 return List.of();
             }
             return output.lines()
@@ -98,14 +106,15 @@ public final class GitHub {
                 Git.githubCommand(
                         project,
                         "gh pr view --json number,title,state,url,reviewDecision,mergeStateStatus,isDraft,statusCheckRollup --jq '[.number, .title, .state, .reviewDecision, .mergeStateStatus, .url, .isDraft, ([.statusCheckRollup[]? | select((.conclusion // .state) == \"SUCCESS\" or (.conclusion // .state) == \"SKIPPED\" or (.conclusion // .state) == \"NEUTRAL\")] | length), (.statusCheckRollup | length), (if any(.statusCheckRollup[]?; (.conclusion // .state) == \"FAILURE\" or (.conclusion // .state) == \"ERROR\") then \"FAILING\" elif any(.statusCheckRollup[]?; (.status // \"\") != \"COMPLETED\" and (.state // \"\") != \"SUCCESS\" and (.state // \"\") != \"FAILURE\") then \"PENDING\" elif (.statusCheckRollup | length) == 0 then \"UNKNOWN\" else \"PASSING\" end)] | @tsv'");
-        final Process process =
-                new ProcessBuilder(PlatformCommands.shell(command))
+        final ProcessBuilder builder =
+                PlatformCommands.prepare(new ProcessBuilder(PlatformCommands.shell(command)))
                         .directory(worktree.toFile())
-                        .redirectErrorStream(true)
-                        .start();
+                        .redirectErrorStream(true);
+        final Process process = builder.start();
         final String output =
                 new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         if (process.waitFor() != 0) {
+            PlatformCommands.logFailure(builder, process.exitValue(), output);
             throw new IOException(output.trim());
         }
         final String[] values = output.trim().split("\\t", -1);
@@ -142,14 +151,15 @@ public final class GitHub {
                         + Git.shellQuote(PR_QUERY)
                         + " --jq "
                         + Git.shellQuote(PR_JQ);
-        final Process process =
-                new ProcessBuilder(PlatformCommands.shell(query))
+        final ProcessBuilder builder =
+                PlatformCommands.prepare(new ProcessBuilder(PlatformCommands.shell(query)))
                         .directory(projectPath.toFile())
-                        .redirectErrorStream(true)
-                        .start();
+                        .redirectErrorStream(true);
+        final Process process = builder.start();
         final String output =
                 new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         if (process.waitFor() != 0) {
+            PlatformCommands.logFailure(builder, process.exitValue(), output);
             throw new IOException(output.trim());
         }
         final List<PullRequest> requests = new ArrayList<>();
@@ -220,14 +230,22 @@ public final class GitHub {
             String checksStatus) {}
 
     private static String repositoryName(final Path path) throws IOException, InterruptedException {
-        final Process process =
-                new ProcessBuilder("git", "config", "--get", "remote.origin.url")
+        final ProcessBuilder builder =
+                PlatformCommands.prepare(
+                                new ProcessBuilder(
+                                        PlatformCommands.executable("git"),
+                                        "config",
+                                        "--get",
+                                        "remote.origin.url"))
                         .directory(path.toFile())
-                        .redirectErrorStream(true)
-                        .start();
+                        .redirectErrorStream(true);
+        final Process process = builder.start();
         String remote =
                 new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
         if (process.waitFor() != 0 || remote.isBlank()) {
+            if (process.exitValue() != 0) {
+                PlatformCommands.logFailure(builder, process.exitValue(), remote);
+            }
             return null;
         }
         if (remote.endsWith(".git")) {

@@ -8,6 +8,7 @@ import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.ui.components.GitHubAuthSelector;
@@ -87,8 +88,15 @@ public final class CreateProjectAction extends BaseAction {
             LOG.severe("Add Git project: Project name is required.");
             return;
         }
-        if (!Files.isDirectory(projectPath) || !Files.exists(projectPath.resolve(".git"))) {
-            LOG.severe("Add Git project: Select the root directory of a Git repository.");
+        if (!Files.isDirectory(projectPath) || !Git.isRepository(projectPath)) {
+            final String message =
+                    "The selected folder is not a Git repository, or Git is not available to the app.";
+            LOG.severe("Add Git project: " + message);
+            JOptionPane.showMessageDialog(
+                    this.actionContext.window(),
+                    message,
+                    "Add Git project",
+                    JOptionPane.ERROR_MESSAGE);
             return;
         }
         if (appState.projects().values().stream()
