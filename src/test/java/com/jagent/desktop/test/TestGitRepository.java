@@ -14,10 +14,9 @@ public final class TestGitRepository {
 
     public static void initialize(final Path directory) throws IOException, InterruptedException {
         run(directory, "git init -q -b master");
+        run(directory, "git config user.name test && git config user.email test");
         run(directory, "printf 'content' > tracked.txt");
-        run(
-                directory,
-                "git add tracked.txt && git -c user.name=test -c user.email=test commit -qm initial");
+        run(directory, "git add tracked.txt && git commit -qm initial");
     }
 
     public static void run(final Path directory, final String command)

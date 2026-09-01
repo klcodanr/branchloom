@@ -54,8 +54,14 @@ class PlatformCommandsTest {
         assertFalse(
                 PlatformCommands.commandAvailable("branchloom-command-that-does-not-exist"),
                 CONDITION_MESSAGE);
-        assertTrue(PlatformCommands.isMac(), CONDITION_MESSAGE);
-        assertFalse(PlatformCommands.isWindows(), CONDITION_MESSAGE);
-        assertTrue(PlatformCommands.terminalCommand().contains("Terminal"), CONDITION_MESSAGE);
+        if (PlatformCommands.isMac()) {
+            assertFalse(PlatformCommands.isWindows(), CONDITION_MESSAGE);
+            assertTrue(PlatformCommands.terminalCommand().contains("Terminal"), CONDITION_MESSAGE);
+        } else if (PlatformCommands.isWindows()) {
+            assertTrue(PlatformCommands.terminalCommand().contains("cmd"), CONDITION_MESSAGE);
+        } else {
+            assertFalse(PlatformCommands.isMac(), CONDITION_MESSAGE);
+            assertTrue(PlatformCommands.terminalCommand().contains("terminal"), CONDITION_MESSAGE);
+        }
     }
 }
