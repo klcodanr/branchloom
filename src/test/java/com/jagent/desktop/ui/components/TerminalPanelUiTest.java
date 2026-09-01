@@ -19,6 +19,8 @@ class TerminalPanelUiTest {
 
         assertEquals(1, panel.getComponentCount(), "terminal panel should contain one widget");
         assertNotNull(panel.getComponent(0), "terminal widget should be created");
+        assertTrue(panel.getBorder() instanceof javax.swing.border.EmptyBorder);
+        assertTrue(!panel.isOpaque(), "terminal spacing should be outside the terminal background");
         assertEquals(
                 TerminalState.STARTING,
                 panel.state(),
