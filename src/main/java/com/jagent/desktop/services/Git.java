@@ -344,7 +344,21 @@ public final class Git {
     }
 
     public static String shellQuote(final String value) {
+        if (PlatformCommands.isWindows()) {
+            return windowsShellQuote(value);
+        }
         return "'" + value.replace("'", "'\\''") + "'";
+    }
+
+    static String windowsShellQuote(final String value) {
+        return "\""
+                + value.replace("^", "^^")
+                        .replace("&", "^&")
+                        .replace("|", "^|")
+                        .replace("<", "^<")
+                        .replace(">", "^>")
+                        .replace("\"", "\\\"")
+                + "\"";
     }
 
     public static boolean isRepository(final Path path) {
