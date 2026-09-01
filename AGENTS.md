@@ -36,3 +36,7 @@
 
 - Run `gradle compileJava` after every code change.
 - Run `gradle spotlessCheck` after every code change. Existing unrelated formatting violations should not be rewritten without a specific reason.
+- Run `gradle check` before considering work complete.
+- Treat every PMD, SpotBugs, test, formatting, and coverage failure reported by `gradle check` as work to fix; do not suppress, exclude, disable, or lower a check merely to make the build pass.
+- When `gradle check` fails, inspect the reported source and report, make the smallest real fix, and rerun `gradle check` until it passes.
+- UI tests must run in the configured headless test environment unless the task explicitly requires a display-backed test.

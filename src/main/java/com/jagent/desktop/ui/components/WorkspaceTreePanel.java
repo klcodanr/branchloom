@@ -4,6 +4,7 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.WorkspaceFiles;
+import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.actions.OpenDirectoryAction;
 import com.jagent.desktop.ui.actions.RunCommandAction;
 import java.awt.BorderLayout;
@@ -16,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -84,34 +86,38 @@ public final class WorkspaceTreePanel extends JPanel {
         refreshButton.setEnabled(false);
         statusLabel.setText("Refreshing Git status...");
         BackgroundTasks.submit(
-                "Workspace",
-                "git-status",
-                () -> {
-                    try {
-                        final Map<String, String> updated = Git.statusFiles(workspace);
-                        SwingUtilities.invokeLater(
-                                () -> {
-                                    statuses = updated;
-                                    statusLabel.setText(statuses.size() + " changed");
-                                    refreshButton.setEnabled(true);
-                                    tree.repaint();
-                                    reloadWorkspace();
-                                });
-                    } catch (IOException failure) {
-                        throw new IllegalStateException(failure);
-                    } catch (InterruptedException failure) {
-                        Thread.currentThread().interrupt();
-                        throw new IllegalStateException(failure);
-                    }
-                },
-                failure ->
-                        SwingUtilities.invokeLater(
-                                () -> {
-                                    statuses = Map.of();
-                                    statusLabel.setText("Git status unavailable");
-                                    refreshButton.setEnabled(true);
-                                    tree.repaint();
-                                }));
+                        "Workspace",
+                        "git-status",
+                        () -> {
+                            try {
+                                return Git.statusFiles(workspace);
+                            } catch (IOException failure) {
+                                throw new CompletionException(failure);
+                            } catch (InterruptedException failure) {
+                                Thread.currentThread().interrupt();
+                                throw new CompletionException(failure);
+                            }
+                        })
+                .thenAcceptAsync(
+                        updated -> {
+                            statuses = updated;
+                            statusLabel.setText(statuses.size() + " changed");
+                            refreshButton.setEnabled(true);
+                            tree.repaint();
+                            reloadWorkspace();
+                        },
+                        SwingUtilities::invokeLater)
+                .exceptionally(
+                        failure -> {
+                            SwingUtilities.invokeLater(
+                                    () -> {
+                                        statuses = Map.of();
+                                        statusLabel.setText("Git status unavailable");
+                                        refreshButton.setEnabled(true);
+                                        tree.repaint();
+                                    });
+                            return null;
+                        });
     }
 
     private void reloadWorkspace() {
@@ -217,14 +223,9 @@ public final class WorkspaceTreePanel extends JPanel {
                 ignored -> openTerminal.accept(directory(path) ? path : parentOrSelf(path)));
         menu.add(terminal);
         final JMenuItem copy = new JMenuItem("Copy path");
-        copy.addActionListener(ignored -> copyPath(path));
+        copy.addActionListener(ignored -> CopyPathAction.copy(path.toAbsolutePath().toString()));
         menu.add(copy);
         menu.show(tree, event.getX(), event.getY());
-    }
-
-    private void copyPath(final Path path) {
-        final var clipboard = java.awt.Toolkit.getDefaultToolkit().getSystemClipboard();
-        clipboard.setContents(new java.awt.datatransfer.StringSelection(path.toString()), null);
     }
 
     private boolean directory(final Path path) {

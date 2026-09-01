@@ -15,6 +15,7 @@ import com.jagent.desktop.ui.actions.ShortcutsAction;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
@@ -35,16 +36,16 @@ public final class AppMenuBar {
         file.add(
                 actionItem(
                         new CreateProjectAction(actionContext),
-                        shortcut(KeyStroke.getKeyStroke('N'), true)));
+                        shortcut(KeyStroke.getKeyStroke(KeyEvent.VK_N, 0), true)));
         if (projectSelected) {
             file.add(
                     actionItem(
                             new CreateSessionAction(actionContext),
-                            shortcut(KeyStroke.getKeyStroke('N'), false)));
+                            shortcut(KeyStroke.getKeyStroke(KeyEvent.VK_N, 0), false)));
             file.add(
                     actionItem(
                             new CreateTerminalAction(actionContext),
-                            shortcut(KeyStroke.getKeyStroke('T'), false)));
+                            shortcut(KeyStroke.getKeyStroke(KeyEvent.VK_T, 0), false)));
         }
         file.addSeparator();
         file.add(actionItem(new OpenSettingsAction(actionContext)));
@@ -63,7 +64,7 @@ public final class AppMenuBar {
         view.add(
                 actionItem(
                         new FindAction(actionContext),
-                        shortcut(KeyStroke.getKeyStroke('F'), false)));
+                        shortcut(KeyStroke.getKeyStroke(KeyEvent.VK_F, 0), false)));
         view.add(actionItem(new ResourceUsageAction(actionContext)));
         view.addSeparator();
         view.add(actionItem(new ProblemsAction(actionContext)));

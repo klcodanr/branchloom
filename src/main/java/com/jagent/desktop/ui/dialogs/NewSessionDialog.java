@@ -34,10 +34,15 @@ public final class NewSessionDialog extends JDialog {
 
         this.appState = actionContext.appState();
         this.onValid = onValid;
+        name.setName("session-name");
         agent = new JComboBox<>(appState.appSettings().agents().toArray(new Agent[0]));
+        agent.setName("session-agent");
         agent.setPreferredSize(new Dimension(350, agent.getPreferredSize().height));
         prompt.setLineWrap(true);
         prompt.setWrapStyleWord(true);
+        prompt.setName("session-prompt");
+        cancel.setName("session-cancel");
+        ok.setName("session-ok");
 
         final JPanel promptInput = new JPanel(new BorderLayout());
         promptInput.setOpaque(false);

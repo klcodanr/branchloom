@@ -48,17 +48,25 @@ public final class JsonLogging {
     }
 
     public static void log(final ProblemEvent event) {
-        final Level level =
-                switch (event.severity == null ? "" : event.severity.toLowerCase(Locale.ROOT)) {
-                    case "warning", "warn" -> Level.WARNING;
-                    case "error", "severe" -> Level.SEVERE;
-                    default -> Level.INFO;
-                };
-        LOGGER.logp(
-                level,
-                event.source == null ? "Application" : event.source,
-                "report",
-                event.message);
+        final Level level = levelFor(event.severity);
+        synchronized (LOCK) {
+            LOGGER.logp(
+                    level,
+                    event.source == null ? "Application" : event.source,
+                    "report",
+                    event.message);
+            if (handler != null) {
+                handler.flush();
+            }
+        }
+    }
+
+    private static Level levelFor(final String severity) {
+        return switch (severity == null ? "" : severity.toLowerCase(Locale.ROOT)) {
+            case "warning", "warn" -> Level.WARNING;
+            case "error", "severe" -> Level.SEVERE;
+            default -> Level.INFO;
+        };
     }
 
     public static List<ProblemEvent> load() {
@@ -69,6 +77,11 @@ public final class JsonLogging {
         final Deque<ProblemEvent> events = new ArrayDeque<>();
         if (maxEvents <= 0) {
             return List.of();
+        }
+        synchronized (LOCK) {
+            if (handler != null) {
+                handler.flush();
+            }
         }
         if (!Files.exists(LOG_FILE)) {
             return List.of();

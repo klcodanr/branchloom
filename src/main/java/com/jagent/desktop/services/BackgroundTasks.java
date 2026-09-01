@@ -2,13 +2,13 @@ package com.jagent.desktop.services;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 /** Application-scoped executor for blocking background work. */
@@ -19,40 +19,36 @@ public final class BackgroundTasks {
 
     private BackgroundTasks() {}
 
-    public static Future<?> submit(final String group, final String name, final Runnable task) {
+    public static CompletableFuture<Void> submit(
+            final String group, final String name, final Runnable task) {
+        return submit(
+                group,
+                name,
+                () -> {
+                    task.run();
+                    return null;
+                });
+    }
+
+    public static <T> CompletableFuture<T> submit(
+            final String group, final String name, final Supplier<T> task) {
         final Counters counters = GROUPS.computeIfAbsent(group, ignored -> new Counters());
         counters.submitted.incrementAndGet();
-        return EXECUTOR.submit(
+        return CompletableFuture.supplyAsync(
                 () -> {
                     final Thread current = Thread.currentThread();
                     current.setName(group + "/" + name);
                     ACTIVE_TASKS.put(current, name);
                     counters.active.incrementAndGet();
                     try {
-                        task.run();
+                        return task.get();
                     } finally {
                         ACTIVE_TASKS.remove(current);
                         counters.active.decrementAndGet();
                         counters.completed.incrementAndGet();
                     }
-                });
-    }
-
-    public static Future<?> submit(
-            final String group,
-            final String name,
-            final Runnable task,
-            final Consumer<Throwable> onFailure) {
-        return submit(
-                group,
-                name,
-                () -> {
-                    try {
-                        task.run();
-                    } catch (Throwable failure) {
-                        onFailure.accept(failure);
-                    }
-                });
+                },
+                EXECUTOR);
     }
 
     public static ThreadSummary summary() {

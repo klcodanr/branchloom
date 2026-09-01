@@ -1,5 +1,6 @@
 package com.jagent.desktop.ui.components;
 
+import com.jagent.desktop.api.PullRequestInfo;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
@@ -15,10 +16,8 @@ import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.OpenProjectAction;
 import com.jagent.desktop.ui.actions.OpenSessionAction;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.Graphics;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.MouseAdapter;
@@ -30,7 +29,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
@@ -38,7 +36,6 @@ import javax.swing.JPopupMenu;
 import javax.swing.JTree;
 import javax.swing.SwingUtilities;
 import javax.swing.ToolTipManager;
-import javax.swing.UIManager;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.DefaultTreeModel;
@@ -50,7 +47,7 @@ public final class ProjectTreePanel extends JPanel {
     private final JTree tree;
     private final DefaultMutableTreeNode root = new DefaultMutableTreeNode("Projects");
     private final transient Map<Session, TerminalState> sessionStates = new HashMap<>();
-    private final transient Map<Session, PullRequestStatus> pullRequestStatuses = new HashMap<>();
+    private final transient Map<Session, PullRequestInfo> pullRequestStatuses = new HashMap<>();
     private boolean selectingProgrammatically;
 
     public ProjectTreePanel(final ActionContext actionContext) {
@@ -139,6 +136,7 @@ public final class ProjectTreePanel extends JPanel {
     private static final class SettingsButton extends JButton {
         private SettingsButton(final ActionContext actionContext) {
             super("Settings");
+            setName("settings-button");
             setIcon(UiIcons.settings());
             setBorderPainted(false);
             setHorizontalAlignment(LEFT);
@@ -166,7 +164,7 @@ public final class ProjectTreePanel extends JPanel {
                     setText(project.name());
                 } else if (entry.getValue() instanceof Session session) {
                     setText(session.name());
-                    setIcon(new StatusIcon(sessionState(session)));
+                    setIcon(StatusDot.terminalIcon(sessionState(session)));
                 }
             }
             return component;
@@ -284,8 +282,9 @@ public final class ProjectTreePanel extends JPanel {
         if (prompt.length() > 140) {
             prompt = prompt.substring(0, 137) + "...";
         }
-        final PullRequestStatus pullRequest = pullRequestStatuses.get(session);
-        final String pullRequestHtml = pullRequest == null ? "" : "<br>" + pullRequest.html();
+        final PullRequestInfo pullRequest = pullRequestStatuses.get(session);
+        final String pullRequestHtml =
+                pullRequest == null ? "" : "<br>" + GitFormatter.statusHtml(pullRequest);
         return "<html><b>"
                 + UiText.escapeHtml(session.name())
                 + "</b>"
@@ -306,12 +305,7 @@ public final class ProjectTreePanel extends JPanel {
                     try {
                         final GitHub.PullRequestDetails details =
                                 GitHub.loadCurrent(project, Path.of(session.worktreePath()));
-                        final PullRequestStatus status =
-                                new PullRequestStatus(
-                                        details.mergeState(),
-                                        details.checksPassed(),
-                                        details.checksTotal(),
-                                        details.checksStatus());
+                        final PullRequestInfo status = details;
                         SwingUtilities.invokeLater(
                                 () -> {
                                     pullRequestStatuses.put(session, status);
@@ -321,71 +315,6 @@ public final class ProjectTreePanel extends JPanel {
                         // A branch without a pull request has no PR tooltip details.
                     }
                 });
-    }
-
-    private record PullRequestStatus(
-            String mergeState, int checksPassed, int checksTotal, String checksStatus) {
-        private String html() {
-            final String merge =
-                    "CLEAN".equals(mergeState)
-                            ? "Can merge"
-                            : "UNKNOWN".equals(mergeState) || mergeState.isBlank()
-                                    ? "Mergeability unknown"
-                                    : "Cannot merge";
-            final String color =
-                    switch (checksStatus) {
-                        case "PASSING" -> UiText.colorHex(Theme.successColor());
-                        case "FAILING" -> UiText.colorHex(Theme.dangerColor());
-                        case "PENDING" -> UiText.colorHex(Theme.warningColor());
-                        default -> UiText.colorHex(Theme.mutedColor());
-                    };
-            return "PR: "
-                    + "<font color='"
-                    + color
-                    + "'>&#9679;</font> "
-                    + merge
-                    + "  ·  Checks: "
-                    + checksPassed
-                    + "/"
-                    + checksTotal
-                    + " "
-                    + UiText.titleCase(checksStatus);
-        }
-    }
-
-    private static final class StatusIcon implements Icon {
-        private final Color color;
-
-        private StatusIcon(final TerminalState state) {
-            color =
-                    state == null
-                            ? Theme.mutedColor()
-                            : switch (state) {
-                                case STARTING -> Theme.warningColor();
-                                case WORKING -> UIManager.getColor("Component.focusColor");
-                                case IDLE -> Theme.successColor();
-                                case EXITED, STOPPED ->
-                                        UIManager.getColor(UiConstants.DISABLED_FOREGROUND);
-                                case FAILED -> Theme.dangerColor();
-                            };
-        }
-
-        @Override
-        public int getIconWidth() {
-            return 10;
-        }
-
-        @Override
-        public int getIconHeight() {
-            return 10;
-        }
-
-        @Override
-        public void paintIcon(
-                Component component, final Graphics graphics, final int x, final int y) {
-            graphics.setColor(color);
-            graphics.fillOval(x + 1, y + 1, 8, 8);
-        }
     }
 
     private void selectNode(final DefaultMutableTreeNode node) {

@@ -1,5 +1,6 @@
 package com.jagent.desktop.models;
 
+import com.jagent.desktop.api.PullRequestInfo;
 import java.util.Objects;
 
 public record PullRequest(
@@ -18,7 +19,13 @@ public record PullRequest(
         String headBranch,
         int checksPassed,
         int checksTotal,
-        String checksStatus) {
+        String checksStatus)
+        implements PullRequestInfo {
+
+    @Override
+    public String mergeState() {
+        return mergeable;
+    }
 
     public String relevanceGroup() {
         if (draft || "CONFLICTING".equals(mergeable)) {

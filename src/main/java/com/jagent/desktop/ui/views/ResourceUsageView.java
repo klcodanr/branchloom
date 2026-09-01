@@ -41,6 +41,10 @@ public final class ResourceUsageView extends JPanel implements View {
     private final JTable activeTaskTable = table(activeTaskModel);
 
     public ResourceUsageView() {
+        this(true);
+    }
+
+    protected ResourceUsageView(final boolean loadResources) {
         super();
         setLayout(new BorderLayout(0, 16));
         setBorder(new EmptyBorder(4, 4, 4, 4));
@@ -65,7 +69,9 @@ public final class ResourceUsageView extends JPanel implements View {
         scroll.getViewport().setOpaque(false);
         scroll.getVerticalScrollBar().setUnitIncrement(14);
         add(scroll, BorderLayout.CENTER);
-        refresh();
+        if (loadResources) {
+            refresh();
+        }
     }
 
     @Override
@@ -135,15 +141,20 @@ public final class ResourceUsageView extends JPanel implements View {
         clear(terminalModel);
         terminalModel.addRow(new Object[] {"Loading terminal resources...", "", "", "", ""});
         BackgroundTasks.submit(
-                "Monitoring",
-                "terminal-resources",
-                () ->
-                        updateTerminals(
-                                TerminalResources.sample(TerminalManager.get().activeProcesses())),
-                failure -> SwingUtilities.invokeLater(() -> showTerminalError(failure)));
+                        "Monitoring",
+                        "terminal-resources",
+                        () ->
+                                updateTerminals(
+                                        TerminalResources.sample(
+                                                TerminalManager.get().activeProcesses())))
+                .exceptionally(
+                        failure -> {
+                            SwingUtilities.invokeLater(() -> showTerminalError(failure));
+                            return null;
+                        });
     }
 
-    private void updateTerminals(final TerminalResources.Sample sample) {
+    protected void updateTerminals(final TerminalResources.Sample sample) {
         SwingUtilities.invokeLater(
                 () -> {
                     terminalCount.setText(Long.toString(sample.terminals().size()));

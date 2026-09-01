@@ -12,6 +12,7 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JPanel;
@@ -30,6 +31,10 @@ public final class ProblemsView extends JPanel implements View {
     private JButton showAllButton;
 
     public ProblemsView() {
+        this(() -> JsonLogging.load(INITIAL_PROBLEM_LIMIT));
+    }
+
+    protected ProblemsView(final Supplier<List<ProblemEvent>> problemLoader) {
         super();
         this.problems = new ArrayList<>();
         setLayout(new BorderLayout(0, 18));
@@ -58,7 +63,7 @@ public final class ProblemsView extends JPanel implements View {
                 TITLE,
                 "load-log",
                 () -> {
-                    final List<ProblemEvent> loaded = JsonLogging.load(INITIAL_PROBLEM_LIMIT);
+                    final List<ProblemEvent> loaded = problemLoader.get();
                     SwingUtilities.invokeLater(
                             () -> {
                                 problems.addAll(loaded);
@@ -86,6 +91,10 @@ public final class ProblemsView extends JPanel implements View {
     public void refresh() {
         tableModel.fireTableDataChanged();
         table.clearSelection();
+    }
+
+    protected JTable problemTable() {
+        return table;
     }
 
     private JPanel header() {
