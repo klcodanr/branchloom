@@ -14,7 +14,6 @@ import java.util.concurrent.ConcurrentMap;
 public final class TerminalManager {
     private static final TerminalManager INSTANCE = new TerminalManager();
     private final ConcurrentMap<TerminalId, TerminalRuntime> retained = new ConcurrentHashMap<>();
-    private final ConcurrentMap<TerminalRuntime, Integer> references = new ConcurrentHashMap<>();
     private final ConcurrentMap<TerminalRuntime, String> resources = new ConcurrentHashMap<>();
 
     private TerminalManager() {}
@@ -40,7 +39,6 @@ public final class TerminalManager {
         try {
             final TerminalRuntime runtime =
                     new TerminalRuntime(command, directory, TerminalHistory.createPath());
-            references.put(runtime, 1);
             resources.put(runtime, resourceName);
             return runtime;
         } catch (IOException exception) {
@@ -60,22 +58,12 @@ public final class TerminalManager {
     }
 
     public void dispose(final TerminalRuntime runtime, final boolean deleteHistory) {
-        references.computeIfPresent(
-                runtime,
-                (ignored, count) -> {
-                    if (count > 1) {
-                        return count - 1;
-                    }
-                    resources.remove(runtime);
-                    runtime.stop();
-                    if (deleteHistory) {
-                        TerminalHistory.delete(runtime.historyFile());
-                    }
-                    return null;
-                });
-        if (!references.containsKey(runtime)) {
-            retained.values().removeIf(value -> value.equals(runtime));
+        resources.remove(runtime);
+        runtime.stop();
+        if (deleteHistory) {
+            TerminalHistory.delete(runtime.historyFile());
         }
+        retained.values().removeIf(value -> value.equals(runtime));
     }
 
     public void setResourceName(final TerminalRuntime runtime, final String resourceName) {

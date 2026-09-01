@@ -1,5 +1,6 @@
 package com.jagent.desktop.services;
 
+import com.jagent.desktop.api.PullRequestInfo;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
@@ -45,7 +46,8 @@ public final class GitHub {
             boolean draft,
             int checksPassed,
             int checksTotal,
-            String checksStatus) {}
+            String checksStatus)
+            implements PullRequestInfo {}
 
     public static List<Auth> configuredAuths() {
         try {

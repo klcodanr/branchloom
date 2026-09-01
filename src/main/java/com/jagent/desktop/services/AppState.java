@@ -142,7 +142,7 @@ public class AppState {
             final boolean projectsUpdated,
             final List<TerminalEvent> terminalEvents) {
         this.appSettingsUpdated |= appSettingsUpdated;
-        this.projectsUpdated |= projectsUpdated;
+        this.projectsUpdated |= projectsUpdated || !terminalEvents.isEmpty();
         this.terminalEvents.addAll(0, terminalEvents);
     }
 
@@ -255,6 +255,9 @@ public class AppState {
 
         terminals.remove(terminalId);
         this.terminalEvents.add(new TerminalEvent(TerminalAction.REMOVE, terminalId));
+        if (terminalId.equals(this.currentTerminal)) {
+            updateCurrentTerminal(null);
+        }
         final var session = this.sessions.get(terminal.sessionId());
         if (session != null) {
             this.updateSession(terminal.sessionId(), session.withRemovedTerminal(terminalId));

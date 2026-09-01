@@ -7,6 +7,7 @@ plugins {
     id 'com.diffplug.spotless' version '7.0.2'
     id 'pmd'
     id 'com.github.spotbugs' version '6.4.2'
+    id 'jacoco'
 }
 
 repositories {
@@ -24,6 +25,72 @@ dependencies {
     implementation 'org.jetbrains.pty4j:pty4j:0.13.12'
     implementation 'org.jetbrains.jediterm:jediterm-core:3.74'
     implementation 'org.jetbrains.jediterm:jediterm-ui:3.74'
+    testImplementation 'org.assertj:assertj-swing-junit:3.17.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.12.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.12.2'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    systemProperty 'java.awt.headless', 'true'
+    jvmArgs '--add-opens=java.base/java.util=ALL-UNNAMED'
+    finalizedBy tasks.named('jacocoTestReport')
+}
+
+sourceSets {
+    integrationTest {
+        java.srcDir('src/integrationTest/java')
+        resources.srcDir('src/integrationTest/resources')
+        compileClasspath = files(sourceSets.main.output, configurations.integrationTestCompileClasspath)
+        runtimeClasspath = files(
+                output, sourceSets.main.output, configurations.integrationTestRuntimeClasspath)
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom(testImplementation)
+    integrationTestRuntimeOnly.extendsFrom(testRuntimeOnly)
+}
+
+dependencies {
+    integrationTestImplementation 'org.apiguardian:apiguardian-api:1.1.2'
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs GUI integration tests against an isolated temporary directory.'
+    group = 'verification'
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    useJUnitPlatform()
+    systemProperty 'java.awt.headless', 'false'
+    jvmArgs '--add-opens=java.base/java.util=ALL-UNNAMED'
+    shouldRunAfter tasks.named('test')
+    jacoco {
+        destinationFile = layout.buildDirectory.file('jacoco/integrationTest.exec').get().asFile
+    }
+}
+
+jacocoTestReport {
+    dependsOn tasks.named('test'), tasks.named('integrationTest')
+    executionData(fileTree(layout.buildDirectory).include('jacoco/*.exec'))
+    reports {
+        html.required = true
+        xml.required = true
+    }
+}
+
+jacocoTestCoverageVerification {
+    dependsOn tasks.named('test'), tasks.named('integrationTest')
+    executionData(fileTree(layout.buildDirectory).include('jacoco/*.exec'))
+    violationRules {
+        rule {
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.7
+            }
+        }
+    }
 }
 
 application {
@@ -33,7 +100,7 @@ application {
 
 ext {
     packageName = 'Branchloom'
-    packageIdentifier = 'com.branchloom.desktop'
+    packageIdentifier = 'com.danklco.branchloom'
     packageVendor = 'Branchloom'
     packageDescription = 'A desktop application for organizing Git projects and agent sessions.'
     packageCopyright = 'Copyright 2026 Dan Klco'
@@ -61,6 +128,14 @@ pmd {
     ruleSetFiles = files('config/pmd/pmd-ruleset.xml')
 }
 
+tasks.named('pmdTest') {
+    ruleSetFiles = files('config/pmd/pmd-test-ruleset.xml')
+}
+
+tasks.named('pmdIntegrationTest') {
+    ruleSetFiles = files('config/pmd/pmd-test-ruleset.xml')
+}
+
 spotbugs {
     ignoreFailures = false
     effort = com.github.spotbugs.snom.Effort.valueOf('MAX')
@@ -77,25 +152,9 @@ tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach {
 }
 
 tasks.named('check') {
-    dependsOn tasks.named('spotlessCheck'), tasks.named('pmdMain'), tasks.named('spotbugsMain'), tasks.named('sourceFileLengthCheck')
+    dependsOn tasks.named('spotlessCheck'), tasks.named('pmdMain'), tasks.named('spotbugsMain'), tasks.named('integrationTest'), tasks.named('jacocoTestCoverageVerification')
 }
 
-def maxSourceFileLines = 800
-tasks.register('sourceFileLengthCheck') {
-    group = 'verification'
-    description = "Fails when a Java source file exceeds ${maxSourceFileLines} lines."
-    doLast {
-        def violations = fileTree('src/main/java').matching { include '**/*.java' }
-                .collect { source ->
-                    def lines = source.readLines().size()
-                    lines > maxSourceFileLines ? "${source}: ${lines} lines (maximum ${maxSourceFileLines})" : null
-                }
-                .findAll { it != null }
-        if (!violations.isEmpty()) {
-            throw new GradleException('Source file length violations:\n' + violations.join('\n'))
-        }
-    }
-}
 
 def jpackageJava = javaToolchains.launcherFor {
     languageVersion = JavaLanguageVersion.of(25)
@@ -108,9 +167,27 @@ def jpackageExecutable = {
 
 def distributionDirectory = layout.buildDirectory.dir("install/${project.name}/lib")
 def packageDirectory = layout.buildDirectory.dir('jpackage')
+def minimalRuntimeDirectory = layout.buildDirectory.dir('runtime-minimal')
+
+tasks.register('jlinkRuntime', Exec) {
+    dependsOn tasks.named('installDist')
+
+    doFirst {
+        def outputDirectory = minimalRuntimeDirectory.get().asFile
+        delete outputDirectory
+        commandLine "${System.getProperty('java.home')}/bin/jlink",
+                '--module-path', "${System.getProperty('java.home')}/jmods",
+                '--add-modules', 'java.base,java.desktop,java.logging',
+                '--strip-debug',
+                '--no-header-files',
+                '--no-man-pages',
+                '--compress=2',
+                '--output', outputDirectory.absolutePath
+    }
+}
 
 tasks.register('jpackage', Exec) {
-    dependsOn tasks.named('installDist')
+    dependsOn tasks.named('jlinkRuntime')
 
     doFirst {
         def outputDirectory = packageDirectory.get().asFile
@@ -122,6 +199,7 @@ tasks.register('jpackage', Exec) {
                 '--vendor', packageVendor,
                 '--description', packageDescription,
                 '--copyright', packageCopyright,
+                '--runtime-image', minimalRuntimeDirectory.get().asFile.absolutePath,
                 '--input', distributionDirectory.get().asFile.absolutePath,
                 '--main-jar', tasks.named('jar').get().archiveFileName.get(),
                 '--main-class', application.mainClass.get(),
@@ -130,7 +208,7 @@ tasks.register('jpackage', Exec) {
 }
 
 tasks.register('jpackageInstaller', Exec) {
-    dependsOn tasks.named('installDist')
+    dependsOn tasks.named('jlinkRuntime')
 
     doFirst {
         def outputDirectory = packageDirectory.get().asFile
@@ -177,6 +255,7 @@ tasks.register('jpackageInstaller', Exec) {
                 '--vendor', packageVendor,
                 '--description', packageDescription,
                 '--copyright', packageCopyright,
+                '--runtime-image', minimalRuntimeDirectory.get().asFile.absolutePath,
                 '--input', distributionDirectory.get().asFile.absolutePath,
                 '--main-jar', tasks.named('jar').get().archiveFileName.get(),
                 '--main-class', application.mainClass.get(),

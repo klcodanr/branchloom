@@ -5,10 +5,10 @@ import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.GitHub;
+import com.jagent.desktop.services.PlatformCommands;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Cursor;
-import java.awt.Desktop;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -16,7 +16,6 @@ import java.awt.Insets;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.function.Consumer;
@@ -25,12 +24,10 @@ import java.util.logging.Logger;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JComponent;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.JTextPane;
 import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 
 public final class SessionSummary extends JPanel {
@@ -42,7 +39,7 @@ public final class SessionSummary extends JPanel {
     private final JTextArea branch = value("Loading branch status...");
     private final JTextPane pullRequest =
             UiFactory.selectableHtml("Loading pull request status...", Theme.FontSize.MD);
-    private final JComponent pullRequestStatusDot = StatusDots.create(Theme.mutedColor(), null);
+    private final StatusDot pullRequestStatusDot = new StatusDot(Theme.mutedColor());
     private final JPanel pullRequestDetails = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
     private final JPanel diff = new JPanel();
     private String pullRequestUrl;
@@ -62,7 +59,7 @@ public final class SessionSummary extends JPanel {
                     @Override
                     public void mouseClicked(final MouseEvent event) {
                         if (event.getButton() == MouseEvent.BUTTON1 && pullRequestUrl != null) {
-                            openPullRequest();
+                            PlatformCommands.openUrl(pullRequestUrl);
                         }
                     }
                 });
@@ -189,7 +186,7 @@ public final class SessionSummary extends JPanel {
                         SwingUtilities.invokeLater(
                                 () -> {
                                     pullRequestUrl = details.url();
-                                    pullRequest.setText(formatPullRequest(details));
+                                    pullRequest.setText(GitFormatter.detailsHtml(details));
                                     updatePullRequestDot(details);
                                 });
                     } catch (IOException exception) {
@@ -224,18 +221,23 @@ public final class SessionSummary extends JPanel {
                 () -> {
                     try {
                         final String diffSummary = Git.diffSummary(Path.of(session.worktreePath()));
-                        SwingUtilities.invokeLater(() -> renderDiff(diffSummary));
+                        SwingUtilities.invokeLater(
+                                () -> GitFormatter.renderDiff(diff, diffSummary));
                     } catch (IOException exception) {
                         reportFailure(
                                 "Session diff",
                                 exception,
-                                message -> renderDiff(UNAVAILABLE + ": " + message));
+                                message ->
+                                        GitFormatter.renderDiff(
+                                                diff, UNAVAILABLE + ": " + message));
                     } catch (InterruptedException exception) {
                         Thread.currentThread().interrupt();
                         reportFailure(
                                 "Session diff",
                                 exception,
-                                message -> renderDiff(UNAVAILABLE + ": " + message));
+                                message ->
+                                        GitFormatter.renderDiff(
+                                                diff, UNAVAILABLE + ": " + message));
                     }
                 });
     }
@@ -247,94 +249,10 @@ public final class SessionSummary extends JPanel {
         SwingUtilities.invokeLater(() -> update.accept(message == null ? "" : message));
     }
 
-    private void renderDiff(final String output) {
-        diff.removeAll();
-        if (output.isBlank()) {
-            diff.add(value("No changes against head"));
-        } else if (output.startsWith(UNAVAILABLE + ":")) {
-            diff.add(value(output));
-        } else {
-            for (final String line : output.split("\\R")) {
-                final String[] fields = line.split("\\t", 3);
-                if (fields.length < 3) {
-                    continue;
-                }
-                final JPanel change = new JPanel(new GridBagLayout());
-                change.setOpaque(false);
-                final GridBagConstraints changeConstraints = new GridBagConstraints();
-                changeConstraints.anchor = GridBagConstraints.WEST;
-                changeConstraints.insets = new Insets(0, 0, 0, 12);
-                changeConstraints.gridx = 0;
-                final JLabel additions = UiFactory.label("+" + fields[0], Theme.FontSize.XS);
-                additions.setForeground(Theme.successColor());
-                change.add(additions, changeConstraints);
-                changeConstraints.gridx = 1;
-                final JLabel deletions = UiFactory.label("-" + fields[1], Theme.FontSize.XS);
-                deletions.setForeground(Theme.dangerColor());
-                change.add(deletions, changeConstraints);
-                changeConstraints.gridx = 2;
-                changeConstraints.weightx = 1;
-                changeConstraints.insets = new Insets(0, 0, 0, 0);
-                change.add(UiFactory.label(fields[2], Theme.FontSize.SM), changeConstraints);
-                diff.add(change);
-            }
-        }
-        diff.revalidate();
-        diff.repaint();
-    }
-
-    private static String formatPullRequest(final GitHub.PullRequestDetails details) {
-        final String draft = details.draft() ? "Draft" : UiText.titleCase(details.state());
-        final String review =
-                details.reviewDecision().isBlank()
-                        ? "Review pending"
-                        : "Review: " + UiText.titleCase(details.reviewDecision());
-        final String merge = mergeStatus(details.mergeState());
-        final String checks =
-                details.checksPassed()
-                        + "/"
-                        + details.checksTotal()
-                        + " checks "
-                        + UiText.titleCase(details.checksStatus());
-        return "<html><b>#"
-                + details.number()
-                + "</b>  "
-                + UiText.escapeHtml(details.title())
-                + "<br><font color='"
-                + UiText.colorHex(UIManager.getColor(UiConstants.DISABLED_FOREGROUND))
-                + "'>"
-                + draft
-                + "  ·  "
-                + review
-                + "  ·  "
-                + merge
-                + "  ·  "
-                + checks
-                + "</font></html>";
-    }
-
     private void updatePullRequestDot(final GitHub.PullRequestDetails details) {
         final Color color = UiText.checksColor(details.checksStatus());
-        StatusDots.update(pullRequestStatusDot, color, null);
+        pullRequestStatusDot.update(color, null);
         pullRequestDetails.revalidate();
         pullRequestDetails.repaint();
-    }
-
-    private static String mergeStatus(final String value) {
-        if ("CLEAN".equals(value)) {
-            return "Can merge";
-        }
-        if (value.isBlank() || "UNKNOWN".equals(value)) {
-            return "Mergeability unknown";
-        }
-        return "Cannot merge";
-    }
-
-    private void openPullRequest() {
-        try {
-            Desktop.getDesktop().browse(URI.create(pullRequestUrl));
-        } catch (Exception exception) {
-            LOG.log(Level.SEVERE, "Open pull request", exception);
-        }
     }
 }

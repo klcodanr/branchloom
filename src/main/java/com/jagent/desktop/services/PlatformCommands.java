@@ -1,12 +1,18 @@
 package com.jagent.desktop.services;
 
+import java.awt.Desktop;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** Platform-specific command construction shared by process and UI services. */
 public final class PlatformCommands {
+    private static final Logger LOG = Logger.getLogger(PlatformCommands.class.getName());
+
     private PlatformCommands() {}
 
     public static String[] shell(final String command) {
@@ -45,6 +51,14 @@ public final class PlatformCommands {
             return "start cmd";
         }
         return "x-terminal-emulator .";
+    }
+
+    public static void openUrl(final String url) {
+        try {
+            Desktop.getDesktop().browse(URI.create(url));
+        } catch (IOException e) {
+            LOG.log(Level.SEVERE, "Failed to open URL: " + url, e);
+        }
     }
 
     public static boolean commandAvailable(final String executable) {

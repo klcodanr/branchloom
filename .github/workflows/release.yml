@@ -92,8 +92,17 @@ jobs:
           fi
           echo "value=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
+      - name: Set up virtual display
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends --yes xvfb
+
       - name: Verify source
-        run: gradle --no-daemon "-PreleaseVersion=${{ steps.version.outputs.value }}" check
+        run: |
+          if [[ "${RUNNER_OS}" == "Linux" ]]; then
+            xvfb-run -a gradle --no-daemon "-PreleaseVersion=${{ steps.version.outputs.value }}" check
+          else
+            gradle --no-daemon "-PreleaseVersion=${{ steps.version.outputs.value }}" check
+          fi
 
       - name: Build native installer
         run: gradle --no-daemon "-PreleaseVersion=${{ steps.version.outputs.value }}" jpackageInstaller

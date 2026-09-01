@@ -12,7 +12,7 @@ import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.components.ClosableTabHeader;
 import com.jagent.desktop.ui.components.SessionActions;
 import com.jagent.desktop.ui.components.SessionSummary;
-import com.jagent.desktop.ui.components.StatusDots;
+import com.jagent.desktop.ui.components.StatusDot;
 import com.jagent.desktop.ui.components.TabBody;
 import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.Theme;
@@ -29,7 +29,6 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
-import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -271,11 +270,11 @@ public final class SessionView extends JPanel implements View {
         if (terminal.getParent() != null) {
             terminal.getParent().remove(terminal);
         }
-        final JComponent terminalStatus = StatusDots.terminal(terminal.state());
+        final StatusDot terminalStatus = StatusDot.forTerminal(terminal.state());
         terminal.setStateChanged(
                 state -> {
                     terminalStates.put(terminal, state);
-                    StatusDots.updateTerminal(terminalStatus, state);
+                    terminalStatus.update(state);
                     updateStatus();
                 });
         terminalIds.put(terminal, terminalId);

@@ -32,6 +32,7 @@ import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -49,10 +50,9 @@ import javax.swing.border.EmptyBorder;
 /** Application shell until the individual views are migrated to the current state model. */
 public final class AppView extends JFrame {
     private static final Logger LOG = Logger.getLogger(AppView.class.getName());
-    private final transient AppState state = AppStatePersistence.load();
-    private final transient AppStatePersistence persistence = new AppStatePersistence(state);
-    private final transient WindowStatePersistence windowStatePersistence =
-            new WindowStatePersistence();
+    private final transient AppState state;
+    private final transient AppStatePersistence persistence;
+    private final transient WindowStatePersistence windowStatePersistence;
     private final transient ViewCoordinator viewCoordinator;
     private final transient ActionContext actionContext;
     private final JLabel placeholder = UiFactory.label("", Theme.FontSize.XL);
@@ -60,7 +60,14 @@ public final class AppView extends JFrame {
     private final ProjectTreePanel projectTreePanel;
 
     public AppView() {
+        this(Path.of(System.getProperty("user.home"), ".branchloom"));
+    }
+
+    public AppView(final Path dataDirectory) {
         super("Branchloom");
+        state = AppStatePersistence.load(dataDirectory);
+        persistence = new AppStatePersistence(state, dataDirectory);
+        windowStatePersistence = new WindowStatePersistence(dataDirectory);
         viewCoordinator = new ViewCoordinator(state, ignored -> render());
         actionContext = new ActionContext(viewCoordinator, state, this);
         configureWindow();

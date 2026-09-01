@@ -12,6 +12,7 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.EditorDetection;
 import com.jagent.desktop.ui.Defaults;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -27,17 +28,26 @@ import javax.swing.SwingUtilities;
 
 public final class AppStatePersistence implements AutoCloseable {
     private static final Logger LOG = Logger.getLogger(AppStatePersistence.class.getName());
-    private static final Path DIRECTORY = Path.of(System.getProperty("user.home"), ".branchloom");
-    private static final Path PROJECTS_FILE = DIRECTORY.resolve("projects.json");
-    private static final Path SETTINGS_FILE = DIRECTORY.resolve("settings.json");
+    private static final Path DEFAULT_DIRECTORY =
+            Path.of(System.getProperty("user.home"), ".branchloom");
     private static final long PERIOD_SECONDS = 1;
     private static final Gson JSON = new GsonBuilder().setPrettyPrinting().create();
 
     private final AppState appState;
+    private final Path directory;
+    private final Path projectsFile;
+    private final Path settingsFile;
     private final ScheduledExecutorService executor;
 
     public AppStatePersistence(final AppState appState) {
+        this(appState, DEFAULT_DIRECTORY);
+    }
+
+    public AppStatePersistence(final AppState appState, final Path directory) {
         this.appState = appState;
+        this.directory = directory;
+        this.projectsFile = directory.resolve("projects.json");
+        this.settingsFile = directory.resolve("settings.json");
         this.executor =
                 Executors.newSingleThreadScheduledExecutor(
                         runnable -> {
@@ -50,12 +60,18 @@ public final class AppStatePersistence implements AutoCloseable {
     }
 
     public static AppState load() {
+        return load(DEFAULT_DIRECTORY);
+    }
+
+    public static AppState load(final Path directory) {
+        final Path projectsFile = directory.resolve("projects.json");
+        final Path settingsFile = directory.resolve("settings.json");
         try {
-            final boolean settingsExist = Files.exists(SETTINGS_FILE);
+            final boolean settingsExist = Files.exists(settingsFile);
             final PersistedProjects projects =
-                    read(PROJECTS_FILE, PersistedProjects.class, new PersistedProjects());
+                    read(projectsFile, PersistedProjects.class, new PersistedProjects());
             final AppSettings loadedSettings =
-                    read(SETTINGS_FILE, AppSettings.class, Defaults.appSettings());
+                    read(settingsFile, AppSettings.class, Defaults.appSettings());
             final AppSettings settings = settings(settingsExist, loadedSettings);
             return new AppState(settings, projects.projects, projects.sessions, projects.terminals);
         } catch (IOException | RuntimeException exception) {
@@ -103,7 +119,7 @@ public final class AppStatePersistence implements AutoCloseable {
         final AtomicReference<AppState.PersistenceSnapshot> snapshot = new AtomicReference<>();
         try {
             SwingUtilities.invokeAndWait(() -> snapshot.set(appState.snapshotForPersistence()));
-        } catch (java.lang.reflect.InvocationTargetException exception) {
+        } catch (InvocationTargetException exception) {
             throw new IllegalStateException(
                     "Failed to snapshot application state", exception.getCause());
         }
@@ -112,7 +128,7 @@ public final class AppStatePersistence implements AutoCloseable {
 
     private void write(final AppState.PersistenceSnapshot snapshot) {
         try {
-            Files.createDirectories(DIRECTORY);
+            Files.createDirectories(directory);
             if (snapshot.projectsUpdated()) {
                 final PersistedProjects projects = new PersistedProjects();
                 snapshot.projects()
@@ -127,11 +143,11 @@ public final class AppStatePersistence implements AutoCloseable {
                         .forEach(
                                 (id, terminal) ->
                                         projects.terminals.put(id.value().toString(), terminal));
-                writeAtomically(PROJECTS_FILE, projects);
+                writeAtomically(projectsFile, projects);
                 snapshot.terminalEvents().forEach(this::updateTerminalHistory);
             }
             if (snapshot.appSettingsUpdated()) {
-                writeAtomically(SETTINGS_FILE, snapshot.appSettings());
+                writeAtomically(settingsFile, snapshot.appSettings());
             }
         } catch (IOException exception) {
             LOG.log(Level.WARNING, "Failed to persist application state", exception);
@@ -158,12 +174,10 @@ public final class AppStatePersistence implements AutoCloseable {
         }
     }
 
-    private static String historyFile(final TerminalId terminalId) {
-        return Path.of(
-                        System.getProperty("user.home"),
-                        ".branchloom",
-                        "terminal-history",
-                        terminalId.value() + ".history")
+    private String historyFile(final TerminalId terminalId) {
+        return directory
+                .resolve("terminal-history")
+                .resolve(terminalId.value() + ".history")
                 .toString();
     }
 

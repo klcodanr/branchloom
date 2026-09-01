@@ -13,7 +13,7 @@ import com.jagent.desktop.services.PullRequestCache;
 import com.jagent.desktop.ui.components.ClosableTabHeader;
 import com.jagent.desktop.ui.components.ProjectActions;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
-import com.jagent.desktop.ui.components.StatusDots;
+import com.jagent.desktop.ui.components.StatusDot;
 import com.jagent.desktop.ui.components.TabBody;
 import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.Theme;
@@ -26,7 +26,6 @@ import java.awt.FlowLayout;
 import java.nio.file.Path;
 import java.util.List;
 import javax.swing.JButton;
-import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
@@ -185,8 +184,8 @@ public final class ProjectView extends JPanel implements View {
         if (terminal.getParent() != null) {
             terminal.getParent().remove(terminal);
         }
-        final JComponent terminalStatus = StatusDots.terminal(terminal.state());
-        terminal.setStateChanged(state -> StatusDots.updateTerminal(terminalStatus, state));
+        final StatusDot terminalStatus = StatusDot.forTerminal(terminal.state());
+        terminal.setStateChanged(terminalStatus::update);
         tabs.addTab(terminalDefinition.title(), terminal);
         final int index = tabs.indexOfComponent(terminal);
         tabs.setTabComponentAt(

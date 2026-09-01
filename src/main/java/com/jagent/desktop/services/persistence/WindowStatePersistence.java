@@ -14,13 +14,20 @@ import java.util.logging.Logger;
 public final class WindowStatePersistence implements AutoCloseable {
     private static final Logger LOG = Logger.getLogger(WindowStatePersistence.class.getName());
     private static final Gson JSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Path PATH =
-            Path.of(System.getProperty("user.home"), ".branchloom", "windowState.json");
-    private static final Path DIRECTORY = PATH.getParent();
+    private static final Path DEFAULT_DIRECTORY =
+            Path.of(System.getProperty("user.home"), ".branchloom");
 
+    private final Path path;
+    private final Path directory;
     private WindowState state;
 
     public WindowStatePersistence() {
+        this(DEFAULT_DIRECTORY);
+    }
+
+    public WindowStatePersistence(final Path directory) {
+        this.path = directory.resolve("windowState.json");
+        this.directory = directory;
         this.state = load();
     }
 
@@ -35,12 +42,12 @@ public final class WindowStatePersistence implements AutoCloseable {
     @Override
     public void close() {
         try {
-            Files.createDirectories(DIRECTORY);
-            final Path temporary = PATH.resolveSibling(PATH.getFileName() + ".tmp");
+            Files.createDirectories(directory);
+            final Path temporary = path.resolveSibling(path.getFileName() + ".tmp");
             Files.writeString(temporary, JSON.toJson(state));
             Files.move(
                     temporary,
-                    PATH,
+                    path,
                     StandardCopyOption.REPLACE_EXISTING,
                     StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException exception) {
@@ -48,12 +55,12 @@ public final class WindowStatePersistence implements AutoCloseable {
         }
     }
 
-    private static WindowState load() {
+    private WindowState load() {
         try {
-            if (!Files.exists(PATH)) {
+            if (!Files.exists(path)) {
                 return new WindowState();
             }
-            return JSON.fromJson(Files.readString(PATH), WindowState.class);
+            return JSON.fromJson(Files.readString(path), WindowState.class);
         } catch (IOException | RuntimeException exception) {
             LOG.log(Level.WARNING, "Failed to load window state", exception);
             return new WindowState();
