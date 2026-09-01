@@ -37,11 +37,16 @@ public final class WorkspaceFiles {
         if (candidates.isEmpty()) {
             return Set.of();
         }
-        final Process process =
-                new ProcessBuilder("git", "check-ignore", "--stdin", "-z")
+        final ProcessBuilder builder =
+                PlatformCommands.prepare(
+                                new ProcessBuilder(
+                                        PlatformCommands.executable("git"),
+                                        "check-ignore",
+                                        "--stdin",
+                                        "-z"))
                         .directory(root.toFile())
-                        .redirectErrorStream(true)
-                        .start();
+                        .redirectErrorStream(true);
+        final Process process = builder.start();
         try (var input = process.getOutputStream()) {
             for (final Path candidate : candidates) {
                 input.write(relativePath(candidate).getBytes(StandardCharsets.UTF_8));
@@ -55,6 +60,7 @@ public final class WorkspaceFiles {
             return Set.of();
         }
         if (exitCode != 0) {
+            PlatformCommands.logFailure(builder, exitCode, output);
             throw new IOException(output.trim());
         }
         return Stream.of(output.split("\\u0000", -1))

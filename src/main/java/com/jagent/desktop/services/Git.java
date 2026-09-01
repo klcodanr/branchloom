@@ -71,14 +71,15 @@ public final class Git {
 
     private static String run(final Path worktree, final String command)
             throws IOException, InterruptedException {
-        final Process process =
-                new ProcessBuilder(PlatformCommands.shell(command))
+        final ProcessBuilder builder =
+                PlatformCommands.prepare(new ProcessBuilder(PlatformCommands.shell(command)))
                         .directory(worktree.toFile())
-                        .redirectErrorStream(true)
-                        .start();
+                        .redirectErrorStream(true);
+        final Process process = builder.start();
         final String output =
                 new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         if (process.waitFor() != 0) {
+            PlatformCommands.logFailure(builder, process.exitValue(), output);
             throw new IOException(output.trim());
         }
         return output;
@@ -325,7 +326,7 @@ public final class Git {
         final String command = "git worktree remove --force " + shellQuote(worktree.toString());
         try {
             final Process process =
-                    new ProcessBuilder(PlatformCommands.shell(command))
+                    PlatformCommands.prepare(new ProcessBuilder(PlatformCommands.shell(command)))
                             .directory(repository.toFile())
                             .redirectErrorStream(true)
                             .start();
@@ -344,5 +345,34 @@ public final class Git {
 
     public static String shellQuote(final String value) {
         return "'" + value.replace("'", "'\\''") + "'";
+    }
+
+    public static boolean isRepository(final Path path) {
+        try {
+            final ProcessBuilder builder =
+                    PlatformCommands.prepare(
+                                    new ProcessBuilder(
+                                            PlatformCommands.executable("git"),
+                                            "-C",
+                                            path.toString(),
+                                            "rev-parse",
+                                            "--is-inside-work-tree"))
+                            .redirectErrorStream(true);
+            final Process process = builder.start();
+            final String output =
+                    new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            final int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                PlatformCommands.logFailure(builder, exitCode, output);
+                return false;
+            }
+            return "true".equals(output.trim());
+        } catch (IOException exception) {
+            // The caller cannot distinguish a missing Git executable from a non-repository path.
+            return false;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 }
