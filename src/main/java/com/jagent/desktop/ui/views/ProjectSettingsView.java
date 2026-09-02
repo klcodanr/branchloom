@@ -25,6 +25,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.border.EmptyBorder;
 
 public final class ProjectSettingsView extends JPanel implements View {
     private static final String TITLE = "Project settings";
@@ -82,6 +83,7 @@ public final class ProjectSettingsView extends JPanel implements View {
         agentContextPath.setToolTipText(
                 "Blank disables context generation. Relative paths are created in each worktree.");
         final JComboBox<GitHub.Auth> githubAuth = GitHubAuthSelector.render();
+        selectStoredAuth(githubAuth, project);
         final JPanel form = new JPanel();
         form.setOpaque(false);
         form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
@@ -104,6 +106,7 @@ public final class ProjectSettingsView extends JPanel implements View {
         form.add(SettingsPanel.labeledField("GitHub CLI auth", githubAuth));
         final JPanel formContainer = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         formContainer.setOpaque(false);
+        formContainer.setBorder(new EmptyBorder(12, 12, 12, 12));
         formContainer.add(form);
         final String groupValue = project.group();
         final String initialGroup =
@@ -149,6 +152,19 @@ public final class ProjectSettingsView extends JPanel implements View {
                                 agentContextPath,
                                 agentContextText,
                                 githubAuth));
+    }
+
+    private static void selectStoredAuth(
+            final JComboBox<GitHub.Auth> githubAuth, final Project project) {
+        for (int index = 0; index < githubAuth.getItemCount(); index++) {
+            final GitHub.Auth auth = githubAuth.getItemAt(index);
+            if (auth != null
+                    && Objects.equals(auth.host(), project.githubHost())
+                    && Objects.equals(auth.user(), project.githubUser())) {
+                githubAuth.setSelectedIndex(index);
+                break;
+            }
+        }
     }
 
     private static JPanel repositoryField(final Project project, final JPanel parent) {
