@@ -21,12 +21,12 @@ import java.util.Map;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
-import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
+import javax.swing.JToggleButton;
 import javax.swing.JTree;
 import javax.swing.SwingUtilities;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -41,22 +41,25 @@ public final class WorkspaceTreePanel extends JPanel {
     private final transient ActionContext actionContext;
     private final transient WorkspaceFiles workspaceFiles;
     private final transient Consumer<Path> openTerminal;
+    private final transient Consumer<Path> openFile;
     private final Path workspace;
     private final JTree tree;
     private final DefaultMutableTreeNode root;
     private Map<String, String> statuses = Map.of();
     private JLabel statusLabel;
-    private JButton refreshButton;
+    private JToggleButton refreshButton;
 
     public WorkspaceTreePanel(
             final ActionContext actionContext,
             final Path workspace,
-            final Consumer<Path> openTerminal) {
+            final Consumer<Path> openTerminal,
+            final Consumer<Path> openFile) {
         super(new BorderLayout());
         this.actionContext = actionContext;
         this.workspace = workspace.toAbsolutePath().normalize();
         this.workspaceFiles = new WorkspaceFiles(this.workspace);
         this.openTerminal = openTerminal;
+        this.openFile = openFile;
         this.root = node(workspace);
         add(header(), BorderLayout.NORTH);
         this.tree = new WorkspaceTree();
@@ -69,21 +72,23 @@ public final class WorkspaceTreePanel extends JPanel {
         final JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
         header.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
-        final JLabel pathLabel = UiFactory.label(workspace.toString(), Theme.FontSize.XS);
-        pathLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 12));
-        pathLabel.setToolTipText(workspace.toString());
-        header.add(pathLabel, BorderLayout.WEST);
         statusLabel = UiFactory.label("", Theme.FontSize.XS);
-        header.add(statusLabel, BorderLayout.CENTER);
-        refreshButton = UiFactory.iconButton(UiIcons.refresh());
+        refreshButton = new JToggleButton(UiIcons.refresh());
+        refreshButton.putClientProperty("JButton.buttonType", "segmented");
+        refreshButton.putClientProperty("JButton.segmentPosition", "only");
         refreshButton.setToolTipText("Refresh Git status");
         refreshButton.getAccessibleContext().setAccessibleName("Refresh Git status");
         refreshButton.addActionListener(ignored -> refreshStatus());
-        header.add(refreshButton, BorderLayout.EAST);
+        final JPanel actions = new JPanel(new BorderLayout(4, 0));
+        actions.setOpaque(false);
+        actions.add(statusLabel, BorderLayout.CENTER);
+        actions.add(refreshButton, BorderLayout.EAST);
+        header.add(actions, BorderLayout.EAST);
         return header;
     }
 
     private void refreshStatus() {
+        refreshButton.setSelected(false);
         refreshButton.setEnabled(false);
         statusLabel.setText("Refreshing Git status...");
         BackgroundTasks.submit(
@@ -91,7 +96,7 @@ public final class WorkspaceTreePanel extends JPanel {
                         "git-status",
                         () -> {
                             try {
-                                return Git.statusFiles(workspace);
+                                return Git.worktreeStatus(workspace);
                             } catch (IOException failure) {
                                 throw new CompletionException(failure);
                             } catch (InterruptedException failure) {
@@ -101,8 +106,8 @@ public final class WorkspaceTreePanel extends JPanel {
                         })
                 .thenAcceptAsync(
                         updated -> {
-                            statuses = updated;
-                            statusLabel.setText(statuses.size() + " changed");
+                            statuses = updated.files();
+                            statusLabel.setText(GitFormatter.statusSummary(updated));
                             refreshButton.setEnabled(true);
                             tree.repaint();
                             reloadWorkspace();
@@ -180,6 +185,13 @@ public final class WorkspaceTreePanel extends JPanel {
         if (directory(path)) {
             return;
         }
+        openFile.accept(path);
+    }
+
+    private void openInEditor(final Path path) {
+        if (directory(path)) {
+            return;
+        }
         final Path pathParent = path.getParent();
         final Path parent = pathParent == null ? path : pathParent;
         final var tools = actionContext.appState().appSettings().tools();
@@ -209,7 +221,7 @@ public final class WorkspaceTreePanel extends JPanel {
         final JPopupMenu menu = new JPopupMenu();
         if (!directory(path)) {
             final JMenuItem open = new JMenuItem("Open in editor");
-            open.addActionListener(ignored -> openSelected(path));
+            open.addActionListener(ignored -> openInEditor(path));
             menu.add(open);
         }
         final JMenuItem reveal = new JMenuItem("Reveal in file manager");

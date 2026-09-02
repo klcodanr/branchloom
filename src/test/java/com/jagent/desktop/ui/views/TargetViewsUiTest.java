@@ -17,6 +17,7 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.Defaults;
 import com.jagent.desktop.ui.components.SessionSummary;
+import com.jagent.desktop.ui.components.WorkspaceSplitPane;
 import java.io.InvalidObjectException;
 import java.util.List;
 import java.util.Map;
@@ -106,7 +107,9 @@ class TargetViewsUiTest {
 
         assertEquals(ViewId.PROJECT, view.id(), ASSERTION_MESSAGE);
         assertEquals(PROJECT_NAME, view.title(), ASSERTION_MESSAGE);
-        assertEquals(3, ((JTabbedPane) view.getComponent(1)).getTabCount(), ASSERTION_MESSAGE);
+        final var split = (WorkspaceSplitPane) view.getComponent(1);
+        assertEquals(2, ((JTabbedPane) split.getLeftComponent()).getTabCount(), ASSERTION_MESSAGE);
+        assertTrue(split.getRightComponent() != null, ASSERTION_MESSAGE);
         assertSame(view, view.render(), ASSERTION_MESSAGE);
         assertTrue(!view.focusPullRequestSearch(), ASSERTION_MESSAGE);
         view.openSummary();
@@ -139,8 +142,9 @@ class TargetViewsUiTest {
         GuiActionRunner.execute(() -> {});
 
         assertEquals(
-                3,
-                ((JTabbedPane) view.getComponent(1)).getTabCount(),
+                2,
+                ((JTabbedPane) ((WorkspaceSplitPane) view.getComponent(1)).getLeftComponent())
+                        .getTabCount(),
                 "session terminals should not appear in project tabs");
         view.dispose();
     }
@@ -167,7 +171,9 @@ class TargetViewsUiTest {
 
         assertEquals(ViewId.SESSION, view.id(), ASSERTION_MESSAGE);
         assertEquals(SESSION_NAME, view.title(), ASSERTION_MESSAGE);
-        assertEquals(2, ((JTabbedPane) view.getComponent(1)).getTabCount(), ASSERTION_MESSAGE);
+        final var split = (WorkspaceSplitPane) view.getComponent(1);
+        assertEquals(1, ((JTabbedPane) split.getLeftComponent()).getTabCount(), ASSERTION_MESSAGE);
+        assertTrue(split.getRightComponent() != null, ASSERTION_MESSAGE);
         assertSame(view, view.render(), ASSERTION_MESSAGE);
         view.selectTerminal(0);
         view.openSummary();
@@ -270,7 +276,8 @@ class TargetViewsUiTest {
                                 new SessionView(
                                         new ActionContext(
                                                 new ViewCoordinator(state), state, null)));
-        final var tabs = (JTabbedPane) view.getComponent(1);
+        final var tabs =
+                (JTabbedPane) ((WorkspaceSplitPane) view.getComponent(1)).getLeftComponent();
 
         GuiActionRunner.execute(
                 () -> {
@@ -280,7 +287,7 @@ class TargetViewsUiTest {
                     view.render();
                 });
 
-        assertEquals(1, tabs.getSelectedIndex(), ASSERTION_MESSAGE);
+        assertEquals(0, tabs.getSelectedIndex(), ASSERTION_MESSAGE);
         assertEquals(null, state.currentTerminalId(), ASSERTION_MESSAGE);
     }
 
@@ -321,15 +328,21 @@ class TargetViewsUiTest {
         assertEquals(terminalId, state.currentTerminalId(), ASSERTION_MESSAGE);
         final var createdView = GuiActionRunner.execute(() -> new SessionView(context));
         assertEquals(
-                2,
-                ((JTabbedPane) createdView.getComponent(1)).getSelectedIndex(),
+                1,
+                ((JTabbedPane)
+                                ((WorkspaceSplitPane) createdView.getComponent(1))
+                                        .getLeftComponent())
+                        .getSelectedIndex(),
                 ASSERTION_MESSAGE);
         GuiActionRunner.execute(() -> state.updateCurrentTerminal(null));
         final var reopenedView = GuiActionRunner.execute(() -> new SessionView(context));
 
         assertEquals(
-                2,
-                ((JTabbedPane) reopenedView.getComponent(1)).getSelectedIndex(),
+                1,
+                ((JTabbedPane)
+                                ((WorkspaceSplitPane) reopenedView.getComponent(1))
+                                        .getLeftComponent())
+                        .getSelectedIndex(),
                 ASSERTION_MESSAGE);
         initialView.dispose();
         createdView.dispose();
@@ -347,7 +360,8 @@ class TargetViewsUiTest {
                                 new ProjectView(
                                         new ActionContext(coordinator, state, null),
                                         state.projects().get(projectId)));
-        final var tabs = (JTabbedPane) view.getComponent(1);
+        final var tabs =
+                (JTabbedPane) ((WorkspaceSplitPane) view.getComponent(1)).getLeftComponent();
         final var request =
                 new com.jagent.desktop.models.PullRequest(
                         projectId, 1, "Title", "", "", "url", "", "", "", "", false, "", "", 0, 0,
