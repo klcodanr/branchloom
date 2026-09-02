@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
+import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
@@ -28,6 +29,8 @@ class ProjectTreePanelUiTest {
     private static final String DEMO = "Demo";
     private static final String PROJECT_PATH = "/tmp/demo";
     private static final String SESSION_NAME = "Feature";
+    private static final String GROUP = "Group";
+    private static final String PROMPT = "prompt";
 
     @Test
     void clickingSettingsUpdatesNavigation() {
@@ -133,6 +136,93 @@ class ProjectTreePanelUiTest {
     }
 
     @Test
+    void refreshPreservesMultipleExpandedProjects() throws java.io.InvalidObjectException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var firstProjectId = state.addProject(project("First", "/tmp/first", GROUP));
+        final var secondProjectId = state.addProject(project("Second", "/tmp/second", GROUP));
+        state.addSession(
+                firstProjectId,
+                new Session(firstProjectId, "First session", "agent", PROMPT, null));
+        state.addSession(
+                secondProjectId,
+                new Session(secondProjectId, "Second session", "agent", PROMPT, null));
+        final var panel =
+                GuiActionRunner.execute(
+                        () -> {
+                            final var created =
+                                    new ProjectTreePanel(
+                                            new ActionContext(
+                                                    new ViewCoordinator(state), state, null));
+                            created.refresh(null, null);
+                            return created;
+                        });
+
+        GuiActionRunner.execute(
+                () -> {
+                    final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
+                    final var group = (DefaultMutableTreeNode) root.getChildAt(1);
+                    final var firstProject = group.getChildAt(0);
+                    final var secondProject = group.getChildAt(1);
+                    panel.tree()
+                            .expandPath(
+                                    new TreePath(
+                                            ((DefaultMutableTreeNode) firstProject).getPath()));
+                    panel.tree()
+                            .expandPath(
+                                    new TreePath(
+                                            ((DefaultMutableTreeNode) secondProject).getPath()));
+                    panel.refresh(null, null);
+
+                    org.junit.jupiter.api.Assertions.assertSame(
+                            firstProject,
+                            group.getChildAt(0),
+                            "unchanged project nodes should not be recreated");
+                    org.junit.jupiter.api.Assertions.assertSame(
+                            secondProject,
+                            group.getChildAt(1),
+                            "unchanged project nodes should retain their identity");
+
+                    final ProjectId firstNodeId =
+                            (ProjectId)
+                                    ((Map.Entry<?, ?>)
+                                                    ((DefaultMutableTreeNode) firstProject)
+                                                            .getUserObject())
+                                            .getKey();
+                    state.updateProject(
+                            firstNodeId, state.projects().get(firstNodeId).withName("Updated"));
+                    panel.refresh(null, null);
+                    org.junit.jupiter.api.Assertions.assertSame(
+                            firstProject,
+                            group.getChildAt(0),
+                            "changed project nodes should retain their identity");
+                    assertEquals(
+                            "Updated",
+                            ((Project)
+                                            ((Map.Entry<?, ?>)
+                                                            ((DefaultMutableTreeNode) firstProject)
+                                                                    .getUserObject())
+                                                    .getValue())
+                                    .name(),
+                            "changed project data should update the existing node");
+                });
+
+        final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
+        final var group = (DefaultMutableTreeNode) root.getChildAt(1);
+        assertTrue(
+                panel.tree()
+                        .isExpanded(
+                                new TreePath(
+                                        ((DefaultMutableTreeNode) group.getChildAt(0)).getPath())),
+                "first project should remain expanded after refresh");
+        assertTrue(
+                panel.tree()
+                        .isExpanded(
+                                new TreePath(
+                                        ((DefaultMutableTreeNode) group.getChildAt(1)).getPath())),
+                "second project should remain expanded after refresh");
+    }
+
+    @Test
     void refreshWithNoProjectsSelectsHome() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var changedViews = new ArrayList<ViewId>();
@@ -165,7 +255,7 @@ class ProjectTreePanelUiTest {
     @Test
     void projectRendererAndTooltipExposeProjectDetails() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.addProject(project("<" + DEMO + ">", "/tmp/project&path", "Group"));
+        state.addProject(project("<" + DEMO + ">", "/tmp/project&path", GROUP));
         final var coordinator = new ViewCoordinator(state);
         final var panel =
                 GuiActionRunner.execute(
@@ -212,7 +302,7 @@ class ProjectTreePanelUiTest {
     void selectingSessionUpdatesNavigationAndRendererShowsStatus()
             throws java.io.InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(project(DEMO, PROJECT_PATH, "Group"));
+        final var projectId = state.addProject(project(DEMO, PROJECT_PATH, GROUP));
         final var sessionId =
                 state.addSession(
                         projectId,
@@ -254,7 +344,7 @@ class ProjectTreePanelUiTest {
     @Test
     void populatedTreeRendersSessionsAndSelectsThem() throws java.io.InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(project("Demo", "/tmp/demo", "Group"));
+        final var projectId = state.addProject(project("Demo", "/tmp/demo", GROUP));
         final var sessionId =
                 state.addSession(
                         projectId, new Session(projectId, SESSION_NAME, "agent", "prompt", null));
