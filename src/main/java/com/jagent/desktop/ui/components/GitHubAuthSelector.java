@@ -12,7 +12,10 @@ public final class GitHubAuthSelector {
     private GitHubAuthSelector() {}
 
     public static JComboBox<Auth> render() {
-        final List<GitHub.Auth> configuredAuths = GitHub.configuredAuths();
+        return renderConfigured(GitHub.configuredAuths());
+    }
+
+    public static JComboBox<Auth> renderConfigured(final List<GitHub.Auth> configuredAuths) {
         final JComboBox<GitHub.Auth> githubAuth =
                 new JComboBox<>(
                         java.util.stream.Stream.concat(
