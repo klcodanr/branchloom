@@ -57,17 +57,12 @@ public final class ProjectView extends AbstractWorkspaceView {
                 .filter(entry -> belongsToProject(entry.getValue()))
                 .forEach(
                         entry ->
-                                javax.swing.SwingUtilities.invokeLater(
-                                        () ->
-                                                showTerminal(
-                                                        entry.getKey(),
-                                                        entry.getValue(),
-                                                        Path.of(project.path()),
-                                                        entry.getKey().equals(selectedTerminal))));
-        javax.swing.SwingUtilities.invokeLater(
-                () -> {
-                    restoreSelectedTab();
-                });
+                                showTerminal(
+                                        entry.getKey(),
+                                        entry.getValue(),
+                                        Path.of(project.path()),
+                                        entry.getKey().equals(selectedTerminal)));
+        restoreSelectedTab();
     }
 
     @Override
@@ -148,7 +143,30 @@ public final class ProjectView extends AbstractWorkspaceView {
     protected void terminalStateChanged() {}
 
     @Override
-    protected void terminalClosed(final TerminalPanel terminal) {}
+    public void closeActiveTerminal() {
+        final int index = tabs.getSelectedIndex();
+        if (index < 0 || !(tabs.getComponentAt(index) instanceof TerminalPanel terminal)) {
+            return;
+        }
+        tabs.removeTabAt(index);
+        final TerminalId terminalId = terminalIds.remove(terminal);
+        if (terminalId != null) {
+            actionContext.appState().removeTerminal(terminalId);
+        }
+        terminalStates.remove(terminal);
+        terminal.dispose();
+        updateCurrentTerminal();
+    }
+
+    @Override
+    protected void terminalClosed(final TerminalPanel terminal) {
+        final TerminalId terminalId = terminalIds.remove(terminal);
+        terminalStates.remove(terminal);
+        if (terminalId != null) {
+            actionContext.appState().removeTerminal(terminalId);
+        }
+        updateCurrentTerminal();
+    }
 
     public void reviewPullRequest(final PullRequest request) {
         final PullRequestCache.ProjectPullRequests requests =
