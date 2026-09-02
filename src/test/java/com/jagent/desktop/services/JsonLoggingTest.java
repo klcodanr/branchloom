@@ -5,11 +5,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.ProblemEvent;
 import java.io.IOException;
+import java.nio.file.Path;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class JsonLoggingTest {
+    private static final String USER_HOME = "user.home";
     private static final String SOURCE = "Test";
     private static final String SECOND_MESSAGE = "second";
+    private static String originalUserHome;
+
+    @BeforeAll
+    static void isolateLogFile(@TempDir final Path temporaryDirectory) {
+        originalUserHome = System.getProperty(USER_HOME);
+        System.setProperty(USER_HOME, temporaryDirectory.toString());
+    }
+
+    @AfterAll
+    static void restoreUserHome() {
+        if (originalUserHome == null) {
+            System.clearProperty(USER_HOME);
+        } else {
+            System.setProperty(USER_HOME, originalUserHome);
+        }
+    }
 
     @Test
     void logsAtMultipleSeverities() throws IOException {
