@@ -11,10 +11,8 @@ import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.actions.RemoveSessionAction;
-import com.jagent.desktop.ui.components.ClosableTabHeader;
 import com.jagent.desktop.ui.components.SessionActions;
 import com.jagent.desktop.ui.components.SessionSummary;
-import com.jagent.desktop.ui.components.StatusDot;
 import com.jagent.desktop.ui.components.TabBody;
 import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.Theme;
@@ -64,6 +62,7 @@ public final class SessionView extends JPanel implements View {
         MissingWorktreeRecovery.check(actionContext, project, session);
         setLayout(new BorderLayout(0, 16));
         add(topbar(actionContext), BorderLayout.NORTH);
+        terminals.putClientProperty("JTabbedPane.scrollButtonsPolicy", "asNeeded");
         terminals.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
         add(terminals, BorderLayout.CENTER);
         final boolean hasSelectedTab = viewCoordinator.hasSelectedTab(id());
@@ -281,35 +280,36 @@ public final class SessionView extends JPanel implements View {
         if (terminal.getParent() != null) {
             terminal.getParent().remove(terminal);
         }
-        final StatusDot terminalStatus = StatusDot.forTerminal(terminal.state());
         terminal.setStateChanged(
                 state -> {
                     terminalStates.put(terminal, state);
-                    terminalStatus.update(state);
                     updateStatus();
                 });
         terminalIds.put(terminal, terminalId);
         terminalStates.put(terminal, TerminalState.STARTING);
         terminals.addTab(persistedTerminal.title(), terminal);
-        final int index = terminals.indexOfComponent(terminal);
-        terminals.setTabComponentAt(
-                index,
-                ClosableTabHeader.create(
-                        terminals,
-                        persistedTerminal.title(),
-                        terminal,
-                        () -> removeTerminal(terminalId, terminal),
-                        null,
-                        terminalStatus));
+        terminal.putClientProperty("JTabbedPane.tabClosable", true);
+        terminal.putClientProperty(
+                "JTabbedPane.tabCloseCallback",
+                (java.util.function.IntConsumer)
+                        index -> {
+                            if (index < 0
+                                    || index >= terminals.getTabCount()
+                                    || !(terminals.getComponentAt(index)
+                                            instanceof TerminalPanel closed)) {
+                                return;
+                            }
+                            terminals.removeTabAt(index);
+                            final TerminalId closedId = terminalIds.remove(closed);
+                            terminalStates.remove(closed);
+                            if (closedId != null) {
+                                actionContext.appState().removeTerminal(closedId);
+                            }
+                            closed.dispose();
+                            updateCurrentTerminal();
+                        });
         terminals.setSelectedComponent(terminal);
         terminal.start();
-    }
-
-    private void removeTerminal(final TerminalId terminalId, final TerminalPanel terminal) {
-        terminalIds.remove(terminal);
-        terminalStates.remove(terminal);
-        actionContext.appState().removeTerminal(terminalId);
-        terminal.dispose();
     }
 
     private boolean selectCurrentTerminal() {

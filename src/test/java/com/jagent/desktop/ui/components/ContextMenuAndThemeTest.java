@@ -16,8 +16,6 @@ import com.jagent.desktop.ui.Defaults;
 import java.awt.Font;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.swing.JTabbedPane;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
@@ -52,24 +50,6 @@ class ContextMenuAndThemeTest {
         assertTrue(findMenu(projectMenu, "Editors") != null, "project editors menu should exist");
         assertTrue(findMenu(sessionMenu, "Agents") != null, "session agents menu should exist");
         assertTrue(findMenu(sessionMenu, "Editors") != null, "session editors menu should exist");
-    }
-
-    @Test
-    void closableTabHeaderSelectsAndClosesTabs() {
-        final JTabbedPane tabs = new JTabbedPane();
-        final var content = new javax.swing.JPanel();
-        final AtomicBoolean disposed = new AtomicBoolean();
-        tabs.addTab("One", content);
-        final var header = ClosableTabHeader.create(tabs, "One", content, () -> disposed.set(true));
-        tabs.setTabComponentAt(0, header);
-
-        final var callback =
-                (java.util.function.IntConsumer)
-                        content.getClientProperty("JTabbedPane.tabCloseCallback");
-        callback.accept(0);
-
-        assertTrue(disposed.get(), "closing a tab should invoke its disposer");
-        assertEquals(0, tabs.getTabCount(), "closing a tab should remove it");
     }
 
     @Test

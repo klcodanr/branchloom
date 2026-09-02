@@ -54,6 +54,7 @@ public final class HomeView extends JPanel implements View {
         header.setOpaque(false);
         add(header, BorderLayout.NORTH);
         tabs = new JTabbedPane();
+        tabs.putClientProperty("JTabbedPane.scrollButtonsPolicy", "asNeeded");
         tabs.addTab("Projects", TabBody.wrap(new ProjectCards(actionContext)));
         tabs.addTab("My PRs", TabBody.wrap(authoredPullRequests));
         tabs.addTab("Review requests", TabBody.wrap(reviewPullRequests));

@@ -138,6 +138,7 @@ public final class SessionSummary extends JPanel {
 
     private JTextArea textArea(final String text) {
         final JTextArea area = new JTextArea(text == null ? "" : text);
+        UiFactory.configureTextAreaTraversal(area);
         area.setEditable(false);
         area.setLineWrap(true);
         area.setWrapStyleWord(true);

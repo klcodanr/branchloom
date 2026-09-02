@@ -7,6 +7,7 @@ import com.jagent.desktop.services.Git;
 import com.jagent.desktop.ui.components.SearchableComboBox;
 import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
+import java.awt.ContainerOrderFocusTraversalPolicy;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.io.IOException;
@@ -47,6 +48,7 @@ public final class NewSessionDialog extends JDialog {
             final List<Git.Branch> branches,
             final Consumer<Request> onValid) {
         super(actionContext.window(), "New agent session", ModalityType.APPLICATION_MODAL);
+        setFocusTraversalPolicy(new ContainerOrderFocusTraversalPolicy());
 
         this.appState = actionContext.appState();
         this.onValid = onValid;
@@ -60,6 +62,7 @@ public final class NewSessionDialog extends JDialog {
         baseBranch.setPreferredSize(new Dimension(350, baseBranch.getPreferredSize().height));
         prompt.setLineWrap(true);
         prompt.setWrapStyleWord(true);
+        UiFactory.configureTextAreaTraversal(prompt);
         prompt.setName("session-prompt");
         cancel.setName("session-cancel");
         ok.setName("session-ok");

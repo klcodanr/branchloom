@@ -6,6 +6,7 @@ import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
+import java.awt.ContainerOrderFocusTraversalPolicy;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.util.function.BiConsumer;
@@ -31,6 +32,7 @@ public final class ReviewDialog extends JDialog {
                 actionContext.window(),
                 "Review pull request #" + request.number(),
                 ModalityType.APPLICATION_MODAL);
+        setFocusTraversalPolicy(new ContainerOrderFocusTraversalPolicy());
         final AppState state = actionContext.appState();
         this.onReview = onReview;
         agent = new JComboBox<>(state.appSettings().agents().toArray(new Agent[0]));
@@ -42,6 +44,7 @@ public final class ReviewDialog extends JDialog {
                         .replace("{title}", request.title()));
         prompt.setLineWrap(true);
         prompt.setWrapStyleWord(true);
+        UiFactory.configureTextAreaTraversal(prompt);
 
         final JPanel promptInput = new JPanel(new BorderLayout());
         final JScrollPane promptScroll = new JScrollPane(prompt);
