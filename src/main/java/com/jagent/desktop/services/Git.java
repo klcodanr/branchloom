@@ -92,7 +92,8 @@ public final class Git {
         return summary.toString();
     }
 
-    private static String runGit(final Path worktree, final int expectedExitCode, final String... args)
+    private static String runGit(
+            final Path worktree, final int expectedExitCode, final String... args)
             throws IOException, InterruptedException {
         final List<String> command = new ArrayList<>();
         command.add(PlatformCommands.executable("git"));
