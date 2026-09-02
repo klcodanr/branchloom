@@ -3,11 +3,15 @@ package com.jagent.desktop.ui.components;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.terminal.TerminalState;
 import java.awt.Component;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
+import javax.swing.JPopupMenu;
 import javax.swing.JTabbedPane;
 
 /** Owns the shared terminal tab lifecycle for workspace views. */
@@ -28,6 +32,18 @@ public final class WorkspaceTerminalTabs {
         this.stateChanged = stateChanged;
         this.closed = closed;
         this.renamed = renamed;
+        tabs.addMouseListener(
+                new MouseAdapter() {
+                    @Override
+                    public void mousePressed(final MouseEvent event) {
+                        showContextMenu(event);
+                    }
+
+                    @Override
+                    public void mouseReleased(final MouseEvent event) {
+                        showContextMenu(event);
+                    }
+                });
     }
 
     public Map<TerminalPanel, TerminalState> states() {
@@ -128,5 +144,21 @@ public final class WorkspaceTerminalTabs {
         closed.accept(terminal, terminalId);
         states.remove(terminal);
         ids.remove(terminal);
+    }
+
+    private void showContextMenu(final MouseEvent event) {
+        if (!event.isPopupTrigger()) {
+            return;
+        }
+        final int index = tabs.indexAtLocation(event.getX(), event.getY());
+        if (index < 0 || !(tabs.getComponentAt(index) instanceof TerminalPanel)) {
+            return;
+        }
+        tabs.setSelectedIndex(index);
+        final JPopupMenu menu = new JPopupMenu();
+        final JMenuItem rename = new JMenuItem("Rename terminal");
+        rename.addActionListener(ignored -> renameActive(tabs));
+        menu.add(rename);
+        menu.show(tabs, event.getX(), event.getY());
     }
 }
