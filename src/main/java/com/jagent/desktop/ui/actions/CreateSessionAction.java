@@ -7,6 +7,7 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
+import com.jagent.desktop.services.AgentContext;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.PlatformCommands;
@@ -15,7 +16,7 @@ import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.ui.GitUtils;
 import com.jagent.desktop.ui.dialogs.NewSessionDialog;
 import com.jagent.desktop.ui.dialogs.ProgressOperation;
-import java.io.InvalidObjectException;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
@@ -28,6 +29,7 @@ import javax.swing.SwingUtilities;
 /** Starts the session creation workflow. */
 public final class CreateSessionAction extends BaseAction {
     private static final Logger LOG = Logger.getLogger(CreateSessionAction.class.getName());
+    private static final String CREATE_SESSION = "Create session";
     private final Git git = new Git();
 
     public CreateSessionAction(final ActionContext actionContext) {
@@ -146,7 +148,7 @@ public final class CreateSessionAction extends BaseAction {
             final boolean branchExists) {
         if (branchExists) {
             final String message = "A branch named '" + branch + "' already exists.";
-            fail(progress, "Create session", message, message);
+            fail(progress, CREATE_SESSION, message, message);
             return;
         }
         final AppState state = actionContext.appState();
@@ -163,7 +165,7 @@ public final class CreateSessionAction extends BaseAction {
         final Path path = Path.of(worktreePath);
         if (GitUtils.isWorktreeRegistered(state.sessions(), path) || Files.exists(path)) {
             final String message = "The worktree path is already in use:\n" + worktreePath;
-            fail(progress, "Create session", message, message);
+            fail(progress, CREATE_SESSION, message, message);
             return;
         }
         final var worktreeCreation =
@@ -200,6 +202,7 @@ public final class CreateSessionAction extends BaseAction {
                         request.prompt(),
                         worktreePath);
         try {
+            AgentContext.write(projectFor(state, projectId), session);
             final var sessionId = state.addSession(projectId, session);
             final var terminalId =
                     state.addTerminal(
@@ -218,9 +221,14 @@ public final class CreateSessionAction extends BaseAction {
                     .updateView(
                             ViewId.SESSION,
                             ViewState.sessionTerminal(projectId, sessionId, terminalId));
-        } catch (InvalidObjectException exception) {
-            LOG.log(Level.SEVERE, "Create session", exception);
+        } catch (IOException exception) {
+            LOG.log(Level.SEVERE, CREATE_SESSION, exception);
+            showError(CREATE_SESSION, exception.getMessage());
         }
+    }
+
+    private Project projectFor(final AppState state, final ProjectId projectId) {
+        return state.projects().get(projectId);
     }
 
     private void fail(

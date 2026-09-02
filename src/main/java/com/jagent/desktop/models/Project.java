@@ -18,7 +18,9 @@ public record Project(
         @Nullable String worktreeTemplate,
         @Nullable String worktreeCommand,
         List<String> startupCommands,
-        List<SessionId> sessionIds) {
+        List<SessionId> sessionIds,
+        @Nullable String agentContextPath,
+        @Nullable String agentContextText) {
 
     public Project {
         sessionIds = sessionIds == null ? List.of() : List.copyOf(sessionIds);
@@ -34,7 +36,33 @@ public record Project(
                 null,
                 null,
                 List.of(),
-                List.of());
+                List.of(),
+                null,
+                null);
+    }
+
+    public Project(
+            final String name,
+            final String path,
+            final String group,
+            final String githubHost,
+            final String githubUser,
+            final String worktreeTemplate,
+            final String worktreeCommand,
+            final List<String> startupCommands,
+            final List<SessionId> sessionIds) {
+        this(
+                name,
+                path,
+                group,
+                githubHost,
+                githubUser,
+                worktreeTemplate,
+                worktreeCommand,
+                startupCommands,
+                sessionIds,
+                null,
+                null);
     }
 
     public List<Entry<SessionId, Session>> projectSessions(final AppState appState) {
@@ -53,7 +81,9 @@ public record Project(
                 this.worktreeTemplate,
                 this.worktreeCommand,
                 this.startupCommands,
-                this.sessionIds);
+                this.sessionIds,
+                this.agentContextPath,
+                this.agentContextText);
     }
 
     public Project withNewSession(final SessionId sessionId) {
@@ -68,7 +98,9 @@ public record Project(
                 this.worktreeTemplate,
                 this.worktreeCommand,
                 this.startupCommands,
-                List.copyOf(newSessions));
+                List.copyOf(newSessions),
+                this.agentContextPath,
+                this.agentContextText);
     }
 
     public Project withRemovedSession(final SessionId sessionId) {
@@ -81,6 +113,8 @@ public record Project(
                 this.worktreeTemplate,
                 this.worktreeCommand,
                 this.startupCommands,
-                this.sessionIds.stream().filter(id -> !id.equals(sessionId)).toList());
+                this.sessionIds.stream().filter(id -> !id.equals(sessionId)).toList(),
+                this.agentContextPath,
+                this.agentContextText);
     }
 }
