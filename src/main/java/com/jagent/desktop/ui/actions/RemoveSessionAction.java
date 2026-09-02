@@ -59,9 +59,6 @@ public final class RemoveSessionAction extends BaseAction {
         }
 
         if (choice == 1) {
-            if (!confirmWorktreeDeletion(session)) {
-                return;
-            }
             removeWorktree(state, sessionId, projectId, project, session);
             return;
         }
@@ -106,6 +103,28 @@ public final class RemoveSessionAction extends BaseAction {
             worktree = git.validateWorktreeDeletion(project, session);
         } catch (IOException | RuntimeException exception) {
             LOG.log(Level.SEVERE, "Could not remove worktree", exception);
+            JOptionPane.showMessageDialog(
+                    actionContext.window(),
+                    exception.getMessage(),
+                    TITLE,
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        try {
+            if (!Git.status(worktree).isBlank() && !confirmWorktreeDeletion(session)) {
+                return;
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            LOG.log(Level.SEVERE, "Could not check worktree changes", exception);
+            JOptionPane.showMessageDialog(
+                    actionContext.window(),
+                    exception.getMessage(),
+                    TITLE,
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        } catch (IOException exception) {
+            LOG.log(Level.SEVERE, "Could not check worktree changes", exception);
             JOptionPane.showMessageDialog(
                     actionContext.window(),
                     exception.getMessage(),
