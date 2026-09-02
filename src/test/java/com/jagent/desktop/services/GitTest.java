@@ -51,6 +51,14 @@ class GitTest {
     }
 
     @Test
+    void quotesWindowsCommandArguments() {
+        assertEquals(
+                "\"prompt with ^^^& ^| ^< ^> ^( ^) ^% ^! and \\\"quotes\\\"\"",
+                Git.windowsShellQuote("prompt with ^& | < > ( ) % ! and \"quotes\""),
+                "Windows command arguments should escape shell metacharacters");
+    }
+
+    @Test
     void repositoryValidationUsesGit(@TempDir final Path directory)
             throws IOException, InterruptedException {
         TestGitRepository.initialize(directory);
@@ -373,17 +381,17 @@ class GitTest {
     }
 
     @Test
-    void readsCurrentBranchAndDiffSummary(@TempDir final Path directory)
+    void readsCurrentBranchAndWorktreeDiffSummary(@TempDir final Path directory)
             throws IOException, InterruptedException {
         TestGitRepository.initialize(directory);
         Files.writeString(directory.resolve(TRACKED_FILE), "updated");
-        run(directory, "git add tracked.txt && git commit -qm update");
+        Files.writeString(directory.resolve("untracked.txt"), "new file\n");
 
         assertEquals("master\n", Git.currentBranch(directory), "current branch should be reported");
         assertEquals(
-                "1\t1\ttracked.txt\n",
+                "1\t1\ttracked.txt\n1\t0\tuntracked.txt\n",
                 Git.diffSummary(directory),
-                "diff summary should report changed files");
+                "diff summary should report tracked and untracked worktree changes");
     }
 
     @Test

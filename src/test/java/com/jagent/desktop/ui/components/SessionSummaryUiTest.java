@@ -68,7 +68,7 @@ class SessionSummaryUiTest {
 
         final var summary = GuiActionRunner.execute(() -> new SessionSummary(project, session));
         waitForText(summary, "master");
-        waitForText(summary, "No changes against head");
+        waitForText(summary, "No changes in worktree");
 
         assertTrue(
                 allComponentsAreSwing(summary),

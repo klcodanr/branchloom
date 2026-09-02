@@ -203,6 +203,14 @@ public final class Theme {
         return color("Actions.Yellow", "Component.focusColor");
     }
 
+    public static Color mergeColor() {
+        return new Color(156, 39, 176);
+    }
+
+    public static Color mergeQueueColor() {
+        return new Color(255, 152, 0);
+    }
+
     public static Color dangerColor() {
         return color("Actions.Red", "Component.focusColor");
     }

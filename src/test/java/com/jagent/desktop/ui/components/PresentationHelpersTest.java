@@ -67,6 +67,10 @@ class PresentationHelpersTest {
                 "Mergeability unknown",
                 GitFormatter.mergeStatus("UNKNOWN"),
                 "unknown merge states should remain unknown");
+        assertEquals(
+                "In merge queue",
+                GitFormatter.mergeStatus("QUEUED"),
+                "queued pull requests should show their queue status");
 
         final PullRequest request =
                 new PullRequest(
@@ -139,13 +143,33 @@ class PresentationHelpersTest {
     }
 
     @Test
+    void formatsCompactPullRequestStatusWithMergeStateColor() {
+        Theme.applySwingDefaults();
+        final PullRequest request =
+                new PullRequest(
+                        null, 1, "", "", "", "", "", "", "", "CLEAN", false, "", "", 1, 2,
+                        "FAILING");
+
+        assertEquals(
+                "PR: <font color='"
+                        + UiText.colorHex(Theme.mergeColor())
+                        + "'>&#9679;</font> Can merge  ·  Checks: 1/2 Failing",
+                GitFormatter.statusHtml(request),
+                "mergeable pull requests should use the merge indicator color");
+        assertEquals(
+                Theme.mergeQueueColor(),
+                UiText.pullRequestIndicatorColor("QUEUED", "PASSING"),
+                "queued pull requests should use the merge queue indicator color");
+    }
+
+    @Test
     void rendersEmptyAndUnavailableDiffs() {
         final JPanel diff = new JPanel();
 
         GitFormatter.renderDiff(diff, "");
         assertEquals(1, diff.getComponentCount(), "empty diffs should show a message");
         assertEquals(
-                "No changes against head",
+                "No changes in worktree",
                 ((JTextArea) diff.getComponent(0)).getText(),
                 "empty diff text should explain the clean state");
 
