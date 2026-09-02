@@ -8,6 +8,10 @@ import java.awt.Graphics;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.KeyboardFocusManager;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
+import java.util.Set;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.Icon;
@@ -17,6 +21,7 @@ import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JTextArea;
 import javax.swing.JTextPane;
+import javax.swing.KeyStroke;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 
@@ -36,6 +41,7 @@ public final class UiFactory {
 
     public static JTextArea selectableText(final String text, final Theme.FontSize size) {
         final JTextArea area = new JTextArea(text == null ? "" : text);
+        configureTextAreaTraversal(area);
         area.setFont(Theme.font(size));
         area.setEditable(false);
         area.setOpaque(false);
@@ -44,6 +50,15 @@ public final class UiFactory {
         area.setRows(1);
         area.setBorder(new EmptyBorder(0, 0, 0, 0));
         return area;
+    }
+
+    public static void configureTextAreaTraversal(final JTextArea area) {
+        area.setFocusTraversalKeys(
+                KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS,
+                Set.of(KeyStroke.getKeyStroke(KeyEvent.VK_TAB, 0)));
+        area.setFocusTraversalKeys(
+                KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS,
+                Set.of(KeyStroke.getKeyStroke(KeyEvent.VK_TAB, InputEvent.SHIFT_DOWN_MASK)));
     }
 
     public static JTextPane selectableHtml(final String html, final Theme.FontSize size) {

@@ -72,6 +72,8 @@ public final class ProjectSettingsView extends JPanel implements View {
         final JTextArea template = new JTextArea(project.worktreeTemplate(), 2, 45);
         final JTextArea startup =
                 new JTextArea(String.join("\n", project.startupCommands()), 4, 45);
+        UiFactory.configureTextAreaTraversal(template);
+        UiFactory.configureTextAreaTraversal(startup);
         template.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
         startup.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
         final JComboBox<GitHub.Auth> githubAuth = GitHubAuthSelector.render();
