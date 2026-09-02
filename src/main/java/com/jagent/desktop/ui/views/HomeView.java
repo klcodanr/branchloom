@@ -10,6 +10,7 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.PullRequestCache;
+import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.components.ProjectCards;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
@@ -32,6 +33,7 @@ public final class HomeView extends JPanel implements View {
     private static final Logger LOG = Logger.getLogger(HomeView.class.getName());
     private final transient AppState appState;
     private final transient PullRequestCache pullRequestCache;
+    private final transient ViewCoordinator viewCoordinator;
     private final PullRequestsBoard authoredPullRequests;
     private final PullRequestsBoard reviewPullRequests;
     private final JPanel terminalHost = new JPanel(new BorderLayout());
@@ -41,6 +43,7 @@ public final class HomeView extends JPanel implements View {
     public HomeView(final ActionContext actionContext) {
         super();
         this.appState = actionContext.appState();
+        this.viewCoordinator = actionContext.viewCoordinator();
         this.pullRequestCache = PullRequestCache.get(appState);
         this.authoredPullRequests = new PullRequestsBoard(actionContext, () -> pullRequests(true));
         this.reviewPullRequests = new PullRequestsBoard(actionContext, () -> pullRequests(false));
@@ -55,6 +58,9 @@ public final class HomeView extends JPanel implements View {
         tabs.addTab("My PRs", TabBody.wrap(authoredPullRequests));
         tabs.addTab("Review requests", TabBody.wrap(reviewPullRequests));
         tabs.addTab("PR Summary", TabBody.wrap(summaryTab()));
+        tabs.addChangeListener(
+                event -> viewCoordinator.updateSelectedTab(id(), tabs.getSelectedIndex()));
+        tabs.setSelectedIndex(viewCoordinator.selectedTab(id()));
         add(tabs, BorderLayout.CENTER);
     }
 
