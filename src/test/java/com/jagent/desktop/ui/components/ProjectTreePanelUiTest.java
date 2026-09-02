@@ -2,6 +2,7 @@ package com.jagent.desktop.ui.components;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.api.ViewId;
@@ -78,6 +79,29 @@ class ProjectTreePanelUiTest {
         assertEquals(
                 ViewId.PROJECT, coordinator.currentViewId(), "project selection should navigate");
         assertEquals(List.of(ViewId.PROJECT), changedViews, "selection should notify navigation");
+    }
+
+    @Test
+    void selectingHomeClearsApplicationSelection() {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var projectId = state.addProject(new Project(DEMO, PROJECT_PATH, null));
+        final var coordinator = new ViewCoordinator(state);
+        final var panel =
+                GuiActionRunner.execute(
+                        () -> {
+                            final var created =
+                                    new ProjectTreePanel(
+                                            new ActionContext(coordinator, state, null));
+                            created.refresh(state.projects().get(projectId), null);
+                            return created;
+                        });
+
+        GuiActionRunner.execute(
+                () -> panel.tree().setSelectionPath(panel.tree().getPathForRow(0)));
+
+        assertNull(state.currentProjectId(), "home selection should clear the current project");
+        assertNull(state.currentSessionId(), "home selection should clear the current session");
+        assertEquals(ViewId.HOME, coordinator.currentViewId(), "home selection should navigate");
     }
 
     @Test
