@@ -33,10 +33,14 @@ public final class PlatformCommands {
         final String shell = userShell();
         if (command.equals(shell)) {
             return new String[] {
-                        shell, "-ilc", "cd " + shellQuote(directory.toString()) + " && exec " + shell + " -il"
+                shell,
+                "-ilc",
+                "cd " + shellQuote(directory.toString()) + " && exec " + shell + " -il"
             };
         }
-        return new String[] {shell, "-ilc", "cd " + shellQuote(directory.toString()) + " && " + command};
+        return new String[] {
+            shell, "-ilc", "cd " + shellQuote(directory.toString()) + " && " + command
+        };
     }
 
     public static String userShell() {
@@ -254,5 +258,4 @@ public final class PlatformCommands {
     private static String osName() {
         return System.getProperty("os.name").toLowerCase(Locale.ROOT);
     }
-
 }

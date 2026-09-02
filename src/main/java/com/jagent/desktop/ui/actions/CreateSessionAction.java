@@ -211,7 +211,8 @@ public final class CreateSessionAction extends BaseAction {
                                             .newSessionCommand
                                             .replace(
                                                     "{prompt}",
-                                                    PlatformCommands.shellQuote(request.prompt()))));
+                                                    PlatformCommands.shellQuote(
+                                                            request.prompt()))));
             actionContext
                     .viewCoordinator()
                     .updateView(

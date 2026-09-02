@@ -8,7 +8,6 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundTasks;
-import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.PullRequestCache;
 import com.jagent.desktop.ui.components.ProjectCards;

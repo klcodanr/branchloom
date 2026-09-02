@@ -146,8 +146,7 @@ public final class Git {
     }
 
     private CompletableFuture<List<Worktree>> listWorktreeDetails(final Project project) {
-        return query(project, "git worktree list --porcelain")
-                .thenApply(GitParser::parseWorktrees);
+        return query(project, "git worktree list --porcelain").thenApply(GitParser::parseWorktrees);
     }
 
     public CompletableFuture<Optional<Worktree>> checkPrunableWorktree(
@@ -188,7 +187,8 @@ public final class Git {
                         ignored ->
                                 runCommand(
                                         "git -C "
-                                                + PlatformCommands.shellQuote(worktree.path().toString())
+                                                + PlatformCommands.shellQuote(
+                                                        worktree.path().toString())
                                                 + " checkout -B "
                                                 + PlatformCommands.shellQuote(branch),
                                         repository))
@@ -207,7 +207,9 @@ public final class Git {
             final String branchName) {
         final String command =
                 "git worktree add "
-                        + (createBranch ? "-b " + PlatformCommands.shellQuote(branchName) + " " : "")
+                        + (createBranch
+                                ? "-b " + PlatformCommands.shellQuote(branchName) + " "
+                                : "")
                         + PlatformCommands.shellQuote(worktree.toString())
                         + " "
                         + PlatformCommands.shellQuote(ref);
@@ -218,14 +220,20 @@ public final class Git {
             final Project project, final int pullRequestNumber) {
         final String branch = "pr-" + pullRequestNumber;
         final String command =
-                "git fetch origin pull/" + pullRequestNumber + "/head:" + PlatformCommands.shellQuote(branch);
+                "git fetch origin pull/"
+                        + pullRequestNumber
+                        + "/head:"
+                        + PlatformCommands.shellQuote(branch);
         return runCommand(command, Path.of(project.path())).thenApply(ignored -> null);
     }
 
     public CompletableFuture<String> createWorktree(
             final Project project, final String branch, final Path worktree) {
         final String command =
-                "git worktree add -b " + PlatformCommands.shellQuote(branch) + " " + PlatformCommands.shellQuote(worktree.toString());
+                "git worktree add -b "
+                        + PlatformCommands.shellQuote(branch)
+                        + " "
+                        + PlatformCommands.shellQuote(worktree.toString());
         return runCommand(command, Path.of(project.path()));
     }
 
@@ -259,7 +267,10 @@ public final class Git {
         final String remote = ref.substring(0, separator);
         final String branch = ref.substring(separator + 1);
         return runCommand(
-                        "git fetch " + PlatformCommands.shellQuote(remote) + " " + PlatformCommands.shellQuote(branch),
+                        "git fetch "
+                                + PlatformCommands.shellQuote(remote)
+                                + " "
+                                + PlatformCommands.shellQuote(branch),
                         Path.of(project.path()))
                 .thenApply(ignored -> null);
     }
@@ -347,7 +358,8 @@ public final class Git {
 
     public void deleteWorktree(final Project project, final Path worktree) throws IOException {
         final Path repository = Path.of(project.path()).toAbsolutePath().normalize();
-        final String command = "git worktree remove --force " + PlatformCommands.shellQuote(worktree.toString());
+        final String command =
+                "git worktree remove --force " + PlatformCommands.shellQuote(worktree.toString());
         try {
             final Process process =
                     PlatformCommands.prepare(new ProcessBuilder(PlatformCommands.shell(command)))

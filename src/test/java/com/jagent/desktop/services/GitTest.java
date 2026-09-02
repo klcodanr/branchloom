@@ -177,7 +177,9 @@ class GitTest {
         final Path worktree = directory.resolveSibling(directory.getFileName() + "-feature");
         run(
                 directory,
-                "git worktree add -q " + PlatformCommands.shellQuote(worktree.toString()) + FEATURE_ARGUMENT);
+                "git worktree add -q "
+                        + PlatformCommands.shellQuote(worktree.toString())
+                        + FEATURE_ARGUMENT);
 
         final List<Git.Branch> available =
                 new Git().listAvailableBranches(project(directory)).join();
@@ -200,8 +202,12 @@ class GitTest {
         run(directory, BRANCH_COMMAND + FEATURE_BRANCH);
         run(
                 directory,
-                "git worktree add -q " + PlatformCommands.shellQuote(attached.toString()) + FEATURE_ARGUMENT);
-        run(directory, "git worktree add -q --detach " + PlatformCommands.shellQuote(prunable.toString()));
+                "git worktree add -q "
+                        + PlatformCommands.shellQuote(attached.toString())
+                        + FEATURE_ARGUMENT);
+        run(
+                directory,
+                "git worktree add -q --detach " + PlatformCommands.shellQuote(prunable.toString()));
         Files.delete(prunable.resolve(TRACKED_FILE));
         Files.delete(prunable.resolve(".git"));
         Files.delete(prunable);
@@ -295,7 +301,9 @@ class GitTest {
         final Path worktree = repository.resolveSibling(repository.getFileName() + "-valid");
         run(
                 directory,
-                WORKTREE_BRANCH_COMMAND + PlatformCommands.shellQuote(worktree.toString()) + FEATURE_ARGUMENT);
+                WORKTREE_BRANCH_COMMAND
+                        + PlatformCommands.shellQuote(worktree.toString())
+                        + FEATURE_ARGUMENT);
 
         assertEquals(
                 worktree.toAbsolutePath().normalize(),
@@ -311,8 +319,12 @@ class GitTest {
         final Path worktree = repository.resolveSibling(repository.getFileName() + "-restored");
         run(
                 directory,
-                WORKTREE_BRANCH_COMMAND + PlatformCommands.shellQuote(worktree.toString()) + FEATURE_ARGUMENT);
-        run(directory, "git worktree remove --force " + PlatformCommands.shellQuote(worktree.toString()));
+                WORKTREE_BRANCH_COMMAND
+                        + PlatformCommands.shellQuote(worktree.toString())
+                        + FEATURE_ARGUMENT);
+        run(
+                directory,
+                "git worktree remove --force " + PlatformCommands.shellQuote(worktree.toString()));
 
         new Git()
                 .restoreWorktree(
@@ -357,7 +369,9 @@ class GitTest {
         final Path worktree = directory.resolveSibling(directory.getFileName() + "-deleted");
         run(
                 directory,
-                WORKTREE_BRANCH_COMMAND + PlatformCommands.shellQuote(worktree.toString()) + FEATURE_ARGUMENT);
+                WORKTREE_BRANCH_COMMAND
+                        + PlatformCommands.shellQuote(worktree.toString())
+                        + FEATURE_ARGUMENT);
 
         new Git().deleteWorktree(project(directory), worktree);
 
@@ -444,7 +458,9 @@ class GitTest {
         final Path worktree = directory.resolveSibling(directory.getFileName() + "-prune");
         run(
                 directory,
-                WORKTREE_BRANCH_COMMAND + PlatformCommands.shellQuote(worktree.toString()) + FEATURE_ARGUMENT);
+                WORKTREE_BRANCH_COMMAND
+                        + PlatformCommands.shellQuote(worktree.toString())
+                        + FEATURE_ARGUMENT);
         Files.delete(worktree.resolve(TRACKED_FILE));
         Files.delete(worktree.resolve(".git"));
         Files.delete(worktree);
@@ -463,8 +479,12 @@ class GitTest {
         final Path worktree = directory.resolveSibling(directory.getFileName() + "-plain");
         run(
                 directory,
-                WORKTREE_BRANCH_COMMAND + PlatformCommands.shellQuote(worktree.toString()) + FEATURE_ARGUMENT);
-        run(directory, "git worktree remove --force " + PlatformCommands.shellQuote(worktree.toString()));
+                WORKTREE_BRANCH_COMMAND
+                        + PlatformCommands.shellQuote(worktree.toString())
+                        + FEATURE_ARGUMENT);
+        run(
+                directory,
+                "git worktree remove --force " + PlatformCommands.shellQuote(worktree.toString()));
 
         new Git()
                 .restoreWorktree(

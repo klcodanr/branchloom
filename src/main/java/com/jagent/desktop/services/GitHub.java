@@ -146,7 +146,8 @@ public final class GitHub {
                 "gh api graphql --paginate -F pageSize="
                         + PR_PAGE_SIZE
                         + " -f search="
-                        + PlatformCommands.shellQuote("repo:" + repository + " is:pr is:open " + search)
+                        + PlatformCommands.shellQuote(
+                                "repo:" + repository + " is:pr is:open " + search)
                         + " -f query="
                         + PlatformCommands.shellQuote(PR_QUERY)
                         + " --jq "
