@@ -43,7 +43,7 @@ public final class PullRequestsBoard extends JPanel {
             final ActionContext actionContext, final Supplier<List<PullRequest>> onRefresh) {
         super();
         this.actionContext = actionContext;
-        setLayout(new BorderLayout());
+        setLayout(new BorderLayout(0, 8));
         this.onRefresh = onRefresh;
 
         final var parent = this;

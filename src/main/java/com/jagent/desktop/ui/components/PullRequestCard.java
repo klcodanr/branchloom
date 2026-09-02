@@ -11,12 +11,12 @@ import com.jagent.desktop.ui.actions.ImportBranchAction;
 import com.jagent.desktop.ui.dialogs.ReviewDialog;
 import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Insets;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.logging.Logger;
 import javax.swing.BorderFactory;
+import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -43,7 +43,7 @@ public final class PullRequestCard extends JPanel {
                         new EmptyBorder(7, 7, 7, 7)));
         setPreferredSize(new Dimension(UiConstants.PR_CARD_WIDTH, UiConstants.PR_CARD_HEIGHT));
         setMinimumSize(new Dimension(UiConstants.PR_CARD_WIDTH, UiConstants.PR_CARD_HEIGHT));
-        setMaximumSize(new Dimension(UiConstants.PR_CARD_WIDTH, UiConstants.PR_CARD_HEIGHT));
+        setMaximumSize(new Dimension(Integer.MAX_VALUE, UiConstants.PR_CARD_HEIGHT));
         setAlignmentX(LEFT_ALIGNMENT);
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         final JLabel number = UiFactory.label("#" + request.number(), Theme.FontSize.XS);
@@ -76,8 +76,10 @@ public final class PullRequestCard extends JPanel {
         add(title);
         final JComponent statusDot =
                 new StatusDot(UiText.checksColor(request.checksStatus()), checksSummary(request));
-        final JPanel statusRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        final JPanel statusRow = new JPanel();
         statusRow.setOpaque(false);
+        statusRow.setLayout(new BoxLayout(statusRow, BoxLayout.X_AXIS));
+        statusRow.setAlignmentX(LEFT_ALIGNMENT);
         final JLabel metadata =
                 UiFactory.label(
                         "@"
@@ -89,6 +91,7 @@ public final class PullRequestCard extends JPanel {
                         Theme.FontSize.XS);
         metadata.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
         statusRow.add(statusDot);
+        statusRow.add(Box.createHorizontalStrut(5));
         statusRow.add(metadata);
         statusRow.setComponentPopupMenu(contextMenu);
         add(statusRow);

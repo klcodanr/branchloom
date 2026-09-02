@@ -37,7 +37,10 @@ public final class GitFormatter {
     }
 
     public static String statusHtml(final PullRequestInfo request) {
-        final String color = UiText.colorHex(UiText.checksColor(request.checksStatus()));
+        final String color =
+                UiText.colorHex(
+                        UiText.pullRequestIndicatorColor(
+                                request.mergeState(), request.checksStatus()));
         return "PR: <font color='"
                 + color
                 + "'>&#9679;</font> "
@@ -56,6 +59,9 @@ public final class GitFormatter {
         }
         if ("CONFLICTING".equals(value)) {
             return "Cannot merge";
+        }
+        if ("QUEUED".equals(value)) {
+            return "In merge queue";
         }
         return "Mergeability unknown";
     }

@@ -58,6 +58,7 @@ public final class TerminalPanel extends JPanel {
         super(new BorderLayout());
         runtime = manager.create(command, directory, resourceName);
         retainedId = null;
+        setOpaque(false);
         setBorder(new EmptyBorder(14, 14, 14, 14));
         terminal = new AppJediTermWidget(80, 24, new AppTerminalSettings());
         add(terminal, BorderLayout.CENTER);
@@ -68,6 +69,7 @@ public final class TerminalPanel extends JPanel {
         super(new BorderLayout());
         this.retainedId = retainedId;
         this.runtime = runtime;
+        setOpaque(false);
         setBorder(new EmptyBorder(14, 14, 14, 14));
         terminal = new AppJediTermWidget(80, 24, new AppTerminalSettings());
         add(terminal, BorderLayout.CENTER);
