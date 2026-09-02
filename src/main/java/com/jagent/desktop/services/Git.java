@@ -63,10 +63,44 @@ public final class Git {
     }
 
     public static String diffSummary(final Path worktree) throws IOException, InterruptedException {
-        return run(
-                worktree,
-                "head=$(git rev-parse --abbrev-ref HEAD@{upstream} 2>/dev/null || git rev-parse --verify HEAD~1)"
-                        + " && git diff --numstat \"$head...HEAD\"");
+        final StringBuilder summary =
+                new StringBuilder(runGit(worktree, 0, "diff", "--numstat", "HEAD"));
+        final String untracked =
+                runGit(worktree, 0, "ls-files", "--others", "--exclude-standard", "-z");
+        for (final String file : untracked.split("\u0000")) {
+            if (!file.isBlank()) {
+                summary.append(
+                        runGit(
+                                worktree,
+                                1,
+                                "diff",
+                                "--no-index",
+                                "--numstat",
+                                "--",
+                                PlatformCommands.isWindows() ? "NUL" : "/dev/null",
+                                file));
+            }
+        }
+        return summary.toString();
+    }
+
+    private static String runGit(final Path worktree, final int expectedExitCode, final String... args)
+            throws IOException, InterruptedException {
+        final List<String> command = new ArrayList<>();
+        command.add(PlatformCommands.executable("git"));
+        command.addAll(List.of(args));
+        final ProcessBuilder builder =
+                PlatformCommands.prepare(new ProcessBuilder(command))
+                        .directory(worktree.toFile())
+                        .redirectErrorStream(true);
+        final Process process = builder.start();
+        final String output =
+                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        if (process.waitFor() != expectedExitCode) {
+            PlatformCommands.logFailure(builder, process.exitValue(), output);
+            throw new IOException(output.trim());
+        }
+        return output;
     }
 
     private static String run(final Path worktree, final String command)
