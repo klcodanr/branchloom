@@ -142,6 +142,24 @@ class CoreLogicTest {
                         "PASSING");
         final PullRequest approved = pullRequest(projectId, false, MERGEABLE, "APPROVED");
         final PullRequest conflicting = pullRequest(projectId, false, "CONFLICTING", "APPROVED");
+        final PullRequest failingChecks =
+                new PullRequest(
+                        projectId,
+                        3,
+                        "Title",
+                        "Description",
+                        "Comments",
+                        "https://example.test/3",
+                        "created",
+                        "updated",
+                        "UNKNOWN",
+                        MERGEABLE,
+                        false,
+                        "author",
+                        "feature",
+                        0,
+                        1,
+                        "FAILING");
 
         assertEquals(PullRequestGroup.NOT_READY.label(), draft.relevanceGroup(), VALUE_MESSAGE);
         assertEquals(
@@ -151,6 +169,8 @@ class CoreLogicTest {
         assertEquals(PullRequestGroup.APPROVED.label(), approved.relevanceGroup(), VALUE_MESSAGE);
         assertEquals(
                 PullRequestGroup.NOT_READY.label(), conflicting.relevanceGroup(), VALUE_MESSAGE);
+        assertEquals(
+                PullRequestGroup.NOT_READY.label(), failingChecks.relevanceGroup(), VALUE_MESSAGE);
         assertEquals(
                 PullRequestGroup.READY_FOR_REVIEW.label(),
                 pullRequest(projectId, false, MERGEABLE, "UNKNOWN").relevanceGroup(),
