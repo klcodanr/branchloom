@@ -72,8 +72,12 @@ public final class ProjectSettingsView extends JPanel implements View {
         final JTextArea template = new JTextArea(project.worktreeTemplate(), 2, 45);
         final JTextArea startup =
                 new JTextArea(String.join("\n", project.startupCommands()), 4, 45);
+        final JTextField agentContextPath = new JTextField(agentContextPath(project), 45);
+        final JTextArea agentContextText = new JTextArea(agentContextText(project), 6, 45);
         template.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
         startup.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
+        agentContextPath.setToolTipText(
+                "Blank disables context generation. Relative paths are created in each worktree.");
         final JComboBox<GitHub.Auth> githubAuth = GitHubAuthSelector.render();
         final JPanel form = new JPanel();
         form.setOpaque(false);
@@ -84,11 +88,15 @@ public final class ProjectSettingsView extends JPanel implements View {
         form.add(Box.createVerticalStrut(18));
         form.add(SettingsPanel.labeledField("Repository path", repositoryField(project, form)));
         form.add(Box.createVerticalStrut(18));
-        form.add(SettingsPanel.labeledField("Worktree path (blank = global)", template));
+        form.add(SettingsPanel.labeledField("Worktree path", template));
         form.add(Box.createVerticalStrut(18));
         form.add(
                 SettingsPanel.labeledField(
                         "Startup command files / commands (one per line)", startup));
+        form.add(Box.createVerticalStrut(18));
+        form.add(SettingsPanel.labeledField("Agent context file path", agentContextPath));
+        form.add(Box.createVerticalStrut(18));
+        form.add(SettingsPanel.labeledField("Additional agent context", agentContextText));
         form.add(Box.createVerticalStrut(18));
         form.add(SettingsPanel.labeledField("GitHub CLI auth", githubAuth));
         final JPanel formContainer = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
@@ -100,6 +108,8 @@ public final class ProjectSettingsView extends JPanel implements View {
         final String initialTemplate =
                 project.worktreeTemplate() == null ? "" : project.worktreeTemplate();
         final String initialStartup = String.join("\n", project.startupCommands());
+        final String initialAgentContextPath = agentContextPath(project);
+        final String initialAgentContextText = agentContextText(project);
         final String initialHost = project.githubHost() == null ? "" : project.githubHost();
         final String initialUser = project.githubUser() == null ? "" : project.githubUser();
         return SettingsPanel.render(
@@ -108,7 +118,16 @@ public final class ProjectSettingsView extends JPanel implements View {
                 formContainer,
                 () ->
                         saveProject(
-                                state, project, name, group, template, startup, githubAuth, close),
+                                state,
+                                project,
+                                name,
+                                group,
+                                template,
+                                startup,
+                                agentContextPath,
+                                agentContextText,
+                                githubAuth,
+                                close),
                 close,
                 () ->
                         hasChanges(
@@ -116,12 +135,16 @@ public final class ProjectSettingsView extends JPanel implements View {
                                 initialGroup,
                                 initialTemplate,
                                 initialStartup,
+                                initialAgentContextPath,
+                                initialAgentContextText,
                                 initialHost,
                                 initialUser,
                                 name,
                                 group,
                                 template,
                                 startup,
+                                agentContextPath,
+                                agentContextText,
                                 githubAuth));
     }
 
@@ -137,6 +160,14 @@ public final class ProjectSettingsView extends JPanel implements View {
         return repository;
     }
 
+    private static String agentContextPath(final Project project) {
+        return project.agentContextPath() == null ? "" : project.agentContextPath();
+    }
+
+    private static String agentContextText(final Project project) {
+        return project.agentContextText() == null ? "" : project.agentContextText();
+    }
+
     private static void saveProject(
             final AppState state,
             final Project project,
@@ -144,6 +175,8 @@ public final class ProjectSettingsView extends JPanel implements View {
             final JTextField group,
             final JTextArea template,
             final JTextArea startup,
+            final JTextField agentContextPath,
+            final JTextArea agentContextText,
             final JComboBox<GitHub.Auth> githubAuth,
             final Runnable close) {
         final String updatedName = name.getText().trim();
@@ -177,7 +210,9 @@ public final class ProjectSettingsView extends JPanel implements View {
                         template.getText().trim(),
                         project.worktreeCommand(),
                         GlobalSettingsView.lines(startup.getText()),
-                        project.sessionIds());
+                        project.sessionIds(),
+                        agentContextPath.getText().trim(),
+                        agentContextText.getText());
         state.projects().entrySet().stream()
                 .filter(entry -> entry.getValue().equals(project))
                 .map(Map.Entry::getKey)
@@ -195,18 +230,24 @@ public final class ProjectSettingsView extends JPanel implements View {
             final String initialGroup,
             final String initialTemplate,
             final String initialStartup,
+            final String initialAgentContextPath,
+            final String initialAgentContextText,
             final String initialHost,
             final String initialUser,
             final JTextField name,
             final JTextField group,
             final JTextArea template,
             final JTextArea startup,
+            final JTextField agentContextPath,
+            final JTextArea agentContextText,
             final JComboBox<GitHub.Auth> githubAuth) {
         return !initialName.equals(name.getText().trim())
                 || !initialGroup.equals(
                         group.getText().isBlank() ? Defaults.DEFAULT_GROUP : group.getText().trim())
                 || !Objects.equals(initialTemplate, template.getText())
                 || !initialStartup.equals(startup.getText())
+                || !initialAgentContextPath.equals(agentContextPath.getText().trim())
+                || !initialAgentContextText.equals(agentContextText.getText())
                 || !initialHost.equals(selectedAuthHost(githubAuth))
                 || !initialUser.equals(selectedAuthUser(githubAuth));
     }
