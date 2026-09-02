@@ -202,8 +202,11 @@ class BoardsUiTest {
     private static void awaitLoaded(final PullRequestsBoard board) throws InterruptedException {
         for (int attempt = 0;
                 attempt < 100
-                        && !(board.getComponentCount() > 1
-                                && board.getComponent(1) instanceof javax.swing.JScrollPane);
+                        && !GuiActionRunner.execute(
+                                () ->
+                                        board.getComponentCount() > 1
+                                                && board.getComponent(1)
+                                                        instanceof javax.swing.JScrollPane);
                 attempt++) {
             GuiActionRunner.execute(() -> {});
             Thread.sleep(10);
