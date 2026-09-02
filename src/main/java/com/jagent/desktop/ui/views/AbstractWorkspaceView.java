@@ -3,6 +3,7 @@ package com.jagent.desktop.ui.views;
 import com.jagent.desktop.api.View;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.services.terminal.TerminalState;
@@ -55,7 +56,12 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
                 new WorkspaceTerminalTabs(
                         tabs,
                         ignored -> terminalStateChanged(),
-                        this::terminalClosed,
+                        (terminal, terminalId) -> {
+                            if (terminalId != null) {
+                                actionContext.appState().removeTerminal(terminalId);
+                            }
+                            terminalClosed();
+                        },
                         this::terminalRenamed);
         terminalStates = terminalTabs.states();
         terminalIds = terminalTabs.ids();
@@ -117,7 +123,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
 
     protected abstract void terminalStateChanged();
 
-    protected abstract void terminalClosed(TerminalPanel terminal);
+    protected abstract void terminalClosed();
 
     protected final void mountTerminal(
             final String title,
@@ -135,7 +141,16 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         terminalTabs.renameActive(this);
     }
 
-    protected abstract void terminalRenamed(TerminalPanel terminal, String title);
+    protected final void terminalRenamed(final TerminalPanel terminal, final String title) {
+        final TerminalId terminalId = terminalIds.get(terminal);
+        if (terminalId == null) {
+            return;
+        }
+        final Terminal current = actionContext.appState().terminals().get(terminalId);
+        if (current != null) {
+            actionContext.appState().updateTerminal(terminalId, current.withTitle(title));
+        }
+    }
 
     protected final JLabel titleLabel() {
         return titleLabel;

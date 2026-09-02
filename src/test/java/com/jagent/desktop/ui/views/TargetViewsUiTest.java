@@ -36,6 +36,7 @@ class TargetViewsUiTest {
     private static final String SESSION_NAME = "Feature";
     private static final String SESSION_AGENT = "agent";
     private static final String SESSION_PROMPT = "prompt";
+    private static final String SUCCESS_COMMAND = "true";
 
     @Test
     void globalSettingsRendersConfiguredRowsAndSavesChanges() {
@@ -132,8 +133,9 @@ class TargetViewsUiTest {
                                 "test-agent",
                                 SESSION_PROMPT,
                                 PROJECT_PATH));
-        state.addTerminal(sessionId, new Terminal(sessionId, "Shell", "true"));
-        state.addTerminal(sessionId, new Terminal(sessionId, projectId, "Dual owner", "true"));
+        state.addTerminal(sessionId, new Terminal(sessionId, "Shell", SUCCESS_COMMAND));
+        state.addTerminal(
+                sessionId, new Terminal(sessionId, projectId, "Dual owner", SUCCESS_COMMAND));
         final var context = new ActionContext(new ViewCoordinator(state), state, null);
 
         final var view =
@@ -180,6 +182,46 @@ class TargetViewsUiTest {
         view.closeActiveTerminal();
         view.renameActiveTerminal();
         view.dispose();
+    }
+
+    @Test
+    void sharedTerminalCloseRemovesProjectAndSessionTerminals() throws InvalidObjectException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
+        final var sessionId =
+                state.addSession(
+                        projectId,
+                        new Session(
+                                projectId,
+                                SESSION_NAME,
+                                SESSION_AGENT,
+                                SESSION_PROMPT,
+                                PROJECT_PATH));
+        final var projectTerminalId =
+                state.addTerminal(new Terminal(null, projectId, "Project", SUCCESS_COMMAND));
+        final var sessionTerminalId =
+                state.addTerminal(sessionId, new Terminal(sessionId, "Session", SUCCESS_COMMAND));
+        state.updateCurrentProject(projectId);
+        state.updateCurrentSession(sessionId);
+        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+
+        final var projectView =
+                GuiActionRunner.execute(
+                        () -> new ProjectView(context, state.projects().get(projectId)));
+        projectView.selectTerminal(1);
+        projectView.closeActiveTerminal();
+        org.junit.jupiter.api.Assertions.assertFalse(
+                state.terminals().containsKey(projectTerminalId), ASSERTION_MESSAGE);
+
+        state.updateCurrentTerminal(null);
+        final var sessionView = GuiActionRunner.execute(() -> new SessionView(context));
+        sessionView.selectTerminal(1);
+        sessionView.closeActiveTerminal();
+        org.junit.jupiter.api.Assertions.assertFalse(
+                state.terminals().containsKey(sessionTerminalId), ASSERTION_MESSAGE);
+
+        projectView.dispose();
+        sessionView.dispose();
     }
 
     @Test
@@ -315,7 +357,8 @@ class TargetViewsUiTest {
                         () -> {
                             final var id =
                                     state.addTerminal(
-                                            sessionId, new Terminal(sessionId, "Terminal", "true"));
+                                            sessionId,
+                                            new Terminal(sessionId, "Terminal", SUCCESS_COMMAND));
                             state.updateCurrentTerminal(id);
                             return id;
                         });

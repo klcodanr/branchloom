@@ -14,7 +14,7 @@ import javax.swing.JTabbedPane;
 public final class WorkspaceTerminalTabs {
     private final JTabbedPane tabs;
     private final Consumer<TerminalState> stateChanged;
-    private final Consumer<TerminalPanel> closed;
+    private final BiConsumer<TerminalPanel, TerminalId> closed;
     private final BiConsumer<TerminalPanel, String> renamed;
     private final Map<TerminalPanel, TerminalState> states = new IdentityHashMap<>();
     private final Map<TerminalPanel, TerminalId> ids = new IdentityHashMap<>();
@@ -22,7 +22,7 @@ public final class WorkspaceTerminalTabs {
     public WorkspaceTerminalTabs(
             final JTabbedPane tabs,
             final Consumer<TerminalState> stateChanged,
-            final Consumer<TerminalPanel> closed,
+            final BiConsumer<TerminalPanel, TerminalId> closed,
             final BiConsumer<TerminalPanel, String> renamed) {
         this.tabs = tabs;
         this.stateChanged = stateChanged;
@@ -113,10 +113,10 @@ public final class WorkspaceTerminalTabs {
                 || !(tabs.getComponentAt(index) instanceof TerminalPanel terminal)) {
             return;
         }
+        final TerminalId terminalId = ids.remove(terminal);
         tabs.removeTabAt(index);
         states.remove(terminal);
         terminal.dispose();
-        closed.accept(terminal);
-        ids.remove(terminal);
+        closed.accept(terminal, terminalId);
     }
 }
