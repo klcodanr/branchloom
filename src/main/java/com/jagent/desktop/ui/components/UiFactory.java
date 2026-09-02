@@ -64,6 +64,7 @@ public final class UiFactory {
         final JPanel content = new JPanel();
         content.setOpaque(false);
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.setBorder(new EmptyBorder(20, 24, 20, 24));
         final JProgressBar progress = new JProgressBar();
         progress.setIndeterminate(true);
         progress.setPreferredSize(new Dimension(180, 8));

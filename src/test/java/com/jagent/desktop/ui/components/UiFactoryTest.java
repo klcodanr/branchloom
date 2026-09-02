@@ -38,10 +38,17 @@ class UiFactoryTest {
         final var form = UiFactory.form("Name", new JTextArea());
         final var empty = UiFactory.empty("Nothing", "Try again");
 
-        assertTrue(
-                ((JProgressBar) ((javax.swing.JPanel) loading.getComponent(0)).getComponent(0))
-                        .isIndeterminate(),
-                CONDITION_MESSAGE);
+        final JProgressBar progress =
+                (JProgressBar) ((javax.swing.JPanel) loading.getComponent(0)).getComponent(0);
+        assertTrue(progress.isIndeterminate(), CONDITION_MESSAGE);
+        assertEquals(180, progress.getPreferredSize().width, VALUE_MESSAGE);
+        assertEquals(8, progress.getPreferredSize().height, VALUE_MESSAGE);
+        assertEquals(
+                13,
+                ((JLabel) ((javax.swing.JPanel) loading.getComponent(0)).getComponent(2))
+                        .getFont()
+                        .getSize(),
+                VALUE_MESSAGE);
         assertEquals(2, inline.getComponentCount(), VALUE_MESSAGE);
         assertEquals(3, metric.getComponentCount(), VALUE_MESSAGE);
         assertEquals(2, form.getComponentCount(), VALUE_MESSAGE);
