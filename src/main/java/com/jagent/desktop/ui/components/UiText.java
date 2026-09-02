@@ -38,4 +38,15 @@ public final class UiText {
             default -> Theme.mutedColor();
         };
     }
+
+    public static Color pullRequestIndicatorColor(
+            final String mergeState, final String checksStatus) {
+        if ("CLEAN".equals(mergeState) || "MERGEABLE".equals(mergeState)) {
+            return Theme.mergeColor();
+        }
+        if ("QUEUED".equals(mergeState)) {
+            return Theme.mergeQueueColor();
+        }
+        return checksColor(checksStatus);
+    }
 }
