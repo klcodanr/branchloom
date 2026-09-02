@@ -51,6 +51,14 @@ class GitTest {
     }
 
     @Test
+    void quotesWindowsCommandArguments() {
+        assertEquals(
+                "\"prompt with ^^^& ^| ^< ^> ^( ^) ^% ^! and \\\"quotes\\\"\"",
+                Git.windowsShellQuote("prompt with ^& | < > ( ) % ! and \"quotes\""),
+                "Windows command arguments should escape shell metacharacters");
+    }
+
+    @Test
     void repositoryValidationUsesGit(@TempDir final Path directory)
             throws IOException, InterruptedException {
         TestGitRepository.initialize(directory);

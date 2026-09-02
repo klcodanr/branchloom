@@ -160,17 +160,21 @@ public final class CreateSessionAction extends BaseAction {
                         worktreePath);
         try {
             final var sessionId = state.addSession(projectId, session);
-            state.addTerminal(
-                    sessionId,
-                    new Terminal(
+            final var terminalId =
+                    state.addTerminal(
                             sessionId,
-                            request.agent().name,
-                            request.agent()
-                                    .newSessionCommand
-                                    .replace("{prompt}", Git.shellQuote(request.prompt()))));
+                            new Terminal(
+                                    sessionId,
+                                    request.agent().name,
+                                    request.agent()
+                                            .newSessionCommand
+                                            .replace(
+                                                    "{prompt}", Git.shellQuote(request.prompt()))));
             actionContext
                     .viewCoordinator()
-                    .updateView(ViewId.SESSION, ViewState.session(projectId, sessionId));
+                    .updateView(
+                            ViewId.SESSION,
+                            ViewState.sessionTerminal(projectId, sessionId, terminalId));
         } catch (InvalidObjectException exception) {
             LOG.log(Level.SEVERE, "Create session", exception);
         }

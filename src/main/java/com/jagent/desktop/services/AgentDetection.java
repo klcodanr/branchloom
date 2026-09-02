@@ -14,7 +14,7 @@ public final class AgentDetection {
         addIfAvailable(agents, "Codex", "codex", "codex {prompt}", "codex");
         addIfAvailable(agents, "Gemini CLI", "gemini", "gemini {prompt}", "gemini");
         addIfAvailable(agents, "Aider", "aider", "aider --message {prompt}", "aider");
-        addIfAvailable(agents, "OpenCode", "opencode", "opencode", "opencode");
+        addIfAvailable(agents, "OpenCode", "opencode", "opencode --prompt {prompt}", "opencode");
         return List.copyOf(agents);
     }
 
