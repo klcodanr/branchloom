@@ -115,8 +115,8 @@ public final class WorkspaceTerminalTabs {
         }
         tabs.removeTabAt(index);
         states.remove(terminal);
-        ids.remove(terminal);
         terminal.dispose();
         closed.accept(terminal);
+        ids.remove(terminal);
     }
 }
