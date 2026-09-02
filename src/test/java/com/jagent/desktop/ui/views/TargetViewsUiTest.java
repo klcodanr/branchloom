@@ -11,6 +11,7 @@ import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
+import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.Tool;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
@@ -111,6 +112,28 @@ class TargetViewsUiTest {
         view.closeActiveTerminal();
         view.renameActiveTerminal();
         view.dispose();
+    }
+
+    @Test
+    void projectViewDoesNotRenderSessionTerminals() throws InvalidObjectException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
+        final var sessionId =
+                state.addSession(
+                        projectId,
+                        new Session(projectId, SESSION_NAME, "test-agent", "prompt", PROJECT_PATH));
+        state.addTerminal(sessionId, new Terminal(sessionId, "Shell", "true"));
+        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+
+        final var terminalCount =
+                GuiActionRunner.execute(
+                        () -> {
+                            final var view =
+                                    new ProjectView(context, state.projects().get(projectId));
+                            return ((JTabbedPane) view.getComponent(1)).getTabCount();
+                        });
+
+        assertEquals(3, terminalCount, "session terminals should not appear in project tabs");
     }
 
     @Test
