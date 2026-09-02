@@ -10,10 +10,14 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.Project;
+import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
+import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.Terminal;
+import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.models.Tool;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.Defaults;
 import com.jagent.desktop.ui.components.SessionSummary;
@@ -331,6 +335,42 @@ class TargetViewsUiTest {
 
         assertEquals(0, tabs.getSelectedIndex(), ASSERTION_MESSAGE);
         assertEquals(null, state.currentTerminalId(), ASSERTION_MESSAGE);
+    }
+
+    @Test
+    void restoringAgentTerminalReplacesItsCommandWithAUserShell() {
+        final ProjectId projectId = ProjectId.create();
+        final TerminalId agentTerminalId = TerminalId.create();
+        final TerminalId regularTerminalId = TerminalId.create();
+        final Session session =
+                new Session(projectId, SESSION_NAME, SESSION_AGENT, SESSION_PROMPT, PROJECT_PATH)
+                        .withNewTerminal(agentTerminalId)
+                        .withNewTerminal(regularTerminalId);
+        final SessionId sessionId = SessionId.create();
+        final Terminal persistedAgentTerminal =
+                new Terminal(sessionId, projectId, "Agent 1", "agent --prompt='prompt'");
+        final Terminal persistedRegularTerminal =
+                new Terminal(sessionId, projectId, "Terminal 2", SUCCESS_COMMAND);
+
+        final Terminal restoredAgentTerminal =
+                SessionView.terminalDefinitionForRestore(
+                        session, agentTerminalId, persistedAgentTerminal);
+        final Terminal restoredRegularTerminal =
+                SessionView.terminalDefinitionForRestore(
+                        session, regularTerminalId, persistedRegularTerminal);
+
+        assertEquals(
+                PlatformCommands.userShell(),
+                restoredAgentTerminal.command(),
+                "restored agent tabs should start a user shell");
+        assertEquals(
+                persistedAgentTerminal.title(),
+                restoredAgentTerminal.title(),
+                "restoring the agent tab should preserve its title");
+        assertSame(
+                persistedRegularTerminal,
+                restoredRegularTerminal,
+                "regular terminal tabs should retain their persisted definition");
     }
 
     @Test
