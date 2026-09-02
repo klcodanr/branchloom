@@ -89,7 +89,7 @@ class PresentationHelpersTest {
                         "",
                         "",
                         "OPEN",
-                         CLEAN,
+                        CLEAN,
                         false,
                         "",
                         "",
@@ -112,7 +112,7 @@ class PresentationHelpersTest {
                 GitFormatter.detailsHtml(
                         new PullRequest(
                                 null, 12, "Fix", "", "", "", "", "", "", "", true, "", "", 0, 0,
-                                 UNKNOWN)),
+                                UNKNOWN)),
                 "draft details should show pending review and unknown states");
     }
 
@@ -156,7 +156,7 @@ class PresentationHelpersTest {
                         "",
                         "MERGED",
                         "",
-                         UNKNOWN,
+                        UNKNOWN,
                         "",
                         false,
                         0,
@@ -168,12 +168,12 @@ class PresentationHelpersTest {
                         "",
                         "CLOSED",
                         "",
-                         CLEAN,
+                        CLEAN,
                         "",
                         false,
                         0,
                         0,
-                         UNKNOWN);
+                        UNKNOWN);
 
         assertEquals(
                 true,
