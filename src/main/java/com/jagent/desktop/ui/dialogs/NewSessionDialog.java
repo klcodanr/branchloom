@@ -3,11 +3,14 @@ package com.jagent.desktop.ui.dialogs;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.Git;
+import com.jagent.desktop.ui.components.SearchableComboBox;
 import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.io.IOException;
+import java.util.List;
 import java.util.function.Consumer;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -23,13 +26,26 @@ public final class NewSessionDialog extends JDialog {
     private final transient Consumer<Request> onValid;
     private final JTextField name = new JTextField(35);
     private final JComboBox<Agent> agent;
+    private final SearchableComboBox<String> baseBranch;
+    private final List<String> branchNames;
     private final JTextArea prompt = new JTextArea(5, 35);
     private final JButton cancel = new JButton("Cancel");
     private final JButton ok = new JButton("OK");
 
-    public record Request(String name, Agent agent, String prompt) {}
+    public record Request(String name, Agent agent, String prompt, String baseBranch) {
+        public Request(final String name, final Agent agent, final String prompt) {
+            this(name, agent, prompt, null);
+        }
+    }
 
     public NewSessionDialog(final ActionContext actionContext, final Consumer<Request> onValid) {
+        this(actionContext, List.of(), onValid);
+    }
+
+    public NewSessionDialog(
+            final ActionContext actionContext,
+            final List<Git.Branch> branches,
+            final Consumer<Request> onValid) {
         super(actionContext.window(), "New agent session", ModalityType.APPLICATION_MODAL);
 
         this.appState = actionContext.appState();
@@ -38,6 +54,10 @@ public final class NewSessionDialog extends JDialog {
         agent = new JComboBox<>(appState.appSettings().agents().toArray(new Agent[0]));
         agent.setName("session-agent");
         agent.setPreferredSize(new Dimension(350, agent.getPreferredSize().height));
+        branchNames = branches.stream().map(Git.Branch::name).toList();
+        baseBranch = new SearchableComboBox<>(branchNames);
+        baseBranch.setName("session-base-branch");
+        baseBranch.setPreferredSize(new Dimension(350, baseBranch.getPreferredSize().height));
         prompt.setLineWrap(true);
         prompt.setWrapStyleWord(true);
         prompt.setName("session-prompt");
@@ -52,7 +72,15 @@ public final class NewSessionDialog extends JDialog {
         buttons.add(ok);
         setLayout(new BorderLayout(12, 12));
         add(
-                UiFactory.form("Session name", name, "Agent", agent, "Prompt", promptInput),
+                UiFactory.form(
+                        "Session name",
+                        name,
+                        "Agent",
+                        agent,
+                        "Base branch",
+                        baseBranch,
+                        "Prompt",
+                        promptInput),
                 BorderLayout.CENTER);
         add(buttons, BorderLayout.SOUTH);
         cancel.addActionListener(event -> dispose());
@@ -77,7 +105,13 @@ public final class NewSessionDialog extends JDialog {
         }
         final Agent selectedAgent = (Agent) agent.getSelectedItem();
         dispose();
-        onValid.accept(new Request(name.getText().trim(), selectedAgent, prompt.getText().trim()));
+        final String selectedBranch = (String) baseBranch.getSelectedItem();
+        onValid.accept(
+                new Request(
+                        name.getText().trim(),
+                        selectedAgent,
+                        prompt.getText().trim(),
+                        branchNames.contains(selectedBranch) ? selectedBranch : null));
     }
 
     private void showError(final Throwable exception) {

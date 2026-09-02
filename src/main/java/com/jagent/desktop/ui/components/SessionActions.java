@@ -12,6 +12,7 @@ import com.jagent.desktop.ui.actions.OpenDirectoryAction;
 import com.jagent.desktop.ui.actions.RemoveSessionAction;
 import com.jagent.desktop.ui.actions.RenameSessionAction;
 import com.jagent.desktop.ui.actions.RunCommandAction;
+import com.jagent.desktop.ui.actions.UpdateBranchAction;
 import java.awt.Container;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
@@ -52,6 +53,8 @@ public final class SessionActions {
                         actionContext, sessionId, new OpenDirectoryAction(actionContext)));
         menu.add(sessionActionItem(actionContext, sessionId, new CopyPathAction(actionContext)));
         menu.add(sessionActionItem(actionContext, sessionId, new CopyBranchAction(actionContext)));
+        menu.add(
+                sessionActionItem(actionContext, sessionId, new UpdateBranchAction(actionContext)));
 
         addAgents(menu, actionContext, sessionId);
         addEditors(menu, actionContext, sessionId);

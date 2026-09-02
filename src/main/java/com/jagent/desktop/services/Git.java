@@ -2,12 +2,12 @@ package com.jagent.desktop.services;
 
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
+import com.jagent.desktop.services.git.GitParser;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,9 +26,9 @@ public final class Git {
             return command;
         }
         return "GH_TOKEN=$(gh auth token --hostname "
-                + shellQuote(host)
+                + PlatformCommands.shellQuote(host)
                 + " --user "
-                + shellQuote(user)
+                + PlatformCommands.shellQuote(user)
                 + ") "
                 + command;
     }
@@ -39,22 +39,8 @@ public final class Git {
 
     public static Map<String, String> statusFiles(final Path worktree)
             throws IOException, InterruptedException {
-        final String output = run(worktree, "git status --porcelain=v1 -z --untracked-files=all");
-        final Map<String, String> statuses = new LinkedHashMap<>();
-        final String[] entries = output.split("\u0000", -1);
-        int index = 0;
-        while (index < entries.length) {
-            final String entry = entries[index];
-            if (entry.length() < 4) {
-                index++;
-                continue;
-            }
-            final String code = entry.substring(0, 2);
-            final String path = entry.substring(3);
-            statuses.put(path, code);
-            index += code.contains("R") || code.contains("C") ? 2 : 1;
-        }
-        return Map.copyOf(statuses);
+        return GitParser.parseStatus(
+                run(worktree, "git status --porcelain=v1 -z --untracked-files=all"));
     }
 
     public static String currentBranch(final Path worktree)
@@ -132,23 +118,7 @@ public final class Git {
         return query(
                         project,
                         "git for-each-ref --format='%(refname)|%(symref)' refs/heads refs/remotes")
-                .thenApply(
-                        lines ->
-                                lines.stream()
-                                        .map(line -> line.split("\\|", 2))
-                                        .filter(parts -> parts.length > 0 && !parts[0].isBlank())
-                                        .filter(parts -> parts.length < 2 || parts[1].isBlank())
-                                        .map(
-                                                parts -> {
-                                                    final boolean remote =
-                                                            parts[0].startsWith("refs/remotes/");
-                                                    final String name =
-                                                            parts[0].substring(remote ? 13 : 11);
-                                                    return new Branch(name, remote);
-                                                })
-                                        .filter(branch -> !branch.name().endsWith("/HEAD"))
-                                        .distinct()
-                                        .toList());
+                .thenApply(GitParser::parseBranches);
     }
 
     public CompletableFuture<List<Path>> listWorktrees(final Project project) {
@@ -176,7 +146,7 @@ public final class Git {
     }
 
     private CompletableFuture<List<Worktree>> listWorktreeDetails(final Project project) {
-        return query(project, "git worktree list --porcelain").thenApply(Git::parseWorktrees);
+        return query(project, "git worktree list --porcelain").thenApply(GitParser::parseWorktrees);
     }
 
     public CompletableFuture<Optional<Worktree>> checkPrunableWorktree(
@@ -208,49 +178,25 @@ public final class Git {
         final String branch = branchName(worktree.branch());
         final String command =
                 "git worktree add --force "
-                        + shellQuote(worktree.path().toString())
+                        + PlatformCommands.shellQuote(worktree.path().toString())
                         + " "
-                        + shellQuote(branch);
+                        + PlatformCommands.shellQuote(branch);
         final Path repository = Path.of(project.path());
         return runCommand(command, repository)
                 .thenCompose(
                         ignored ->
                                 runCommand(
                                         "git -C "
-                                                + shellQuote(worktree.path().toString())
+                                                + PlatformCommands.shellQuote(
+                                                        worktree.path().toString())
                                                 + " checkout -B "
-                                                + shellQuote(branch),
+                                                + PlatformCommands.shellQuote(branch),
                                         repository))
                 .thenApply(ignored -> null);
     }
 
     private static String branchName(final String branch) {
         return branch.startsWith("refs/heads/") ? branch.substring("refs/heads/".length()) : branch;
-    }
-
-    private static List<Worktree> parseWorktrees(final List<String> lines) {
-        final List<Worktree> worktrees = new ArrayList<>();
-        Path path = null;
-        String branch = null;
-        boolean prunable = false;
-        for (final String line : lines) {
-            if (line.startsWith("worktree ")) {
-                if (path != null) {
-                    worktrees.add(new Worktree(path, branch, prunable));
-                }
-                path = Path.of(line.substring("worktree ".length()));
-                branch = null;
-                prunable = false;
-            } else if (line.startsWith("branch ")) {
-                branch = line.substring("branch ".length());
-            } else if (line.startsWith("prunable ")) {
-                prunable = true;
-            }
-        }
-        if (path != null) {
-            worktrees.add(new Worktree(path, branch, prunable));
-        }
-        return worktrees;
     }
 
     public CompletableFuture<Void> addWorktree(
@@ -261,10 +207,12 @@ public final class Git {
             final String branchName) {
         final String command =
                 "git worktree add "
-                        + (createBranch ? "-b " + shellQuote(branchName) + " " : "")
-                        + shellQuote(worktree.toString())
+                        + (createBranch
+                                ? "-b " + PlatformCommands.shellQuote(branchName) + " "
+                                : "")
+                        + PlatformCommands.shellQuote(worktree.toString())
                         + " "
-                        + shellQuote(ref);
+                        + PlatformCommands.shellQuote(ref);
         return runCommand(command, Path.of(project.path())).thenApply(ignored -> null);
     }
 
@@ -272,15 +220,59 @@ public final class Git {
             final Project project, final int pullRequestNumber) {
         final String branch = "pr-" + pullRequestNumber;
         final String command =
-                "git fetch origin pull/" + pullRequestNumber + "/head:" + shellQuote(branch);
+                "git fetch origin pull/"
+                        + pullRequestNumber
+                        + "/head:"
+                        + PlatformCommands.shellQuote(branch);
         return runCommand(command, Path.of(project.path())).thenApply(ignored -> null);
     }
 
     public CompletableFuture<String> createWorktree(
             final Project project, final String branch, final Path worktree) {
         final String command =
-                "git worktree add -b " + shellQuote(branch) + " " + shellQuote(worktree.toString());
+                "git worktree add -b "
+                        + PlatformCommands.shellQuote(branch)
+                        + " "
+                        + PlatformCommands.shellQuote(worktree.toString());
         return runCommand(command, Path.of(project.path()));
+    }
+
+    public CompletableFuture<String> createWorktree(
+            final Project project, final String branch, final Path worktree, final String baseRef) {
+        final String worktreeCommand =
+                "git worktree add -b "
+                        + PlatformCommands.shellQuote(branch)
+                        + " "
+                        + PlatformCommands.shellQuote(worktree.toString())
+                        + " "
+                        + PlatformCommands.shellQuote(baseRef);
+        final Path repository = Path.of(project.path());
+        return fetchRemoteRef(project, baseRef)
+                .thenCompose(ignored -> runCommand(worktreeCommand, repository));
+    }
+
+    public CompletableFuture<Void> updateCurrentBranch(final Project project) {
+        return updateBranch(Path.of(project.path()));
+    }
+
+    public CompletableFuture<Void> updateBranch(final Path worktree) {
+        return runCommand("git pull --ff-only", worktree).thenApply(ignored -> null);
+    }
+
+    private CompletableFuture<Void> fetchRemoteRef(final Project project, final String ref) {
+        if (ref == null || ref.isBlank() || !ref.contains("/")) {
+            return CompletableFuture.completedFuture(null);
+        }
+        final int separator = ref.indexOf('/');
+        final String remote = ref.substring(0, separator);
+        final String branch = ref.substring(separator + 1);
+        return runCommand(
+                        "git fetch "
+                                + PlatformCommands.shellQuote(remote)
+                                + " "
+                                + PlatformCommands.shellQuote(branch),
+                        Path.of(project.path()))
+                .thenApply(ignored -> null);
     }
 
     private CompletableFuture<List<String>> query(final Project project, final String command) {
@@ -358,7 +350,7 @@ public final class Git {
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while validating the session worktree.", exception);
         }
-        return parseWorktrees(worktreeOutput.lines().toList()).stream()
+        return GitParser.parseWorktrees(worktreeOutput.lines().toList()).stream()
                 .anyMatch(
                         registered ->
                                 registered.path().toAbsolutePath().normalize().equals(worktree));
@@ -366,7 +358,8 @@ public final class Git {
 
     public void deleteWorktree(final Project project, final Path worktree) throws IOException {
         final Path repository = Path.of(project.path()).toAbsolutePath().normalize();
-        final String command = "git worktree remove --force " + shellQuote(worktree.toString());
+        final String command =
+                "git worktree remove --force " + PlatformCommands.shellQuote(worktree.toString());
         try {
             final Process process =
                     PlatformCommands.prepare(new ProcessBuilder(PlatformCommands.shell(command)))
@@ -384,29 +377,6 @@ public final class Git {
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while removing the worktree.", exception);
         }
-    }
-
-    public static String shellQuote(final String value) {
-        if (PlatformCommands.isWindows()) {
-            return windowsShellQuote(value);
-        }
-        return "'" + value.replace("'", "'\\''") + "'";
-    }
-
-    /* package */
-    static String windowsShellQuote(final String value) {
-        return "\""
-                + value.replace("^", "^^")
-                        .replace("&", "^&")
-                        .replace("|", "^|")
-                        .replace("<", "^<")
-                        .replace(">", "^>")
-                        .replace("(", "^(")
-                        .replace(")", "^)")
-                        .replace("%", "^%")
-                        .replace("!", "^!")
-                        .replace("\"", "\\\"")
-                + "\"";
     }
 
     public static boolean isRepository(final Path path) {

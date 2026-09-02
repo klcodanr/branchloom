@@ -33,10 +33,14 @@ public final class PlatformCommands {
         final String shell = userShell();
         if (command.equals(shell)) {
             return new String[] {
-                shell, "-ilc", "cd " + quote(directory.toString()) + " && exec " + shell + " -il"
+                shell,
+                "-ilc",
+                "cd " + shellQuote(directory.toString()) + " && exec " + shell + " -il"
             };
         }
-        return new String[] {shell, "-ilc", "cd " + quote(directory.toString()) + " && " + command};
+        return new String[] {
+            shell, "-ilc", "cd " + shellQuote(directory.toString()) + " && " + command
+        };
     }
 
     public static String userShell() {
@@ -220,8 +224,27 @@ public final class PlatformCommands {
                 .collect(java.util.stream.Collectors.joining(" "));
     }
 
-    private static String shellQuote(final String value) {
+    public static String shellQuote(final String value) {
+        if (isWindows()) {
+            return windowsShellQuote(value);
+        }
         return "'" + value.replace("'", "'\\''") + "'";
+    }
+
+    /* package */
+    static String windowsShellQuote(final String value) {
+        return "\""
+                + value.replace("^", "^^")
+                        .replace("&", "^&")
+                        .replace("|", "^|")
+                        .replace("<", "^<")
+                        .replace(">", "^>")
+                        .replace("(", "^(")
+                        .replace(")", "^)")
+                        .replace("%", "^%")
+                        .replace("!", "^!")
+                        .replace("\"", "\\\"")
+                + "\"";
     }
 
     public static boolean isWindows() {
@@ -234,9 +257,5 @@ public final class PlatformCommands {
 
     private static String osName() {
         return System.getProperty("os.name").toLowerCase(Locale.ROOT);
-    }
-
-    private static String quote(final String value) {
-        return "'" + value.replace("'", "'\\''") + "'";
     }
 }

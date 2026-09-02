@@ -4,7 +4,6 @@ import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.Terminal;
-import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.actions.ImportBranchAction;
@@ -126,7 +125,7 @@ public final class PullRequestCard extends JPanel {
                             final String title = agent.name + " review #" + request.number();
                             final String command =
                                     agent.newSessionCommand.replace(
-                                            "{prompt}", Git.shellQuote(prompt));
+                                            "{prompt}", PlatformCommands.shellQuote(prompt));
                             final var terminalId =
                                     actionContext
                                             .appState()
