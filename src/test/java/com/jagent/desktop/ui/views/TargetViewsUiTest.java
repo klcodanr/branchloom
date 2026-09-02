@@ -125,15 +125,16 @@ class TargetViewsUiTest {
         state.addTerminal(sessionId, new Terminal(sessionId, "Shell", "true"));
         final var context = new ActionContext(new ViewCoordinator(state), state, null);
 
-        final var terminalCount =
+        final var view =
                 GuiActionRunner.execute(
-                        () -> {
-                            final var view =
-                                    new ProjectView(context, state.projects().get(projectId));
-                            return ((JTabbedPane) view.getComponent(1)).getTabCount();
-                        });
+                        () -> new ProjectView(context, state.projects().get(projectId)));
+        GuiActionRunner.execute(() -> {});
 
-        assertEquals(3, terminalCount, "session terminals should not appear in project tabs");
+        assertEquals(
+                3,
+                ((JTabbedPane) view.getComponent(1)).getTabCount(),
+                "session terminals should not appear in project tabs");
+        view.dispose();
     }
 
     @Test
