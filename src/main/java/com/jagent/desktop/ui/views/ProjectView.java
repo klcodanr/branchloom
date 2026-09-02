@@ -157,14 +157,7 @@ public final class ProjectView extends JPanel implements View {
     }
 
     private boolean belongsToProject(final Terminal terminal) {
-        if (projectId.equals(terminal.projectId())) {
-            return true;
-        }
-        if (terminal.sessionId() == null) {
-            return false;
-        }
-        final var session = actionContext.appState().sessions().get(terminal.sessionId());
-        return session != null && projectId.equals(session.projectId());
+        return terminal.sessionId() == null && projectId.equals(terminal.projectId());
     }
 
     private void showTerminal(
