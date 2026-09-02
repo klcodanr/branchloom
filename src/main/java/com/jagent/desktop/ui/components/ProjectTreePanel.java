@@ -9,6 +9,7 @@ import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.GitHub;
+import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.Defaults;
@@ -342,7 +343,9 @@ public final class ProjectTreePanel extends JPanel {
             actionContext.appState().updateCurrentSession((SessionId) entry.getKey());
             new OpenSessionAction(actionContext).execute();
         } else if (item == HomeNode.INSTANCE) {
-            actionContext.viewCoordinator().updateView(ViewId.HOME, null);
+            actionContext
+                    .viewCoordinator()
+                    .updateView(ViewId.HOME, ViewCoordinator.ViewState.reset());
         }
     }
 
