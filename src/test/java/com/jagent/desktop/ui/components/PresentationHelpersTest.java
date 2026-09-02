@@ -152,28 +152,10 @@ class PresentationHelpersTest {
     void prioritizesClosedPullRequestLifecycleOverMergeability() {
         final var merged =
                 new com.jagent.desktop.services.GitHub.PullRequestDetails(
-                        1,
-                        "",
-                        "MERGED",
-                        "",
-                        UNKNOWN,
-                        "",
-                        false,
-                        0,
-                        0,
-                         UNKNOWN);
+                        1, "", "MERGED", "", UNKNOWN, "", false, 0, 0, UNKNOWN);
         final var closed =
                 new com.jagent.desktop.services.GitHub.PullRequestDetails(
-                        1,
-                        "",
-                        "CLOSED",
-                        "",
-                        CLEAN,
-                        "",
-                        false,
-                        0,
-                        0,
-                        UNKNOWN);
+                        1, "", "CLOSED", "", CLEAN, "", false, 0, 0, UNKNOWN);
 
         assertEquals(
                 true,
@@ -190,8 +172,7 @@ class PresentationHelpersTest {
         Theme.applySwingDefaults();
         final PullRequest request =
                 new PullRequest(
-                         null, 1, "", "", "", "", "", "", "", CLEAN, false, "", "", 1, 2,
-                        "FAILING");
+                        null, 1, "", "", "", "", "", "", "", CLEAN, false, "", "", 1, 2, "FAILING");
 
         assertEquals(
                 "PR: <font color='"
