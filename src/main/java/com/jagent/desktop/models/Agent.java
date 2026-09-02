@@ -8,6 +8,10 @@ public class Agent implements Serializable {
     public String newSessionCommand;
     public String openCommand;
 
+    public Agent() {
+        this("", "", "");
+    }
+
     public Agent(final String name, final String newSessionCommand, final String openCommand) {
         this.name = name;
         this.newSessionCommand = newSessionCommand;
