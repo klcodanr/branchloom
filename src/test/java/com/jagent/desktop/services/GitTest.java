@@ -53,8 +53,8 @@ class GitTest {
     @Test
     void quotesWindowsCommandArguments() {
         assertEquals(
-                "\"prompt with ^^^& ^| ^< ^> and \\\"quotes\\\"\"",
-                Git.windowsShellQuote("prompt with ^& | < > and \"quotes\""));
+                "\"prompt with ^^^& ^| ^< ^> ^( ^) ^% ^! and \\\"quotes\\\"\"",
+                Git.windowsShellQuote("prompt with ^& | < > ( ) % ! and \"quotes\""));
     }
 
     @Test

@@ -357,6 +357,10 @@ public final class Git {
                         .replace("|", "^|")
                         .replace("<", "^<")
                         .replace(">", "^>")
+                        .replace("(", "^(")
+                        .replace(")", "^)")
+                        .replace("%", "^%")
+                        .replace("!", "^!")
                         .replace("\"", "\\\"")
                 + "\"";
     }
