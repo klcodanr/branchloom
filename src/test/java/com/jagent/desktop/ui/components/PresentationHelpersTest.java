@@ -169,7 +169,7 @@ class PresentationHelpersTest {
         GitFormatter.renderDiff(diff, "");
         assertEquals(1, diff.getComponentCount(), "empty diffs should show a message");
         assertEquals(
-                "No changes against head",
+                "No changes in worktree",
                 ((JTextArea) diff.getComponent(0)).getText(),
                 "empty diff text should explain the clean state");
 

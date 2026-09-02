@@ -73,7 +73,7 @@ public final class GitFormatter {
     public static void renderDiff(final JPanel diff, final String output) {
         diff.removeAll();
         if (output.isBlank()) {
-            diff.add(value("No changes against head"));
+            diff.add(value("No changes in worktree"));
         } else if (output.startsWith(UNAVAILABLE + ":")) {
             diff.add(value(output));
         } else {
