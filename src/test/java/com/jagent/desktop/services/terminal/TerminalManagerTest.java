@@ -14,6 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 class TerminalManagerTest {
     private static final Path TEMP_DIRECTORY = Path.of(System.getProperty("java.io.tmpdir"));
     private static final String TRUE_COMMAND = "true";
+    private static final String RESOURCE = "resource";
 
     @Test
     void createsRetainsReportsAndDisposesRuntimes() {
@@ -21,7 +22,7 @@ class TerminalManagerTest {
         final TerminalId id = TerminalId.create();
         final Terminal terminal = new Terminal(null, "Shell", TRUE_COMMAND);
 
-        final TerminalRuntime created = manager.create(TRUE_COMMAND, TEMP_DIRECTORY, "resource");
+        final TerminalRuntime created = manager.create(TRUE_COMMAND, TEMP_DIRECTORY, RESOURCE);
         final TerminalRuntime retained =
                 manager.retained(id, terminal, TEMP_DIRECTORY, "retained-resource");
 
@@ -55,7 +56,7 @@ class TerminalManagerTest {
     @Test
     void reportsActiveProcessAndCanDisposeWithoutDeletingHistory() throws InterruptedException {
         final TerminalManager manager = TerminalManager.get();
-        final TerminalRuntime runtime = manager.create("sleep 1", TEMP_DIRECTORY, "resource");
+        final TerminalRuntime runtime = manager.create("sleep 1", TEMP_DIRECTORY, RESOURCE);
         runtime.start(ignored -> {}, exception -> {});
 
         AsyncTestSupport.await(
@@ -64,11 +65,25 @@ class TerminalManagerTest {
         assertTrue(runtime.process() != null, "runtime should expose its started process");
         assertEquals(1, manager.activeProcesses().size(), "active process should be reported");
         assertEquals(
-                "resource",
+                RESOURCE,
                 manager.activeProcesses().get(0).name(),
                 "active process command should match");
         manager.dispose(runtime, false);
         assertTrue(manager.activeProcesses().isEmpty(), "disposed process should be removed");
+    }
+
+    @Test
+    void doesNotReportExitedProcessAsActive() throws InterruptedException {
+        final TerminalManager manager = TerminalManager.get();
+        final TerminalRuntime runtime = manager.create(TRUE_COMMAND, TEMP_DIRECTORY, RESOURCE);
+        runtime.start(ignored -> {}, exception -> {});
+
+        AsyncTestSupport.await(
+                () -> runtime.process() != null && !runtime.process().isAlive(),
+                "runtime process should exit");
+
+        assertTrue(manager.activeProcesses().isEmpty(), "exited process should not be reported");
+        manager.dispose(runtime, false);
     }
 
     @Test

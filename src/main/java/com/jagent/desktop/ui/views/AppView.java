@@ -21,6 +21,7 @@ import com.jagent.desktop.ui.components.AppIcon;
 import com.jagent.desktop.ui.components.AppMenuBar;
 import com.jagent.desktop.ui.components.CommandPalette;
 import com.jagent.desktop.ui.components.ProjectTreePanel;
+import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
@@ -58,6 +59,7 @@ public final class AppView extends JFrame {
     private final JLabel placeholder = UiFactory.label("", Theme.FontSize.XL);
     private final JPanel content = new JPanel(new BorderLayout());
     private final ProjectTreePanel projectTreePanel;
+    private transient View currentView;
 
     public AppView() {
         this(Path.of(System.getProperty("user.home"), ".branchloom"));
@@ -184,6 +186,9 @@ public final class AppView extends JFrame {
                 new WindowAdapter() {
                     @Override
                     public void windowClosing(WindowEvent event) {
+                        if (currentView != null) {
+                            currentView.dispose();
+                        }
                         saveWindowState();
                         persistence.close();
                         windowStatePersistence.close();
@@ -228,9 +233,11 @@ public final class AppView extends JFrame {
         final var view = viewCoordinator.currentViewId();
         final Project project = state.currentProject();
         final Session session = state.currentSession();
+        TerminalPanel.reconcile(state.terminals().keySet());
+        final View topLevel;
         final JComponent rendered;
         try {
-            final View topLevel = createTopLevelView(view, project, session);
+            topLevel = createTopLevelView(view, project, session);
             rendered = topLevel.render();
         } catch (RuntimeException exception) {
             LOG.log(
@@ -240,6 +247,10 @@ public final class AppView extends JFrame {
                             + " for project "
                             + (project == null ? "<none>" : project.name()),
                     exception);
+            if (currentView != null) {
+                currentView.detach();
+                currentView = null;
+            }
             content.removeAll();
             final String detail =
                     exception.getMessage() == null
@@ -254,6 +265,10 @@ public final class AppView extends JFrame {
             content.repaint();
             return;
         }
+        if (currentView != null) {
+            currentView.detach();
+        }
+        currentView = topLevel;
         content.removeAll();
         content.add(rendered, BorderLayout.CENTER);
         projectTreePanel.refresh(project, session);

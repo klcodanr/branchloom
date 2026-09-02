@@ -252,6 +252,12 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         return this;
     }
 
+    @Override
+    public void detach() {
+        terminalTabs.detach();
+    }
+
+    @Override
     public void dispose() {
         for (int i = 0; i < tabs.getTabCount(); i++) {
             if (tabs.getComponentAt(i) instanceof TerminalPanel terminal) {

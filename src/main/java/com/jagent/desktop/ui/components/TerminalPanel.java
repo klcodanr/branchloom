@@ -16,6 +16,7 @@ import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 import java.awt.BorderLayout;
 import java.awt.Font;
 import java.nio.file.Path;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
@@ -105,6 +106,20 @@ public final class TerminalPanel extends JPanel {
 
     public static TerminalState state(final TerminalId id) {
         return TerminalManager.get().state(id);
+    }
+
+    public static void reconcile(final Set<TerminalId> terminalIds) {
+        TerminalManager.get().reconcile(terminalIds);
+        RETAINED_PANELS
+                .entrySet()
+                .removeIf(
+                        entry -> {
+                            if (terminalIds.contains(entry.getKey())) {
+                                return false;
+                            }
+                            entry.getValue().terminal.close();
+                            return true;
+                        });
     }
 
     public void dispose() {

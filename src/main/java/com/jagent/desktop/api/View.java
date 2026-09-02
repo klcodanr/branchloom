@@ -9,4 +9,8 @@ public interface View {
     String title();
 
     JComponent render();
+
+    default void detach() {}
+
+    default void dispose() {}
 }
