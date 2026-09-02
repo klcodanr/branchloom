@@ -120,51 +120,10 @@ public final class ProjectView extends AbstractWorkspaceView {
     }
 
     @Override
-    protected void terminalRenamed(final TerminalPanel terminal, final String title) {
-        final TerminalId terminalId = terminalIds.get(terminal);
-        if (terminalId == null) {
-            return;
-        }
-        final Terminal current = actionContext.appState().terminals().get(terminalId);
-        if (current != null) {
-            actionContext
-                    .appState()
-                    .updateTerminal(
-                            terminalId,
-                            new Terminal(
-                                    current.sessionId(),
-                                    current.projectId(),
-                                    title,
-                                    current.command()));
-        }
-    }
-
-    @Override
     protected void terminalStateChanged() {}
 
     @Override
-    public void closeActiveTerminal() {
-        final int index = tabs.getSelectedIndex();
-        if (index < 0 || !(tabs.getComponentAt(index) instanceof TerminalPanel terminal)) {
-            return;
-        }
-        tabs.removeTabAt(index);
-        final TerminalId terminalId = terminalIds.remove(terminal);
-        if (terminalId != null) {
-            actionContext.appState().removeTerminal(terminalId);
-        }
-        terminalStates.remove(terminal);
-        terminal.dispose();
-        updateCurrentTerminal();
-    }
-
-    @Override
-    protected void terminalClosed(final TerminalPanel terminal) {
-        final TerminalId terminalId = terminalIds.remove(terminal);
-        terminalStates.remove(terminal);
-        if (terminalId != null) {
-            actionContext.appState().removeTerminal(terminalId);
-        }
+    protected void terminalClosed() {
         updateCurrentTerminal();
     }
 

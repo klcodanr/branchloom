@@ -106,39 +106,6 @@ public final class SessionView extends AbstractWorkspaceView {
         tabs.setSelectedIndex(tabs.indexOfTab("Summary"));
     }
 
-    @Override
-    public void closeActiveTerminal() {
-        final int index = tabs.getSelectedIndex();
-        if (index < 0 || !(tabs.getComponentAt(index) instanceof TerminalPanel terminal)) {
-            return;
-        }
-        tabs.removeTabAt(index);
-        final TerminalId terminalId = terminalIds.remove(terminal);
-        if (terminalId != null) {
-            actionContext.appState().removeTerminal(terminalId);
-        }
-        terminalStates.remove(terminal);
-        terminal.dispose();
-        terminalStateChanged();
-        updateCurrentTerminal();
-    }
-
-    @Override
-    protected void terminalRenamed(final TerminalPanel terminal, final String title) {
-        final TerminalId terminalId = terminalIds.get(terminal);
-        if (terminalId == null) {
-            return;
-        }
-        final Terminal current = actionContext.appState().terminals().get(terminalId);
-        if (current == null) {
-            return;
-        }
-        actionContext
-                .appState()
-                .updateTerminal(
-                        terminalId, new Terminal(current.sessionId(), title, current.command()));
-    }
-
     public void renameSession() {
         final String updated =
                 (String)
@@ -221,12 +188,7 @@ public final class SessionView extends AbstractWorkspaceView {
     }
 
     @Override
-    protected void terminalClosed(final TerminalPanel terminal) {
-        final TerminalId terminalId = terminalIds.remove(terminal);
-        terminalStates.remove(terminal);
-        if (terminalId != null) {
-            actionContext.appState().removeTerminal(terminalId);
-        }
+    protected void terminalClosed() {
         terminalStateChanged();
         updateCurrentTerminal();
     }
