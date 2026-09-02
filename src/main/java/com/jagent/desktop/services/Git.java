@@ -350,6 +350,7 @@ public final class Git {
         return "'" + value.replace("'", "'\\''") + "'";
     }
 
+    /* package */
     static String windowsShellQuote(final String value) {
         return "\""
                 + value.replace("^", "^^")

@@ -54,7 +54,8 @@ class GitTest {
     void quotesWindowsCommandArguments() {
         assertEquals(
                 "\"prompt with ^^^& ^| ^< ^> ^( ^) ^% ^! and \\\"quotes\\\"\"",
-                Git.windowsShellQuote("prompt with ^& | < > ( ) % ! and \"quotes\""));
+                Git.windowsShellQuote("prompt with ^& | < > ( ) % ! and \"quotes\""),
+                "Windows command arguments should escape shell metacharacters");
     }
 
     @Test
