@@ -33,6 +33,7 @@ public final class ReviewDialog extends JDialog {
                 "Review pull request #" + request.number(),
                 ModalityType.APPLICATION_MODAL);
         setFocusTraversalPolicy(new ContainerOrderFocusTraversalPolicy());
+        UiFactory.configureDialogCloseOnEscape(this);
         final AppState state = actionContext.appState();
         this.onReview = onReview;
         agent = new JComboBox<>(state.appSettings().agents().toArray(new Agent[0]));

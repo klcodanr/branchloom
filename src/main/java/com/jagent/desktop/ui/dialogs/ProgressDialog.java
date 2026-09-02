@@ -8,6 +8,7 @@ import javax.swing.JDialog;
 public final class ProgressDialog extends JDialog {
     public ProgressDialog(final Window owner, final String title, final String message) {
         super(owner, title, ModalityType.MODELESS);
+        setUndecorated(true);
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         add(UiFactory.loading(message));
         setResizable(false);

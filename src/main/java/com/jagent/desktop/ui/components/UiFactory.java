@@ -16,6 +16,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.Icon;
 import javax.swing.JButton;
+import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
@@ -59,6 +60,14 @@ public final class UiFactory {
         area.setFocusTraversalKeys(
                 KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS,
                 Set.of(KeyStroke.getKeyStroke(KeyEvent.VK_TAB, InputEvent.SHIFT_DOWN_MASK)));
+    }
+
+    public static void configureDialogCloseOnEscape(final JDialog dialog) {
+        dialog.getRootPane()
+                .registerKeyboardAction(
+                        event -> dialog.dispose(),
+                        KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
+                        javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
     }
 
     public static JTextPane selectableHtml(final String html, final Theme.FontSize size) {
