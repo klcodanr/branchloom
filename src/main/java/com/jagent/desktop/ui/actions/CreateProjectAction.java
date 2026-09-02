@@ -8,10 +8,12 @@ import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.ui.components.GitHubAuthSelector;
+import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import java.awt.Dimension;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,6 +24,7 @@ import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 
 /** Starts the project creation workflow. */
 public final class CreateProjectAction extends BaseAction {
@@ -44,10 +47,32 @@ public final class CreateProjectAction extends BaseAction {
 
     @Override
     public void execute() {
+        final ProgressOperation progress =
+                ProgressOperation.start(
+                        this.actionContext.window(),
+                        "Add Git project",
+                        "Loading GitHub accounts...");
+        BackgroundTasks.submit("Operations", "Load GitHub accounts", GitHub::configuredAuths)
+                .whenComplete(
+                        (configuredAuths, failure) ->
+                                SwingUtilities.invokeLater(
+                                        () -> {
+                                            progress.close();
+                                            if (failure != null) {
+                                                LOG.severe(
+                                                        "Add Git project: Failed to load GitHub accounts.");
+                                                return;
+                                            }
+                                            showDialog(configuredAuths);
+                                        }));
+    }
+
+    private void showDialog(final java.util.List<GitHub.Auth> configuredAuths) {
         final var appState = this.actionContext.appState();
         final JTextField name = new JTextField(35);
         final JTextField path = new JTextField(35);
-        final JComboBox<GitHub.Auth> githubAuth = GitHubAuthSelector.render();
+        final JComboBox<GitHub.Auth> githubAuth =
+                GitHubAuthSelector.renderConfigured(configuredAuths);
         githubAuth.setPreferredSize(new Dimension(350, githubAuth.getPreferredSize().height));
         final JButton browse = button("Browse...");
         browse.addActionListener(

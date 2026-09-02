@@ -10,6 +10,7 @@ import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.services.terminal.TerminalState;
+import com.jagent.desktop.ui.actions.RemoveSessionAction;
 import com.jagent.desktop.ui.components.ClosableTabHeader;
 import com.jagent.desktop.ui.components.SessionActions;
 import com.jagent.desktop.ui.components.SessionSummary;
@@ -99,7 +100,12 @@ public final class SessionView extends JPanel implements View {
     }
 
     private void addSummary() {
-        final JScrollPane summary = new JScrollPane(new SessionSummary(project, session));
+        final JScrollPane summary =
+                new JScrollPane(
+                        new SessionSummary(
+                                project,
+                                session,
+                                () -> new RemoveSessionAction(actionContext).execute()));
         summary.setBorder(null);
         summary.getVerticalScrollBar().setUnitIncrement(14);
         terminals.addTab("Summary", summary);
