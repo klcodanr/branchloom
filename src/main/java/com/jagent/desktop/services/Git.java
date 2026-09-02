@@ -69,7 +69,8 @@ public final class Git {
                 runGit(worktree, 0, "ls-files", "--others", "--exclude-standard", "-z");
         for (final String file : untracked.split("\u0000")) {
             if (!file.isBlank()) {
-                summary.append(
+                final String nullDevice = PlatformCommands.isWindows() ? "NUL" : "/dev/null";
+                final String diff =
                         runGit(
                                 worktree,
                                 1,
@@ -77,8 +78,15 @@ public final class Git {
                                 "--no-index",
                                 "--numstat",
                                 "--",
-                                PlatformCommands.isWindows() ? "NUL" : "/dev/null",
-                                file));
+                                nullDevice,
+                                file);
+                final String prefix = nullDevice + " => ";
+                final int prefixIndex = diff.indexOf(prefix);
+                summary.append(
+                        prefixIndex < 0
+                                ? diff
+                                : diff.substring(0, prefixIndex)
+                                        + diff.substring(prefixIndex + prefix.length()));
             }
         }
         return summary.toString();
