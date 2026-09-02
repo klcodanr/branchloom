@@ -106,7 +106,7 @@ public final class ProjectSettingsView extends JPanel implements View {
         form.add(SettingsPanel.labeledField("GitHub CLI auth", githubAuth));
         final JPanel formContainer = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         formContainer.setOpaque(false);
-        formContainer.setBorder(new EmptyBorder(12, 12, 12, 12));
+        formContainer.setBorder(new EmptyBorder(16, 16, 16, 16));
         formContainer.add(form);
         final String groupValue = project.group();
         final String initialGroup =
@@ -156,15 +156,37 @@ public final class ProjectSettingsView extends JPanel implements View {
 
     private static void selectStoredAuth(
             final JComboBox<GitHub.Auth> githubAuth, final Project project) {
+        if (!hasProjectAuth(project)) {
+            githubAuth.setSelectedIndex(0);
+            return;
+        }
+        final int storedIndex = storedAuthIndex(githubAuth, project);
+        if (storedIndex >= 0) {
+            githubAuth.setSelectedIndex(storedIndex);
+            return;
+        }
+        final GitHub.Auth stored = new GitHub.Auth(project.githubHost(), project.githubUser());
+        githubAuth.addItem(stored);
+        githubAuth.setSelectedItem(stored);
+    }
+
+    private static boolean hasProjectAuth(final Project project) {
+        final String host = project.githubHost();
+        final String user = project.githubUser();
+        return host != null && !host.isBlank() && user != null && !user.isBlank();
+    }
+
+    private static int storedAuthIndex(
+            final JComboBox<GitHub.Auth> githubAuth, final Project project) {
         for (int index = 0; index < githubAuth.getItemCount(); index++) {
             final GitHub.Auth auth = githubAuth.getItemAt(index);
             if (auth != null
                     && Objects.equals(auth.host(), project.githubHost())
                     && Objects.equals(auth.user(), project.githubUser())) {
-                githubAuth.setSelectedIndex(index);
-                break;
+                return index;
             }
         }
+        return -1;
     }
 
     private static JPanel repositoryField(final Project project, final JPanel parent) {
@@ -224,8 +246,8 @@ public final class ProjectSettingsView extends JPanel implements View {
                         updatedName,
                         project.path(),
                         updatedGroup,
-                        selected == null ? "" : selected.host(),
-                        selected == null ? "" : selected.user(),
+                        selected == null ? null : selected.host(),
+                        selected == null ? null : selected.user(),
                         template.getText().trim(),
                         project.worktreeCommand(),
                         GlobalSettingsView.lines(startup.getText()),
