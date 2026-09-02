@@ -14,6 +14,7 @@ import com.jagent.desktop.ui.actions.OpenDirectoryAction;
 import com.jagent.desktop.ui.actions.OpenProjectSettingsAction;
 import com.jagent.desktop.ui.actions.RemoveProjectAction;
 import com.jagent.desktop.ui.actions.RunCommandAction;
+import com.jagent.desktop.ui.actions.UpdateBranchAction;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Point;
@@ -76,6 +77,8 @@ public final class ProjectActions {
                 projectActionItem(
                         actionContext, projectId, new OpenDirectoryAction(actionContext)));
         menu.add(projectActionItem(actionContext, projectId, new CopyPathAction(actionContext)));
+        menu.add(
+                projectActionItem(actionContext, projectId, new UpdateBranchAction(actionContext)));
         menu.add(
                 projectActionItem(actionContext, projectId, new ImportBranchAction(actionContext)));
         menu.add(

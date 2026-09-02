@@ -14,6 +14,7 @@ import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.Template;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.ui.GitUtils;
+import com.jagent.desktop.ui.components.SearchableComboBox;
 import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import java.awt.Cursor;
 import java.io.InvalidObjectException;
@@ -110,9 +111,8 @@ public final class ImportBranchAction extends BaseAction {
                                 return;
                             }
 
-                            final JComboBox<BranchChoice> branch =
-                                    new JComboBox<>(choices.toArray(new BranchChoice[0]));
-                            branch.setEditable(true);
+                            final SearchableComboBox<BranchChoice> branch =
+                                    new SearchableComboBox<>(choices);
                             branch.setToolTipText("Type to search local and remote branches");
                             final JTextField name =
                                     new JTextField(choices.getFirst().localName(), 28);

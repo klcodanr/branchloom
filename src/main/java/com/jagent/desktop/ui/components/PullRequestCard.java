@@ -126,7 +126,7 @@ public final class PullRequestCard extends JPanel {
                             final String title = agent.name + " review #" + request.number();
                             final String command =
                                     agent.newSessionCommand.replace(
-                                            "{prompt}", Git.shellQuote(prompt));
+                                            "{prompt}", PlatformCommands.shellQuote(prompt));
                             final var terminalId =
                                     actionContext
                                             .appState()

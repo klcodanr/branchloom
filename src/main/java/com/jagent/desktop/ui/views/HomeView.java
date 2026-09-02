@@ -9,6 +9,7 @@ import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.Git;
+import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.PullRequestCache;
 import com.jagent.desktop.ui.components.ProjectCards;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
@@ -132,7 +133,8 @@ public final class HomeView extends JPanel implements View {
     }
 
     private void startSummary(final Agent agent, final String prompt, final JButton run) {
-        final String command = agent.newSessionCommand.replace("{prompt}", Git.shellQuote(prompt));
+        final String command =
+                agent.newSessionCommand.replace("{prompt}", PlatformCommands.shellQuote(prompt));
         if (summaryTerminal != null) {
             summaryTerminal.dispose();
         }

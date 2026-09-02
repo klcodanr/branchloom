@@ -146,11 +146,11 @@ public final class GitHub {
                 "gh api graphql --paginate -F pageSize="
                         + PR_PAGE_SIZE
                         + " -f search="
-                        + Git.shellQuote("repo:" + repository + " is:pr is:open " + search)
+                        + PlatformCommands.shellQuote("repo:" + repository + " is:pr is:open " + search)
                         + " -f query="
-                        + Git.shellQuote(PR_QUERY)
+                        + PlatformCommands.shellQuote(PR_QUERY)
                         + " --jq "
-                        + Git.shellQuote(PR_JQ);
+                        + PlatformCommands.shellQuote(PR_JQ);
         final ProcessBuilder builder =
                 PlatformCommands.prepare(new ProcessBuilder(PlatformCommands.shell(query)))
                         .directory(projectPath.toFile())
