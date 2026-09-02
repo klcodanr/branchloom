@@ -80,6 +80,11 @@ public final class HomeView extends JPanel implements View {
         return this;
     }
 
+    @Override
+    public void detach() {
+        dispose();
+    }
+
     private java.util.List<PullRequest> pullRequests(final boolean authored) {
         return appState.projects().keySet().stream()
                 .flatMap(
@@ -204,6 +209,7 @@ public final class HomeView extends JPanel implements View {
                 .append('\n');
     }
 
+    @Override
     public void dispose() {
         if (summaryTerminal != null) {
             summaryTerminal.dispose();

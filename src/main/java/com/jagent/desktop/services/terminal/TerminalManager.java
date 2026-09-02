@@ -7,6 +7,7 @@ import com.jagent.desktop.services.persistence.TerminalHistory;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -70,15 +71,24 @@ public final class TerminalManager {
         resources.put(runtime, resourceName);
     }
 
+    public void reconcile(final Set<TerminalId> terminalIds) {
+        for (final var entry : retained.entrySet()) {
+            if (!terminalIds.contains(entry.getKey())) {
+                dispose(entry.getKey(), entry.getValue(), true);
+            }
+        }
+    }
+
     public List<TerminalResources.ProcessTarget> activeProcesses() {
         return resources.entrySet().stream()
+                .filter(
+                        entry ->
+                                entry.getKey().process() != null
+                                        && entry.getKey().process().isAlive())
                 .map(
                         entry ->
-                                entry.getKey().process() == null
-                                        ? null
-                                        : new TerminalResources.ProcessTarget(
-                                                entry.getValue(), entry.getKey().process().pid()))
-                .filter(target -> target != null)
+                                new TerminalResources.ProcessTarget(
+                                        entry.getValue(), entry.getKey().process().pid()))
                 .toList();
     }
 }

@@ -63,6 +63,15 @@ public final class WorkspaceTerminalTabs {
         terminal.start();
     }
 
+    public void detach() {
+        for (final TerminalPanel terminal : ids.keySet()) {
+            terminal.setStateChanged(ignored -> {});
+            terminal.putClientProperty("JTabbedPane.tabCloseCallback", null);
+        }
+        states.clear();
+        ids.clear();
+    }
+
     public void closeActive() {
         close(tabs.getSelectedIndex());
     }
@@ -113,10 +122,11 @@ public final class WorkspaceTerminalTabs {
                 || !(tabs.getComponentAt(index) instanceof TerminalPanel terminal)) {
             return;
         }
-        final TerminalId terminalId = ids.remove(terminal);
+        final TerminalId terminalId = ids.get(terminal);
         tabs.removeTabAt(index);
-        states.remove(terminal);
         terminal.dispose();
         closed.accept(terminal, terminalId);
+        states.remove(terminal);
+        ids.remove(terminal);
     }
 }
