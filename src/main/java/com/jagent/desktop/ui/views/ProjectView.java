@@ -1,6 +1,5 @@
 package com.jagent.desktop.ui.views;
 
-import com.jagent.desktop.api.View;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
@@ -10,47 +9,32 @@ import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.PullRequestCache;
-import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.components.ProjectActions;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
 import com.jagent.desktop.ui.components.TerminalPanel;
-import com.jagent.desktop.ui.components.Theme;
-import com.jagent.desktop.ui.components.UiFactory;
-import com.jagent.desktop.ui.components.UiIcons;
-import com.jagent.desktop.ui.components.WorkspaceTreePanel;
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import javax.swing.JButton;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTabbedPane;
-import javax.swing.border.EmptyBorder;
 
-public final class ProjectView extends JPanel implements View {
+public final class ProjectView extends AbstractWorkspaceView {
     private final transient Project project;
     private final transient ProjectId projectId;
-    private final transient ActionContext actionContext;
-    private final transient ViewCoordinator viewCoordinator;
     private final transient PullRequestCache pullRequestCache;
-    private final JTabbedPane tabs = new JTabbedPane();
     private final PullRequestsBoard authoredPullRequests;
     private final PullRequestsBoard reviewPullRequests;
     private int terminalNumber;
 
     public ProjectView(final ActionContext actionContext, final Project project) {
-        super();
-        this.actionContext = actionContext;
-        this.viewCoordinator = actionContext.viewCoordinator();
+        super(actionContext, ViewId.PROJECT);
         this.project = project;
         this.pullRequestCache = PullRequestCache.get(actionContext.appState());
         this.projectId =
                 actionContext.appState().projects().entrySet().stream()
                         .filter(entry -> entry.getValue().equals(project))
-                        .map(java.util.Map.Entry::getKey)
+                        .map(Map.Entry::getKey)
                         .findFirst()
                         .orElse(null);
         this.authoredPullRequests =
@@ -67,14 +51,7 @@ public final class ProjectView extends JPanel implements View {
                                 this.projectId == null
                                         ? List.of()
                                         : pullRequestCache.get(this.projectId).review());
-        setLayout(new BorderLayout(0, 16));
-        add(header(), BorderLayout.NORTH);
-        tabs.putClientProperty("JTabbedPane.scrollButtonsPolicy", "asNeeded");
-        tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
-        add(tabs, BorderLayout.CENTER);
-        tabs.addTab("Files", TabBody.wrap(workspace()));
-        tabs.addTab("My PRs", TabBody.wrap(authoredPullRequests));
-        tabs.addTab("Review requests", TabBody.wrap(reviewPullRequests));
+        initializeWorkspace(project.name());
         final TerminalId selectedTerminal = actionContext.appState().currentTerminalId();
         actionContext.appState().terminals().entrySet().stream()
                 .filter(entry -> belongsToProject(entry.getValue()))
@@ -90,73 +67,33 @@ public final class ProjectView extends JPanel implements View {
         javax.swing.SwingUtilities.invokeLater(
                 () -> {
                     restoreSelectedTab();
-                    tabs.addChangeListener(
-                            event ->
-                                    viewCoordinator.updateSelectedTab(
-                                            id(), tabs.getSelectedIndex()));
                 });
     }
 
     @Override
-    public ViewId id() {
-        return ViewId.PROJECT;
+    protected Path workspacePath() {
+        return Path.of(project.path());
     }
 
     @Override
-    public String title() {
-        return project.name();
+    protected void addTitleDetails(final JPanel titleArea) {}
+
+    @Override
+    protected void addDefaultTabs() {
+        tabs.addTab("My PRs", TabBody.wrap(authoredPullRequests));
+        tabs.addTab("Review requests", TabBody.wrap(reviewPullRequests));
     }
 
     @Override
-    public JPanel render() {
-        return this;
-    }
-
-    public void dispose() {
-        for (int i = 0; i < tabs.getTabCount(); i++) {
-            if (tabs.getComponentAt(i) instanceof TerminalPanel terminal) {
-                terminal.dispose();
-            }
+    protected void showActions(final JButton actions) {
+        if (projectId != null) {
+            ProjectActions.menu(actionContext, projectId).show(actions, 0, actions.getHeight());
         }
     }
 
-    private JPanel header() {
-        final JPanel header = new JPanel(new BorderLayout(12, 0));
-        header.setOpaque(false);
-        header.setBorder(new EmptyBorder(0, 0, 0, 12));
-        final JLabel title = UiFactory.label(project.name(), Theme.FontSize.XXL);
-        title.setMinimumSize(new Dimension(0, title.getMinimumSize().height));
-        header.add(title, BorderLayout.CENTER);
-        final JButton actions = UiFactory.iconButton(UiIcons.ellipsis());
-        actions.setToolTipText("Project actions");
-        actions.getAccessibleContext().setAccessibleName("Project actions");
-        actions.addActionListener(
-                event -> {
-                    if (projectId != null) {
-                        ProjectActions.menu(actionContext, projectId)
-                                .show(actions, 0, actions.getHeight());
-                    }
-                });
-        final JPanel actionArea = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        actionArea.setOpaque(false);
-        actionArea.setBorder(new EmptyBorder(0, 12, 0, 0));
-        actionArea.add(actions);
-        actionArea.setMinimumSize(actionArea.getPreferredSize());
-        header.add(actionArea, BorderLayout.EAST);
-        return header;
-    }
-
-    private JPanel workspace() {
-        final JPanel workspace = new JPanel(new BorderLayout());
-        workspace.setOpaque(false);
-        workspace.setBorder(new EmptyBorder(16, 2, 2, 2));
-        workspace.add(
-                new WorkspaceTreePanel(
-                        actionContext,
-                        Path.of(project.path()),
-                        path -> addTerminal("Terminal", PlatformCommands.userShell(), path)),
-                BorderLayout.CENTER);
-        return workspace;
+    @Override
+    protected void openTerminal(final Path path) {
+        addTerminal("Terminal", PlatformCommands.userShell(), path);
     }
 
     private void addTerminal(final String title, final String command, final Path directory) {
@@ -184,29 +121,34 @@ public final class ProjectView extends JPanel implements View {
                         terminalDefinition,
                         directory,
                         project.name() + " > " + terminalDefinition.title());
-        if (terminal.getParent() != null) {
-            terminal.getParent().remove(terminal);
-        }
-        tabs.addTab(terminalDefinition.title(), terminal);
-        terminal.putClientProperty("JTabbedPane.tabClosable", true);
-        terminal.putClientProperty(
-                "JTabbedPane.tabCloseCallback",
-                (java.util.function.IntConsumer)
-                        index -> {
-                            if (index < 0
-                                    || index >= tabs.getTabCount()
-                                    || !(tabs.getComponentAt(index)
-                                            instanceof TerminalPanel closed)) {
-                                return;
-                            }
-                            tabs.removeTabAt(index);
-                            closed.dispose();
-                        });
-        if (selected) {
-            tabs.setSelectedComponent(terminal);
-        }
-        terminal.start();
+        mountTerminal(terminalDefinition.title(), terminalId, terminal, selected);
     }
+
+    @Override
+    protected void terminalRenamed(final TerminalPanel terminal, final String title) {
+        final TerminalId terminalId = terminalIds.get(terminal);
+        if (terminalId == null) {
+            return;
+        }
+        final Terminal current = actionContext.appState().terminals().get(terminalId);
+        if (current != null) {
+            actionContext
+                    .appState()
+                    .updateTerminal(
+                            terminalId,
+                            new Terminal(
+                                    current.sessionId(),
+                                    current.projectId(),
+                                    title,
+                                    current.command()));
+        }
+    }
+
+    @Override
+    protected void terminalStateChanged() {}
+
+    @Override
+    protected void terminalClosed(final TerminalPanel terminal) {}
 
     public void reviewPullRequest(final PullRequest request) {
         final PullRequestCache.ProjectPullRequests requests =
@@ -225,53 +167,6 @@ public final class ProjectView extends JPanel implements View {
     /** Adds a project terminal; project summary and pull-request tabs are not terminal tabs. */
     public void createTerminal() {
         addTerminal("Terminal", PlatformCommands.userShell(), Path.of(project.path()));
-    }
-
-    public void closeActiveTerminal() {
-        final int index = tabs.getSelectedIndex();
-        if (index < 0 || !(tabs.getComponentAt(index) instanceof TerminalPanel terminal)) {
-            return;
-        }
-        tabs.removeTabAt(index);
-        terminal.dispose();
-    }
-
-    public void renameActiveTerminal() {
-        final int index = tabs.getSelectedIndex();
-        if (index < 0 || !(tabs.getComponentAt(index) instanceof TerminalPanel)) {
-            return;
-        }
-        final String updated =
-                (String)
-                        javax.swing.JOptionPane.showInputDialog(
-                                this,
-                                "Terminal tab name:",
-                                "Rename terminal tab",
-                                javax.swing.JOptionPane.PLAIN_MESSAGE,
-                                null,
-                                null,
-                                tabs.getTitleAt(index));
-        if (updated != null && !updated.isBlank()) {
-            tabs.setTitleAt(index, updated.trim());
-        }
-    }
-
-    /** Selects the 1-based terminal index; non-terminal tabs, including Summary, are excluded. */
-    public void selectTerminal(final int index) {
-        if (index < 1) {
-            return;
-        }
-        int terminalIndex = 0;
-        for (int i = 0; i < tabs.getTabCount(); i++) {
-            if (!(tabs.getComponentAt(i) instanceof TerminalPanel)) {
-                continue;
-            }
-            terminalIndex++;
-            if (terminalIndex == index) {
-                tabs.setSelectedIndex(i);
-                return;
-            }
-        }
     }
 
     public void openSummary() {

@@ -44,6 +44,22 @@ public final class GitParser {
         return Map.copyOf(statuses);
     }
 
+    public static Git.WorktreeStatus parseWorktreeStatus(final String output) {
+        final Map<String, String> files = parseStatus(output);
+        final int additions =
+                (int)
+                        files.values().stream()
+                                .filter(status -> "??".equals(status) || status.contains("A"))
+                                .count();
+        final int deletions =
+                (int)
+                        files.values().stream()
+                                .filter(status -> !status.contains("A") && status.contains("D"))
+                                .count();
+        return new Git.WorktreeStatus(
+                files, additions, files.size() - additions - deletions, deletions);
+    }
+
     public static List<Git.Worktree> parseWorktrees(final List<String> lines) {
         final List<Git.Worktree> worktrees = new ArrayList<>();
         Path path = null;

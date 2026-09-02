@@ -75,6 +75,14 @@ public final class UiIcons {
         return icon(FOLDER_OPEN);
     }
 
+    public static Icon fileCode() {
+        return icon("file-code");
+    }
+
+    public static Icon gitCompare() {
+        return icon("git-compare");
+    }
+
     public static Icon userRoundArrowLeft() {
         return icon("user-round-arrow-left");
     }
@@ -85,6 +93,10 @@ public final class UiIcons {
 
     public static Icon refresh() {
         return icon("refresh-cw");
+    }
+
+    public static Icon chevronRight() {
+        return icon("chevron-right");
     }
 
     public static Icon forAction(final Action action) {

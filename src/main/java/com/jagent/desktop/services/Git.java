@@ -19,6 +19,9 @@ public final class Git {
 
     public record Worktree(Path path, String branch, boolean prunable) {}
 
+    public record WorktreeStatus(
+            Map<String, String> files, int additions, int modifications, int deletions) {}
+
     public static String githubCommand(final Project project, final String command) {
         final String host = project.githubHost();
         final String user = project.githubUser();
@@ -39,8 +42,13 @@ public final class Git {
 
     public static Map<String, String> statusFiles(final Path worktree)
             throws IOException, InterruptedException {
-        return GitParser.parseStatus(
-                run(worktree, "git status --porcelain=v1 -z --untracked-files=all"));
+        return worktreeStatus(worktree).files();
+    }
+
+    public static WorktreeStatus worktreeStatus(final Path worktree)
+            throws IOException, InterruptedException {
+        final String output = run(worktree, "git status --porcelain=v1 -z --untracked-files=all");
+        return GitParser.parseWorktreeStatus(output);
     }
 
     public static String currentBranch(final Path worktree)
@@ -78,8 +86,8 @@ public final class Git {
         return summary.toString();
     }
 
-    private static String runGit(
-            final Path worktree, final int expectedExitCode, final String... args)
+    /* package */
+    static String runGit(final Path worktree, final int expectedExitCode, final String... args)
             throws IOException, InterruptedException {
         final List<String> command = new ArrayList<>();
         command.add(PlatformCommands.executable("git"));

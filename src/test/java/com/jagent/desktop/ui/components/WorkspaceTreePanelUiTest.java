@@ -63,6 +63,7 @@ class WorkspaceTreePanelUiTest {
         return new WorkspaceTreePanel(
                 new ActionContext(new ViewCoordinator(state), state, null),
                 workspace,
+                ignored -> {},
                 ignored -> {});
     }
 
@@ -71,11 +72,15 @@ class WorkspaceTreePanelUiTest {
     }
 
     private static JLabel statusLabel(final WorkspaceTreePanel panel) {
-        return (JLabel) ((java.awt.Container) panel.getComponent(0)).getComponent(1);
+        final var actions =
+                (java.awt.Container) ((java.awt.Container) panel.getComponent(0)).getComponent(0);
+        return (JLabel) actions.getComponent(0);
     }
 
-    private static javax.swing.JButton refreshButton(final WorkspaceTreePanel panel) {
-        return (javax.swing.JButton) ((java.awt.Container) panel.getComponent(0)).getComponent(2);
+    private static javax.swing.AbstractButton refreshButton(final WorkspaceTreePanel panel) {
+        final var actions =
+                (java.awt.Container) ((java.awt.Container) panel.getComponent(0)).getComponent(0);
+        return (javax.swing.AbstractButton) actions.getComponent(1);
     }
 
     private static void waitForFile(final WorkspaceTreePanel panel, final String file)

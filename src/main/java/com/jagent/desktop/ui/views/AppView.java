@@ -93,7 +93,7 @@ public final class AppView extends JFrame {
                     KeyStroke.getKeyStroke(KeyEvent.VK_0 + index, menuMask),
                     "select-terminal-" + index,
                     () ->
-                            currentSessionView()
+                            currentWorkspaceView()
                                     .ifPresent(view -> view.selectTerminal(terminalIndex)));
         }
         bind(
@@ -107,13 +107,15 @@ public final class AppView extends JFrame {
                 actionMap,
                 KeyStroke.getKeyStroke('W', menuMask),
                 "close-terminal",
-                () -> currentSessionView().ifPresent(SessionView::closeActiveTerminal));
+                () -> currentWorkspaceView().ifPresent(AbstractWorkspaceView::closeActiveTerminal));
         bind(
                 inputMap,
                 actionMap,
                 KeyStroke.getKeyStroke('R', menuMask | InputEvent.SHIFT_DOWN_MASK),
                 "rename-terminal",
-                () -> currentSessionView().ifPresent(SessionView::renameActiveTerminal));
+                () ->
+                        currentWorkspaceView()
+                                .ifPresent(AbstractWorkspaceView::renameActiveTerminal));
         bind(
                 inputMap,
                 actionMap,
@@ -149,11 +151,11 @@ public final class AppView extends JFrame {
         }
     }
 
-    private java.util.Optional<SessionView> currentSessionView() {
+    private java.util.Optional<AbstractWorkspaceView> currentWorkspaceView() {
         final java.awt.Component rendered =
                 content.getComponentCount() == 0 ? null : content.getComponent(0);
-        return rendered instanceof SessionView sessionView
-                ? java.util.Optional.of(sessionView)
+        return rendered instanceof AbstractWorkspaceView workspaceView
+                ? java.util.Optional.of(workspaceView)
                 : java.util.Optional.empty();
     }
 
