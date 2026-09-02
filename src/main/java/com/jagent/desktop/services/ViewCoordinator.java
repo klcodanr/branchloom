@@ -4,6 +4,8 @@ import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.TerminalId;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.function.Consumer;
 import org.jetbrains.annotations.Nullable;
 
@@ -11,6 +13,7 @@ import org.jetbrains.annotations.Nullable;
 public final class ViewCoordinator {
     private final AppState appState;
     private final Consumer<ViewId> viewChanged;
+    private final Map<ViewId, Integer> selectedTabs = new EnumMap<>(ViewId.class);
     private ViewId currentViewId;
 
     public record ViewState(
@@ -59,5 +62,19 @@ public final class ViewCoordinator {
 
     public ViewId currentViewId() {
         return this.currentViewId;
+    }
+
+    public int selectedTab(final ViewId viewId) {
+        return selectedTabs.getOrDefault(viewId, 0);
+    }
+
+    public boolean hasSelectedTab(final ViewId viewId) {
+        return selectedTabs.containsKey(viewId);
+    }
+
+    public void updateSelectedTab(final ViewId viewId, final int tabIndex) {
+        if (tabIndex >= 0) {
+            selectedTabs.put(viewId, tabIndex);
+        }
     }
 }

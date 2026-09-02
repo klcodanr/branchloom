@@ -33,6 +33,8 @@ class TargetViewsUiTest {
     private static final String PROJECT_NAME = "Demo";
     private static final String PROJECT_PATH = "/tmp";
     private static final String SESSION_NAME = "Feature";
+    private static final String SESSION_AGENT = "agent";
+    private static final String SESSION_PROMPT = "prompt";
 
     @Test
     void globalSettingsRendersConfiguredRowsAndSavesChanges() {
@@ -121,7 +123,12 @@ class TargetViewsUiTest {
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(projectId, SESSION_NAME, "test-agent", "prompt", PROJECT_PATH));
+                        new Session(
+                                projectId,
+                                SESSION_NAME,
+                                "test-agent",
+                                SESSION_PROMPT,
+                                PROJECT_PATH));
         state.addTerminal(sessionId, new Terminal(sessionId, "Shell", "true"));
         state.addTerminal(sessionId, new Terminal(sessionId, projectId, "Dual owner", "true"));
         final var context = new ActionContext(new ViewCoordinator(state), state, null);
@@ -145,7 +152,12 @@ class TargetViewsUiTest {
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(projectId, SESSION_NAME, "agent", "prompt", PROJECT_PATH));
+                        new Session(
+                                projectId,
+                                SESSION_NAME,
+                                SESSION_AGENT,
+                                SESSION_PROMPT,
+                                PROJECT_PATH));
         state.updateCurrentProject(projectId);
         state.updateCurrentSession(sessionId);
         final var coordinator = new ViewCoordinator(state);
@@ -169,7 +181,11 @@ class TargetViewsUiTest {
         final var project = new Project(PROJECT_NAME, PROJECT_PATH, null);
         final var session =
                 new Session(
-                        null, SESSION_NAME, "agent", "Investigate login", "/path/does/not/exist");
+                        null,
+                        SESSION_NAME,
+                        SESSION_AGENT,
+                        "Investigate login",
+                        "/path/does/not/exist");
 
         final var summary = GuiActionRunner.execute(() -> new SessionSummary(project, session));
 
@@ -240,7 +256,12 @@ class TargetViewsUiTest {
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(projectId, SESSION_NAME, "agent", "prompt", PROJECT_PATH));
+                        new Session(
+                                projectId,
+                                SESSION_NAME,
+                                SESSION_AGENT,
+                                SESSION_PROMPT,
+                                PROJECT_PATH));
         state.updateCurrentProject(projectId);
         state.updateCurrentSession(sessionId);
         final var view =
@@ -261,6 +282,58 @@ class TargetViewsUiTest {
 
         assertEquals(1, tabs.getSelectedIndex(), ASSERTION_MESSAGE);
         assertEquals(null, state.currentTerminalId(), ASSERTION_MESSAGE);
+    }
+
+    @Test
+    void sessionViewRestoresCreatedTerminalAfterReopening() throws InvalidObjectException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
+        final var sessionId =
+                state.addSession(
+                        projectId,
+                        new Session(
+                                projectId,
+                                SESSION_NAME,
+                                SESSION_AGENT,
+                                SESSION_PROMPT,
+                                PROJECT_PATH));
+        state.updateCurrentProject(projectId);
+        state.updateCurrentSession(sessionId);
+        final var coordinator = new ViewCoordinator(state);
+        final var context = new ActionContext(coordinator, state, null);
+
+        final var initialView = GuiActionRunner.execute(() -> new SessionView(context));
+        final var terminalId =
+                GuiActionRunner.execute(
+                        () -> {
+                            final var id =
+                                    state.addTerminal(
+                                            sessionId, new Terminal(sessionId, "Terminal", "true"));
+                            state.updateCurrentTerminal(id);
+                            return id;
+                        });
+        assertEquals(1, state.sessions().get(sessionId).terminalIds().size(), ASSERTION_MESSAGE);
+        assertTrue(
+                java.nio.file.Files.isDirectory(
+                        java.nio.file.Path.of(state.sessions().get(sessionId).worktreePath())),
+                ASSERTION_MESSAGE);
+        assertEquals(sessionId, state.currentSessionId(), ASSERTION_MESSAGE);
+        assertEquals(terminalId, state.currentTerminalId(), ASSERTION_MESSAGE);
+        final var createdView = GuiActionRunner.execute(() -> new SessionView(context));
+        assertEquals(
+                2,
+                ((JTabbedPane) createdView.getComponent(1)).getSelectedIndex(),
+                ASSERTION_MESSAGE);
+        GuiActionRunner.execute(() -> state.updateCurrentTerminal(null));
+        final var reopenedView = GuiActionRunner.execute(() -> new SessionView(context));
+
+        assertEquals(
+                2,
+                ((JTabbedPane) reopenedView.getComponent(1)).getSelectedIndex(),
+                ASSERTION_MESSAGE);
+        initialView.dispose();
+        createdView.dispose();
+        reopenedView.dispose();
     }
 
     @Test

@@ -101,6 +101,12 @@ public final class GlobalSettingsView implements View {
         tabs.addTab("Editors", toolEditor(settings.tools(), toolNames, toolCommands));
         tabs.addTab("Review", reviewEditor(reviewPrompt));
         styleTabs(tabs);
+        tabs.addChangeListener(
+                event -> viewCoordinator.updateSelectedTab(id(), tabs.getSelectedIndex()));
+        final int selectedTab = viewCoordinator.selectedTab(id());
+        if (selectedTab < tabs.getTabCount()) {
+            tabs.setSelectedIndex(selectedTab);
+        }
         final AtomicBoolean dirty = new AtomicBoolean();
         installDirtyTracking(tabs, dirty);
         return SettingsPanel.render(

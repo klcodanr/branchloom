@@ -8,7 +8,9 @@ import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.PlatformCommands;
+import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.services.terminal.TerminalState;
+import com.jagent.desktop.ui.actions.RemoveSessionAction;
 import com.jagent.desktop.ui.components.SessionActions;
 import com.jagent.desktop.ui.components.SessionSummary;
 import com.jagent.desktop.ui.components.TabBody;
@@ -36,6 +38,7 @@ import javax.swing.JTabbedPane;
 public final class SessionView extends JPanel implements View {
 
     private final transient ActionContext actionContext;
+    private final transient ViewCoordinator viewCoordinator;
     private final transient Project project;
     private final transient Session session;
     private final JTabbedPane terminals = new JTabbedPane();
@@ -50,6 +53,7 @@ public final class SessionView extends JPanel implements View {
         super();
         final var state = actionContext.appState();
         this.actionContext = actionContext;
+        this.viewCoordinator = actionContext.viewCoordinator();
         this.project = state.projects().get(state.currentProjectId());
         this.session = state.sessions().get(state.currentSessionId());
         if (project == null || session == null) {
@@ -61,6 +65,8 @@ public final class SessionView extends JPanel implements View {
         terminals.putClientProperty("JTabbedPane.scrollButtonsPolicy", "asNeeded");
         terminals.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
         add(terminals, BorderLayout.CENTER);
+        final boolean hasSelectedTab = viewCoordinator.hasSelectedTab(id());
+        final int selectedTab = viewCoordinator.selectedTab(id());
         terminals.addTab("Files", TabBody.wrap(workspace()));
         addSummary();
         terminalNumber = session.terminalIds().size();
@@ -71,9 +77,10 @@ public final class SessionView extends JPanel implements View {
             }
         }
         terminals.addChangeListener(event -> updateCurrentTerminal());
-        if (!selectCurrentTerminal()) {
+        if (!selectCurrentTerminal() && !restoreSelectedTab(hasSelectedTab, selectedTab)) {
             openSummary();
         }
+        updateCurrentTerminal();
     }
 
     @Override
@@ -88,12 +95,16 @@ public final class SessionView extends JPanel implements View {
 
     @Override
     public JPanel render() {
-        selectCurrentTerminal();
         return this;
     }
 
     private void addSummary() {
-        final JScrollPane summary = new JScrollPane(new SessionSummary(project, session));
+        final JScrollPane summary =
+                new JScrollPane(
+                        new SessionSummary(
+                                project,
+                                session,
+                                () -> new RemoveSessionAction(actionContext).execute()));
         summary.setBorder(null);
         summary.getVerticalScrollBar().setUnitIncrement(14);
         terminals.addTab("Summary", summary);
@@ -315,8 +326,20 @@ public final class SessionView extends JPanel implements View {
         return false;
     }
 
+    private boolean restoreSelectedTab(final boolean hasSelectedTab, final int selectedTab) {
+        if (!hasSelectedTab) {
+            return false;
+        }
+        if (selectedTab < terminals.getTabCount()) {
+            terminals.setSelectedIndex(selectedTab);
+            return true;
+        }
+        return false;
+    }
+
     private void updateCurrentTerminal() {
         final int selectedIndex = terminals.getSelectedIndex();
+        viewCoordinator.updateSelectedTab(id(), selectedIndex);
         TerminalId currentTerminal = null;
         if (selectedIndex > 0
                 && terminals.getComponentAt(selectedIndex) instanceof TerminalPanel terminal) {

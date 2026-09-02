@@ -10,6 +10,7 @@ import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.PullRequestCache;
+import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.components.ProjectActions;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
@@ -33,6 +34,7 @@ public final class ProjectView extends JPanel implements View {
     private final transient Project project;
     private final transient ProjectId projectId;
     private final transient ActionContext actionContext;
+    private final transient ViewCoordinator viewCoordinator;
     private final transient PullRequestCache pullRequestCache;
     private final JTabbedPane tabs = new JTabbedPane();
     private final PullRequestsBoard authoredPullRequests;
@@ -42,6 +44,7 @@ public final class ProjectView extends JPanel implements View {
     public ProjectView(final ActionContext actionContext, final Project project) {
         super();
         this.actionContext = actionContext;
+        this.viewCoordinator = actionContext.viewCoordinator();
         this.project = project;
         this.pullRequestCache = PullRequestCache.get(actionContext.appState());
         this.projectId =
@@ -84,6 +87,14 @@ public final class ProjectView extends JPanel implements View {
                                                         entry.getValue(),
                                                         Path.of(project.path()),
                                                         entry.getKey().equals(selectedTerminal))));
+        javax.swing.SwingUtilities.invokeLater(
+                () -> {
+                    restoreSelectedTab();
+                    tabs.addChangeListener(
+                            event ->
+                                    viewCoordinator.updateSelectedTab(
+                                            id(), tabs.getSelectedIndex()));
+                });
     }
 
     @Override
@@ -265,5 +276,18 @@ public final class ProjectView extends JPanel implements View {
 
     public void openSummary() {
         tabs.setSelectedIndex(0);
+    }
+
+    private void restoreSelectedTab() {
+        if (actionContext.appState().currentTerminalId() != null) {
+            return;
+        }
+        if (!viewCoordinator.hasSelectedTab(id())) {
+            return;
+        }
+        final int selectedTab = viewCoordinator.selectedTab(id());
+        if (selectedTab < tabs.getTabCount()) {
+            tabs.setSelectedIndex(selectedTab);
+        }
     }
 }
