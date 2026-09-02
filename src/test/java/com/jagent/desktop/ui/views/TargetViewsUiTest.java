@@ -123,6 +123,7 @@ class TargetViewsUiTest {
                         projectId,
                         new Session(projectId, SESSION_NAME, "test-agent", "prompt", PROJECT_PATH));
         state.addTerminal(sessionId, new Terminal(sessionId, "Shell", "true"));
+        state.addTerminal(sessionId, new Terminal(sessionId, projectId, "Dual owner", "true"));
         final var context = new ActionContext(new ViewCoordinator(state), state, null);
 
         final var view =

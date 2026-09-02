@@ -157,7 +157,7 @@ public final class ProjectView extends JPanel implements View {
     }
 
     private boolean belongsToProject(final Terminal terminal) {
-        return projectId.equals(terminal.projectId());
+        return terminal.sessionId() == null && projectId.equals(terminal.projectId());
     }
 
     private void showTerminal(
