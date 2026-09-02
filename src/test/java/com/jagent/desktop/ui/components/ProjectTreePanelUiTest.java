@@ -96,8 +96,7 @@ class ProjectTreePanelUiTest {
                             return created;
                         });
 
-        GuiActionRunner.execute(
-                () -> panel.tree().setSelectionPath(panel.tree().getPathForRow(0)));
+        GuiActionRunner.execute(() -> panel.tree().setSelectionPath(panel.tree().getPathForRow(0)));
 
         assertNull(state.currentProjectId(), "home selection should clear the current project");
         assertNull(state.currentSessionId(), "home selection should clear the current session");
