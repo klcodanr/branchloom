@@ -66,18 +66,13 @@ public final class AppStatePersistence implements AutoCloseable {
     public static AppState load(final Path directory) {
         final Path projectsFile = directory.resolve("projects.json");
         final Path settingsFile = directory.resolve("settings.json");
-        try {
-            final boolean settingsExist = Files.exists(settingsFile);
-            final PersistedProjects projects =
-                    read(projectsFile, PersistedProjects.class, new PersistedProjects());
-            final AppSettings loadedSettings =
-                    read(settingsFile, AppSettings.class, Defaults.appSettings());
-            final AppSettings settings = settings(settingsExist, loadedSettings);
-            return new AppState(settings, projects.projects, projects.sessions, projects.terminals);
-        } catch (IOException | RuntimeException exception) {
-            LOG.log(Level.WARNING, "Failed to load application state; using defaults.", exception);
-            return new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        }
+        final boolean settingsExist = Files.exists(settingsFile);
+        final PersistedProjects projects =
+                readOrDefault(projectsFile, PersistedProjects.class, new PersistedProjects());
+        final AppSettings loadedSettings =
+                readOrDefault(settingsFile, AppSettings.class, Defaults.appSettings());
+        final AppSettings settings = settings(settingsExist, loadedSettings);
+        return new AppState(settings, projects.projects, projects.sessions, projects.terminals);
     }
 
     private static AppSettings settings(
@@ -197,6 +192,15 @@ public final class AppStatePersistence implements AutoCloseable {
             return fallback;
         }
         return JSON.fromJson(Files.readString(path), type);
+    }
+
+    private static <T> T readOrDefault(final Path path, final Class<T> type, final T fallback) {
+        try {
+            return read(path, type, fallback);
+        } catch (IOException | RuntimeException exception) {
+            LOG.log(Level.WARNING, "Failed to load " + path + "; using defaults.", exception);
+            return fallback;
+        }
     }
 
     @Override

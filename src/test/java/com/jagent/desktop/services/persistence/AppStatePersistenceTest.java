@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
@@ -22,6 +24,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 class AppStatePersistenceTest {
     private static final String SETTINGS_FILE = "settings.json";
+    private static final String AGENT_COMMAND = "agent";
+    private static final String INVALID_JSON = "not json";
+    private static final String PROJECT_NAME = "Demo";
+    private static final String THEME = "Dark";
 
     @Test
     void missingFilesLoadDefaultSettingsAndEmptyState(@TempDir final Path directory) {
@@ -50,18 +56,19 @@ class AppStatePersistenceTest {
     void persistsAndLoadsProjectsSessionsTerminalsAndSettings(@TempDir final Path directory)
             throws IOException, InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project("Demo", "/tmp/demo", null));
+        final var projectId = state.addProject(new Project(PROJECT_NAME, "/tmp/demo", null));
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(projectId, "Feature", "agent", "prompt", "/tmp/worktree"));
+                        new Session(
+                                projectId, "Feature", AGENT_COMMAND, "prompt", "/tmp/worktree"));
         final var terminalId = state.addTerminal(sessionId, new Terminal(sessionId, "Shell", "sh"));
         state.updateAppSettings(
                 new AppSettings(
-                        Defaults.appSettings().agents(),
+                        List.of(new Agent("Test agent", "agent {prompt}", AGENT_COMMAND)),
                         Defaults.appSettings().groupOrder(),
                         "review",
-                        "Dark",
+                        THEME,
                         Defaults.appSettings().tools(),
                         "custom/{sessionSlug}"));
 
@@ -79,15 +86,27 @@ class AppStatePersistenceTest {
                 "terminal history should be written");
 
         final AppState loaded = AppStatePersistence.load(directory);
-        assertEquals("Demo", loaded.projects().get(projectId).name(), "project should load");
+        assertEquals(PROJECT_NAME, loaded.projects().get(projectId).name(), "project should load");
         assertEquals("Feature", loaded.sessions().get(sessionId).name(), "session should load");
         assertEquals("Shell", loaded.terminals().get(terminalId).title(), "terminal should load");
-        assertEquals("Dark", loaded.appSettings().theme(), "settings should load");
+        assertEquals(THEME, loaded.appSettings().theme(), "settings should load");
+        assertEquals(
+                "Test agent",
+                loaded.appSettings().agents().getFirst().name,
+                "agent name should load");
+        assertEquals(
+                "agent {prompt}",
+                loaded.appSettings().agents().getFirst().newSessionCommand,
+                "agent new-session command should load");
+        assertEquals(
+                AGENT_COMMAND,
+                loaded.appSettings().agents().getFirst().openCommand,
+                "agent open command should load");
     }
 
     @Test
     void invalidFilesFallBackToDefaults(@TempDir final Path directory) throws IOException {
-        Files.writeString(directory.resolve("projects.json"), "not json");
+        Files.writeString(directory.resolve("projects.json"), INVALID_JSON);
 
         final AppState loaded = AppStatePersistence.load(directory);
 
@@ -100,8 +119,51 @@ class AppStatePersistenceTest {
     }
 
     @Test
+    void invalidSettingsDoNotDiscardProjects(@TempDir final Path directory) throws IOException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var projectId = state.addProject(new Project(PROJECT_NAME, "/tmp/demo", null));
+
+        try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
+            persistence.persist();
+        }
+        Files.writeString(directory.resolve(SETTINGS_FILE), INVALID_JSON);
+
+        final AppState loaded = AppStatePersistence.load(directory);
+
+        assertEquals(
+                PROJECT_NAME, loaded.projects().get(projectId).name(), "project should still load");
+        assertEquals(
+                Defaults.appSettings().theme(),
+                loaded.appSettings().theme(),
+                "invalid settings should use the default theme");
+    }
+
+    @Test
+    void invalidProjectsDoNotDiscardSettings(@TempDir final Path directory) throws IOException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        state.updateAppSettings(
+                new AppSettings(
+                        Defaults.appSettings().agents(),
+                        Defaults.appSettings().groupOrder(),
+                        "review",
+                        THEME,
+                        Defaults.appSettings().tools(),
+                        "custom/{sessionSlug}"));
+
+        try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
+            persistence.persist();
+        }
+        Files.writeString(directory.resolve("projects.json"), INVALID_JSON);
+
+        final AppState loaded = AppStatePersistence.load(directory);
+
+        assertTrue(loaded.projects().isEmpty(), "invalid projects should use the empty default");
+        assertEquals(THEME, loaded.appSettings().theme(), "settings should still load");
+    }
+
+    @Test
     void invalidSettingsFallBackToDefaults(@TempDir final Path directory) throws IOException {
-        Files.writeString(directory.resolve(SETTINGS_FILE), "not json");
+        Files.writeString(directory.resolve(SETTINGS_FILE), INVALID_JSON);
 
         final AppState loaded = AppStatePersistence.load(directory);
 

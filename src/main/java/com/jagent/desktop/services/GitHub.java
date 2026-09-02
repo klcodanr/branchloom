@@ -153,7 +153,9 @@ public final class GitHub {
                         + " --jq "
                         + PlatformCommands.shellQuote(PR_JQ);
         final ProcessBuilder builder =
-                PlatformCommands.prepare(new ProcessBuilder(PlatformCommands.shell(query)))
+                PlatformCommands.prepare(
+                                new ProcessBuilder(
+                                        PlatformCommands.shell(Git.githubCommand(project, query))))
                         .directory(projectPath.toFile())
                         .redirectErrorStream(true);
         final Process process = builder.start();
