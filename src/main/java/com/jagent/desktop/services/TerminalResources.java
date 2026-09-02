@@ -29,11 +29,16 @@ public final class TerminalResources {
             trees.put(root, tree);
         }
         final Map<Long, Long> memory = residentMemory(processes.keySet());
+        final Map<Long, Long> cpu = cpuTime(processes.keySet());
         for (final Map.Entry<ProcessTarget, List<ProcessHandle>> entry : trees.entrySet()) {
-            long cpuMillis = 0;
+            long cpuNanos = 0;
             long memoryBytes = 0;
             for (final ProcessHandle process : entry.getValue()) {
-                cpuMillis += process.info().totalCpuDuration().orElse(Duration.ZERO).toMillis();
+                final Long psCpuMillis = cpu.get(process.pid());
+                cpuNanos +=
+                        psCpuMillis == null
+                                ? process.info().totalCpuDuration().orElse(Duration.ZERO).toNanos()
+                                : TimeUnit.MILLISECONDS.toNanos(psCpuMillis);
                 memoryBytes += memory.getOrDefault(process.pid(), 0L);
             }
             usage.add(
@@ -41,7 +46,7 @@ public final class TerminalResources {
                             entry.getKey().name(),
                             entry.getKey().pid(),
                             entry.getValue().size(),
-                            cpuMillis,
+                            Duration.ofNanos(cpuNanos).toMillis(),
                             memoryBytes));
         }
         return new Sample(usage, !memory.isEmpty());
@@ -74,6 +79,52 @@ public final class TerminalResources {
         } catch (IOException | NumberFormatException ignored) {
             return Map.of();
         }
+    }
+
+    private static Map<Long, Long> cpuTime(final Collection<Long> pids) {
+        if (pids.isEmpty() || PlatformCommands.isWindows()) {
+            return Map.of();
+        }
+        final List<String> command = new ArrayList<>(List.of("ps", "-o", "pid=,time=", "-p"));
+        command.add(String.join(",", pids.stream().map(Object::toString).toList()));
+        try {
+            final Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+            final String output =
+                    new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            if (!process.waitFor(2, TimeUnit.SECONDS) || process.exitValue() != 0) {
+                return Map.of();
+            }
+            final Map<Long, Long> result = new HashMap<>();
+            for (final String line : output.split("\\R")) {
+                final String[] fields = line.trim().split("\\s+");
+                if (fields.length == 2) {
+                    result.put(Long.parseLong(fields[0]), parseCpuTime(fields[1]));
+                }
+            }
+            return result;
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+            return Map.of();
+        } catch (IOException | NumberFormatException ignored) {
+            return Map.of();
+        }
+    }
+
+    private static long parseCpuTime(final String value) {
+        final String[] fields = value.split(":");
+        final String seconds = fields[fields.length - 1];
+        long totalSeconds = 0;
+        if (fields.length > 1) {
+            totalSeconds += Long.parseLong(fields[fields.length - 2]) * 60;
+        }
+        if (fields.length > 2) {
+            final String[] days = fields[0].split("-");
+            totalSeconds += Long.parseLong(days[days.length - 1]) * 3600;
+            if (days.length > 1) {
+                totalSeconds += Long.parseLong(days[0]) * 24 * 3600;
+            }
+        }
+        return totalSeconds * 1_000 + Math.round(Double.parseDouble(seconds) * 1_000);
     }
 
     public record ProcessTarget(String name, long pid) {}

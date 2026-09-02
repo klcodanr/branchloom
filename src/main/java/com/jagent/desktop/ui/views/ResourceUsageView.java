@@ -268,6 +268,9 @@ public final class ResourceUsageView extends JPanel implements View {
     }
 
     private static String formatDuration(final long millis) {
+        if (millis < 1_000) {
+            return String.format("0m 00.%03ds", millis);
+        }
         return String.format("%dm %02ds", millis / 60_000, millis / 1_000 % 60);
     }
 

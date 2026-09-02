@@ -26,7 +26,7 @@ class ResourceUsageViewUiTest {
         update(view, new TerminalResources.Sample(List.of(), false));
 
         assertEquals("0", label(view, TERMINAL_COUNT).getText(), ASSERTION_MESSAGE);
-        assertEquals("0m 00s", label(view, TERMINAL_CPU).getText(), ASSERTION_MESSAGE);
+        assertEquals("0m 00.000s", label(view, TERMINAL_CPU).getText(), ASSERTION_MESSAGE);
         assertEquals("Unavailable", label(view, TERMINAL_MEMORY).getText(), ASSERTION_MESSAGE);
         assertEquals(
                 "No active terminals",
