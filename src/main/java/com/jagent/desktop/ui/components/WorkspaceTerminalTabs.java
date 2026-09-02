@@ -113,10 +113,9 @@ public final class WorkspaceTerminalTabs {
                 || !(tabs.getComponentAt(index) instanceof TerminalPanel terminal)) {
             return;
         }
-        final TerminalId terminalId = ids.get(terminal);
+        final TerminalId terminalId = ids.remove(terminal);
         tabs.removeTabAt(index);
         states.remove(terminal);
-        ids.remove(terminal);
         terminal.dispose();
         closed.accept(terminal, terminalId);
     }

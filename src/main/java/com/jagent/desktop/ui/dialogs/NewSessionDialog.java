@@ -49,6 +49,7 @@ public final class NewSessionDialog extends JDialog {
             final Consumer<Request> onValid) {
         super(actionContext.window(), "New agent session", ModalityType.APPLICATION_MODAL);
         setFocusTraversalPolicy(new ContainerOrderFocusTraversalPolicy());
+        UiFactory.configureDialogCloseOnEscape(this);
 
         this.appState = actionContext.appState();
         this.onValid = onValid;

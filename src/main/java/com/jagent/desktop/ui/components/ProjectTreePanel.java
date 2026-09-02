@@ -12,7 +12,6 @@ import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalState;
-import com.jagent.desktop.ui.Defaults;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.OpenProjectAction;
 import com.jagent.desktop.ui.actions.OpenSessionAction;
@@ -25,11 +24,8 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import javax.swing.JButton;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
@@ -49,6 +45,10 @@ public final class ProjectTreePanel extends JPanel {
     private final DefaultMutableTreeNode root = new DefaultMutableTreeNode("Projects");
     private final transient Map<Session, TerminalState> sessionStates = new HashMap<>();
     private final transient Map<Session, PullRequestInfo> pullRequestStatuses = new HashMap<>();
+    private final transient ProjectTreeSynchronizer treeSynchronizer;
+    private Map<ProjectId, Project> renderedProjects = Map.of();
+    private Map<SessionId, Session> renderedSessions = Map.of();
+    private boolean rendered;
     private boolean selectingProgrammatically;
 
     public ProjectTreePanel(final ActionContext actionContext) {
@@ -61,6 +61,7 @@ public final class ProjectTreePanel extends JPanel {
 
         add(new ProjectHeader(actionContext), BorderLayout.NORTH);
         tree = new ProjectTree();
+        treeSynchronizer = new ProjectTreeSynchronizer(tree, root, this::loadPullRequestStatus);
         add(tree, BorderLayout.CENTER);
         add(new SettingsButton(actionContext), BorderLayout.SOUTH);
     }
@@ -173,69 +174,29 @@ public final class ProjectTreePanel extends JPanel {
     }
 
     public void refresh(final Project selectedProject, final Session selectedSession) {
-        final Map<ProjectId, DefaultMutableTreeNode> projectNodes = new HashMap<>();
-        final Map<SessionId, DefaultMutableTreeNode> sessionNodes = new HashMap<>();
-        rebuildTree(projectNodes, sessionNodes);
-        restoreSelection(selectedProject, selectedSession, projectNodes, sessionNodes);
-    }
-
-    private void rebuildTree(
-            final Map<ProjectId, DefaultMutableTreeNode> projectNodes,
-            final Map<SessionId, DefaultMutableTreeNode> sessionNodes) {
-        root.removeAllChildren();
-        root.add(new DefaultMutableTreeNode(HomeNode.INSTANCE));
-        final Map<String, DefaultMutableTreeNode> groups =
-                new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-        final List<String> groupNames = new ArrayList<>();
-        for (final var projectEntry : actionContext.appState().projects().entrySet()) {
-            final Project project = projectEntry.getValue();
-            final String projectGroup = project.group();
-            final String groupName =
-                    projectGroup == null || projectGroup.isBlank()
-                            ? Defaults.DEFAULT_GROUP
-                            : projectGroup;
-            final DefaultMutableTreeNode groupNode =
-                    groups.computeIfAbsent(groupName, DefaultMutableTreeNode::new);
-            if (!groupNames.stream().anyMatch(name -> name.equalsIgnoreCase(groupName))) {
-                groupNames.add(groupName);
-            }
-            final DefaultMutableTreeNode projectNode = new DefaultMutableTreeNode(projectEntry);
-            projectNodes.put(projectEntry.getKey(), projectNode);
-            for (final var sessionId : project.sessionIds()) {
-                final Session session = actionContext.appState().sessions().get(sessionId);
-                if (session == null) {
-                    continue;
-                }
-                final DefaultMutableTreeNode sessionNode =
-                        new DefaultMutableTreeNode(Map.entry(sessionId, session));
-                sessionNodes.put(sessionId, sessionNode);
-                projectNode.add(sessionNode);
-                loadPullRequestStatus(project, session);
-            }
-            groupNode.add(projectNode);
+        final Map<ProjectId, Project> projects = actionContext.appState().projects();
+        final Map<SessionId, Session> sessions = actionContext.appState().sessions();
+        if (!rendered || !projects.equals(renderedProjects) || !sessions.equals(renderedSessions)) {
+            treeSynchronizer.synchronize(actionContext.appState());
+            renderedProjects = projects;
+            renderedSessions = sessions;
+            rendered = true;
         }
-        orderedGroups(groupNames).forEach(group -> root.add(groups.get(group)));
-        ((DefaultTreeModel) tree.getModel()).reload();
-        orderedGroups(groupNames)
-                .forEach(group -> tree.expandPath(new TreePath(groups.get(group).getPath())));
+        restoreSelection(selectedProject, selectedSession);
     }
 
-    private void restoreSelection(
-            final Project selectedProject,
-            final Session selectedSession,
-            final Map<ProjectId, DefaultMutableTreeNode> projectNodes,
-            final Map<SessionId, DefaultMutableTreeNode> sessionNodes) {
+    private void restoreSelection(final Project selectedProject, final Session selectedSession) {
         if (selectedProject == null) {
             selectNode((DefaultMutableTreeNode) root.getFirstChild());
             return;
         }
         final ProjectId projectId = actionContext.appState().currentProjectId();
-        final DefaultMutableTreeNode projectNode = projectNodes.get(projectId);
+        final DefaultMutableTreeNode projectNode = treeSynchronizer.projectNode(projectId);
         if (projectNode == null) {
             return;
         }
         final SessionId sessionId = actionContext.appState().currentSessionId();
-        final DefaultMutableTreeNode sessionNode = sessionNodes.get(sessionId);
+        final DefaultMutableTreeNode sessionNode = treeSynchronizer.sessionNode(sessionId);
         tree.expandPath(new TreePath(projectNode.getPath()));
         selectNode(selectedSession == null || sessionNode == null ? projectNode : sessionNode);
     }
@@ -382,12 +343,6 @@ public final class ProjectTreePanel extends JPanel {
         menu.show(tree, point.x, point.y);
     }
 
-    private List<String> orderedGroups(final List<String> groupNames) {
-        final List<String> ordered = new ArrayList<>();
-        groupNames.stream().sorted(String.CASE_INSENSITIVE_ORDER).forEach(ordered::add);
-        return ordered;
-    }
-
     private void showGroupMenu(final DefaultMutableTreeNode groupNode, final Point point) {
         final JPopupMenu menu = new JPopupMenu();
         final JMenuItem moveUp = new JMenuItem("Move up");
@@ -448,7 +403,7 @@ public final class ProjectTreePanel extends JPanel {
         return root.getChildCount();
     }
 
-    private enum HomeNode {
+    public enum HomeNode {
         INSTANCE;
 
         @Override

@@ -28,7 +28,7 @@ public record PullRequest(
     }
 
     public String relevanceGroup() {
-        if (draft || "CONFLICTING".equals(mergeable)) {
+        if (draft || "CONFLICTING".equals(mergeable) || "FAILING".equals(checksStatus)) {
             return PullRequestGroup.NOT_READY.label();
         }
         return switch (reviewDecision) {
