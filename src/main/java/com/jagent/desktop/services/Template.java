@@ -27,10 +27,13 @@ public final class Template {
                 escapePaths ? GitUtils.toBranchSlug(project.name()) : project.name();
         final String sessionName =
                 escapePaths ? session.name() : GitUtils.toBranchSlug(session.name());
-        final String projectPath = escapePaths ? Git.shellQuote(project.path()) : project.path();
+        final String projectPath =
+                escapePaths ? PlatformCommands.shellQuote(project.path()) : project.path();
         final String resolvedWorktreePath = worktreePath == null ? "" : worktreePath;
         final String path =
-                escapePaths ? Git.shellQuote(resolvedWorktreePath) : resolvedWorktreePath;
+                escapePaths
+                        ? PlatformCommands.shellQuote(resolvedWorktreePath)
+                        : resolvedWorktreePath;
         return template.replace("{projectName}", projectName)
                 .replace("{projectPath}", projectPath)
                 .replace("{sessionName}", sessionName)

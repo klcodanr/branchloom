@@ -3,6 +3,7 @@ package com.jagent.desktop.ui.components;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.Git;
+import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.WorkspaceFiles;
 import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.actions.OpenDirectoryAction;
@@ -188,7 +189,7 @@ public final class WorkspaceTreePanel extends JPanel {
         }
         final var editor = tools.getFirst();
         RunCommandAction.run(
-                editor.command() + " " + Git.shellQuote(path.toString()),
+                editor.command() + " " + PlatformCommands.shellQuote(path.toString()),
                 parent.toString(),
                 editor.label(),
                 actionContext.window());

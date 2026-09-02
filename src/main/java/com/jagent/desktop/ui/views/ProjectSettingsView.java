@@ -74,6 +74,9 @@ public final class ProjectSettingsView extends JPanel implements View {
                 new JTextArea(String.join("\n", project.startupCommands()), 4, 45);
         final JTextField agentContextPath = new JTextField(agentContextPath(project), 45);
         final JTextArea agentContextText = new JTextArea(agentContextText(project), 6, 45);
+        UiFactory.configureTextAreaTraversal(template);
+        UiFactory.configureTextAreaTraversal(agentContextText);
+        UiFactory.configureTextAreaTraversal(startup);
         template.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
         startup.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
         agentContextPath.setToolTipText(

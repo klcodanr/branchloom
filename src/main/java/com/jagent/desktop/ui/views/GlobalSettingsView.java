@@ -71,6 +71,7 @@ public final class GlobalSettingsView implements View {
     public JComponent render() {
         final AppSettings settings = state.appSettings();
         final JTextArea work = new JTextArea(settings.worktreeTemplate(), 2, 45);
+        UiFactory.configureTextAreaTraversal(work);
         work.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
         final JComboBox<Theme.FlatLafTheme> theme = new JComboBox<>(Theme.FlatLafTheme.values());
         theme.setSelectedItem(Theme.FlatLafTheme.from(settings.theme()));
@@ -90,14 +91,22 @@ public final class GlobalSettingsView implements View {
         final List<JTextField> toolNames = new ArrayList<>();
         final List<JTextField> toolCommands = new ArrayList<>();
         final JTextArea reviewPrompt = new JTextArea(settings.reviewPrompt(), 10, 60);
+        UiFactory.configureTextAreaTraversal(reviewPrompt);
         reviewPrompt.setToolTipText(REVIEW_VARIABLES_TOOLTIP);
         final JTabbedPane tabs = new JTabbedPane(JTabbedPane.TOP);
+        tabs.putClientProperty("JTabbedPane.scrollButtonsPolicy", "asNeeded");
         tabs.addTab("General", general);
         tabs.addTab(
                 "Agents", agentEditor(settings.agents(), names, newSessionCommands, openCommands));
         tabs.addTab("Editors", toolEditor(settings.tools(), toolNames, toolCommands));
         tabs.addTab("Review", reviewEditor(reviewPrompt));
         styleTabs(tabs);
+        tabs.addChangeListener(
+                event -> viewCoordinator.updateSelectedTab(id(), tabs.getSelectedIndex()));
+        final int selectedTab = viewCoordinator.selectedTab(id());
+        if (selectedTab < tabs.getTabCount()) {
+            tabs.setSelectedIndex(selectedTab);
+        }
         final AtomicBoolean dirty = new AtomicBoolean();
         installDirtyTracking(tabs, dirty);
         return SettingsPanel.render(

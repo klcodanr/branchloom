@@ -10,6 +10,7 @@ import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.services.AgentContext;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.Git;
+import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.Template;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.ui.GitUtils;
@@ -18,6 +19,8 @@ import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JOptionPane;
@@ -63,8 +66,43 @@ public final class CreateSessionAction extends BaseAction {
                     JOptionPane.INFORMATION_MESSAGE);
             return;
         }
-        new NewSessionDialog(actionContext, request -> addSession(projectId, request))
-                .setVisible(true);
+        final Project project = state.projects().get(projectId);
+        git.listBranches(project)
+                .whenCompleteAsync(
+                        (branches, failure) -> {
+                            if (failure != null) {
+                                showError(
+                                        "Load base branches",
+                                        failure.getMessage() == null
+                                                ? "Git could not list branches."
+                                                : failure.getMessage());
+                                return;
+                            }
+                            new NewSessionDialog(
+                                            actionContext,
+                                            preferredBranches(branches),
+                                            request -> addSession(projectId, request))
+                                    .setVisible(true);
+                        },
+                        SwingUtilities::invokeLater);
+    }
+
+    private List<Git.Branch> preferredBranches(final List<Git.Branch> branches) {
+        return branches.stream()
+                .sorted(
+                        Comparator.comparingInt(this::branchPriority)
+                                .thenComparing(Git.Branch::name))
+                .toList();
+    }
+
+    private int branchPriority(final Git.Branch branch) {
+        return switch (branch.name()) {
+            case "origin/main" -> 0;
+            case "main" -> 1;
+            case "origin/master" -> 2;
+            case "master" -> 3;
+            default -> branch.remote() ? 5 : 4;
+        };
     }
 
     private void addSession(final ProjectId projectId, final NewSessionDialog.Request request) {
@@ -130,20 +168,23 @@ public final class CreateSessionAction extends BaseAction {
             fail(progress, CREATE_SESSION, message, message);
             return;
         }
-        git.createWorktree(project, branch, path)
-                .whenCompleteAsync(
-                        (ignored, failure) -> {
-                            if (failure == null) {
-                                finishSession(projectId, request, worktreePath, progress);
-                                return;
-                            }
-                            fail(
-                                    progress,
-                                    "Create session worktree",
-                                    failure.getMessage(),
-                                    "Git could not create the worktree.");
-                        },
-                        SwingUtilities::invokeLater);
+        final var worktreeCreation =
+                request.baseBranch() == null
+                        ? git.createWorktree(project, branch, path)
+                        : git.createWorktree(project, branch, path, request.baseBranch());
+        worktreeCreation.whenCompleteAsync(
+                (ignored, failure) -> {
+                    if (failure == null) {
+                        finishSession(projectId, request, worktreePath, progress);
+                        return;
+                    }
+                    fail(
+                            progress,
+                            "Create session worktree",
+                            failure.getMessage(),
+                            "Git could not create the worktree.");
+                },
+                SwingUtilities::invokeLater);
     }
 
     private void finishSession(
@@ -172,7 +213,9 @@ public final class CreateSessionAction extends BaseAction {
                                     request.agent()
                                             .newSessionCommand
                                             .replace(
-                                                    "{prompt}", Git.shellQuote(request.prompt()))));
+                                                    "{prompt}",
+                                                    PlatformCommands.shellQuote(
+                                                            request.prompt()))));
             actionContext
                     .viewCoordinator()
                     .updateView(

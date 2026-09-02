@@ -61,4 +61,18 @@ class ViewCoordinatorTest {
         assertEquals(
                 ViewId.SESSION, coordinator.currentViewId(), "view selection should be applied");
     }
+
+    @Test
+    void selectedTabIsPreservedPerView() {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var coordinator = new ViewCoordinator(state);
+
+        coordinator.updateSelectedTab(ViewId.HOME, 2);
+        coordinator.updateSelectedTab(ViewId.SETTINGS, 3);
+
+        assertEquals(2, coordinator.selectedTab(ViewId.HOME), "home tab should be preserved");
+        assertEquals(
+                3, coordinator.selectedTab(ViewId.SETTINGS), "settings tab should be preserved");
+        assertEquals(0, coordinator.selectedTab(ViewId.PROJECT), "unknown views should default");
+    }
 }

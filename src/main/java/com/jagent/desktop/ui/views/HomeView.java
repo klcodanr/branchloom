@@ -8,8 +8,9 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundTasks;
-import com.jagent.desktop.services.Git;
+import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.PullRequestCache;
+import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.components.ProjectCards;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
@@ -32,6 +33,7 @@ public final class HomeView extends JPanel implements View {
     private static final Logger LOG = Logger.getLogger(HomeView.class.getName());
     private final transient AppState appState;
     private final transient PullRequestCache pullRequestCache;
+    private final transient ViewCoordinator viewCoordinator;
     private final PullRequestsBoard authoredPullRequests;
     private final PullRequestsBoard reviewPullRequests;
     private final JPanel terminalHost = new JPanel(new BorderLayout());
@@ -41,6 +43,7 @@ public final class HomeView extends JPanel implements View {
     public HomeView(final ActionContext actionContext) {
         super();
         this.appState = actionContext.appState();
+        this.viewCoordinator = actionContext.viewCoordinator();
         this.pullRequestCache = PullRequestCache.get(appState);
         this.authoredPullRequests = new PullRequestsBoard(actionContext, () -> pullRequests(true));
         this.reviewPullRequests = new PullRequestsBoard(actionContext, () -> pullRequests(false));
@@ -51,10 +54,14 @@ public final class HomeView extends JPanel implements View {
         header.setOpaque(false);
         add(header, BorderLayout.NORTH);
         tabs = new JTabbedPane();
+        tabs.putClientProperty("JTabbedPane.scrollButtonsPolicy", "asNeeded");
         tabs.addTab("Projects", TabBody.wrap(new ProjectCards(actionContext)));
         tabs.addTab("My PRs", TabBody.wrap(authoredPullRequests));
         tabs.addTab("Review requests", TabBody.wrap(reviewPullRequests));
         tabs.addTab("PR Summary", TabBody.wrap(summaryTab()));
+        tabs.addChangeListener(
+                event -> viewCoordinator.updateSelectedTab(id(), tabs.getSelectedIndex()));
+        tabs.setSelectedIndex(viewCoordinator.selectedTab(id()));
         add(tabs, BorderLayout.CENTER);
     }
 
@@ -132,7 +139,8 @@ public final class HomeView extends JPanel implements View {
     }
 
     private void startSummary(final Agent agent, final String prompt, final JButton run) {
-        final String command = agent.newSessionCommand.replace("{prompt}", Git.shellQuote(prompt));
+        final String command =
+                agent.newSessionCommand.replace("{prompt}", PlatformCommands.shellQuote(prompt));
         if (summaryTerminal != null) {
             summaryTerminal.dispose();
         }
