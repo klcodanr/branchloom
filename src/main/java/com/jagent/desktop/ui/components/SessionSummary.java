@@ -42,9 +42,17 @@ public final class SessionSummary extends JPanel {
     private final StatusDot pullRequestStatusDot = new StatusDot(Theme.mutedColor());
     private final JPanel pullRequestDetails = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
     private final JPanel diff = new JPanel();
+    private final Alert cleanupAlert;
     private String pullRequestUrl;
+    private boolean pullRequestClosed;
+    private boolean worktreeClean;
 
     public SessionSummary(final Project project, final Session session) {
+        this(project, session, () -> {});
+    }
+
+    public SessionSummary(
+            final Project project, final Session session, final Runnable removeSessionAndWorktree) {
         super();
         this.project = project;
         this.session = session;
@@ -54,6 +62,13 @@ public final class SessionSummary extends JPanel {
         pullRequestDetails.setOpaque(false);
         pullRequestDetails.add(pullRequestStatusDot);
         pullRequestDetails.add(pullRequest);
+        cleanupAlert =
+                new Alert(
+                        new Alert.Content(
+                                "Ready for clean up! The pull request is finished and this "
+                                        + "worktree has no uncommitted changes.",
+                                removeSessionAndWorktree));
+        cleanupAlert.setVisible(false);
         pullRequest.addMouseListener(
                 new MouseAdapter() {
                     @Override
@@ -85,15 +100,19 @@ public final class SessionSummary extends JPanel {
         constraints.insets = new Insets(0, 0, 16, 18);
         constraints.anchor = GridBagConstraints.NORTHWEST;
         constraints.fill = GridBagConstraints.HORIZONTAL;
-        addRow(details, constraints, 0, "Prompt", textArea(session.prompt()));
-        addRow(details, constraints, 1, "Created", value(session.created().toString()));
-        addRow(details, constraints, 2, "Branch", branch);
-        addRow(details, constraints, 3, "Pull request", pullRequestDetails);
-        addRow(details, constraints, 4, "Worktree", textArea(session.worktreePath()));
-        addRow(details, constraints, 5, "Changes", diff);
-        constraints.gridy = 6;
+        constraints.gridy = 0;
         constraints.gridx = 0;
         constraints.gridwidth = 3;
+        constraints.weighty = 0;
+        constraints.fill = GridBagConstraints.HORIZONTAL;
+        details.add(cleanupAlert, constraints);
+        addRow(details, constraints, 1, "Prompt", textArea(session.prompt()));
+        addRow(details, constraints, 2, "Created", value(session.created().toString()));
+        addRow(details, constraints, 3, "Branch", branch);
+        addRow(details, constraints, 4, "Pull request", pullRequestDetails);
+        addRow(details, constraints, 5, "Worktree", textArea(session.worktreePath()));
+        addRow(details, constraints, 6, "Changes", diff);
+        constraints.gridy = 7;
         constraints.weighty = 1;
         constraints.fill = GridBagConstraints.VERTICAL;
         details.add(Box.createVerticalGlue(), constraints);
@@ -152,14 +171,17 @@ public final class SessionSummary extends JPanel {
                         final String currentBranch = Git.currentBranch(worktree);
                         final String changes = Git.status(worktree);
                         SwingUtilities.invokeLater(
-                                () ->
-                                        branch.setText(
-                                                (currentBranch.isBlank()
-                                                                ? "Detached HEAD"
-                                                                : currentBranch)
-                                                        + (changes.isBlank()
-                                                                ? "  ·  Clean"
-                                                                : "  ·  Changes present")));
+                                () -> {
+                                    branch.setText(
+                                            (currentBranch.isBlank()
+                                                            ? "Detached HEAD"
+                                                            : currentBranch)
+                                                    + (changes.isBlank()
+                                                            ? "  ·  Clean"
+                                                            : "  ·  Changes present"));
+                                    worktreeClean = changes.isBlank();
+                                    updateCleanupSuggestion();
+                                });
                     } catch (IOException exception) {
                         reportFailure(
                                 "Session branch status",
@@ -188,6 +210,10 @@ public final class SessionSummary extends JPanel {
                                     pullRequestUrl = details.url();
                                     pullRequest.setText(GitFormatter.detailsHtml(details));
                                     updatePullRequestDot(details);
+                                    pullRequestClosed =
+                                            "CLOSED".equals(details.state())
+                                                    || "MERGED".equals(details.state());
+                                    updateCleanupSuggestion();
                                 });
                     } catch (IOException exception) {
                         final String message =
@@ -254,5 +280,11 @@ public final class SessionSummary extends JPanel {
         pullRequestStatusDot.update(color, null);
         pullRequestDetails.revalidate();
         pullRequestDetails.repaint();
+    }
+
+    private void updateCleanupSuggestion() {
+        cleanupAlert.setVisible(pullRequestClosed && worktreeClean);
+        cleanupAlert.revalidate();
+        cleanupAlert.repaint();
     }
 }
