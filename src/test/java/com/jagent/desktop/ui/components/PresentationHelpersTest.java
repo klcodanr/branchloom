@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.PullRequest;
 import java.awt.Color;
@@ -63,6 +64,10 @@ class PresentationHelpersTest {
                 "Cannot merge",
                 GitFormatter.mergeStatus("CONFLICTING"),
                 "conflicting pull requests should not be mergeable");
+        assertEquals(
+                "Cannot merge",
+                GitFormatter.mergeStatus("DIRTY"),
+                "dirty pull requests should not be mergeable");
         assertEquals(
                 "Mergeability unknown",
                 GitFormatter.mergeStatus("UNKNOWN"),
@@ -140,6 +145,41 @@ class PresentationHelpersTest {
                         + "'>&#9679;</font> Cannot merge  ·  Checks: 1/2 Failing",
                 status,
                 "compact status should include merge and check state");
+    }
+
+    @Test
+    void prioritizesClosedPullRequestLifecycleOverMergeability() {
+        final var merged =
+                new com.jagent.desktop.services.GitHub.PullRequestDetails(
+                        1,
+                        "",
+                        "MERGED",
+                        "",
+                        "UNKNOWN",
+                        "",
+                        false,
+                        0,
+                        0,
+                        "UNKNOWN");
+        final var closed =
+                new com.jagent.desktop.services.GitHub.PullRequestDetails(
+                        1,
+                        "",
+                        "CLOSED",
+                        "",
+                        "CLEAN",
+                        "",
+                        false,
+                        0,
+                        0,
+                        "UNKNOWN");
+
+        assertTrue(
+                GitFormatter.detailsHtml(merged).contains("  ·  Merged  ·  "),
+                "merged pull requests should show their lifecycle state");
+        assertTrue(
+                GitFormatter.detailsHtml(closed).contains("  ·  Closed  ·  "),
+                "closed pull requests should show their lifecycle state");
     }
 
     @Test
