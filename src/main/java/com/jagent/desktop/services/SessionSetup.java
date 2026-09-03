@@ -54,13 +54,20 @@ public final class SessionSetup {
         if (sessions.remove(setupId) == null) {
             throw new InvalidObjectException("Setup session not found: " + setupId);
         }
-        progress.remove(setupId);
-        listeners.remove(setupId);
-        return state.addSession(session.projectId(), session);
+        final SessionId persistedSessionId = state.addSession(session.projectId(), session);
+        final SetupProgress setupProgress = progress.remove(setupId);
+        if (setupProgress != null) {
+            progress.put(persistedSessionId, setupProgress);
+        }
+        final List<Consumer<SetupProgress>> setupListeners = listeners.remove(setupId);
+        if (setupListeners != null) {
+            listeners.put(persistedSessionId, setupListeners);
+        }
+        return persistedSessionId;
     }
 
     private void update(final SessionId sessionId, final SetupProgress setupProgress) {
-        if (!sessions.containsKey(sessionId)) {
+        if (!sessions.containsKey(sessionId) && !progress.containsKey(sessionId)) {
             return;
         }
         progress.put(sessionId, setupProgress);

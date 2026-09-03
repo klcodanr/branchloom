@@ -1,6 +1,7 @@
 package com.jagent.desktop.services;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -49,5 +50,17 @@ class SessionSetupTest {
                 "project should reference the promoted session");
         assertNull(setup.session(sessionId), "setup session should be removed after promotion");
         assertNull(setup.progress(sessionId), "setup progress should be removed after promotion");
+        final var promotedProgress = setup.progress(persistedId);
+        assertNotNull(promotedProgress, "promoted session should retain setup progress");
+        assertEquals(
+                "Creating worktree...",
+                promotedProgress.message(),
+                "promoted session should retain setup progress");
+
+        setup.update(persistedId, "Starting agent...");
+        assertEquals(
+                "Starting agent...",
+                updates.getLast().message(),
+                "promoted session should continue notifying progress listeners");
     }
 }

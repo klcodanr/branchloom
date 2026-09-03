@@ -185,7 +185,7 @@ public final class CreateSessionAction extends BaseAction {
         worktreeCreation.whenCompleteAsync(
                 (ignored, failure) -> {
                     if (failure == null) {
-                        setup.complete(sessionId);
+                        setup.update(sessionId, "Starting agent...");
                         finishSession(projectId, project, request, worktreePath, sessionId);
                         return;
                     }
@@ -253,6 +253,7 @@ public final class CreateSessionAction extends BaseAction {
             final SessionId sessionId,
             final int commandIndex) {
         if (commandIndex >= project.startupCommands().size()) {
+            actionContext.viewCoordinator().sessionSetup().complete(sessionId);
             return;
         }
         final String command = project.startupCommands().get(commandIndex);
