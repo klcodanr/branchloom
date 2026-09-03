@@ -24,6 +24,7 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
+import javax.swing.JToolBar;
 import javax.swing.border.EmptyBorder;
 
 abstract class AbstractWorkspaceView extends JPanel implements View {
@@ -49,6 +50,15 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         titleText = title;
         add(header(), BorderLayout.NORTH);
         tabs.putClientProperty("JTabbedPane.scrollButtonsPolicy", "asNeeded");
+        final JButton addTerminal = new JButton(UiIcons.plus());
+        addTerminal.setToolTipText("New terminal");
+        addTerminal.getAccessibleContext().setAccessibleName("New terminal");
+        addTerminal.addActionListener(event -> openTerminal(workspacePath()));
+        final JToolBar trailingComponent = new JToolBar();
+        trailingComponent.setFloatable(false);
+        trailingComponent.setBorder(null);
+        trailingComponent.add(addTerminal);
+        tabs.putClientProperty("JTabbedPane.trailingComponent", trailingComponent);
         tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
         contentSplit = new WorkspaceSplitPane(tabs, this::workspace);
         add(contentSplit, BorderLayout.CENTER);
