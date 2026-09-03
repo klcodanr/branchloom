@@ -19,6 +19,7 @@ import com.jagent.desktop.ui.actions.ProblemsAction;
 import com.jagent.desktop.ui.actions.ResourceUsageAction;
 import com.jagent.desktop.ui.components.AppIcon;
 import com.jagent.desktop.ui.components.AppMenuBar;
+import com.jagent.desktop.ui.components.BackgroundJobsBar;
 import com.jagent.desktop.ui.components.CommandPalette;
 import com.jagent.desktop.ui.components.ProjectTreePanel;
 import com.jagent.desktop.ui.components.TerminalPanel;
@@ -255,6 +256,7 @@ public final class AppView extends JFrame {
         splitPane.setContinuousLayout(true);
         splitPane.setBorder(null);
         shell.add(splitPane, BorderLayout.CENTER);
+        shell.add(new BackgroundJobsBar(viewCoordinator.backgroundJobs()), BorderLayout.SOUTH);
         setJMenuBar(AppMenuBar.create(actionContext));
         return shell;
     }

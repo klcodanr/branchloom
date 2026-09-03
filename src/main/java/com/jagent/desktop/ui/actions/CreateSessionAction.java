@@ -195,6 +195,7 @@ public final class CreateSessionAction extends BaseAction {
             final String worktreePath,
             final ProgressOperation progress) {
         final AppState state = actionContext.appState();
+        progress.close();
         final Session session =
                 new Session(
                         projectId,
@@ -222,7 +223,11 @@ public final class CreateSessionAction extends BaseAction {
                     .updateView(
                             ViewId.SESSION,
                             ViewState.sessionTerminal(projectId, sessionId, terminalId));
-            runStartupCommand(project, request, worktreePath, progress, 0);
+            if (!project.startupCommands().isEmpty()) {
+                final var job =
+                        actionContext.viewCoordinator().backgroundJobs().start("Session setup");
+                runStartupCommand(project, request, worktreePath, job, 0);
+            }
         } catch (IOException exception) {
             LOG.log(Level.SEVERE, CREATE_SESSION, exception);
             showError(
@@ -237,23 +242,25 @@ public final class CreateSessionAction extends BaseAction {
             final Project project,
             final NewSessionDialog.Request request,
             final String worktreePath,
-            final ProgressOperation progress,
+            final com.jagent.desktop.services.BackgroundJobs.Handle job,
             final int commandIndex) {
         if (commandIndex >= project.startupCommands().size()) {
-            progress.close();
+            job.complete();
             return;
         }
         final String command = project.startupCommands().get(commandIndex);
+        job.update(
+                "Running startup command "
+                        + (commandIndex + 1)
+                        + " of "
+                        + project.startupCommands().size());
         CommandRunner.run(
                 command,
                 Path.of(worktreePath),
                 ignored -> {},
-                () -> runStartupCommand(project, request, worktreePath, progress, commandIndex + 1),
+                () -> runStartupCommand(project, request, worktreePath, job, commandIndex + 1),
                 output -> {
-                    progress.close();
-                    showError(
-                            "Session setup",
-                            output == null || output.isBlank() ? "Setup command failed." : output);
+                    job.fail(output == null || output.isBlank() ? "Setup command failed." : output);
                 });
     }
 

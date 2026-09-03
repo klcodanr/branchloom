@@ -220,6 +220,15 @@ class ActionTest {
         AsyncTestSupport.await(
                 () -> Files.exists(setupMarker) && terminalId.equals(state.currentTerminalId()),
                 "startup command should eventually complete");
+        AsyncTestSupport.await(
+                () ->
+                        coordinator.backgroundJobs().jobs().stream()
+                                .anyMatch(
+                                        job ->
+                                                job.status()
+                                                        == com.jagent.desktop.services
+                                                                .BackgroundJobs.Status.SUCCEEDED),
+                "startup job should report completion");
     }
 
     @Test
