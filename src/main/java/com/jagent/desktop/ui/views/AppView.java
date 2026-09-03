@@ -45,6 +45,7 @@ import javax.swing.JPanel;
 import javax.swing.JRootPane;
 import javax.swing.JSplitPane;
 import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 
@@ -59,6 +60,7 @@ public final class AppView extends JFrame {
     private final JLabel placeholder = UiFactory.label("", Theme.FontSize.XL);
     private final JPanel content = new JPanel(new BorderLayout());
     private final ProjectTreePanel projectTreePanel;
+    private transient java.awt.KeyEventDispatcher terminalShortcutDispatcher;
     private transient View currentView;
 
     public AppView() {
@@ -127,6 +129,32 @@ public final class AppView extends JFrame {
                     javax.swing.MenuSelectionManager.defaultManager().clearSelectedPath();
                     KeyboardFocusManager.getCurrentKeyboardFocusManager().clearFocusOwner();
                 });
+        terminalShortcutDispatcher =
+                event -> {
+                    if (event.getID() != KeyEvent.KEY_PRESSED
+                            || !(event.getSource() instanceof java.awt.Component component)
+                            || (!(component instanceof TerminalPanel)
+                                    && SwingUtilities.getAncestorOfClass(
+                                                    TerminalPanel.class, component)
+                                            == null)) {
+                        return false;
+                    }
+                    final KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(event);
+                    final Object actionId = inputMap.get(keyStroke);
+                    if (actionId == null) {
+                        return false;
+                    }
+                    final var action = actionMap.get(actionId);
+                    if (action == null) {
+                        return false;
+                    }
+                    action.actionPerformed(
+                            new ActionEvent(component, ActionEvent.ACTION_PERFORMED, ""));
+                    event.consume();
+                    return true;
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(terminalShortcutDispatcher);
     }
 
     private void bind(
@@ -189,6 +217,8 @@ public final class AppView extends JFrame {
                         if (currentView != null) {
                             currentView.dispose();
                         }
+                        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                                .removeKeyEventDispatcher(terminalShortcutDispatcher);
                         saveWindowState();
                         persistence.close();
                         windowStatePersistence.close();

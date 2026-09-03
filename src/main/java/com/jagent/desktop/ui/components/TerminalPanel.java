@@ -15,6 +15,8 @@ import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 import java.awt.BorderLayout;
 import java.awt.Font;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -215,6 +217,21 @@ public final class TerminalPanel extends JPanel {
         private AppJediTermWidget(
                 final int columns, final int rows, final AppTerminalSettings settings) {
             super(columns, rows, settings);
+            getTerminalPanel()
+                    .addCustomKeyListener(
+                            new KeyAdapter() {
+                                @Override
+                                public void keyPressed(final KeyEvent event) {
+                                    if (event.getKeyCode() == KeyEvent.VK_ENTER
+                                            && event.isControlDown()) {
+                                        final var starter = getTerminalStarter();
+                                        if (starter != null) {
+                                            starter.sendBytes(new byte[] {0x0A}, true);
+                                            event.consume();
+                                        }
+                                    }
+                                }
+                            });
         }
 
         @Override
