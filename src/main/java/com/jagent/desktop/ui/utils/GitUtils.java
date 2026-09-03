@@ -1,4 +1,4 @@
-package com.jagent.desktop.ui;
+package com.jagent.desktop.ui.utils;
 
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;

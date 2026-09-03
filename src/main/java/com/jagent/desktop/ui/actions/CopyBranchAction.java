@@ -3,7 +3,7 @@ package com.jagent.desktop.ui.actions;
 import com.jagent.desktop.api.BaseAction;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Session;
-import com.jagent.desktop.ui.GitUtils;
+import com.jagent.desktop.ui.utils.GitUtils;
 
 /** Copies the current session's branch name. */
 public final class CopyBranchAction extends BaseAction {
