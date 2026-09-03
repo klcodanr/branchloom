@@ -7,7 +7,6 @@ import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.PlatformCommands;
-import com.jagent.desktop.services.SessionSetup;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.actions.RemoveSessionAction;
 import com.jagent.desktop.ui.components.SessionActions;
@@ -26,7 +25,6 @@ public final class SessionView extends AbstractWorkspaceView {
 
     private final transient Project project;
     private final transient Session session;
-    private final transient SessionSetup setup;
     private final JLabel sessionStatus = new JLabel("Stopped");
     private final JLabel gitStatus = new JLabel();
     private int terminalNumber;
@@ -34,14 +32,12 @@ public final class SessionView extends AbstractWorkspaceView {
     public SessionView(final ActionContext actionContext) {
         super(actionContext, ViewId.SESSION);
         final var state = actionContext.appState();
-        this.setup = actionContext.viewCoordinator().sessionSetup();
         final var sessionId = state.currentSessionId();
         this.project = state.projects().get(state.currentProjectId());
         final Session persistedSession = sessionId == null ? null : state.sessions().get(sessionId);
-        final Session setupSession = sessionId == null ? null : setup.session(sessionId);
-        this.session = persistedSession == null ? setupSession : persistedSession;
+        this.session = persistedSession;
         validateSelection();
-        restoreSession(actionContext, state, sessionId);
+        restoreSession(actionContext, state);
     }
 
     private void validateSelection() {
@@ -51,12 +47,8 @@ public final class SessionView extends AbstractWorkspaceView {
     }
 
     private void restoreSession(
-            final ActionContext actionContext,
-            final com.jagent.desktop.services.AppState state,
-            final com.jagent.desktop.models.SessionId sessionId) {
-        if (sessionId == null || setup.progress(sessionId) == null) {
-            MissingWorktreeRecovery.check(actionContext, project, session);
-        }
+            final ActionContext actionContext, final com.jagent.desktop.services.AppState state) {
+        MissingWorktreeRecovery.check(actionContext, project, session);
         final boolean hasSelectedTab = viewCoordinator.hasSelectedTab(id());
         final int selectedTab = viewCoordinator.selectedTab(id());
         initializeWorkspace(session.name());
@@ -91,8 +83,6 @@ public final class SessionView extends AbstractWorkspaceView {
                         new SessionSummary(
                                 project,
                                 session,
-                                setup,
-                                actionContext.appState().currentSessionId(),
                                 () -> new RemoveSessionAction(actionContext).execute()));
         summary.setBorder(null);
         summary.getVerticalScrollBar().setUnitIncrement(14);

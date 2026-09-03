@@ -6,7 +6,6 @@ import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.PlatformCommands;
-import com.jagent.desktop.services.SessionSetup;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Cursor;
@@ -47,23 +46,13 @@ public final class SessionSummary extends JPanel {
     private String pullRequestUrl;
     private boolean pullRequestClosed;
     private boolean worktreeClean;
-    private final SessionSetupProgress setupStatus;
 
     public SessionSummary(final Project project, final Session session) {
-        this(project, session, null, null, () -> {});
+        this(project, session, () -> {});
     }
 
     public SessionSummary(
             final Project project, final Session session, final Runnable removeSessionAndWorktree) {
-        this(project, session, null, null, removeSessionAndWorktree);
-    }
-
-    public SessionSummary(
-            final Project project,
-            final Session session,
-            final SessionSetup sessionSetup,
-            final com.jagent.desktop.models.SessionId sessionId,
-            final Runnable removeSessionAndWorktree) {
         super();
         this.project = project;
         this.session = session;
@@ -80,10 +69,6 @@ public final class SessionSummary extends JPanel {
                                         + "worktree has no uncommitted changes.",
                                 removeSessionAndWorktree));
         cleanupAlert.setVisible(false);
-        setupStatus =
-                sessionSetup == null || sessionId == null
-                        ? null
-                        : new SessionSetupProgress(sessionSetup, sessionId);
         pullRequest.addMouseListener(
                 new MouseAdapter() {
                     @Override
@@ -95,9 +80,7 @@ public final class SessionSummary extends JPanel {
                 });
         add(header(), BorderLayout.NORTH);
         add(details(), BorderLayout.CENTER);
-        if (setupStatus == null || !setupStatus.isVisible()) {
-            loadStatus();
-        }
+        loadStatus();
     }
 
     private JPanel header() {
@@ -122,9 +105,6 @@ public final class SessionSummary extends JPanel {
         constraints.gridwidth = 3;
         constraints.weighty = 0;
         constraints.fill = GridBagConstraints.HORIZONTAL;
-        if (setupStatus != null) {
-            details.add(setupStatus, constraints);
-        }
         addRow(details, constraints, 1, "Prompt", textArea(session.prompt()));
         addRow(details, constraints, 2, "Created", value(session.created().toString()));
         addRow(details, constraints, 3, "Branch", branch);

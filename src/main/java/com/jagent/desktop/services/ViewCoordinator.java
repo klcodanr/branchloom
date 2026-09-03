@@ -12,7 +12,6 @@ import org.jetbrains.annotations.Nullable;
 /** Owns application selection, cached views, and central navigation state. */
 public final class ViewCoordinator {
     private final AppState appState;
-    private final SessionSetup sessionSetup = new SessionSetup();
     private final Consumer<ViewId> viewChanged;
     private final Map<ViewId, Integer> selectedTabs = new EnumMap<>(ViewId.class);
     private ViewId currentViewId;
@@ -63,10 +62,6 @@ public final class ViewCoordinator {
 
     public ViewId currentViewId() {
         return this.currentViewId;
-    }
-
-    public SessionSetup sessionSetup() {
-        return this.sessionSetup;
     }
 
     public int selectedTab(final ViewId viewId) {

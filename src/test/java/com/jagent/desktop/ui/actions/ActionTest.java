@@ -215,41 +215,11 @@ class ActionTest {
                 "agent --prompt " + PlatformCommands.shellQuote(prompt),
                 terminal.command(),
                 ASSERTION_MESSAGE);
-        assertTrue(state.currentTerminalId() == null, "setup should keep the summary selected");
+        assertEquals(terminalId, state.currentTerminalId(), ASSERTION_MESSAGE);
         assertTrue(Files.notExists(setupMarker), ASSERTION_MESSAGE);
         AsyncTestSupport.await(
                 () -> Files.exists(setupMarker) && terminalId.equals(state.currentTerminalId()),
                 "startup command should eventually complete");
-    }
-
-    @Test
-    void createSessionReportsExistingBranchFailureInSessionView()
-            throws IOException, InterruptedException {
-        final Path repository = tempDirectory.resolve("repository");
-        Files.createDirectories(repository);
-        TestGitRepository.initialize(repository);
-        final AppState state = TestAppState.empty();
-        final var projectId =
-                state.addProject(new Project(PROJECT_NAME, repository.toString(), null));
-        state.updateCurrentProject(projectId);
-        final var coordinator = new ViewCoordinator(state);
-        final var context = new ActionContext(coordinator, state, null);
-
-        new CreateSessionAction(context)
-                .addSession(
-                        projectId,
-                        new com.jagent.desktop.ui.dialogs.NewSessionDialog.Request(
-                                "Master", new Agent("Test agent", "agent {prompt}"), "prompt"));
-
-        final var setupId = state.currentSessionId();
-        assertTrue(setupId != null, "failed setup should remain selected");
-        AsyncTestSupport.await(
-                () -> {
-                    final var progress = coordinator.sessionSetup().progress(setupId);
-                    return progress != null && progress.failed();
-                },
-                "existing branch failure should be reported");
-        assertEquals(ViewId.SESSION, coordinator.currentViewId(), ASSERTION_MESSAGE);
     }
 
     @Test
