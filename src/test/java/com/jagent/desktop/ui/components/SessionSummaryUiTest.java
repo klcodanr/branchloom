@@ -39,6 +39,9 @@ class SessionSummaryUiTest {
         assertTrue(text.contains("Implement feature"), "prompt should render in the summary");
         assertTrue(text.contains("/tmp/worktree"), "worktree should render in the summary");
         assertTrue(
+                text.stream().anyMatch(value -> value.contains("Ready for clean up!")),
+                "cleanup alert should be attached to the summary");
+        assertTrue(
                 text.stream().anyMatch(value -> value.contains("Loading")),
                 "status values should start loading");
     }

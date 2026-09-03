@@ -122,16 +122,18 @@ public final class SessionSummary extends JPanel {
         constraints.gridwidth = 3;
         constraints.weighty = 0;
         constraints.fill = GridBagConstraints.HORIZONTAL;
+        details.add(cleanupAlert, constraints);
+        constraints.gridy = 1;
         if (setupStatus != null) {
             details.add(setupStatus, constraints);
         }
-        addRow(details, constraints, 1, "Prompt", textArea(session.prompt()));
-        addRow(details, constraints, 2, "Created", value(session.created().toString()));
-        addRow(details, constraints, 3, "Branch", branch);
-        addRow(details, constraints, 4, "Pull request", pullRequestDetails);
-        addRow(details, constraints, 5, "Worktree", textArea(session.worktreePath()));
-        addRow(details, constraints, 6, "Changes", diff);
-        constraints.gridy = 7;
+        addRow(details, constraints, 2, "Prompt", textArea(session.prompt()));
+        addRow(details, constraints, 3, "Created", value(session.created().toString()));
+        addRow(details, constraints, 4, "Branch", branch);
+        addRow(details, constraints, 5, "Pull request", pullRequestDetails);
+        addRow(details, constraints, 6, "Worktree", textArea(session.worktreePath()));
+        addRow(details, constraints, 7, "Changes", diff);
+        constraints.gridy = 8;
         constraints.weighty = 1;
         constraints.fill = GridBagConstraints.VERTICAL;
         details.add(Box.createVerticalGlue(), constraints);
