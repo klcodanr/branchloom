@@ -176,8 +176,7 @@ public final class CreateSessionAction extends BaseAction {
         worktreeCreation.whenCompleteAsync(
                 (ignored, failure) -> {
                     if (failure == null) {
-                        progress.close();
-                        finishSession(projectId, project, request, worktreePath);
+                        finishSession(projectId, project, request, worktreePath, progress);
                         return;
                     }
                     fail(
@@ -193,7 +192,8 @@ public final class CreateSessionAction extends BaseAction {
             final ProjectId projectId,
             final Project project,
             final NewSessionDialog.Request request,
-            final String worktreePath) {
+            final String worktreePath,
+            final ProgressOperation progress) {
         final AppState state = actionContext.appState();
         final Session session =
                 new Session(
@@ -222,7 +222,7 @@ public final class CreateSessionAction extends BaseAction {
                     .updateView(
                             ViewId.SESSION,
                             ViewState.sessionTerminal(projectId, sessionId, terminalId));
-            runStartupCommand(project, request, worktreePath, 0);
+            runStartupCommand(project, request, worktreePath, progress, 0);
         } catch (IOException exception) {
             LOG.log(Level.SEVERE, CREATE_SESSION, exception);
             showError(
@@ -237,8 +237,10 @@ public final class CreateSessionAction extends BaseAction {
             final Project project,
             final NewSessionDialog.Request request,
             final String worktreePath,
+            final ProgressOperation progress,
             final int commandIndex) {
         if (commandIndex >= project.startupCommands().size()) {
+            progress.close();
             return;
         }
         final String command = project.startupCommands().get(commandIndex);
@@ -246,13 +248,13 @@ public final class CreateSessionAction extends BaseAction {
                 command,
                 Path.of(worktreePath),
                 ignored -> {},
-                () -> runStartupCommand(project, request, worktreePath, commandIndex + 1),
-                output ->
-                        showError(
-                                "Session setup",
-                                output == null || output.isBlank()
-                                        ? "Setup command failed."
-                                        : output));
+                () -> runStartupCommand(project, request, worktreePath, progress, commandIndex + 1),
+                output -> {
+                    progress.close();
+                    showError(
+                            "Session setup",
+                            output == null || output.isBlank() ? "Setup command failed." : output);
+                });
     }
 
     private Project projectFor(final AppState state, final ProjectId projectId) {
