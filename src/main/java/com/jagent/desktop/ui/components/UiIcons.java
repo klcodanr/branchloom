@@ -51,6 +51,10 @@ public final class UiIcons {
         return icon(SETTINGS);
     }
 
+    public static Icon search() {
+        return icon("search");
+    }
+
     public static Icon ellipsis() {
         return icon("ellipsis");
     }
