@@ -3,9 +3,10 @@ package com.jagent.desktop.services;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.jagent.desktop.models.ProblemEvent;
+import com.jagent.desktop.models.LogEntry;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -36,15 +37,15 @@ class JsonLoggingTest {
     void logsAtMultipleSeverities() throws IOException {
         JsonLogging.configure();
         JsonLogging.clear();
-        JsonLogging.log(new ProblemEvent(SOURCE, "warning", "first"));
-        JsonLogging.log(new ProblemEvent(SOURCE, "error", SECOND_MESSAGE));
+        JsonLogging.log(new LogEntry(SOURCE, "warning", "first"));
+        JsonLogging.log(new LogEntry(SOURCE, "error", SECOND_MESSAGE));
 
         final var events = JsonLogging.load(2);
         JsonLogging.clear();
 
         assertEquals(2, events.size(), "both events should be persisted");
-        assertEquals("first", events.get(0).message, "warning message should be persisted");
-        assertEquals("second", events.get(1).message, "error message should be persisted");
+        assertEquals("first", events.get(0).message(), "warning message should be persisted");
+        assertEquals("second", events.get(1).message(), "error message should be persisted");
     }
 
     @Test
@@ -54,17 +55,38 @@ class JsonLoggingTest {
     }
 
     @Test
+    void persistsArbitraryDataWithTheEvent() throws IOException {
+        JsonLogging.configure();
+        JsonLogging.clear();
+        JsonLogging.log(
+                new LogEntry(
+                        SOURCE,
+                        "info",
+                        "with data",
+                        Map.of("branch", "feature/test", "attempt", 2)));
+
+        final var events = JsonLogging.load();
+        JsonLogging.clear();
+
+        assertEquals(
+                "feature/test",
+                events.getFirst().data().get("branch"),
+                "branch should be persisted");
+        assertEquals(2.0, events.getFirst().data().get("attempt"), "attempt should be persisted");
+    }
+
+    @Test
     void limitsEventsFromTheOldestEntry() throws IOException {
         JsonLogging.configure();
         JsonLogging.clear();
-        JsonLogging.log(new ProblemEvent("Test", "info", "first"));
-        JsonLogging.log(new ProblemEvent("Test", "info", "second"));
+        JsonLogging.log(new LogEntry("Test", "info", "first"));
+        JsonLogging.log(new LogEntry("Test", "info", "second"));
 
         final var events = JsonLogging.load(1);
         JsonLogging.clear();
 
         assertEquals(1, events.size(), "the limit should retain one event");
         assertEquals(
-                SECOND_MESSAGE, events.getFirst().message, "the newest event should be retained");
+                SECOND_MESSAGE, events.getFirst().message(), "the newest event should be retained");
     }
 }
