@@ -326,7 +326,11 @@ public final class AppView extends JFrame {
         if (requiresProject(requested) && project == null) {
             return ViewId.HOME;
         }
-        if (requested == ViewId.SESSION && session == null) {
+        if (requested == ViewId.SESSION
+                && session == null
+                && (state.currentSessionId() == null
+                        || viewCoordinator.sessionSetup().session(state.currentSessionId())
+                                == null)) {
             return ViewId.HOME;
         }
         return requested;
