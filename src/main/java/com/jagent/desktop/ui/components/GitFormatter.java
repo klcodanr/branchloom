@@ -33,7 +33,7 @@ public final class GitFormatter {
                 + "  ·  "
                 + reviewStatus(request.reviewDecision())
                 + "  ·  "
-                + mergeStatus(request.mergeState())
+                + mergeStatus(request)
                 + "  ·  "
                 + checksSummary(
                         request.checksPassed(), request.checksTotal(), request.checksStatus())
@@ -49,7 +49,7 @@ public final class GitFormatter {
         return "PR: <font color='"
                 + color
                 + "'>&#9679;</font> "
-                + mergeStatus(request.mergeState())
+                + mergeStatus(request)
                 + "  ·  Checks: "
                 + request.checksPassed()
                 + "/"
@@ -62,13 +62,23 @@ public final class GitFormatter {
         if ("CLEAN".equals(value) || "MERGEABLE".equals(value)) {
             return "Can merge";
         }
-        if ("CONFLICTING".equals(value)) {
+        if ("CONFLICTING".equals(value) || "DIRTY".equals(value)) {
             return "Cannot merge";
         }
         if ("QUEUED".equals(value)) {
             return "In merge queue";
         }
         return "Mergeability unknown";
+    }
+
+    private static String mergeStatus(final PullRequestInfo request) {
+        if ("MERGED".equals(request.state())) {
+            return "Merged";
+        }
+        if ("CLOSED".equals(request.state())) {
+            return "Closed";
+        }
+        return mergeStatus(request.mergeState());
     }
 
     public static String checksSummary(final int passed, final int total, final String status) {

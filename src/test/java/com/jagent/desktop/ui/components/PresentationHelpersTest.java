@@ -16,6 +16,8 @@ import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
 class PresentationHelpersTest {
+    private static final String CLEAN = "CLEAN";
+    private static final String UNKNOWN = "UNKNOWN";
     private static final String VALUE_MESSAGE = "presentation value should match";
 
     @Test
@@ -53,7 +55,7 @@ class PresentationHelpersTest {
     void formatsPullRequestStatusesForDetailsAndTooltips() {
         assertEquals(
                 "Can merge",
-                GitFormatter.mergeStatus("CLEAN"),
+                GitFormatter.mergeStatus(CLEAN),
                 "clean pull requests should be mergeable");
         assertEquals(
                 "Can merge",
@@ -64,8 +66,12 @@ class PresentationHelpersTest {
                 GitFormatter.mergeStatus("CONFLICTING"),
                 "conflicting pull requests should not be mergeable");
         assertEquals(
+                "Cannot merge",
+                GitFormatter.mergeStatus("DIRTY"),
+                "dirty pull requests should not be mergeable");
+        assertEquals(
                 "Mergeability unknown",
-                GitFormatter.mergeStatus("UNKNOWN"),
+                GitFormatter.mergeStatus(UNKNOWN),
                 "unknown merge states should remain unknown");
         assertEquals(
                 "In merge queue",
@@ -83,7 +89,7 @@ class PresentationHelpersTest {
                         "",
                         "",
                         "OPEN",
-                        "CLEAN",
+                        CLEAN,
                         false,
                         "",
                         "",
@@ -106,7 +112,7 @@ class PresentationHelpersTest {
                 GitFormatter.detailsHtml(
                         new PullRequest(
                                 null, 12, "Fix", "", "", "", "", "", "", "", true, "", "", 0, 0,
-                                "UNKNOWN")),
+                                UNKNOWN)),
                 "draft details should show pending review and unknown states");
     }
 
@@ -143,12 +149,30 @@ class PresentationHelpersTest {
     }
 
     @Test
+    void prioritizesClosedPullRequestLifecycleOverMergeability() {
+        final var merged =
+                new com.jagent.desktop.services.GitHub.PullRequestDetails(
+                        1, "", "MERGED", "", UNKNOWN, "", false, 0, 0, UNKNOWN);
+        final var closed =
+                new com.jagent.desktop.services.GitHub.PullRequestDetails(
+                        1, "", "CLOSED", "", CLEAN, "", false, 0, 0, UNKNOWN);
+
+        assertEquals(
+                true,
+                GitFormatter.detailsHtml(merged).contains("  ·  Merged  ·  "),
+                "merged pull requests should show their lifecycle state");
+        assertEquals(
+                true,
+                GitFormatter.detailsHtml(closed).contains("  ·  Closed  ·  "),
+                "closed pull requests should show their lifecycle state");
+    }
+
+    @Test
     void formatsCompactPullRequestStatusWithMergeStateColor() {
         Theme.applySwingDefaults();
         final PullRequest request =
                 new PullRequest(
-                        null, 1, "", "", "", "", "", "", "", "CLEAN", false, "", "", 1, 2,
-                        "FAILING");
+                        null, 1, "", "", "", "", "", "", "", CLEAN, false, "", "", 1, 2, "FAILING");
 
         assertEquals(
                 "PR: <font color='"
