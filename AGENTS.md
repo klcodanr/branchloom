@@ -13,6 +13,7 @@
 
 - Keep classes small and focused on a single problem.
 - Create classes with testability in mind: inject services and callbacks instead of reaching into global state or constructing process/persistence dependencies inside UI code.
+- When widening method visibility for testability, prefer `protected` over package-private visibility.
 - Keep process execution, filesystem access, Git operations, GitHub operations, and persistence out of views and dialogs.
 - Prefer domain-level service methods over raw CLI command strings in UI classes.
 - Keep UI callbacks narrow: views should report user intent, while the application coordinator decides what state changes and service operations follow.

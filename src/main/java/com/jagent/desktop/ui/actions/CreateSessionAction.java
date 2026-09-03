@@ -107,7 +107,7 @@ public final class CreateSessionAction extends BaseAction {
         };
     }
 
-    private void addSession(final ProjectId projectId, final NewSessionDialog.Request request) {
+    protected void addSession(final ProjectId projectId, final NewSessionDialog.Request request) {
         final AppState state = actionContext.appState();
         final SessionSetup setup = actionContext.viewCoordinator().sessionSetup();
         final Project project = state.projects().get(projectId);
@@ -186,7 +186,7 @@ public final class CreateSessionAction extends BaseAction {
                 (ignored, failure) -> {
                     if (failure == null) {
                         setup.complete(sessionId);
-                        runStartupCommand(projectId, project, request, worktreePath, sessionId, 0);
+                        finishSession(projectId, project, request, worktreePath, sessionId);
                         return;
                     }
                     fail(
@@ -200,6 +200,7 @@ public final class CreateSessionAction extends BaseAction {
 
     private void finishSession(
             final ProjectId projectId,
+            final Project project,
             final NewSessionDialog.Request request,
             final String worktreePath,
             final SessionId sessionId) {
@@ -220,7 +221,7 @@ public final class CreateSessionAction extends BaseAction {
                     state.addTerminal(
                             persistedSessionId,
                             new Terminal(
-                                    sessionId,
+                                    persistedSessionId,
                                     request.agent().name,
                                     request.agent()
                                             .newSessionCommand
@@ -233,6 +234,7 @@ public final class CreateSessionAction extends BaseAction {
                     .updateView(
                             ViewId.SESSION,
                             ViewState.sessionTerminal(projectId, persistedSessionId, terminalId));
+            runStartupCommand(projectId, project, request, worktreePath, sessionId, 0);
         } catch (IOException exception) {
             LOG.log(Level.SEVERE, CREATE_SESSION, exception);
             fail(
@@ -251,7 +253,6 @@ public final class CreateSessionAction extends BaseAction {
             final SessionId sessionId,
             final int commandIndex) {
         if (commandIndex >= project.startupCommands().size()) {
-            finishSession(projectId, request, worktreePath, sessionId);
             return;
         }
         final String command = project.startupCommands().get(commandIndex);
