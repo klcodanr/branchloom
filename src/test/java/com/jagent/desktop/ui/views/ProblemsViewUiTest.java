@@ -3,9 +3,11 @@ package com.jagent.desktop.ui.views;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.jagent.desktop.models.ProblemEvent;
+import com.jagent.desktop.models.LogEntry;
 import com.jagent.desktop.test.SwingTestSupport;
+import java.awt.Dimension;
 import java.util.List;
+import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import org.assertj.swing.edt.GuiActionRunnable;
 import org.assertj.swing.edt.GuiActionRunner;
@@ -14,8 +16,8 @@ import org.junit.jupiter.api.Test;
 class ProblemsViewUiTest {
     @Test
     void tableShowsProblemsNewestFirst() throws InterruptedException {
-        final var first = new ProblemEvent("first-source", "warning", "first message");
-        final var second = new ProblemEvent("second-source", "error", "second message");
+        final var first = new LogEntry("first-source", "warning", "first message");
+        final var second = new LogEntry("second-source", "error", "second message");
         final var view =
                 GuiActionRunner.execute(() -> new ProblemsView(() -> List.of(first, second)));
         waitForRows(view, 2);
@@ -38,10 +40,7 @@ class ProblemsViewUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new ProblemsView(
-                                        () ->
-                                                List.of(
-                                                        new ProblemEvent(
-                                                                "source", "error", "message"))));
+                                        () -> List.of(new LogEntry("source", "error", "message"))));
         waitForRows(view, 1);
 
         final var showAll = SwingTestSupport.findButton(view, "Show all logs");
@@ -53,6 +52,25 @@ class ProblemsViewUiTest {
         GuiActionRunner.execute((GuiActionRunnable) clear::doClick);
 
         assertEquals(0, table(view).getRowCount(), "clear should remove displayed problems");
+    }
+
+    @Test
+    void tableFillsAvailableViewHeight() {
+        final var view = GuiActionRunner.execute(() -> new ProblemsView(List::of));
+
+        GuiActionRunner.execute(
+                () -> {
+                    view.setSize(new Dimension(800, 600));
+                    view.validate();
+                    view.doLayout();
+                });
+
+        final var scroll = SwingTestSupport.find(view, JScrollPane.class);
+        assertTrue(scroll != null, "problem table should be inside a scroll pane");
+        assertTrue(
+                scroll.getHeight() > 260,
+                "problem table should expand beyond its preferred height: " + scroll.getHeight());
+        assertTrue(table(view).getFillsViewportHeight(), "table should fill the viewport height");
     }
 
     private static JTable table(final ProblemsView view) {

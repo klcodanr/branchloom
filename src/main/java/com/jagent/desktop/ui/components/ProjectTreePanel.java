@@ -20,6 +20,7 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
@@ -46,6 +47,7 @@ public final class ProjectTreePanel extends JPanel {
     private final transient Map<Session, TerminalState> sessionStates = new HashMap<>();
     private final transient Map<Session, PullRequestInfo> pullRequestStatuses = new HashMap<>();
     private final transient ProjectTreeSynchronizer treeSynchronizer;
+    private final SearchInput search;
     private Map<ProjectId, Project> renderedProjects = Map.of();
     private Map<SessionId, Session> renderedSessions = Map.of();
     private boolean rendered;
@@ -62,7 +64,18 @@ public final class ProjectTreePanel extends JPanel {
         add(new ProjectHeader(actionContext), BorderLayout.NORTH);
         tree = new ProjectTree();
         treeSynchronizer = new ProjectTreeSynchronizer(tree, root, this::loadPullRequestStatus);
-        add(tree, BorderLayout.CENTER);
+        search =
+                new SearchInput(
+                        new SearchInput.Text(
+                                "project-search",
+                                "Search projects and sessions",
+                                "Search projects and sessions"));
+        new ProjectTreeSearchHandler(tree, search, root, this::selectNode, this::select);
+        final JPanel treeContent = new JPanel(new BorderLayout(0, 8));
+        treeContent.setOpaque(false);
+        treeContent.add(search, BorderLayout.NORTH);
+        treeContent.add(tree, BorderLayout.CENTER);
+        add(treeContent, BorderLayout.CENTER);
         add(new SettingsButton(actionContext), BorderLayout.SOUTH);
     }
 
@@ -113,6 +126,18 @@ public final class ProjectTreePanel extends JPanel {
                             }
                         }
                     });
+        }
+
+        @Override
+        protected void processKeyEvent(final KeyEvent event) {
+            if (event.getID() == KeyEvent.KEY_TYPED) {
+                if (!Character.isISOControl(event.getKeyChar())) {
+                    search.activate(event.getKeyChar());
+                }
+                event.consume();
+                return;
+            }
+            super.processKeyEvent(event);
         }
 
         @Override

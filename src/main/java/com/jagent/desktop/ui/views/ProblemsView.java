@@ -1,8 +1,10 @@
 package com.jagent.desktop.ui.views;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.jagent.desktop.api.View;
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ProblemEvent;
+import com.jagent.desktop.models.LogEntry;
 import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.JsonLogging;
 import com.jagent.desktop.ui.components.Theme;
@@ -10,14 +12,20 @@ import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.JTextArea;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.table.AbstractTableModel;
@@ -25,7 +33,8 @@ import javax.swing.table.AbstractTableModel;
 public final class ProblemsView extends JPanel implements View {
     private static final String TITLE = "Problems";
     private static final int INITIAL_PROBLEM_LIMIT = 500;
-    private final transient List<ProblemEvent> problems;
+    private static final Gson PRETTY_JSON = new GsonBuilder().setPrettyPrinting().create();
+    private final transient List<LogEntry> problems;
     private final ProblemTableModel tableModel;
     private final JTable table;
     private JButton showAllButton;
@@ -34,7 +43,7 @@ public final class ProblemsView extends JPanel implements View {
         this(() -> JsonLogging.load(INITIAL_PROBLEM_LIMIT));
     }
 
-    protected ProblemsView(final Supplier<List<ProblemEvent>> problemLoader) {
+    protected ProblemsView(final Supplier<List<LogEntry>> problemLoader) {
         super();
         this.problems = new ArrayList<>();
         setLayout(new BorderLayout(0, 18));
@@ -42,8 +51,17 @@ public final class ProblemsView extends JPanel implements View {
         tableModel = new ProblemTableModel(problems);
         table = new JTable(tableModel);
         table.setRowHeight(30);
-        table.setFillsViewportHeight(false);
+        table.setFillsViewportHeight(true);
         table.setAutoCreateRowSorter(false);
+        table.addMouseListener(
+                new MouseAdapter() {
+                    @Override
+                    public void mouseClicked(final MouseEvent event) {
+                        if (event.getClickCount() == 2 && event.getButton() == MouseEvent.BUTTON1) {
+                            showProblemDetails(table.rowAtPoint(event.getPoint()));
+                        }
+                    }
+                });
         table.getColumnModel().getColumn(0).setPreferredWidth(125);
         table.getColumnModel().getColumn(1).setPreferredWidth(70);
         table.getColumnModel().getColumn(2).setPreferredWidth(180);
@@ -53,17 +71,13 @@ public final class ProblemsView extends JPanel implements View {
         scroll.getViewport().setOpaque(false);
         scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         scroll.setPreferredSize(new Dimension(0, 260));
-        scroll.setMaximumSize(new Dimension(Integer.MAX_VALUE, 260));
-        final JPanel content = new JPanel(new BorderLayout());
-        content.setOpaque(false);
-        content.add(scroll, BorderLayout.NORTH);
-        add(content, BorderLayout.CENTER);
+        add(scroll, BorderLayout.CENTER);
         refresh();
         BackgroundTasks.submit(
                 TITLE,
                 "load-log",
                 () -> {
-                    final List<ProblemEvent> loaded = problemLoader.get();
+                    final List<LogEntry> loaded = problemLoader.get();
                     SwingUtilities.invokeLater(
                             () -> {
                                 problems.addAll(loaded);
@@ -95,6 +109,34 @@ public final class ProblemsView extends JPanel implements View {
 
     protected JTable problemTable() {
         return table;
+    }
+
+    private void showProblemDetails(final int row) {
+        if (row < 0 || row >= problems.size()) {
+            return;
+        }
+        final LogEntry problem = problems.get(problems.size() - row - 1);
+        final JTextArea details = new JTextArea(PRETTY_JSON.toJson(logEntry(problem)), 20, 80);
+        details.setEditable(false);
+        details.setCaretPosition(0);
+        details.setLineWrap(false);
+        JOptionPane.showMessageDialog(
+                this, new JScrollPane(details), "Log Entry", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private static Map<String, Object> logEntry(final LogEntry problem) {
+        final Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("timestamp", problem.timestamp());
+        entry.put("level", problem.level());
+        entry.put("source", problem.source());
+        entry.put("message", problem.message());
+        if (problem.data() != null && !problem.data().isEmpty()) {
+            entry.put("data", problem.data());
+        }
+        if (problem.exception() != null) {
+            entry.put("exception", problem.exception());
+        }
+        return entry;
     }
 
     private JPanel header() {
@@ -129,7 +171,7 @@ public final class ProblemsView extends JPanel implements View {
                 TITLE,
                 "load-all-log",
                 () -> {
-                    final List<ProblemEvent> loaded = JsonLogging.load();
+                    final List<LogEntry> loaded = JsonLogging.load();
                     SwingUtilities.invokeLater(
                             () -> {
                                 problems.clear();
@@ -142,9 +184,9 @@ public final class ProblemsView extends JPanel implements View {
 
     private static final class ProblemTableModel extends AbstractTableModel {
         private static final String[] COLUMNS = {"Time", "Severity", "Source", "Message"};
-        private final List<ProblemEvent> problems;
+        private final List<LogEntry> problems;
 
-        private ProblemTableModel(final List<ProblemEvent> problems) {
+        private ProblemTableModel(final List<LogEntry> problems) {
             super();
             this.problems = problems;
         }
@@ -166,12 +208,12 @@ public final class ProblemsView extends JPanel implements View {
 
         @Override
         public Object getValueAt(final int row, final int column) {
-            final ProblemEvent problem = problems.get(problems.size() - row - 1);
+            final LogEntry problem = problems.get(problems.size() - row - 1);
             return switch (column) {
-                case 0 -> problem.created;
-                case 1 -> problem.severity;
-                case 2 -> problem.source;
-                case 3 -> problem.message;
+                case 0 -> problem.timestamp();
+                case 1 -> problem.level();
+                case 2 -> problem.source();
+                case 3 -> problem.message();
                 default -> "";
             };
         }

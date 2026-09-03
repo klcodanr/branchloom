@@ -5,13 +5,13 @@ import java.awt.Window;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.List;
+import java.util.Locale;
 import javax.swing.DefaultListModel;
 import javax.swing.JDialog;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextField;
 
 /** Reusable searchable command and navigation chooser. */
 public final class CommandPalette {
@@ -20,7 +20,12 @@ public final class CommandPalette {
     private CommandPalette() {}
 
     public static void open(final Window owner, final String title, final List<Choice> choices) {
-        final JTextField search = new JTextField(35);
+        final SearchInput search =
+                new SearchInput(
+                        new SearchInput.Text(
+                                "find-search",
+                                "Find project, session, or terminal",
+                                "Find project, session, or terminal"));
         final DefaultListModel<Choice> model = new DefaultListModel<>();
         choices.forEach(model::addElement);
         final JList<Choice> results = new JList<>(model);
@@ -30,6 +35,7 @@ public final class CommandPalette {
         final JPanel content = new JPanel(new BorderLayout(0, 8));
         content.add(search, BorderLayout.NORTH);
         content.add(new JScrollPane(results), BorderLayout.CENTER);
+        search.setVisible(true);
 
         final JOptionPane pane =
                 new JOptionPane(
@@ -46,44 +52,24 @@ public final class CommandPalette {
                         dialog.dispose();
                     }
                 };
-        search.getDocument()
-                .addDocumentListener(
-                        new javax.swing.event.DocumentListener() {
-                            private void filter() {
-                                final String query =
-                                        search.getText().trim().toLowerCase(java.util.Locale.ROOT);
-                                model.clear();
-                                choices.stream()
-                                        .filter(
-                                                choice ->
-                                                        query.isBlank()
-                                                                || choice.label()
-                                                                        .toLowerCase(
-                                                                                java.util.Locale
-                                                                                        .ROOT)
-                                                                        .contains(query))
-                                        .forEach(model::addElement);
-                                if (!model.isEmpty()) {
-                                    results.setSelectedIndex(0);
-                                }
-                            }
-
-                            @Override
-                            public void insertUpdate(javax.swing.event.DocumentEvent event) {
-                                filter();
-                            }
-
-                            @Override
-                            public void removeUpdate(javax.swing.event.DocumentEvent event) {
-                                filter();
-                            }
-
-                            @Override
-                            public void changedUpdate(javax.swing.event.DocumentEvent event) {
-                                filter();
-                            }
-                        });
-        search.addActionListener(event -> accept.run());
+        search.onChange(
+                value -> {
+                    final String query = value.trim().toLowerCase(Locale.ROOT);
+                    model.clear();
+                    choices.stream()
+                            .filter(
+                                    choice ->
+                                            query.isBlank()
+                                                    || choice.label()
+                                                            .toLowerCase(Locale.ROOT)
+                                                            .contains(query))
+                            .forEach(model::addElement);
+                    if (!model.isEmpty()) {
+                        results.setSelectedIndex(0);
+                    }
+                });
+        search.onSubmit(accept);
+        search.onCancel(dialog::dispose);
         results.addMouseListener(
                 new MouseAdapter() {
                     @Override

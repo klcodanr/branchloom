@@ -18,6 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import javax.swing.JButton;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
 import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreePath;
@@ -31,6 +33,7 @@ class ProjectTreePanelUiTest {
     private static final String SESSION_NAME = "Feature";
     private static final String GROUP = "Group";
     private static final String PROMPT = "prompt";
+    private static final String AGENT = "agent";
 
     @Test
     void clickingSettingsUpdatesNavigation() {
@@ -107,6 +110,173 @@ class ProjectTreePanelUiTest {
     }
 
     @Test
+    void typingDoesNotSelectTreeItems() throws java.io.InvalidObjectException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var projectId = state.addProject(new Project(DEMO, PROJECT_PATH, null));
+        state.updateCurrentProject(projectId);
+        final var coordinator = new ViewCoordinator(state);
+        final var panel =
+                GuiActionRunner.execute(
+                        () -> {
+                            final var created =
+                                    new ProjectTreePanel(
+                                            new ActionContext(coordinator, state, null));
+                            created.refresh(state.projects().get(projectId), null);
+                            return created;
+                        });
+
+        GuiActionRunner.execute(
+                () ->
+                        panel.tree()
+                                .dispatchEvent(
+                                        new java.awt.event.KeyEvent(
+                                                panel.tree(),
+                                                java.awt.event.KeyEvent.KEY_TYPED,
+                                                System.currentTimeMillis(),
+                                                0,
+                                                java.awt.event.KeyEvent.VK_UNDEFINED,
+                                                'h')));
+
+        assertEquals(projectId, state.currentProjectId(), "typing should not change selection");
+        assertNull(coordinator.currentViewId(), "typing should not navigate");
+    }
+
+    @Test
+    void searchSelectsRenderedNamesAndEnterOpensTheMatch() {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var projectId = state.addProject(project(DEMO, PROJECT_PATH, GROUP));
+        final var coordinator = new ViewCoordinator(state);
+        final var panel =
+                GuiActionRunner.execute(
+                        () -> {
+                            final var created =
+                                    new ProjectTreePanel(
+                                            new ActionContext(coordinator, state, null));
+                            created.refresh(null, null);
+                            return created;
+                        });
+        final var treeContent = (JPanel) panel.getComponent(1);
+        final var search = (JTextField) treeContent.getComponent(0);
+        org.junit.jupiter.api.Assertions.assertFalse(
+                search.isVisible(), "search should be hidden until typing starts");
+        assertNotNull(
+                search.getClientProperty("JTextField.leadingIcon"),
+                "search should show the FlatLaf leading search icon");
+
+        GuiActionRunner.execute(
+                () -> {
+                    search.setVisible(true);
+                    search.setText(String.valueOf(DEMO.charAt(0)));
+                });
+
+        assertTrue(search.isVisible(), "typing should show the search field");
+        assertEquals("D", search.getText(), "the first typed character should seed the search");
+        GuiActionRunner.execute(() -> search.setText("emo"));
+        assertNull(
+                state.currentProjectId(),
+                "search should not change the current project before confirmation");
+        final var selectedNode =
+                (DefaultMutableTreeNode)
+                        ((JTree) treeContent.getComponent(1)).getLastSelectedPathComponent();
+        assertEquals(
+                DEMO,
+                ((Project) ((Map.Entry<?, ?>) selectedNode.getUserObject()).getValue()).name(),
+                "search should select the rendered project name");
+
+        GuiActionRunner.execute(search::postActionEvent);
+
+        assertEquals(projectId, state.currentProjectId(), "Enter should open the search match");
+        assertEquals(ViewId.PROJECT, coordinator.currentViewId(), "Enter should navigate");
+    }
+
+    @Test
+    void searchWithNoMatchClearsSelectionAndDoesNotNavigate() {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        state.addProject(project(DEMO, PROJECT_PATH, GROUP));
+        final var coordinator = new ViewCoordinator(state);
+        final var panel =
+                GuiActionRunner.execute(
+                        () -> {
+                            final var created =
+                                    new ProjectTreePanel(
+                                            new ActionContext(coordinator, state, null));
+                            created.refresh(null, null);
+                            return created;
+                        });
+        final var treeContent = (JPanel) panel.getComponent(1);
+        final var search = (SearchInput) treeContent.getComponent(0);
+        treeContent.setSize(400, 400);
+        treeContent.doLayout();
+        final int collapsedTreeY = panel.tree().getY();
+
+        GuiActionRunner.execute(
+                () -> {
+                    search.setVisible(true);
+                    search.setText("missing");
+                    search.postActionEvent();
+                });
+        treeContent.doLayout();
+        assertTrue(
+                panel.tree().getY() > collapsedTreeY,
+                "visible search should reserve space above the tree");
+
+        assertNull(panel.tree().getLastSelectedPathComponent(), "no match should clear selection");
+        assertNull(coordinator.currentViewId(), "no match should not navigate");
+
+        GuiActionRunner.execute(
+                () -> {
+                    search.setText("");
+                    search.setVisible(false);
+                });
+        treeContent.doLayout();
+        assertEquals(
+                collapsedTreeY,
+                panel.tree().getY(),
+                "hidden search should release its space above the tree");
+    }
+
+    @Test
+    void searchFindsAndExpandsCollapsedSessions() throws java.io.InvalidObjectException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var projectId = state.addProject(project("Demo", PROJECT_PATH, GROUP));
+        final var sessionId =
+                state.addSession(
+                        projectId, new Session(projectId, "Second session", AGENT, PROMPT, null));
+        final var panel =
+                GuiActionRunner.execute(
+                        () -> {
+                            final var created =
+                                    new ProjectTreePanel(
+                                            new ActionContext(
+                                                    new ViewCoordinator(state), state, null));
+                            created.refresh(null, null);
+                            return created;
+                        });
+        final var tree = panel.tree();
+        final var root = (DefaultMutableTreeNode) tree.getModel().getRoot();
+        final var projectNode =
+                (DefaultMutableTreeNode)
+                        ((DefaultMutableTreeNode) root.getChildAt(1)).getChildAt(0);
+        org.junit.jupiter.api.Assertions.assertFalse(
+                tree.isExpanded(new TreePath(projectNode.getPath())),
+                "project should be collapsed before searching");
+
+        final var search = (JTextField) ((JPanel) panel.getComponent(1)).getComponent(0);
+        GuiActionRunner.execute(() -> search.setText("Second"));
+
+        assertEquals(
+                sessionId,
+                ((Map.Entry<?, ?>)
+                                ((DefaultMutableTreeNode) tree.getLastSelectedPathComponent())
+                                        .getUserObject())
+                        .getKey(),
+                "search should select a session in a collapsed project");
+        assertTrue(
+                tree.isExpanded(new TreePath(projectNode.getPath())),
+                "search should expand the matching session's project");
+    }
+
+    @Test
     void groupsProjectsCaseInsensitivelyAndUsesDefaultForBlankGroups() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         state.addProject(project("Zulu", "/tmp/zulu", "z-group"));
@@ -141,11 +311,10 @@ class ProjectTreePanelUiTest {
         final var firstProjectId = state.addProject(project("First", "/tmp/first", GROUP));
         final var secondProjectId = state.addProject(project("Second", "/tmp/second", GROUP));
         state.addSession(
-                firstProjectId,
-                new Session(firstProjectId, "First session", "agent", PROMPT, null));
+                firstProjectId, new Session(firstProjectId, "First session", AGENT, PROMPT, null));
         state.addSession(
                 secondProjectId,
-                new Session(secondProjectId, "Second session", "agent", PROMPT, null));
+                new Session(secondProjectId, "Second session", AGENT, PROMPT, null));
         final var panel =
                 GuiActionRunner.execute(
                         () -> {
@@ -347,7 +516,7 @@ class ProjectTreePanelUiTest {
         final var projectId = state.addProject(project("Demo", "/tmp/demo", GROUP));
         final var sessionId =
                 state.addSession(
-                        projectId, new Session(projectId, SESSION_NAME, "agent", "prompt", null));
+                        projectId, new Session(projectId, SESSION_NAME, AGENT, PROMPT, null));
         final var coordinator = new ViewCoordinator(state);
         final var panel =
                 GuiActionRunner.execute(
