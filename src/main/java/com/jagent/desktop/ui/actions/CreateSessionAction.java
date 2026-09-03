@@ -8,6 +8,7 @@ import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.Terminal;
+import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.AgentContext;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.CommandRunner;
@@ -231,10 +232,9 @@ public final class CreateSessionAction extends BaseAction {
                                                             request.prompt()))));
             actionContext
                     .viewCoordinator()
-                    .updateView(
-                            ViewId.SESSION,
-                            ViewState.sessionTerminal(projectId, persistedSessionId, terminalId));
-            runStartupCommand(projectId, project, request, worktreePath, sessionId, 0);
+                    .updateView(ViewId.SESSION, ViewState.session(projectId, persistedSessionId));
+            runStartupCommand(
+                    projectId, project, request, worktreePath, persistedSessionId, terminalId, 0);
         } catch (IOException exception) {
             LOG.log(Level.SEVERE, CREATE_SESSION, exception);
             fail(
@@ -251,9 +251,15 @@ public final class CreateSessionAction extends BaseAction {
             final NewSessionDialog.Request request,
             final String worktreePath,
             final SessionId sessionId,
+            final TerminalId terminalId,
             final int commandIndex) {
         if (commandIndex >= project.startupCommands().size()) {
             actionContext.viewCoordinator().sessionSetup().complete(sessionId);
+            actionContext
+                    .viewCoordinator()
+                    .updateView(
+                            ViewId.SESSION,
+                            ViewState.sessionTerminal(projectId, sessionId, terminalId));
             return;
         }
         final String command = project.startupCommands().get(commandIndex);
@@ -266,7 +272,13 @@ public final class CreateSessionAction extends BaseAction {
                 () -> {
                     setup.complete(sessionId);
                     runStartupCommand(
-                            projectId, project, request, worktreePath, sessionId, commandIndex + 1);
+                            projectId,
+                            project,
+                            request,
+                            worktreePath,
+                            sessionId,
+                            terminalId,
+                            commandIndex + 1);
                 },
                 output -> {
                     fail(

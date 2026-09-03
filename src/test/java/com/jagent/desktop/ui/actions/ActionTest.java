@@ -2,6 +2,7 @@ package com.jagent.desktop.ui.actions;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.api.Action;
@@ -207,15 +208,19 @@ class ActionTest {
                 () -> state.sessions().size() == 1 && state.terminals().size() == 1,
                 "session and agent terminal should be persisted before setup completes");
         final var sessionId = state.sessions().keySet().iterator().next();
-        final var terminal = state.terminals().values().iterator().next();
+        final var terminalEntry = state.terminals().entrySet().iterator().next();
+        final var terminalId = terminalEntry.getKey();
+        final var terminal = terminalEntry.getValue();
         assertEquals(sessionId, terminal.sessionId(), ASSERTION_MESSAGE);
         assertEquals(
                 "agent --prompt " + PlatformCommands.shellQuote(prompt),
                 terminal.command(),
                 ASSERTION_MESSAGE);
+        assertNull(state.currentTerminalId(), "setup should keep the summary selected");
         assertTrue(Files.notExists(setupMarker), ASSERTION_MESSAGE);
         AsyncTestSupport.await(
-                () -> Files.exists(setupMarker), "startup command should eventually complete");
+                () -> Files.exists(setupMarker) && terminalId.equals(state.currentTerminalId()),
+                "startup command should eventually complete");
     }
 
     @Test
