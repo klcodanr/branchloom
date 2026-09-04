@@ -16,7 +16,6 @@ import com.jagent.desktop.ui.actions.CreateSessionAction;
 import com.jagent.desktop.ui.actions.CreateTerminalAction;
 import com.jagent.desktop.ui.actions.OpenDirectoryAction;
 import java.awt.BorderLayout;
-import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
@@ -29,6 +28,7 @@ import java.util.Map.Entry;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -89,24 +89,14 @@ public final class ProjectCards extends JPanel {
             card.setPreferredSize(new Dimension(250, 150));
             card.setMinimumSize(new Dimension(250, 150));
             card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
-            final JLabel name = UiFactory.label(projectDefinition.name(), Theme.FontSize.LG);
-            name.setFont(Theme.boldFont(Theme.FontSize.LG));
-            name.setAlignmentX(LEFT_ALIGNMENT);
-            name.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             final Runnable openProject =
                     () ->
                             viewCoordinator.updateView(
                                     ViewId.PROJECT, ViewCoordinator.ViewState.project(projectId));
+            final JButton name = UiFactory.link(projectDefinition.name(), openProject);
+            name.setFont(Theme.boldFont(Theme.FontSize.LG));
+            name.setAlignmentX(LEFT_ALIGNMENT);
             card.addMouseListener(
-                    new MouseAdapter() {
-                        @Override
-                        public void mouseClicked(final MouseEvent event) {
-                            if (event.getButton() == MouseEvent.BUTTON1) {
-                                openProject.run();
-                            }
-                        }
-                    });
-            name.addMouseListener(
                     new MouseAdapter() {
                         @Override
                         public void mouseClicked(final MouseEvent event) {
@@ -232,22 +222,15 @@ public final class ProjectCards extends JPanel {
         sessions.add(UiFactory.label("Recent:", Theme.FontSize.XS));
         for (final Entry<com.jagent.desktop.models.SessionId, Session> entry : recentSessions) {
             final Session session = entry.getValue();
-            final JLabel sessionLink =
-                    UiFactory.label(compactSessionName(session.name()), Theme.FontSize.SM);
-            sessionLink.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            final JButton sessionLink =
+                    UiFactory.link(
+                            compactSessionName(session.name()),
+                            () ->
+                                    viewCoordinator.updateView(
+                                            ViewId.SESSION,
+                                            ViewCoordinator.ViewState.session(
+                                                    projectId, entry.getKey())));
             sessionLink.setToolTipText("Open session " + session.name());
-            sessionLink.addMouseListener(
-                    new MouseAdapter() {
-                        @Override
-                        public void mouseClicked(final MouseEvent event) {
-                            if (event.getButton() == MouseEvent.BUTTON1) {
-                                viewCoordinator.updateView(
-                                        ViewId.SESSION,
-                                        ViewCoordinator.ViewState.session(
-                                                projectId, entry.getKey()));
-                            }
-                        }
-                    });
             sessions.add(sessionLink);
         }
         return sessions;
@@ -281,20 +264,12 @@ public final class ProjectCards extends JPanel {
         return actions;
     }
 
-    private JLabel iconAction(
+    private JButton iconAction(
             final javax.swing.Icon icon, final String tooltip, final Runnable action) {
-        final JLabel control = new JLabel(icon);
+        final JButton control = UiFactory.iconButton(icon);
+        control.getAccessibleContext().setAccessibleName(tooltip);
         control.setToolTipText(tooltip);
-        control.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        control.addMouseListener(
-                new MouseAdapter() {
-                    @Override
-                    public void mouseClicked(final MouseEvent event) {
-                        if (event.getButton() == MouseEvent.BUTTON1) {
-                            action.run();
-                        }
-                    }
-                });
+        control.addActionListener(event -> action.run());
         return control;
     }
 

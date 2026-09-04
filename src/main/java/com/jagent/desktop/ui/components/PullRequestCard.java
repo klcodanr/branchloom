@@ -8,20 +8,17 @@ import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.actions.ImportBranchAction;
 import com.jagent.desktop.ui.dialogs.ReviewDialog;
-import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
-import javax.swing.JTextArea;
 import javax.swing.UIManager;
 
 /** Displays one pull request and its actions. */
@@ -49,22 +46,11 @@ public final class PullRequestCard extends JPanel {
         number.setAlignmentX(LEFT_ALIGNMENT);
         number.setComponentPopupMenu(contextMenu);
         add(number);
-        final JTextArea title = UiFactory.selectableText(request.title(), Theme.FontSize.MD);
-        title.setFocusable(false);
-        title.setMargin(UiConstants.ZERO_INSETS);
+        final JButton title =
+                UiFactory.link(request.title(), () -> PlatformCommands.openUrl(request.url()));
         title.setAlignmentX(LEFT_ALIGNMENT);
         title.setFont(Theme.boldFont(Theme.FontSize.MD));
-        title.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         title.setComponentPopupMenu(contextMenu);
-        title.addMouseListener(
-                new MouseAdapter() {
-                    @Override
-                    public void mouseClicked(final MouseEvent event) {
-                        if (event.getButton() == MouseEvent.BUTTON1) {
-                            PlatformCommands.openUrl(request.url());
-                        }
-                    }
-                });
         add(title);
         final JComponent statusDot =
                 new StatusDot(UiText.checksColor(request.checksStatus()), checksSummary(request));

@@ -12,9 +12,9 @@ import com.jagent.desktop.test.SwingTestSupport;
 import com.jagent.desktop.ui.Defaults;
 import java.util.List;
 import java.util.Map;
+import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JMenuItem;
-import javax.swing.JTextArea;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +25,7 @@ class PullRequestCardUiTest {
         final PullRequestCard card =
                 GuiActionRunner.execute(() -> new PullRequestCard(context(), request));
 
-        final JTextArea title = SwingTestSupport.find(card, JTextArea.class);
+        final JButton title = SwingTestSupport.find(card, JButton.class);
         final JComponent checks =
                 SwingTestSupport.find(
                         card,

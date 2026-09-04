@@ -8,13 +8,10 @@ import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.PlatformCommands;
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Cursor;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Locale;
@@ -23,10 +20,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
-import javax.swing.JTextPane;
 import javax.swing.SwingUtilities;
 
 public final class SessionSummary extends JPanel {
@@ -36,8 +33,8 @@ public final class SessionSummary extends JPanel {
     private final transient Session session;
     private final transient Project project;
     private final JTextArea branch = value("Loading branch status...");
-    private final JTextPane pullRequest =
-            UiFactory.selectableHtml("Loading pull request status...", Theme.FontSize.MD);
+    private final JButton pullRequest =
+            UiFactory.link("Loading pull request status...", this::openPullRequest);
     private final StatusDot pullRequestStatusDot = new StatusDot(Theme.mutedColor());
     private final JPanel pullRequestDetails = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
     private final JPanel diff = new JPanel();
@@ -57,7 +54,6 @@ public final class SessionSummary extends JPanel {
         this.session = session;
         setBorder(UiFactory.sectionBorder());
         setLayout(new BorderLayout(0, UiConstants.SPACING_XL));
-        pullRequest.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         pullRequestDetails.setOpaque(false);
         pullRequestDetails.add(pullRequestStatusDot);
         pullRequestDetails.add(pullRequest);
@@ -70,17 +66,14 @@ public final class SessionSummary extends JPanel {
                                 "Remove session and worktree",
                                 removeSessionAndWorktree));
         cleanupAlert.setVisible(false);
-        pullRequest.addMouseListener(
-                new MouseAdapter() {
-                    @Override
-                    public void mouseClicked(final MouseEvent event) {
-                        if (event.getButton() == MouseEvent.BUTTON1 && pullRequestUrl != null) {
-                            PlatformCommands.openUrl(pullRequestUrl);
-                        }
-                    }
-                });
         add(details(), BorderLayout.CENTER);
         loadStatus();
+    }
+
+    private void openPullRequest() {
+        if (pullRequestUrl != null) {
+            PlatformCommands.openUrl(pullRequestUrl);
+        }
     }
 
     private JPanel details() {
