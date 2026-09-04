@@ -91,6 +91,10 @@ public final class UiIcons {
         return icon("git-compare");
     }
 
+    public static Icon gitBranch() {
+        return icon("git-branch");
+    }
+
     public static Icon userRoundArrowLeft() {
         return icon("user-round-arrow-left");
     }

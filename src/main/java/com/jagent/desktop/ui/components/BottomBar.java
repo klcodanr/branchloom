@@ -28,6 +28,7 @@ public final class BottomBar extends JPanel {
     private final JButton searchButton;
     private final JButton problemsButton;
     private final JLabel project = UiFactory.label("", Theme.FontSize.XS);
+    private final JLabel branchIcon = new JLabel(UiIcons.gitBranch());
     private final JLabel branch = UiFactory.label("", Theme.FontSize.XS);
     private final JPanel gitStatus = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
     private final JProgressBar jobsProgress = new JProgressBar();
@@ -62,6 +63,8 @@ public final class BottomBar extends JPanel {
         left.add(searchButton);
         left.add(problemsButton);
         left.add(project);
+        branchIcon.setVisible(false);
+        left.add(branchIcon);
         left.add(branch);
         gitStatus.setOpaque(false);
         left.add(gitStatus);
@@ -136,6 +139,7 @@ public final class BottomBar extends JPanel {
 
     private void clearWorkspaceStatus() {
         project.setText("");
+        branchIcon.setVisible(false);
         branch.setText("");
         gitStatus.removeAll();
         revalidate();
@@ -145,7 +149,9 @@ public final class BottomBar extends JPanel {
     private void updateGitStatus(
             final String projectName, final String branchName, final Git.WorktreeStatus status) {
         project.setText(projectName == null ? "" : projectName);
-        branch.setText(branchName == null || branchName.isBlank() ? "" : "branch " + branchName);
+        final boolean hasBranch = branchName != null && !branchName.isBlank();
+        branchIcon.setVisible(hasBranch);
+        branch.setText(hasBranch ? branchName : "");
         gitStatus.removeAll();
         if (status == null) {
             gitStatus.add(UiFactory.label("Git unavailable", Theme.FontSize.XS));
