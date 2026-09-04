@@ -76,7 +76,6 @@ public final class ProjectTreePanel extends JPanel {
         treeContent.add(search, BorderLayout.NORTH);
         treeContent.add(tree, BorderLayout.CENTER);
         add(treeContent, BorderLayout.CENTER);
-        add(new SettingsButton(actionContext), BorderLayout.SOUTH);
     }
 
     private static final class ProjectHeader extends JPanel {
@@ -157,18 +156,6 @@ public final class ProjectTreePanel extends JPanel {
                 return sessionTooltip(session);
             }
             return null;
-        }
-    }
-
-    private static final class SettingsButton extends JButton {
-        private SettingsButton(final ActionContext actionContext) {
-            super("Settings");
-            setName("settings-button");
-            setIcon(UiIcons.settings());
-            setBorderPainted(false);
-            setHorizontalAlignment(LEFT);
-            addActionListener(
-                    e -> actionContext.viewCoordinator().updateView(ViewId.SETTINGS, null));
         }
     }
 

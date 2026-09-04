@@ -49,9 +49,12 @@ public final class BottomBar extends JPanel {
                         BorderFactory.createEmptyBorder(4, 8, 4, 8)));
 
         settingsButton = iconButton(UiIcons.settings(), "Open settings", openSettings);
+        settingsButton.setName("settings-button");
         searchButton =
                 iconButton(UiIcons.search(), "Find projects, sessions, or terminals", openSearch);
+        searchButton.setName("search-button");
         problemsButton = iconButton(UiIcons.triangleAlert(), "Open problems", openProblems);
+        problemsButton.setName("problems-button");
 
         final JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         left.setOpaque(false);
