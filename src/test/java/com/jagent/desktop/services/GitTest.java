@@ -87,6 +87,30 @@ class GitTest {
     }
 
     @Test
+    void worktreeStatusCanIncludeChangesSinceUpstream(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+        run(
+                directory,
+                "git checkout -qb feature && printf 'feature' > feature.txt && git add feature.txt"
+                        + " && git commit -qm feature && git update-ref refs/remotes/origin/master"
+                        + " HEAD~1 && git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/master");
+        Files.writeString(directory.resolve(TRACKED_FILE), "local");
+
+        final Git.WorktreeStatus local = Git.worktreeStatus(directory, false);
+        final Git.WorktreeStatus includingSource = Git.worktreeStatus(directory, true);
+
+        assertFalse(
+                local.files().containsKey("feature.txt"), "local status should exclude commits");
+        assertTrue(
+                includingSource.files().containsKey("feature.txt"),
+                "source comparison should include committed branch changes");
+        assertTrue(
+                includingSource.files().containsKey(TRACKED_FILE),
+                "source comparison should retain local worktree changes");
+    }
+
+    @Test
     void statusReportsCleanAndModifiedRepositories(@TempDir final Path directory)
             throws IOException, InterruptedException {
         TestGitRepository.initialize(directory);

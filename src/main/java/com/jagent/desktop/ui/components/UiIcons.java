@@ -87,6 +87,18 @@ public final class UiIcons {
         return icon("git-compare");
     }
 
+    public static Icon gitCompareArrows() {
+        return icon("git-compare-arrows");
+    }
+
+    public static Icon funnel() {
+        return icon("funnel");
+    }
+
+    public static Icon funnelX() {
+        return icon("funnel-x");
+    }
+
     public static Icon userRoundArrowLeft() {
         return icon("user-round-arrow-left");
     }
