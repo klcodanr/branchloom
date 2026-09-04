@@ -14,6 +14,7 @@ import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.Template;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.dialogs.NewSessionDialog;
 import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import com.jagent.desktop.ui.utils.GitUtils;
@@ -218,6 +219,14 @@ public final class CreateSessionAction extends BaseAction {
                                                     "{prompt}",
                                                     PlatformCommands.shellQuote(
                                                             request.prompt()))));
+            final Terminal terminal = state.terminals().get(terminalId);
+            final TerminalPanel terminalPanel =
+                    TerminalPanel.retained(
+                            terminalId,
+                            terminal,
+                            Path.of(worktreePath).toAbsolutePath().normalize(),
+                            project.name() + " > " + session.name() + " > " + terminal.title());
+            terminalPanel.start();
             actionContext
                     .viewCoordinator()
                     .updateView(

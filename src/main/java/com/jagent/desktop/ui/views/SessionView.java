@@ -176,16 +176,19 @@ public final class SessionView extends AbstractWorkspaceView {
             return;
         }
         final Path worktree = Path.of(session.worktreePath()).toAbsolutePath().normalize();
-        final TerminalPanel terminal =
-                TerminalPanel.retained(
-                        terminalId,
-                        persistedTerminal,
-                        worktree,
-                        project.name()
-                                + " > "
-                                + session.name()
-                                + " > "
-                                + persistedTerminal.title());
+        TerminalPanel terminal = TerminalPanel.existing(terminalId);
+        if (terminal == null) {
+            terminal =
+                    TerminalPanel.retained(
+                            terminalId,
+                            persistedTerminal,
+                            worktree,
+                            project.name()
+                                    + " > "
+                                    + session.name()
+                                    + " > "
+                                    + persistedTerminal.title());
+        }
         if (terminal.getParent() != null) {
             terminal.getParent().remove(terminal);
         }

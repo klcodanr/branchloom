@@ -93,6 +93,10 @@ public final class TerminalPanel extends JPanel {
                                         .retained(id, definition, directory, resourceName)));
     }
 
+    public static TerminalPanel existing(final TerminalId id) {
+        return RETAINED_PANELS.get(id);
+    }
+
     public void start() {
         runtime.start(this::attach, this::showStartupFailure);
     }

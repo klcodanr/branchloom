@@ -204,7 +204,10 @@ class ActionTest {
                                 "Feature", agent, prompt));
 
         AsyncTestSupport.await(
-                () -> state.sessions().size() == 1 && state.terminals().size() == 1,
+                () ->
+                        state.sessions().size() == 1
+                                && state.terminals().size() == 1
+                                && state.currentTerminalId() != null,
                 "session and agent terminal should be persisted before setup completes");
         final var sessionId = state.sessions().keySet().iterator().next();
         final var terminalEntry = state.terminals().entrySet().iterator().next();
@@ -215,7 +218,6 @@ class ActionTest {
                 "agent --prompt " + PlatformCommands.shellQuote(prompt),
                 terminal.command(),
                 ASSERTION_MESSAGE);
-        assertEquals(terminalId, state.currentTerminalId(), ASSERTION_MESSAGE);
         assertTrue(Files.notExists(setupMarker), ASSERTION_MESSAGE);
         AsyncTestSupport.await(
                 () -> Files.exists(setupMarker) && terminalId.equals(state.currentTerminalId()),
