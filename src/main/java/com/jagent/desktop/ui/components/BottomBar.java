@@ -24,6 +24,8 @@ import javax.swing.UIManager;
 /** Compact bottom bar for problems, workspace status, and background jobs. */
 public final class BottomBar extends JPanel {
     private final transient AppState appState;
+    private final JButton settingsButton;
+    private final JButton searchButton;
     private final JButton problemsButton;
     private final JLabel project = UiFactory.label("", Theme.FontSize.XS);
     private final JLabel branch = UiFactory.label("", Theme.FontSize.XS);
@@ -35,6 +37,8 @@ public final class BottomBar extends JPanel {
     public BottomBar(
             final AppState appState,
             final BackgroundJobs backgroundJobs,
+            final Runnable openSettings,
+            final Runnable openSearch,
             final Runnable openProblems) {
         super(new BorderLayout(12, 0));
         this.appState = appState;
@@ -44,13 +48,15 @@ public final class BottomBar extends JPanel {
                                 1, 0, 0, 0, UIManager.getColor("Separator.foreground")),
                         BorderFactory.createEmptyBorder(4, 8, 4, 8)));
 
-        problemsButton = UiFactory.iconButton(UiIcons.triangleAlert());
-        problemsButton.setToolTipText("Open problems");
-        problemsButton.getAccessibleContext().setAccessibleName("Open problems");
-        problemsButton.addActionListener(event -> openProblems.run());
+        settingsButton = iconButton(UiIcons.settings(), "Open settings", openSettings);
+        searchButton =
+                iconButton(UiIcons.search(), "Find projects, sessions, or terminals", openSearch);
+        problemsButton = iconButton(UiIcons.triangleAlert(), "Open problems", openProblems);
 
         final JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         left.setOpaque(false);
+        left.add(settingsButton);
+        left.add(searchButton);
         left.add(problemsButton);
         left.add(project);
         left.add(branch);
@@ -72,6 +78,15 @@ public final class BottomBar extends JPanel {
         add(jobsProgress, BorderLayout.EAST);
         backgroundJobs.listen(this::updateJobs);
         refresh();
+    }
+
+    private JButton iconButton(
+            final javax.swing.Icon icon, final String tooltip, final Runnable action) {
+        final JButton button = UiFactory.iconButton(icon);
+        button.setToolTipText(tooltip);
+        button.getAccessibleContext().setAccessibleName(tooltip);
+        button.addActionListener(event -> action.run());
+        return button;
     }
 
     public void refresh() {

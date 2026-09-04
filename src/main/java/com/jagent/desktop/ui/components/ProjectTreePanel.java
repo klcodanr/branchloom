@@ -212,7 +212,11 @@ public final class ProjectTreePanel extends JPanel {
 
     private void restoreSelection(final Project selectedProject, final Session selectedSession) {
         if (selectedProject == null) {
-            selectNode((DefaultMutableTreeNode) root.getFirstChild());
+            if (actionContext.appState().projects().isEmpty()) {
+                selectNode((DefaultMutableTreeNode) root.getFirstChild());
+            } else {
+                tree.clearSelection();
+            }
             return;
         }
         final ProjectId projectId = actionContext.appState().currentProjectId();

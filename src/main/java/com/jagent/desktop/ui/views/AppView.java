@@ -84,7 +84,9 @@ public final class AppView extends JFrame {
                 new BottomBar(
                         state,
                         viewCoordinator.backgroundJobs(),
-                        () -> viewCoordinator.updateView(ViewId.PROBLEMS, null));
+                        () -> new OpenSettingsAction(actionContext).execute(),
+                        () -> new FindAction(actionContext).execute(),
+                        () -> new ProblemsAction(actionContext).execute());
         content.add(placeholder, BorderLayout.CENTER);
         add(shell(actionContext), BorderLayout.CENTER);
         installShortcuts();

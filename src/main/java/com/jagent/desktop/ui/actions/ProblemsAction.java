@@ -3,6 +3,7 @@ package com.jagent.desktop.ui.actions;
 import com.jagent.desktop.api.BaseAction;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.services.ViewCoordinator.ViewState;
 
 public final class ProblemsAction extends BaseAction {
     public ProblemsAction(final ActionContext actionContext) {
@@ -21,6 +22,6 @@ public final class ProblemsAction extends BaseAction {
 
     @Override
     public void execute() {
-        actionContext.viewCoordinator().updateView(ViewId.PROBLEMS, null);
+        actionContext.viewCoordinator().updateView(ViewId.PROBLEMS, ViewState.reset());
     }
 }
