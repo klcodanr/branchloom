@@ -248,8 +248,7 @@ public final class CreateSessionAction extends BaseAction {
         if (project.startupCommands().isEmpty()) {
             terminalPanel.start();
         } else {
-            final var job =
-                    actionContext.viewCoordinator().backgroundJobs().start("Session setup");
+            final var job = actionContext.viewCoordinator().backgroundJobs().start("Session setup");
             runStartupCommand(project, worktreePath, job, 0, terminalPanel::start);
         }
     }
