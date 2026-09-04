@@ -209,7 +209,18 @@ public final class CreateSessionAction extends BaseAction {
         } catch (IOException exception) {
             LOG.log(Level.WARNING, "Could not write agent context", exception);
         }
-        final var sessionId = state.addSession(projectId, session);
+        final SessionId sessionId;
+        try {
+            sessionId = state.addSession(projectId, session);
+        } catch (IOException exception) {
+            LOG.log(Level.SEVERE, CREATE_SESSION, exception);
+            showError(
+                    CREATE_SESSION,
+                    exception.getMessage() == null
+                            ? "Could not save the new session."
+                            : exception.getMessage());
+            return;
+        }
         final var terminalId =
                 state.addTerminal(
                         sessionId,
