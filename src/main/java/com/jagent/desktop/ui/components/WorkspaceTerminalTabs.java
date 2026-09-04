@@ -1,14 +1,12 @@
 package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.models.TerminalId;
-import com.jagent.desktop.services.terminal.TerminalState;
 import java.awt.Component;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
@@ -17,19 +15,15 @@ import javax.swing.JTabbedPane;
 /** Owns the shared terminal tab lifecycle for workspace views. */
 public final class WorkspaceTerminalTabs {
     private final JTabbedPane tabs;
-    private final Consumer<TerminalState> stateChanged;
     private final BiConsumer<TerminalPanel, TerminalId> closed;
     private final BiConsumer<TerminalPanel, String> renamed;
-    private final Map<TerminalPanel, TerminalState> states = new IdentityHashMap<>();
     private final Map<TerminalPanel, TerminalId> ids = new IdentityHashMap<>();
 
     public WorkspaceTerminalTabs(
             final JTabbedPane tabs,
-            final Consumer<TerminalState> stateChanged,
             final BiConsumer<TerminalPanel, TerminalId> closed,
             final BiConsumer<TerminalPanel, String> renamed) {
         this.tabs = tabs;
-        this.stateChanged = stateChanged;
         this.closed = closed;
         this.renamed = renamed;
         tabs.addMouseListener(
@@ -46,10 +40,6 @@ public final class WorkspaceTerminalTabs {
                 });
     }
 
-    public Map<TerminalPanel, TerminalState> states() {
-        return states;
-    }
-
     public Map<TerminalPanel, TerminalId> ids() {
         return ids;
     }
@@ -62,12 +52,6 @@ public final class WorkspaceTerminalTabs {
         if (terminal.getParent() != null) {
             terminal.getParent().remove(terminal);
         }
-        terminal.setStateChanged(
-                state -> {
-                    states.put(terminal, state);
-                    stateChanged.accept(state);
-                });
-        states.put(terminal, TerminalState.STARTING);
         ids.put(terminal, terminalId);
         tabs.addTab(title, terminal);
         terminal.putClientProperty("JTabbedPane.tabClosable", true);
@@ -81,10 +65,8 @@ public final class WorkspaceTerminalTabs {
 
     public void detach() {
         for (final TerminalPanel terminal : ids.keySet()) {
-            terminal.setStateChanged(ignored -> {});
             terminal.putClientProperty("JTabbedPane.tabCloseCallback", null);
         }
-        states.clear();
         ids.clear();
     }
 
@@ -142,7 +124,6 @@ public final class WorkspaceTerminalTabs {
         tabs.removeTabAt(index);
         terminal.dispose();
         closed.accept(terminal, terminalId);
-        states.remove(terminal);
         ids.remove(terminal);
     }
 

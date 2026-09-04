@@ -120,9 +120,6 @@ public final class ProjectView extends AbstractWorkspaceView {
     }
 
     @Override
-    protected void terminalStateChanged() {}
-
-    @Override
     protected void terminalClosed() {
         updateCurrentTerminal();
     }

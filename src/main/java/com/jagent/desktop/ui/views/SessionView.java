@@ -8,7 +8,6 @@ import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.SessionSetup;
-import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.actions.RemoveSessionAction;
 import com.jagent.desktop.ui.components.SessionActions;
 import com.jagent.desktop.ui.components.SessionSummary;
@@ -27,7 +26,6 @@ public final class SessionView extends AbstractWorkspaceView {
     private final transient Project project;
     private final transient Session session;
     private final transient SessionSetup setup;
-    private final JLabel sessionStatus = new JLabel("Stopped");
     private final JLabel gitStatus = new JLabel();
     private int terminalNumber;
 
@@ -111,7 +109,6 @@ public final class SessionView extends AbstractWorkspaceView {
 
     @Override
     protected void addTitleDetails(final JPanel titleArea) {
-        titleArea.add(sessionStatus);
         titleArea.add(gitStatus);
     }
 
@@ -225,21 +222,7 @@ public final class SessionView extends AbstractWorkspaceView {
     }
 
     @Override
-    protected void terminalStateChanged() {
-        final TerminalState status =
-                terminalStates.values().stream()
-                        .filter(state -> state == TerminalState.FAILED)
-                        .findFirst()
-                        .orElse(
-                                terminalStates.isEmpty()
-                                        ? TerminalState.STOPPED
-                                        : TerminalState.IDLE);
-        sessionStatus.setText(status.label());
-    }
-
-    @Override
     protected void terminalClosed() {
-        terminalStateChanged();
         updateCurrentTerminal();
     }
 }

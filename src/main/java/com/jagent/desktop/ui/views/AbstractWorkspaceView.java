@@ -6,7 +6,6 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.ViewCoordinator;
-import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.components.FileViewer;
 import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.Theme;
@@ -33,7 +32,6 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
     protected final JTabbedPane tabs = new JTabbedPane();
     protected WorkspaceSplitPane contentSplit = new WorkspaceSplitPane(tabs, JPanel::new);
     private transient WorkspaceTerminalTabs terminalTabs;
-    protected Map<TerminalPanel, TerminalState> terminalStates;
     protected Map<TerminalPanel, TerminalId> terminalIds;
     private final ViewId viewId;
     private JLabel titleLabel;
@@ -65,7 +63,6 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         terminalTabs =
                 new WorkspaceTerminalTabs(
                         tabs,
-                        ignored -> terminalStateChanged(),
                         (terminal, terminalId) -> {
                             if (terminalId != null) {
                                 actionContext.appState().removeTerminal(terminalId);
@@ -73,7 +70,6 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
                             terminalClosed();
                         },
                         this::terminalRenamed);
-        terminalStates = terminalTabs.states();
         terminalIds = terminalTabs.ids();
         addDefaultTabs();
         tabs.addChangeListener(event -> updateCurrentTerminal());
@@ -125,8 +121,6 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
     protected abstract void showActions(JButton button);
 
     protected abstract void openTerminal(Path path);
-
-    protected abstract void terminalStateChanged();
 
     protected abstract void terminalClosed();
 
