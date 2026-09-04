@@ -11,6 +11,7 @@ import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.BackgroundJobs;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.test.AsyncTestSupport;
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.io.TempDir;
 class ActionTest {
     private static final String ASSERTION_MESSAGE = "action behavior should match";
     private static final String PROJECT_NAME = "Demo";
+    private static final String REPOSITORY_DIRECTORY = "repository";
     private static final String SESSION_NAME = "Feature";
     @TempDir private Path tempDirectory;
 
@@ -170,7 +172,7 @@ class ActionTest {
 
     @Test
     void createSessionStartsAgentAfterStartupCompletes() throws IOException, InterruptedException {
-        final Path repository = tempDirectory.resolve("repository");
+        final Path repository = tempDirectory.resolve(REPOSITORY_DIRECTORY);
         Files.createDirectories(repository);
         TestGitRepository.initialize(repository);
         final Path worktree = tempDirectory.resolve("worktree-{sessionSlug}");
@@ -246,12 +248,148 @@ class ActionTest {
         AsyncTestSupport.await(
                 () ->
                         coordinator.backgroundJobs().jobs().stream()
-                                .anyMatch(
-                                        job ->
-                                                job.status()
-                                                        == com.jagent.desktop.services
-                                                                .BackgroundJobs.Status.SUCCEEDED),
+                                .anyMatch(job -> job.status() == BackgroundJobs.Status.SUCCEEDED),
                 "startup job should report completion");
+    }
+
+    @Test
+    void removeSessionRemovesWorktreeInBackground() throws IOException, InterruptedException {
+        final Path repository = tempDirectory.resolve(REPOSITORY_DIRECTORY);
+        final Path worktree = tempDirectory.resolve("worktree");
+        Files.createDirectories(repository);
+        TestGitRepository.initialize(repository);
+        TestGitRepository.run(
+                repository,
+                "git worktree add -qb feature " + PlatformCommands.shellQuote(worktree.toString()));
+        final Path realRepository = repository.toRealPath();
+        final Path realWorktree = worktree.toRealPath();
+        final AppState state = TestAppState.empty();
+        final var projectId =
+                state.addProject(new Project(PROJECT_NAME, realRepository.toString(), null));
+        final var sessionId =
+                state.addSession(
+                        projectId,
+                        new Session(projectId, SESSION_NAME, null, null, realWorktree.toString()));
+        state.updateCurrentProject(projectId);
+        state.updateCurrentSession(sessionId);
+        final var coordinator = new ViewCoordinator(state);
+        final var action = new RemoveSessionActionStub(new ActionContext(coordinator, state, null));
+
+        action.execute();
+
+        AsyncTestSupport.await(
+                () ->
+                        !coordinator.backgroundJobs().jobs().isEmpty()
+                                && coordinator.backgroundJobs().jobs().getFirst().status()
+                                        != BackgroundJobs.Status.RUNNING,
+                "worktree removal should complete in the background");
+        assertEquals(
+                BackgroundJobs.Status.SUCCEEDED,
+                coordinator.backgroundJobs().jobs().getFirst().status(),
+                coordinator.backgroundJobs().jobs().getFirst().message());
+        assertTrue(state.sessions().isEmpty(), ASSERTION_MESSAGE);
+        assertTrue(!Files.exists(worktree), ASSERTION_MESSAGE);
+    }
+
+    @Test
+    void removeSessionCancellationLeavesDirtyWorktree() throws IOException, InterruptedException {
+        final Path repository = tempDirectory.resolve(REPOSITORY_DIRECTORY);
+        final Path worktree = tempDirectory.resolve("worktree");
+        Files.createDirectories(repository);
+        TestGitRepository.initialize(repository);
+        TestGitRepository.run(
+                repository,
+                "git worktree add -qb feature " + PlatformCommands.shellQuote(worktree.toString()));
+        Files.writeString(worktree.resolve("uncommitted.txt"), "changes");
+        final Path realRepository = repository.toRealPath();
+        final Path realWorktree = worktree.toRealPath();
+        final AppState state = TestAppState.empty();
+        final var projectId =
+                state.addProject(new Project(PROJECT_NAME, realRepository.toString(), null));
+        final var sessionId =
+                state.addSession(
+                        projectId,
+                        new Session(projectId, SESSION_NAME, null, null, realWorktree.toString()));
+        state.updateCurrentProject(projectId);
+        state.updateCurrentSession(sessionId);
+        final var coordinator = new ViewCoordinator(state);
+        final var action =
+                new RemoveSessionActionStub(new ActionContext(coordinator, state, null), false);
+
+        action.execute();
+
+        AsyncTestSupport.await(
+                () ->
+                        !coordinator.backgroundJobs().jobs().isEmpty()
+                                && coordinator.backgroundJobs().jobs().getFirst().status()
+                                        != BackgroundJobs.Status.RUNNING,
+                "cancelling worktree removal should complete the background job");
+        assertEquals(
+                BackgroundJobs.Status.SUCCEEDED,
+                coordinator.backgroundJobs().jobs().getFirst().status(),
+                coordinator.backgroundJobs().jobs().getFirst().message());
+        assertTrue(state.sessions().containsKey(sessionId), ASSERTION_MESSAGE);
+        assertTrue(Files.exists(worktree), ASSERTION_MESSAGE);
+    }
+
+    @Test
+    void removeSessionReportsValidationFailure() throws IOException, InterruptedException {
+        final AppState state = TestAppState.empty();
+        final Path repository = tempDirectory.resolve(REPOSITORY_DIRECTORY);
+        Files.createDirectories(repository);
+        final var projectId =
+                state.addProject(new Project(PROJECT_NAME, repository.toString(), null));
+        final var sessionId =
+                state.addSession(
+                        projectId,
+                        new Session(
+                                projectId,
+                                SESSION_NAME,
+                                null,
+                                null,
+                                tempDirectory.resolve("missing-worktree").toString()));
+        state.updateCurrentProject(projectId);
+        state.updateCurrentSession(sessionId);
+        final var coordinator = new ViewCoordinator(state);
+        final var action = new RemoveSessionActionStub(new ActionContext(coordinator, state, null));
+
+        action.execute();
+
+        AsyncTestSupport.await(
+                () ->
+                        coordinator.backgroundJobs().jobs().stream()
+                                .anyMatch(job -> job.status() == BackgroundJobs.Status.FAILED),
+                "invalid worktree should fail the background job");
+        assertTrue(state.sessions().containsKey(sessionId), ASSERTION_MESSAGE);
+    }
+
+    private static final class RemoveSessionActionStub extends RemoveSessionAction {
+        private final boolean confirmDeletion;
+
+        private RemoveSessionActionStub(final ActionContext context) {
+            this(context, true);
+        }
+
+        private RemoveSessionActionStub(
+                final ActionContext context, final boolean confirmDeletion) {
+            super(context);
+            this.confirmDeletion = confirmDeletion;
+        }
+
+        @Override
+        protected int removalChoice(final Session session) {
+            return 1;
+        }
+
+        @Override
+        protected boolean confirmWorktreeDeletion(final Session session) {
+            return confirmDeletion;
+        }
+
+        @Override
+        protected void failRemoval(final BackgroundJobs.Handle job, final Throwable failure) {
+            job.fail(failure.getMessage());
+        }
     }
 
     @Test
