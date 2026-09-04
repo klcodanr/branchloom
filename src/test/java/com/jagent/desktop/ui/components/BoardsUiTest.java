@@ -250,6 +250,9 @@ class BoardsUiTest {
     }
 
     private static String componentText(final java.awt.Component component) {
+        if (component instanceof javax.swing.AbstractButton button) {
+            return button.getText() == null ? "" : button.getText();
+        }
         if (component instanceof javax.swing.JLabel label) {
             return label.getText() == null ? "" : label.getText();
         }

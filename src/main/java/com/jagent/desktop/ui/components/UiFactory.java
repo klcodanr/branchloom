@@ -18,6 +18,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.Icon;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -136,7 +137,7 @@ public final class UiFactory {
                 .registerKeyboardAction(
                         event -> dialog.dispose(),
                         KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
-                        javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
+                        JComponent.WHEN_IN_FOCUSED_WINDOW);
     }
 
     public static JTextPane selectableHtml(final String html, final Theme.FontSize size) {
@@ -252,11 +253,25 @@ public final class UiFactory {
     public static JButton iconButton(final Icon icon) {
         final JButton button = new JButton(icon);
         button.setBorderPainted(false);
-        button.setContentAreaFilled(false);
-        button.setOpaque(false);
+        button.putClientProperty("JButton.buttonType", "toolBarButton");
         button.setMargin(UiConstants.ZERO_INSETS);
         button.setPreferredSize(new Dimension(22, 24));
         return button;
+    }
+
+    public static JButton link(final String text, final Runnable action) {
+        final JButton link = new JButton(text);
+        link.putClientProperty("JButton.buttonType", "borderless");
+        link.setBorderPainted(false);
+        link.setContentAreaFilled(true);
+        link.setFocusable(true);
+        link.setFocusPainted(true);
+        link.setRolloverEnabled(true);
+        link.setMargin(UiConstants.ZERO_INSETS);
+        link.setHorizontalAlignment(JButton.LEFT);
+        link.getAccessibleContext().setAccessibleName(text);
+        link.addActionListener(event -> action.run());
+        return link;
     }
 
     public static final class MenuIcon implements Icon {

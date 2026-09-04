@@ -16,12 +16,9 @@ import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
-import java.awt.Cursor;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.nio.file.Path;
 import java.util.List;
 import javax.swing.Box;
@@ -30,7 +27,6 @@ import javax.swing.JComboBox;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
-import javax.swing.JTextArea;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 
@@ -173,8 +169,8 @@ public final class ReviewQueueView extends JPanel implements View {
             titleConstraints.fill = GridBagConstraints.HORIZONTAL;
             titleConstraints.anchor = GridBagConstraints.NORTHWEST;
             titleConstraints.insets = new Insets(0, 0, UiConstants.SPACING_XS, 0);
-            final JTextArea title =
-                    UiFactory.selectableText(
+            final JButton title =
+                    UiFactory.link(
                             (index + 1)
                                     + ". "
                                     + (project == null ? "Project" : project.name())
@@ -182,15 +178,7 @@ public final class ReviewQueueView extends JPanel implements View {
                                     + request.number()
                                     + " - "
                                     + request.title(),
-                            Theme.FontSize.MD);
-            title.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            title.addMouseListener(
-                    new MouseAdapter() {
-                        @Override
-                        public void mouseClicked(final MouseEvent event) {
-                            PlatformCommands.openUrl(request.url());
-                        }
-                    });
+                            () -> PlatformCommands.openUrl(request.url()));
             details.add(title, titleConstraints);
             final GridBagConstraints labelConstraints = new GridBagConstraints();
             labelConstraints.gridx = 0;
