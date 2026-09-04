@@ -26,7 +26,6 @@ import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
-import javax.swing.JToggleButton;
 import javax.swing.JTree;
 import javax.swing.SwingUtilities;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -45,9 +44,12 @@ public final class WorkspaceTreePanel extends JPanel {
     private final Path workspace;
     private final JTree tree;
     private final DefaultMutableTreeNode root;
-    private Map<String, String> statuses = Map.of();
+    private volatile Map<String, String> statuses = Map.of();
     private JLabel statusLabel;
-    private JToggleButton refreshButton;
+    private SmIconButton refreshButton;
+    private SmIconButton changedOnlyButton;
+    private SmIconButton comparisonButton;
+    private boolean compareSourceBranch;
 
     public WorkspaceTreePanel(
             final ActionContext actionContext,
@@ -73,21 +75,61 @@ public final class WorkspaceTreePanel extends JPanel {
         header.setOpaque(false);
         header.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
         statusLabel = UiFactory.label("", Theme.FontSize.XS);
-        refreshButton = new JToggleButton(UiIcons.refresh());
-        refreshButton.putClientProperty("JButton.buttonType", "segmented");
-        refreshButton.putClientProperty("JButton.segmentPosition", "only");
-        refreshButton.setToolTipText("Refresh Git status");
-        refreshButton.getAccessibleContext().setAccessibleName("Refresh Git status");
+        refreshButton = new SmIconButton("Refresh Git status", UiIcons.refresh());
         refreshButton.addActionListener(ignored -> refreshStatus());
+        changedOnlyButton = new SmIconButton("Show changed files only", UiIcons.funnel());
+        changedOnlyButton.setSelectedIcon(UiIcons.funnelX());
+        changedOnlyButton.addActionListener(ignored -> reloadWorkspace());
+        comparisonButton =
+                new SmIconButton("Comparison scope: Working tree", UiIcons.gitCompareArrows());
+        comparisonButton.getAccessibleContext().setAccessibleName("Comparison scope");
+        comparisonButton.addActionListener(
+                ignored ->
+                        SwingUtilities.invokeLater(
+                                () -> {
+                                    comparisonButton.setSelected(compareSourceBranch);
+                                    comparisonMenu()
+                                            .show(
+                                                    comparisonButton,
+                                                    0,
+                                                    comparisonButton.getHeight());
+                                }));
+        final JPanel buttons = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 4, 0));
+        buttons.setOpaque(false);
+        buttons.add(refreshButton);
+        buttons.add(changedOnlyButton);
+        buttons.add(comparisonButton);
         final JPanel actions = new JPanel(new BorderLayout(4, 0));
         actions.setOpaque(false);
         actions.add(statusLabel, BorderLayout.CENTER);
-        actions.add(refreshButton, BorderLayout.EAST);
+        actions.add(buttons, BorderLayout.EAST);
         header.add(actions, BorderLayout.EAST);
         return header;
     }
 
+    private JPopupMenu comparisonMenu() {
+        final JPopupMenu menu = new JPopupMenu();
+        final JMenuItem local = new JMenuItem("Working tree only");
+        local.addActionListener(ignored -> setComparisonScope(false));
+        menu.add(local);
+        final JMenuItem source = new JMenuItem("Current branch since upstream");
+        source.addActionListener(ignored -> setComparisonScope(true));
+        menu.add(source);
+        return menu;
+    }
+
+    private void setComparisonScope(final boolean sourceBranch) {
+        compareSourceBranch = sourceBranch;
+        comparisonButton.setSelected(sourceBranch);
+        comparisonButton.setToolTipText(
+                sourceBranch
+                        ? "Comparison scope: Current branch since upstream"
+                        : "Comparison scope: Working tree");
+        refreshStatus();
+    }
+
     private void refreshStatus() {
+        final boolean includeSourceBranch = compareSourceBranch;
         refreshButton.setSelected(false);
         refreshButton.setEnabled(false);
         statusLabel.setText("Refreshing Git status...");
@@ -96,7 +138,7 @@ public final class WorkspaceTreePanel extends JPanel {
                         "git-status",
                         () -> {
                             try {
-                                return Git.worktreeStatus(workspace);
+                                return Git.worktreeStatus(workspace, includeSourceBranch);
                             } catch (IOException failure) {
                                 throw new CompletionException(failure);
                             } catch (InterruptedException failure) {
@@ -146,6 +188,7 @@ public final class WorkspaceTreePanel extends JPanel {
         if (!(value instanceof Path directory)) {
             return;
         }
+        final boolean changedOnly = changedOnlyButton.isSelected();
         BackgroundTasks.submit(
                 "Workspace",
                 "load-files",
@@ -166,7 +209,10 @@ public final class WorkspaceTreePanel extends JPanel {
                         return;
                     }
                     final List<DefaultMutableTreeNode> childNodes =
-                            children.stream().map(this::node).toList();
+                            children.stream()
+                                    .filter(path -> !changedOnly || changed(path))
+                                    .map(this::node)
+                                    .toList();
                     SwingUtilities.invokeLater(
                             () -> {
                                 parent.removeAllChildren();
@@ -243,6 +289,16 @@ public final class WorkspaceTreePanel extends JPanel {
 
     private boolean directory(final Path path) {
         return Files.isDirectory(path, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+    }
+
+    private boolean changed(final Path path) {
+        final String relative =
+                workspace
+                        .relativize(path.toAbsolutePath().normalize())
+                        .toString()
+                        .replace(java.io.File.separatorChar, '/');
+        return statuses.containsKey(relative)
+                || statuses.keySet().stream().anyMatch(value -> value.startsWith(relative + "/"));
     }
 
     private Path parentOrSelf(final Path path) {
@@ -357,10 +413,7 @@ public final class WorkspaceTreePanel extends JPanel {
             if (code != null) {
                 return code;
             }
-            final String prefix = relative + "/";
-            return statuses.keySet().stream().anyMatch(value -> value.startsWith(prefix))
-                    ? " M"
-                    : null;
+            return changed(path) ? " M" : null;
         }
 
         private Color statusColor(final String code) {

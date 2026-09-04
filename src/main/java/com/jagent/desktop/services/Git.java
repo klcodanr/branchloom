@@ -42,18 +42,67 @@ public final class Git {
 
     public static Map<String, String> statusFiles(final Path worktree)
             throws IOException, InterruptedException {
-        return worktreeStatus(worktree).files();
+        return worktreeStatus(worktree, false).files();
     }
 
-    public static WorktreeStatus worktreeStatus(final Path worktree)
+    public static WorktreeStatus worktreeStatus(
+            final Path worktree, final boolean includeSourceBranch)
             throws IOException, InterruptedException {
         final String output = run(worktree, "git status --porcelain=v1 -z --untracked-files=all");
-        return GitParser.parseWorktreeStatus(output);
+        final WorktreeStatus local = GitParser.parseWorktreeStatus(output);
+        if (!includeSourceBranch) {
+            return local;
+        }
+        final String source = sourceBranch(worktree);
+        if (source.isBlank()) {
+            return local;
+        }
+        final Map<String, String> files = new java.util.LinkedHashMap<>();
+        files.putAll(
+                GitParser.parseDiffStatus(
+                        runGit(
+                                worktree,
+                                0,
+                                "diff",
+                                "--name-status",
+                                "-z",
+                                "--no-renames",
+                                source + "...HEAD")));
+        files.putAll(local.files());
+        final int additions =
+                (int)
+                        files.values().stream()
+                                .filter(status -> "A".equals(status) || "??".equals(status))
+                                .count();
+        final int deletions = (int) files.values().stream().filter("D"::equals).count();
+        return new WorktreeStatus(
+                Map.copyOf(files), additions, files.size() - additions - deletions, deletions);
     }
 
     public static String currentBranch(final Path worktree)
             throws IOException, InterruptedException {
         return run(worktree, "git branch --show-current");
+    }
+
+    private static String sourceBranch(final Path worktree)
+            throws IOException, InterruptedException {
+        try {
+            return runGit(
+                            worktree,
+                            0,
+                            "rev-parse",
+                            "--abbrev-ref",
+                            "--symbolic-full-name",
+                            "@{upstream}")
+                    .trim();
+        } catch (IOException ignored) {
+            try {
+                return runGit(worktree, 0, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+                        .trim();
+            } catch (IOException ignoredFallback) {
+                return "";
+            }
+        }
     }
 
     public static String diffSummary(final Path worktree) throws IOException, InterruptedException {
