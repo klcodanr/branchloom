@@ -96,15 +96,10 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         actions.setToolTipText("Actions");
         actions.getAccessibleContext().setAccessibleName("Actions");
         actions.addActionListener(event -> showActions(actions));
-        final JButton files = UiFactory.iconButton(UiIcons.folderOpen());
-        files.setToolTipText("Show files");
-        files.getAccessibleContext().setAccessibleName("Show files");
-        files.addActionListener(event -> showWorkspace());
         final JPanel actionArea = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         actionArea.setOpaque(false);
         actionArea.setBorder(new EmptyBorder(0, 12, 0, 0));
         actionArea.add(actions);
-        actionArea.add(files);
         actionArea.setMinimumSize(actionArea.getPreferredSize());
         header.add(actionArea, BorderLayout.EAST);
         return header;
