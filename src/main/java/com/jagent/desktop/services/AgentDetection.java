@@ -18,6 +18,41 @@ public final class AgentDetection {
         return List.copyOf(agents);
     }
 
+    public static String firstAvailableCommand() {
+        return detect().stream().map(agent -> agent.newSessionCommand).findFirst().orElse("");
+    }
+
+    public static String defaultCommand(final List<Agent> configuredAgents) {
+        return configuredAgents.stream()
+                .map(agent -> agent.newSessionCommand)
+                .filter(command -> command != null && !command.isBlank())
+                .findFirst()
+                .orElseGet(AgentDetection::firstAvailableCommand);
+    }
+
+    public static String defaultHeadlessCommand() {
+        return firstAvailableHeadlessCommand();
+    }
+
+    public static String firstAvailableHeadlessCommand() {
+        if (PlatformCommands.commandAvailable("claude")) {
+            return "claude -p {prompt}";
+        }
+        if (PlatformCommands.commandAvailable("codex")) {
+            return "codex exec {prompt}";
+        }
+        if (PlatformCommands.commandAvailable("gemini")) {
+            return "gemini -p {prompt}";
+        }
+        if (PlatformCommands.commandAvailable("aider")) {
+            return "aider --message {prompt}";
+        }
+        if (PlatformCommands.commandAvailable("opencode")) {
+            return "opencode run {prompt}";
+        }
+        return "";
+    }
+
     private static void addIfAvailable(
             final List<Agent> agents,
             final String name,

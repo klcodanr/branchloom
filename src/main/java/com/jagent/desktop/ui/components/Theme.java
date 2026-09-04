@@ -252,6 +252,12 @@ public final class Theme {
         UIManager.put("TextField.margin", new java.awt.Insets(6, 10, 6, 10));
         UIManager.put("TextArea.margin", new java.awt.Insets(8, 10, 8, 10));
         UIManager.put("ScrollBar.width", 10);
-        UIManager.put("OptionPane.border", BorderFactory.createEmptyBorder(16, 16, 12, 16));
+        UIManager.put(
+                "OptionPane.border",
+                BorderFactory.createEmptyBorder(
+                        UiConstants.SECTION_PADDING,
+                        UiConstants.SECTION_PADDING,
+                        UiConstants.COMPONENT_GAP,
+                        UiConstants.SECTION_PADDING));
     }
 }

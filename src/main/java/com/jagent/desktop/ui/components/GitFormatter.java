@@ -109,7 +109,7 @@ public final class GitFormatter {
                 change.setOpaque(false);
                 final GridBagConstraints constraints = new GridBagConstraints();
                 constraints.anchor = GridBagConstraints.WEST;
-                constraints.insets = new Insets(0, 0, 0, 12);
+                constraints.insets = new Insets(0, 0, 0, UiConstants.COMPONENT_GAP);
                 constraints.gridx = 0;
                 final JLabel additions = UiFactory.label("+" + fields[0], Theme.FontSize.XS);
                 additions.setForeground(Theme.successColor());
@@ -120,7 +120,7 @@ public final class GitFormatter {
                 change.add(deletions, constraints);
                 constraints.gridx = 2;
                 constraints.weightx = 1;
-                constraints.insets = new Insets(0, 0, 0, 0);
+                constraints.insets = UiConstants.ZERO_INSETS;
                 change.add(UiFactory.label(fields[2], Theme.FontSize.SM), constraints);
                 diff.add(change);
             }

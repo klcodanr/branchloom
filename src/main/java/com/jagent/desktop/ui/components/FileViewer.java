@@ -7,7 +7,6 @@ import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.nio.file.Path;
-import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -32,10 +31,10 @@ public final class FileViewer extends JPanel {
     private final JTextArea diff = new JTextArea();
 
     public FileViewer(final Path workspace, final Path file) {
-        super(new BorderLayout(0, 8));
+        super(new BorderLayout(0, UiConstants.CONTENT_PADDING));
         this.workspace = workspace.toAbsolutePath().normalize();
         this.file = file.toAbsolutePath().normalize();
-        setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        setBorder(UiFactory.sectionBorder());
         add(toolbar(), BorderLayout.NORTH);
         configureSource();
         configureDiff();
@@ -46,13 +45,14 @@ public final class FileViewer extends JPanel {
     }
 
     private JPanel toolbar() {
-        final JPanel toolbar = new JPanel(new BorderLayout(8, 0));
+        final JPanel toolbar = new JPanel(new BorderLayout(UiConstants.CONTENT_PADDING, 0));
         toolbar.setOpaque(false);
         final JLabel path =
                 UiFactory.label(workspace.relativize(file).toString(), Theme.FontSize.SM);
         path.setToolTipText(file.toString());
         toolbar.add(path, BorderLayout.WEST);
-        final JPanel controls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        final JPanel controls =
+                new JPanel(new FlowLayout(FlowLayout.RIGHT, UiConstants.SPACING_XS, 0));
         controls.setOpaque(false);
         final JPanel viewModes = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         viewModes.setOpaque(false);
@@ -97,7 +97,7 @@ public final class FileViewer extends JPanel {
         diff.setEditable(false);
         diff.setLineWrap(false);
         diff.setFont(Theme.terminalFont(Theme.FontSize.SM));
-        diff.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        diff.setBorder(UiFactory.cardBorder());
         applyEditorTheme();
     }
 

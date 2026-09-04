@@ -6,6 +6,7 @@ import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.TerminalResources;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.ui.components.Theme;
+import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -19,7 +20,6 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.SwingUtilities;
-import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 
 /** Runtime reports for background threads and terminal processes. */
@@ -46,8 +46,8 @@ public final class ResourceUsageView extends JPanel implements View {
 
     protected ResourceUsageView(final boolean loadResources) {
         super();
-        setLayout(new BorderLayout(0, 16));
-        setBorder(new EmptyBorder(4, 4, 4, 4));
+        setLayout(new BorderLayout(0, UiConstants.SECTION_PADDING));
+        setBorder(UiFactory.pageBorder());
 
         final JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
@@ -61,7 +61,7 @@ public final class ResourceUsageView extends JPanel implements View {
         reports.setOpaque(false);
         reports.setLayout(new BoxLayout(reports, BoxLayout.Y_AXIS));
         reports.add(threadsReport());
-        reports.add(Box.createVerticalStrut(14));
+        reports.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
         reports.add(terminalsReport());
 
         final JScrollPane scroll = new JScrollPane(reports);
@@ -202,7 +202,7 @@ public final class ResourceUsageView extends JPanel implements View {
     private static JPanel reportPanel(final String title) {
         final JPanel report = UiFactory.panel();
         report.setAlignmentX(LEFT_ALIGNMENT);
-        report.setLayout(new BorderLayout(0, 10));
+        report.setLayout(new BorderLayout(0, UiConstants.COMPONENT_GAP));
         report.setBorder(BorderFactory.createTitledBorder(title));
         return report;
     }
@@ -220,7 +220,7 @@ public final class ResourceUsageView extends JPanel implements View {
     }
 
     private static void addMetric(final JPanel panel, final String label, final JLabel value) {
-        final JPanel metric = new JPanel(new BorderLayout(0, 4));
+        final JPanel metric = new JPanel(new BorderLayout(0, UiConstants.SPACING_XS));
         metric.setOpaque(false);
         metric.setPreferredSize(new Dimension(150, 58));
         metric.setMaximumSize(new Dimension(150, 58));
@@ -256,7 +256,7 @@ public final class ResourceUsageView extends JPanel implements View {
     }
 
     private static JPanel labeledTable(final String title, final JTable table, final int height) {
-        final JPanel group = new JPanel(new BorderLayout(0, 4));
+        final JPanel group = new JPanel(new BorderLayout(0, UiConstants.SPACING_XS));
         group.setOpaque(false);
         group.add(UiFactory.label(title, Theme.FontSize.SM), BorderLayout.NORTH);
         group.add(tableScroll(table, height), BorderLayout.CENTER);

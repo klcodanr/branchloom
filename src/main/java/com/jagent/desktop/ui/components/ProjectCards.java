@@ -52,7 +52,7 @@ public final class ProjectCards extends JPanel {
         this.pullRequestCache = PullRequestCache.get(appState);
         setLayout(new BorderLayout());
         cards.setOpaque(false);
-        cards.setLayout(new GridLayout(0, 1, 14, 14));
+        cards.setLayout(new GridLayout(0, 1, UiConstants.COMPONENT_GAP, UiConstants.COMPONENT_GAP));
         cards.addComponentListener(
                 new ComponentAdapter() {
                     @Override
@@ -118,11 +118,11 @@ public final class ProjectCards extends JPanel {
             card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
             card.add(name);
             card.add(path(projectDefinition));
-            card.add(Box.createVerticalStrut(6));
+            card.add(Box.createVerticalStrut(UiConstants.SPACING_SM));
             card.add(metrics(projectId, projectDefinition));
             card.add(Box.createVerticalGlue());
             card.add(recentSessions(projectId, projectDefinition));
-            card.add(Box.createVerticalStrut(6));
+            card.add(Box.createVerticalStrut(UiConstants.SPACING_SM));
             card.add(actions(projectId));
             installProjectMenu(card, projectId);
             installProjectMenu(name, projectId);
@@ -340,6 +340,10 @@ public final class ProjectCards extends JPanel {
     private Border cardBorder() {
         return BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor")),
-                BorderFactory.createEmptyBorder(12, 14, 12, 14));
+                BorderFactory.createEmptyBorder(
+                        UiConstants.CARD_PADDING,
+                        UiConstants.COMPONENT_GAP,
+                        UiConstants.CARD_PADDING,
+                        UiConstants.COMPONENT_GAP));
     }
 }

@@ -1,21 +1,20 @@
 package com.jagent.desktop.ui.views;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.Project;
+import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.Tool;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.test.SwingTestSupport;
 import com.jagent.desktop.ui.Defaults;
 import com.jagent.desktop.ui.components.SessionSummary;
 import com.jagent.desktop.ui.components.WorkspaceSplitPane;
@@ -56,20 +55,20 @@ class TargetViewsUiTest {
         final var view = new GlobalSettingsView(new ActionContext(coordinator, state, null));
 
         final var rendered = GuiActionRunner.execute(view::render);
-        final var scroll = (JScrollPane) rendered.getComponent(1);
+        final var scroll = (JScrollPane) rendered.getComponent(0);
         final var body = (JPanel) scroll.getViewport().getView();
         final var tabs = (JTabbedPane) body.getComponent(0);
         final var agents = (JPanel) tabs.getComponentAt(1);
         final var editors = (JPanel) tabs.getComponentAt(2);
-        final JButton addAgent = (JButton) agents.getComponent(2);
-        final JButton addEditor = (JButton) editors.getComponent(2);
+        final JButton addAgent = SwingTestSupport.findButton(agents, "+  Add agent");
+        final JButton addEditor = SwingTestSupport.findButton(editors, "+  Add editor");
         GuiActionRunner.execute(
                 () -> {
                     addAgent.doClick();
                     addEditor.doClick();
                 });
 
-        final var actions = (JPanel) rendered.getComponent(2);
+        final var actions = (JPanel) rendered.getComponent(1);
         final JButton save = (JButton) actions.getComponent(1);
         GuiActionRunner.execute((GuiActionRunnable) save::doClick);
 
@@ -88,7 +87,7 @@ class TargetViewsUiTest {
         final var coordinator = new ViewCoordinator(state);
         final var view = new GlobalSettingsView(new ActionContext(coordinator, state, null));
         final var rendered = GuiActionRunner.execute(view::render);
-        final var actions = (JPanel) rendered.getComponent(2);
+        final var actions = (JPanel) rendered.getComponent(1);
 
         GuiActionRunner.execute(() -> ((JButton) actions.getComponent(0)).doClick());
 
@@ -113,7 +112,7 @@ class TargetViewsUiTest {
         assertEquals(PROJECT_NAME, view.title(), ASSERTION_MESSAGE);
         final var split = (WorkspaceSplitPane) view.getComponent(1);
         assertEquals(2, ((JTabbedPane) split.getLeftComponent()).getTabCount(), ASSERTION_MESSAGE);
-        assertTrue(split.getRightComponent() != null, ASSERTION_MESSAGE);
+        assertNull(split.getRightComponent(), ASSERTION_MESSAGE);
         assertSame(view, view.render(), ASSERTION_MESSAGE);
         assertTrue(!view.focusPullRequestSearch(), ASSERTION_MESSAGE);
         view.openSummary();
@@ -178,7 +177,7 @@ class TargetViewsUiTest {
         assertEquals(SESSION_NAME, view.title(), ASSERTION_MESSAGE);
         final var split = (WorkspaceSplitPane) view.getComponent(1);
         assertEquals(1, ((JTabbedPane) split.getLeftComponent()).getTabCount(), ASSERTION_MESSAGE);
-        assertTrue(split.getRightComponent() != null, ASSERTION_MESSAGE);
+        assertNull(split.getRightComponent(), ASSERTION_MESSAGE);
         assertSame(view, view.render(), ASSERTION_MESSAGE);
         view.selectTerminal(0);
         view.openSummary();
@@ -213,15 +212,13 @@ class TargetViewsUiTest {
                         () -> new ProjectView(context, state.projects().get(projectId)));
         projectView.selectTerminal(1);
         projectView.closeActiveTerminal();
-        org.junit.jupiter.api.Assertions.assertFalse(
-                state.terminals().containsKey(projectTerminalId), ASSERTION_MESSAGE);
+        assertFalse(state.terminals().containsKey(projectTerminalId), ASSERTION_MESSAGE);
 
         state.updateCurrentTerminal(null);
         final var sessionView = GuiActionRunner.execute(() -> new SessionView(context));
         sessionView.selectTerminal(1);
         sessionView.closeActiveTerminal();
-        org.junit.jupiter.api.Assertions.assertFalse(
-                state.terminals().containsKey(sessionTerminalId), ASSERTION_MESSAGE);
+        assertFalse(state.terminals().containsKey(sessionTerminalId), ASSERTION_MESSAGE);
 
         projectView.dispose();
         sessionView.dispose();
@@ -240,8 +237,8 @@ class TargetViewsUiTest {
 
         final var summary = GuiActionRunner.execute(() -> new SessionSummary(project, session));
 
-        assertEquals(2, summary.getComponentCount(), "assertion values should match");
-        final var details = (JPanel) summary.getComponent(1);
+        assertEquals(1, summary.getComponentCount(), "summary should render one details panel");
+        final var details = (JPanel) summary.getComponent(0);
         assertTrue(
                 componentText(details).contains("Investigate login"), "summary should show prompt");
         assertTrue(
@@ -417,22 +414,21 @@ class TargetViewsUiTest {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
         final var coordinator = new ViewCoordinator(state);
+        final var request =
+                new PullRequest(
+                        projectId, 1, "Title", "", "", "url", "", "", "", "", false, "", "", 0, 0,
+                        "");
         final var view =
                 GuiActionRunner.execute(
                         () ->
                                 new ProjectView(
                                         new ActionContext(coordinator, state, null),
                                         state.projects().get(projectId)));
+        view.reviewPullRequest(request);
         final var tabs =
                 (JTabbedPane) ((WorkspaceSplitPane) view.getComponent(1)).getLeftComponent();
-        final var request =
-                new com.jagent.desktop.models.PullRequest(
-                        projectId, 1, "Title", "", "", "url", "", "", "", "", false, "", "", 0, 0,
-                        "");
-
         GuiActionRunner.execute(
                 () -> {
-                    view.reviewPullRequest(request);
                     view.selectTerminal(0);
                     view.selectTerminal(99);
                     view.openSummary();

@@ -10,7 +10,6 @@ import com.jagent.desktop.ui.actions.ImportBranchAction;
 import com.jagent.desktop.ui.dialogs.ReviewDialog;
 import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.Insets;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.logging.Logger;
@@ -24,7 +23,6 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JTextArea;
 import javax.swing.UIManager;
-import javax.swing.border.EmptyBorder;
 
 /** Displays one pull request and its actions. */
 public final class PullRequestCard extends JPanel {
@@ -39,7 +37,7 @@ public final class PullRequestCard extends JPanel {
         setBorder(
                 BorderFactory.createCompoundBorder(
                         BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor")),
-                        new EmptyBorder(7, 7, 7, 7)));
+                        UiFactory.cardBorder()));
         setPreferredSize(new Dimension(UiConstants.PR_CARD_WIDTH, UiConstants.PR_CARD_HEIGHT));
         setMinimumSize(new Dimension(UiConstants.PR_CARD_WIDTH, UiConstants.PR_CARD_HEIGHT));
         setMaximumSize(new Dimension(Integer.MAX_VALUE, UiConstants.PR_CARD_HEIGHT));
@@ -51,14 +49,9 @@ public final class PullRequestCard extends JPanel {
         number.setAlignmentX(LEFT_ALIGNMENT);
         number.setComponentPopupMenu(contextMenu);
         add(number);
-        final JTextArea title = new JTextArea(request.title());
-        title.setLineWrap(true);
-        title.setWrapStyleWord(true);
-        title.setEditable(false);
+        final JTextArea title = UiFactory.selectableText(request.title(), Theme.FontSize.MD);
         title.setFocusable(false);
-        title.setOpaque(false);
-        title.setBorder(null);
-        title.setMargin(new Insets(0, 0, 0, 0));
+        title.setMargin(UiConstants.ZERO_INSETS);
         title.setAlignmentX(LEFT_ALIGNMENT);
         title.setFont(Theme.boldFont(Theme.FontSize.MD));
         title.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -90,7 +83,7 @@ public final class PullRequestCard extends JPanel {
                         Theme.FontSize.XS);
         metadata.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
         statusRow.add(statusDot);
-        statusRow.add(Box.createHorizontalStrut(5));
+        statusRow.add(Box.createHorizontalStrut(UiConstants.SPACING_XS));
         statusRow.add(metadata);
         statusRow.setComponentPopupMenu(contextMenu);
         add(statusRow);

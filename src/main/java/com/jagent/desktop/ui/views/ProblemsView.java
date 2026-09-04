@@ -8,6 +8,7 @@ import com.jagent.desktop.models.LogEntry;
 import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.JsonLogging;
 import com.jagent.desktop.ui.components.Theme;
+import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -46,7 +47,7 @@ public final class ProblemsView extends JPanel implements View {
     protected ProblemsView(final Supplier<List<LogEntry>> problemLoader) {
         super();
         this.problems = new ArrayList<>();
-        setLayout(new BorderLayout(0, 18));
+        setLayout(new BorderLayout(0, UiConstants.SECTION_PADDING));
         add(header(), BorderLayout.NORTH);
         tableModel = new ProblemTableModel(problems);
         table = new JTable(tableModel);
@@ -116,8 +117,10 @@ public final class ProblemsView extends JPanel implements View {
             return;
         }
         final LogEntry problem = problems.get(problems.size() - row - 1);
-        final JTextArea details = new JTextArea(PRETTY_JSON.toJson(logEntry(problem)), 20, 80);
-        details.setEditable(false);
+        final JTextArea details =
+                UiFactory.selectableText(PRETTY_JSON.toJson(logEntry(problem)), Theme.FontSize.SM);
+        details.setRows(20);
+        details.setColumns(80);
         details.setCaretPosition(0);
         details.setLineWrap(false);
         JOptionPane.showMessageDialog(
@@ -148,7 +151,8 @@ public final class ProblemsView extends JPanel implements View {
         title.add(UiFactory.label(TITLE, Theme.FontSize.XXL));
         title.add(UiFactory.label("Application events and failures", Theme.FontSize.MD));
         header.add(title, BorderLayout.WEST);
-        final JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        final JPanel actions =
+                new JPanel(new FlowLayout(FlowLayout.RIGHT, UiConstants.CONTENT_PADDING, 0));
         actions.setOpaque(false);
         showAllButton = UiFactory.button("Show all logs");
         showAllButton.addActionListener(event -> loadAllLogs());

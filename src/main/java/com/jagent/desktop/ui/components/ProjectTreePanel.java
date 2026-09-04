@@ -57,9 +57,9 @@ public final class ProjectTreePanel extends JPanel {
         super();
         this.actionContext = actionContext;
         setOpaque(false);
-        setBorder(Theme.sectionBorder(20, 18, 18, 14));
+        setBorder(UiFactory.contentAreaBorder());
         setPreferredSize(new Dimension(315, 0));
-        setLayout(new BorderLayout(0, 12));
+        setLayout(new BorderLayout(0, UiConstants.COMPONENT_GAP));
 
         add(new ProjectHeader(actionContext), BorderLayout.NORTH);
         tree = new ProjectTree();
@@ -71,7 +71,7 @@ public final class ProjectTreePanel extends JPanel {
                                 "Search projects and sessions",
                                 "Search projects and sessions"));
         new ProjectTreeSearchHandler(tree, search, root, this::selectNode, this::select);
-        final JPanel treeContent = new JPanel(new BorderLayout(0, 8));
+        final JPanel treeContent = new JPanel(new BorderLayout(0, UiConstants.CONTENT_PADDING));
         treeContent.setOpaque(false);
         treeContent.add(search, BorderLayout.NORTH);
         treeContent.add(tree, BorderLayout.CENTER);
@@ -82,12 +82,12 @@ public final class ProjectTreePanel extends JPanel {
         private ProjectHeader(final ActionContext actionContext) {
             super(new BorderLayout());
             setOpaque(false);
-            add(UiFactory.label("PROJECTS", Theme.FontSize.XS), BorderLayout.WEST);
-            final JButton add = UiFactory.iconButton(UiIcons.plus());
+            final JButton add = UiFactory.button("Project", UiIcons.plus());
+            add.setFont(Theme.font(Theme.FontSize.XS));
             add.getAccessibleContext().setAccessibleName("Add project");
             add.setToolTipText("Add project");
             add.addActionListener(e -> new CreateProjectAction(actionContext).execute());
-            add(add, BorderLayout.EAST);
+            add(add, BorderLayout.WEST);
         }
     }
 
@@ -199,13 +199,32 @@ public final class ProjectTreePanel extends JPanel {
 
     private void restoreSelection(final Project selectedProject, final Session selectedSession) {
         if (selectedProject == null) {
-            if (actionContext.appState().projects().isEmpty()) {
-                selectNode((DefaultMutableTreeNode) root.getFirstChild());
-            } else {
-                tree.clearSelection();
-            }
+            restoreGlobalSelection();
             return;
         }
+        restoreProjectSelection(selectedSession);
+    }
+
+    private void restoreGlobalSelection() {
+        final ViewId currentView = actionContext.viewCoordinator().currentViewId();
+        final Object globalNode =
+                currentView == ViewId.MY_PULL_REQUESTS
+                        ? MyPullRequestsNode.INSTANCE
+                        : currentView == ViewId.REVIEW_QUEUE ? ReviewQueueNode.INSTANCE : null;
+        if (globalNode == null) {
+            tree.clearSelection();
+            return;
+        }
+        for (int index = 0; index < root.getChildCount(); index++) {
+            final DefaultMutableTreeNode node = (DefaultMutableTreeNode) root.getChildAt(index);
+            if (node.getUserObject().equals(globalNode)) {
+                selectNode(node);
+                return;
+            }
+        }
+    }
+
+    private void restoreProjectSelection(final Session selectedSession) {
         final ProjectId projectId = actionContext.appState().currentProjectId();
         final DefaultMutableTreeNode projectNode = treeSynchronizer.projectNode(projectId);
         if (projectNode == null) {
@@ -319,10 +338,14 @@ public final class ProjectTreePanel extends JPanel {
             actionContext.appState().updateCurrentProject(session.projectId());
             actionContext.appState().updateCurrentSession((SessionId) entry.getKey());
             new OpenSessionAction(actionContext).execute();
-        } else if (item == HomeNode.INSTANCE) {
+        } else if (item == MyPullRequestsNode.INSTANCE) {
             actionContext
                     .viewCoordinator()
-                    .updateView(ViewId.HOME, ViewCoordinator.ViewState.reset());
+                    .updateView(ViewId.MY_PULL_REQUESTS, ViewCoordinator.ViewState.reset());
+        } else if (item == ReviewQueueNode.INSTANCE) {
+            actionContext
+                    .viewCoordinator()
+                    .updateView(ViewId.REVIEW_QUEUE, ViewCoordinator.ViewState.reset());
         }
     }
 
@@ -419,12 +442,21 @@ public final class ProjectTreePanel extends JPanel {
         return root.getChildCount();
     }
 
-    public enum HomeNode {
+    public enum MyPullRequestsNode {
         INSTANCE;
 
         @Override
         public String toString() {
-            return "Home";
+            return "My Pull Requests";
+        }
+    }
+
+    public enum ReviewQueueNode {
+        INSTANCE;
+
+        @Override
+        public String toString() {
+            return "Review Queue";
         }
     }
 

@@ -28,7 +28,6 @@ import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.JTextPane;
 import javax.swing.SwingUtilities;
-import javax.swing.border.EmptyBorder;
 
 public final class SessionSummary extends JPanel {
     private static final String TASK_GROUP = "Session summary";
@@ -56,8 +55,8 @@ public final class SessionSummary extends JPanel {
         super();
         this.project = project;
         this.session = session;
-        setBorder(new EmptyBorder(14, 14, 14, 14));
-        setLayout(new BorderLayout(0, 18));
+        setBorder(UiFactory.sectionBorder());
+        setLayout(new BorderLayout(0, UiConstants.SPACING_XL));
         pullRequest.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         pullRequestDetails.setOpaque(false);
         pullRequestDetails.add(pullRequestStatusDot);
@@ -67,6 +66,8 @@ public final class SessionSummary extends JPanel {
                         new Alert.Content(
                                 "Ready for clean up! The pull request is finished and this "
                                         + "worktree has no uncommitted changes.",
+                                Theme.successColor(),
+                                "Remove session and worktree",
                                 removeSessionAndWorktree));
         cleanupAlert.setVisible(false);
         pullRequest.addMouseListener(
@@ -78,26 +79,16 @@ public final class SessionSummary extends JPanel {
                         }
                     }
                 });
-        add(header(), BorderLayout.NORTH);
         add(details(), BorderLayout.CENTER);
         loadStatus();
     }
 
-    private JPanel header() {
-        final JPanel header = UiFactory.panel();
-        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
-        header.add(UiFactory.label(TASK_GROUP, Theme.FontSize.XL));
-        header.add(Box.createVerticalStrut(5));
-        header.add(UiFactory.label("Workspace and pull request status", Theme.FontSize.SM));
-        return header;
-    }
-
     private JPanel details() {
         final JPanel details = UiFactory.panel();
-        details.setBorder(new EmptyBorder(16, 16, 16, 16));
+        details.setBorder(UiFactory.sectionBorder());
         details.setLayout(new GridBagLayout());
         final GridBagConstraints constraints = new GridBagConstraints();
-        constraints.insets = new Insets(0, 0, 16, 18);
+        constraints.insets = new Insets(0, 0, UiConstants.SECTION_PADDING, UiConstants.SPACING_XL);
         constraints.anchor = GridBagConstraints.NORTHWEST;
         constraints.fill = GridBagConstraints.HORIZONTAL;
         constraints.gridy = 0;
@@ -138,13 +129,9 @@ public final class SessionSummary extends JPanel {
     }
 
     private JTextArea textArea(final String text) {
-        final JTextArea area = new JTextArea(text == null ? "" : text);
-        UiFactory.configureTextAreaTraversal(area);
-        area.setEditable(false);
-        area.setLineWrap(true);
-        area.setWrapStyleWord(true);
+        final JTextArea area = UiFactory.selectableText(text, Theme.FontSize.MD);
         area.setRows(2);
-        area.setBorder(new EmptyBorder(8, 8, 8, 8));
+        area.setBorder(UiFactory.cardBorder());
         return area;
     }
 

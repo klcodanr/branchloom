@@ -1,6 +1,7 @@
 package com.jagent.desktop.ui;
 
 import com.jagent.desktop.models.AppSettings;
+import com.jagent.desktop.services.AgentDetection;
 import java.util.List;
 
 public final class Defaults {
@@ -19,6 +20,8 @@ public final class Defaults {
 
     public static final String DEFAULT_GROUP = "Default";
 
+    public static final String DEFAULT_REVIEW_PLAN_PROMPT = AppSettings.DEFAULT_REVIEW_PLAN_PROMPT;
+
     private Defaults() {}
 
     public static AppSettings appSettings() {
@@ -28,6 +31,9 @@ public final class Defaults {
                 DEFAULT_REVIEW_PROMPT,
                 "System",
                 List.of(),
-                DEFAULT_WORKTREE_TEMPLATE);
+                DEFAULT_WORKTREE_TEMPLATE,
+                false,
+                AgentDetection.defaultHeadlessCommand(),
+                DEFAULT_REVIEW_PLAN_PROMPT);
     }
 }

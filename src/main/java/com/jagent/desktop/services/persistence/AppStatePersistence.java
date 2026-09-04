@@ -87,7 +87,10 @@ public final class AppStatePersistence implements AutoCloseable {
                 defaults.reviewPrompt(),
                 defaults.theme(),
                 EditorDetection.detect(),
-                defaults.worktreeTemplate());
+                defaults.worktreeTemplate(),
+                defaults.reviewPlanEnabled(),
+                defaults.reviewPlanCommand(),
+                defaults.reviewPlanPrompt());
     }
 
     public void persist() {

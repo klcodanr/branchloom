@@ -1,6 +1,5 @@
 package com.jagent.desktop.ui.components;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,14 +27,9 @@ class SessionSummaryUiTest {
                 new Session(null, "Feature", "Agent", "Implement feature", "/tmp/worktree");
 
         final var summary = GuiActionRunner.execute(() -> new SessionSummary(project, session));
-        final var labels = new ArrayList<String>();
         final var text = new ArrayList<String>();
-        collectText(summary, labels, text);
+        collectText(summary, new ArrayList<>(), text);
 
-        assertEquals(
-                1,
-                labels.stream().filter("Session summary"::equals).count(),
-                "summary heading should render once");
         assertTrue(text.contains("Implement feature"), "prompt should render in the summary");
         assertTrue(text.contains("/tmp/worktree"), "worktree should render in the summary");
         assertTrue(

@@ -11,6 +11,7 @@ import com.jagent.desktop.ui.Defaults;
 import com.jagent.desktop.ui.actions.OpenDirectoryAction;
 import com.jagent.desktop.ui.components.GitHubAuthSelector;
 import com.jagent.desktop.ui.components.SettingsPanel;
+import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
@@ -25,7 +26,6 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.border.EmptyBorder;
 
 public final class ProjectSettingsView extends JPanel implements View {
     private static final String TITLE = "Project settings";
@@ -88,25 +88,25 @@ public final class ProjectSettingsView extends JPanel implements View {
         form.setOpaque(false);
         form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
         form.add(SettingsPanel.labeledField("Project name", name));
-        form.add(Box.createVerticalStrut(18));
+        form.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
         form.add(SettingsPanel.labeledField("Group", group));
-        form.add(Box.createVerticalStrut(18));
+        form.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
         form.add(SettingsPanel.labeledField("Repository path", repositoryField(project, form)));
-        form.add(Box.createVerticalStrut(18));
+        form.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
         form.add(SettingsPanel.labeledField("Worktree path", template));
-        form.add(Box.createVerticalStrut(18));
+        form.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
         form.add(
                 SettingsPanel.labeledField(
                         "Startup command files / commands (one per line)", startup));
-        form.add(Box.createVerticalStrut(18));
+        form.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
         form.add(SettingsPanel.labeledField("Agent context file path", agentContextPath));
-        form.add(Box.createVerticalStrut(18));
+        form.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
         form.add(SettingsPanel.labeledField("Additional agent context", agentContextText));
-        form.add(Box.createVerticalStrut(18));
+        form.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
         form.add(SettingsPanel.labeledField("GitHub CLI auth", githubAuth));
         final JPanel formContainer = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         formContainer.setOpaque(false);
-        formContainer.setBorder(new EmptyBorder(16, 16, 16, 16));
+        formContainer.setBorder(UiFactory.sectionBorder());
         formContainer.add(form);
         final String groupValue = project.group();
         final String initialGroup =
