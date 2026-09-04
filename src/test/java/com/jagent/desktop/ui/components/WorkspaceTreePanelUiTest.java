@@ -109,7 +109,26 @@ class WorkspaceTreePanelUiTest {
     private static JLabel statusLabel(final WorkspaceTreePanel panel) {
         final var actions =
                 (java.awt.Container) ((java.awt.Container) panel.getComponent(0)).getComponent(0);
-        return (JLabel) actions.getComponent(0);
+        final var label = findLabel(actions);
+        if (label == null) {
+            throw new AssertionError("status label not found");
+        }
+        return label;
+    }
+
+    private static JLabel findLabel(final java.awt.Container container) {
+        for (final java.awt.Component component : container.getComponents()) {
+            if (component instanceof JLabel label) {
+                return label;
+            }
+            if (component instanceof java.awt.Container child) {
+                final var found = findLabel(child);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     private static javax.swing.AbstractButton refreshButton(final WorkspaceTreePanel panel) {

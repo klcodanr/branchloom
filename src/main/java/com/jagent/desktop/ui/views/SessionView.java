@@ -195,9 +195,4 @@ public final class SessionView extends AbstractWorkspaceView {
         terminalIds.put(terminal, terminalId);
         mountTerminal(persistedTerminal.title(), terminalId, terminal, true);
     }
-
-    @Override
-    protected void terminalClosed() {
-        updateCurrentTerminal();
-    }
 }

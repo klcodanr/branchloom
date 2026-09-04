@@ -9,7 +9,7 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.Defaults;
 import java.util.Map;
-import javax.swing.JTabbedPane;
+import javax.swing.JScrollPane;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +35,7 @@ class ViewsUiTest {
     }
 
     @Test
-    void homeViewBuildsItsTabsForAnEmptyApplication() {
+    void homeViewBuildsItsDashboardForAnEmptyApplication() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var coordinator = new ViewCoordinator(state);
         final var context = new ActionContext(coordinator, state, null);
@@ -44,7 +44,8 @@ class ViewsUiTest {
 
         assertEquals(ViewId.HOME, view.id(), VALUE_MESSAGE);
         assertEquals("Home", view.title(), VALUE_MESSAGE);
-        assertEquals(4, ((JTabbedPane) view.getComponent(1)).getTabCount(), VALUE_MESSAGE);
+        assertEquals(1, view.getComponentCount(), VALUE_MESSAGE);
+        assertEquals(JScrollPane.class, view.getComponent(0).getClass(), VALUE_MESSAGE);
         assertSame(view, view.render(), VALUE_MESSAGE);
         view.dispose();
     }

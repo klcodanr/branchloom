@@ -25,12 +25,13 @@ import javax.swing.UIManager;
 public final class BottomBar extends JPanel {
     private final transient AppState appState;
     private final JButton settingsButton;
+    private final JButton homeButton;
     private final JButton searchButton;
     private final JButton problemsButton;
     private final JLabel project = UiFactory.label("", Theme.FontSize.XS);
     private final JLabel branchIcon = new JLabel(UiIcons.gitBranch());
     private final JLabel branch = UiFactory.label("", Theme.FontSize.XS);
-    private final JPanel gitStatus = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+    private final GitStatusPanel gitStatus = new GitStatusPanel();
     private final JProgressBar jobsProgress = new JProgressBar();
     private final AtomicLong refreshGeneration = new AtomicLong();
     private List<BackgroundJobs.Job> jobs = List.of();
@@ -38,6 +39,7 @@ public final class BottomBar extends JPanel {
     public BottomBar(
             final AppState appState,
             final BackgroundJobs backgroundJobs,
+            final Runnable openHome,
             final Runnable openSettings,
             final Runnable openSearch,
             final Runnable openProblems) {
@@ -47,8 +49,14 @@ public final class BottomBar extends JPanel {
                 BorderFactory.createCompoundBorder(
                         BorderFactory.createMatteBorder(
                                 1, 0, 0, 0, UIManager.getColor("Separator.foreground")),
-                        BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+                        BorderFactory.createEmptyBorder(
+                                UiConstants.SPACING_XS,
+                                UiConstants.CONTENT_PADDING,
+                                UiConstants.SPACING_XS,
+                                UiConstants.CONTENT_PADDING)));
 
+        homeButton = iconButton(UiIcons.home(), "Go to home", openHome);
+        homeButton.setName("home-button");
         settingsButton = iconButton(UiIcons.settings(), "Open settings", openSettings);
         settingsButton.setName("settings-button");
         searchButton =
@@ -57,8 +65,10 @@ public final class BottomBar extends JPanel {
         problemsButton = iconButton(UiIcons.triangleAlert(), "Open problems", openProblems);
         problemsButton.setName("problems-button");
 
-        final JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        final JPanel left =
+                new JPanel(new FlowLayout(FlowLayout.LEFT, UiConstants.CONTENT_PADDING, 0));
         left.setOpaque(false);
+        left.add(homeButton);
         left.add(settingsButton);
         left.add(searchButton);
         left.add(problemsButton);
@@ -66,7 +76,6 @@ public final class BottomBar extends JPanel {
         branchIcon.setVisible(false);
         left.add(branchIcon);
         left.add(branch);
-        gitStatus.setOpaque(false);
         left.add(gitStatus);
         add(left, BorderLayout.WEST);
 
@@ -152,17 +161,10 @@ public final class BottomBar extends JPanel {
         final boolean hasBranch = branchName != null && !branchName.isBlank();
         branchIcon.setVisible(hasBranch);
         branch.setText(hasBranch ? branchName : "");
-        gitStatus.removeAll();
         if (status == null) {
-            gitStatus.add(UiFactory.label("Git unavailable", Theme.FontSize.XS));
-        } else if (status.files().isEmpty()) {
-            final JLabel clean = UiFactory.label("Clean", Theme.FontSize.XS);
-            clean.setForeground(Theme.mutedColor());
-            gitStatus.add(clean);
+            gitStatus.showUnavailable("Git unavailable");
         } else {
-            addCount(status.additions(), "+", Theme.successColor());
-            addCount(status.modifications(), "~", Theme.warningColor());
-            addCount(status.deletions(), "-", Theme.dangerColor());
+            gitStatus.showStatus(status);
         }
         revalidate();
         repaint();
@@ -176,15 +178,6 @@ public final class BottomBar extends JPanel {
         if (generation == refreshGeneration.get()) {
             updateGitStatus(projectName, branchName, status);
         }
-    }
-
-    private void addCount(final int count, final String prefix, final java.awt.Color color) {
-        if (count == 0) {
-            return;
-        }
-        final JLabel label = UiFactory.label(prefix + count, Theme.FontSize.XS);
-        label.setForeground(color);
-        gitStatus.add(label);
     }
 
     private void updateJobs(final List<BackgroundJobs.Job> updatedJobs) {

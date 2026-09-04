@@ -9,6 +9,7 @@ import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.components.FileViewer;
 import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.Theme;
+import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiFactory;
 import com.jagent.desktop.ui.components.UiIcons;
 import com.jagent.desktop.ui.components.WorkspaceSplitPane;
@@ -17,8 +18,10 @@ import com.jagent.desktop.ui.components.WorkspaceTreePanel;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -30,7 +33,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
     protected final transient ActionContext actionContext;
     protected final transient ViewCoordinator viewCoordinator;
     protected final JTabbedPane tabs = new JTabbedPane();
-    protected WorkspaceSplitPane contentSplit = new WorkspaceSplitPane(tabs, JPanel::new);
+    protected WorkspaceSplitPane contentSplit = new WorkspaceSplitPane(tabs);
     private transient WorkspaceTerminalTabs terminalTabs;
     protected Map<TerminalPanel, TerminalId> terminalIds;
     private final ViewId viewId;
@@ -38,7 +41,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
     private String titleText;
 
     protected AbstractWorkspaceView(final ActionContext actionContext, final ViewId viewId) {
-        super(new BorderLayout(0, 16));
+        super(new BorderLayout(0, UiConstants.SECTION_PADDING));
         this.actionContext = actionContext;
         this.viewCoordinator = actionContext.viewCoordinator();
         this.viewId = viewId;
@@ -58,7 +61,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         trailingComponent.add(addTerminal);
         tabs.putClientProperty("JTabbedPane.trailingComponent", trailingComponent);
         tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
-        contentSplit = new WorkspaceSplitPane(tabs, this::workspace);
+        contentSplit = new WorkspaceSplitPane(tabs);
         add(contentSplit, BorderLayout.CENTER);
         terminalTabs =
                 new WorkspaceTerminalTabs(
@@ -76,40 +79,37 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
     }
 
     private JPanel header() {
-        final JPanel header = new JPanel(new BorderLayout(12, 0));
+        final JPanel header = new JPanel(new BorderLayout(UiConstants.COMPONENT_GAP, 0));
         header.setOpaque(false);
-        header.setBorder(new EmptyBorder(0, 0, 0, 12));
+        header.setBorder(new EmptyBorder(0, 0, 0, UiConstants.COMPONENT_GAP));
         final JPanel titleArea = new JPanel();
         titleArea.setOpaque(false);
-        titleArea.setLayout(new javax.swing.BoxLayout(titleArea, javax.swing.BoxLayout.Y_AXIS));
+        titleArea.setLayout(new BoxLayout(titleArea, BoxLayout.Y_AXIS));
         titleLabel = UiFactory.label(titleText, Theme.FontSize.XXL);
         titleLabel.setMinimumSize(new Dimension(0, titleLabel.getMinimumSize().height));
         titleArea.add(titleLabel);
         addTitleDetails(titleArea);
         header.add(titleArea, BorderLayout.CENTER);
 
-        final JButton actions = UiFactory.iconButton(UiIcons.ellipsis());
-        actions.setToolTipText("Actions");
-        actions.getAccessibleContext().setAccessibleName("Actions");
-        actions.addActionListener(event -> showActions(actions));
-        final JPanel actionArea = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        actionArea.setOpaque(false);
-        actionArea.setBorder(new EmptyBorder(0, 12, 0, 0));
-        actionArea.add(actions);
-        actionArea.setMinimumSize(actionArea.getPreferredSize());
-        header.add(actionArea, BorderLayout.EAST);
+        if (Files.isDirectory(workspacePath())) {
+            final JButton actions = UiFactory.iconButton(UiIcons.ellipsis());
+            actions.setName("workspace-actions-button");
+            actions.setToolTipText("Actions");
+            actions.getAccessibleContext().setAccessibleName("Actions");
+            actions.addActionListener(event -> showActions(actions));
+            final JPanel actionArea = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+            actionArea.setOpaque(false);
+            actionArea.setBorder(new EmptyBorder(0, UiConstants.COMPONENT_GAP, 0, 0));
+            actionArea.add(actions);
+            actionArea.setMinimumSize(actionArea.getPreferredSize());
+            header.add(actionArea, BorderLayout.EAST);
+        }
         return header;
     }
 
-    private JPanel workspace() {
-        final JPanel workspace = new JPanel(new BorderLayout());
-        workspace.setOpaque(false);
-        workspace.setBorder(new EmptyBorder(16, 2, 2, 2));
-        workspace.add(
-                new WorkspaceTreePanel(
-                        actionContext, workspacePath(), this::openTerminal, this::openFile),
-                BorderLayout.CENTER);
-        return workspace;
+    public final WorkspaceTreePanel workspaceTreePanel() {
+        return new WorkspaceTreePanel(
+                actionContext, workspacePath(), this::openTerminal, this::openFile);
     }
 
     protected abstract Path workspacePath();
@@ -122,7 +122,9 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
 
     protected abstract void openTerminal(Path path);
 
-    protected abstract void terminalClosed();
+    protected void terminalClosed() {
+        updateCurrentTerminal();
+    }
 
     protected final void mountTerminal(
             final String title,
@@ -153,10 +155,6 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
 
     protected final JLabel titleLabel() {
         return titleLabel;
-    }
-
-    protected final void showWorkspace() {
-        contentSplit.showWorkspace();
     }
 
     protected final void openFile(final Path file) {

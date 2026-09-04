@@ -26,7 +26,6 @@ import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
-import javax.swing.border.EmptyBorder;
 import org.jetbrains.annotations.Nullable;
 
 /** UI attachment for a managed terminal runtime. */
@@ -62,7 +61,7 @@ public final class TerminalPanel extends JPanel {
         runtime = manager.create(command, directory, resourceName);
         retainedId = null;
         setOpaque(false);
-        setBorder(new EmptyBorder(14, 14, 14, 14));
+        setBorder(UiFactory.cardBorder());
         terminal = new AppJediTermWidget(80, 24, new AppTerminalSettings());
         add(terminal, BorderLayout.CENTER);
         setStateChanged(stateChanged);
@@ -73,7 +72,7 @@ public final class TerminalPanel extends JPanel {
         this.retainedId = retainedId;
         this.runtime = runtime;
         setOpaque(false);
-        setBorder(new EmptyBorder(14, 14, 14, 14));
+        setBorder(UiFactory.cardBorder());
         terminal = new AppJediTermWidget(80, 24, new AppTerminalSettings());
         add(terminal, BorderLayout.CENTER);
         setStateChanged(ignored -> {});

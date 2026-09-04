@@ -43,7 +43,7 @@ public final class PullRequestsBoard extends JPanel {
             final ActionContext actionContext, final Supplier<List<PullRequest>> onRefresh) {
         super();
         this.actionContext = actionContext;
-        setLayout(new BorderLayout(0, 8));
+        setLayout(new BorderLayout(0, UiConstants.CONTENT_PADDING));
         this.onRefresh = onRefresh;
 
         final var parent = this;
@@ -160,26 +160,28 @@ public final class PullRequestsBoard extends JPanel {
                                                 || contains(request.headBranch(), filter))
                         .toList();
         board.removeAll();
-        for (final String group :
-                new String[] {"Not Ready", "Waiting for Changes", "Ready For Review", "Approved"}) {
+        for (final String group : groups()) {
             final JPanel column = UiFactory.panel();
             column.setPreferredSize(new Dimension(240, 0));
-            column.setBorder(new EmptyBorder(8, 8, 8, 8));
-            column.setLayout(new BorderLayout(0, 6));
+            column.setBorder(UiFactory.cardBorder());
+            column.setLayout(new BorderLayout(0, UiConstants.CONTENT_PADDING));
             final List<PullRequest> items =
-                    requests.stream()
-                            .filter(request -> group.equals(request.relevanceGroup()))
-                            .toList();
+                    requests.stream().filter(request -> group.equals(group(request))).toList();
             column.add(
                     UiFactory.label(group + "  " + items.size(), Theme.FontSize.LG),
                     BorderLayout.NORTH);
             final JPanel cards = new JPanel();
             cards.setOpaque(false);
             cards.setLayout(new BoxLayout(cards, BoxLayout.Y_AXIS));
-            cards.setBorder(new EmptyBorder(4, 4, 4, 4));
+            cards.setBorder(
+                    new EmptyBorder(
+                            UiConstants.SPACING_XS,
+                            UiConstants.SPACING_XS,
+                            UiConstants.SPACING_XS,
+                            UiConstants.SPACING_XS));
             for (final PullRequest request : items) {
                 cards.add(new PullRequestCard(actionContext, request));
-                cards.add(Box.createVerticalStrut(8));
+                cards.add(Box.createVerticalStrut(UiConstants.CONTENT_PADDING));
             }
             final JScrollPane cardScroll = new JScrollPane(cards);
             cardScroll.setOpaque(false);
@@ -194,5 +196,13 @@ public final class PullRequestsBoard extends JPanel {
 
     private static boolean contains(final String value, final String query) {
         return value != null && value.toLowerCase(Locale.ROOT).contains(query);
+    }
+
+    private String[] groups() {
+        return new String[] {"Not Ready", "Waiting for Changes", "Ready For Review", "Approved"};
+    }
+
+    private String group(final PullRequest request) {
+        return request.relevanceGroup();
     }
 }

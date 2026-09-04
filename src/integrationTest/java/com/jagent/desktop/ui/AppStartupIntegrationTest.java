@@ -27,12 +27,14 @@ import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JTextArea;
 import javax.swing.JTree;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.TreePath;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class AppStartupIntegrationTest {
-    private static final String SETTINGS = "Settings";
+    private static final String SAVE_BUTTON = "Save";
 
     @TempDir private Path dataDirectory;
 
@@ -44,7 +46,8 @@ class AppStartupIntegrationTest {
 
             GuiActionRunner.execute(() -> app.setVisible(true));
             assertTrue(
-                    findLabel(app, SETTINGS) == null, "application should initially render home");
+                    findButtonWithText(app, SAVE_BUTTON) == null,
+                    "application should initially render home");
 
             GuiActionRunner.execute(
                     () -> {
@@ -53,8 +56,17 @@ class AppStartupIntegrationTest {
                         button.doClick();
                     });
             assertTrue(
-                    findLabel(app, SETTINGS) != null,
+                    findButtonWithText(app, SAVE_BUTTON) != null,
                     "settings navigation should render the settings view");
+            GuiActionRunner.execute(
+                    () -> {
+                        final JButton button = findButton(app, "home-button");
+                        assertTrue(button != null, "home button should be available");
+                        button.doClick();
+                    });
+            assertTrue(
+                    find(app, HomeView.class) != null,
+                    "home navigation should render the dashboard");
         } finally {
             GuiActionRunner.execute(
                     () -> {
@@ -82,7 +94,7 @@ class AppStartupIntegrationTest {
             final JTree tree = find(app, JTree.class);
             assertTrue(tree != null, "persisted project tree should be rendered");
 
-            GuiActionRunner.execute(() -> tree.setSelectionRow(2));
+            GuiActionRunner.execute(() -> selectProject(tree));
 
             assertEquals(
                     projectId,
@@ -93,6 +105,32 @@ class AppStartupIntegrationTest {
             assertTrue(
                     find(app, ProjectView.class) != null,
                     "selecting the project should open its view");
+        } finally {
+            close(app);
+        }
+    }
+
+    @Test
+    void doesNotShowWorkspaceActionsWhenWorkspaceIsUnavailable() {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        state.addProject(
+                new Project(
+                        "Unavailable",
+                        dataDirectory.resolve("missing-workspace").toString(),
+                        null));
+        try (AppStatePersistence persistence = new AppStatePersistence(state, dataDirectory)) {
+            persistence.persist();
+        }
+
+        final AppView app = GuiActionRunner.execute(() -> new AppView(dataDirectory));
+        try {
+            GuiActionRunner.execute(() -> app.setVisible(true));
+            final JTree tree = find(app, JTree.class);
+            GuiActionRunner.execute(() -> selectProject(tree));
+
+            assertTrue(
+                    findButton(app, "workspace-actions-button") == null,
+                    "unavailable workspaces should not show workspace actions");
         } finally {
             close(app);
         }
@@ -116,7 +154,7 @@ class AppStartupIntegrationTest {
                                 findTextArea(app, Defaults.DEFAULT_WORKTREE_TEMPLATE);
                         assertTrue(worktree != null, "worktree setting should be rendered");
                         worktree.setText(updatedTemplate);
-                        final JButton save = findButtonWithText(app, "Save");
+                        final JButton save = findButtonWithText(app, SAVE_BUTTON);
                         assertTrue(save != null, "settings save button should be available");
                         save.doClick();
                     });
@@ -155,20 +193,20 @@ class AppStartupIntegrationTest {
 
             final JTree tree = find(app, JTree.class);
             assertTrue(tree != null, "project tree should be available");
-            GuiActionRunner.execute(() -> tree.setSelectionRow(2));
+            GuiActionRunner.execute(() -> selectProject(tree));
             assertTrue(
                     find(app, ProjectView.class) != null, "project selection should open project");
 
             clickMenuItem(app, "Project", "Settings");
             assertTrue(findLabel(app, "Project settings") != null, "project settings should open");
 
-            GuiActionRunner.execute(() -> tree.setSelectionRow(2));
-            GuiActionRunner.execute(() -> tree.setSelectionRow(3));
+            GuiActionRunner.execute(() -> selectProject(tree));
+            GuiActionRunner.execute(() -> selectSession(tree));
             assertTrue(
                     find(app, SessionView.class) != null, "session selection should open session");
 
             clickButton(app, "settings-button");
-            assertTrue(findLabel(app, SETTINGS) != null, "global settings should open");
+            assertTrue(findButtonWithText(app, SAVE_BUTTON) != null, "global settings should open");
 
             clickMenuItem(app, "View", "Problems");
             assertTrue(find(app, ProblemsView.class) != null, "problems should open");
@@ -186,6 +224,21 @@ class AppStartupIntegrationTest {
                     app.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
                     app.dispatchEvent(new WindowEvent(app, WindowEvent.WINDOW_CLOSING));
                 });
+    }
+
+    private static void selectProject(final JTree tree) {
+        final DefaultMutableTreeNode root = (DefaultMutableTreeNode) tree.getModel().getRoot();
+        final DefaultMutableTreeNode group = (DefaultMutableTreeNode) root.getChildAt(2);
+        final DefaultMutableTreeNode project = (DefaultMutableTreeNode) group.getChildAt(0);
+        tree.setSelectionPath(new TreePath(project.getPath()));
+    }
+
+    private static void selectSession(final JTree tree) {
+        final DefaultMutableTreeNode root = (DefaultMutableTreeNode) tree.getModel().getRoot();
+        final DefaultMutableTreeNode group = (DefaultMutableTreeNode) root.getChildAt(2);
+        final DefaultMutableTreeNode project = (DefaultMutableTreeNode) group.getChildAt(0);
+        final DefaultMutableTreeNode session = (DefaultMutableTreeNode) project.getChildAt(0);
+        tree.setSelectionPath(new TreePath(session.getPath()));
     }
 
     private static JButton findButton(final Container root, final String name) {

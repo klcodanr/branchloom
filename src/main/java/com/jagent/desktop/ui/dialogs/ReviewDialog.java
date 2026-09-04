@@ -4,6 +4,7 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
 import java.awt.ContainerOrderFocusTraversalPolicy;
@@ -56,7 +57,7 @@ public final class ReviewDialog extends JDialog {
         final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttons.add(cancel);
         buttons.add(review);
-        setLayout(new BorderLayout(12, 12));
+        setLayout(new BorderLayout(UiConstants.COMPONENT_GAP, UiConstants.COMPONENT_GAP));
         add(UiFactory.form("Agent", agent, "Prompt", promptInput), BorderLayout.CENTER);
         add(buttons, BorderLayout.SOUTH);
         cancel.addActionListener(event -> dispose());

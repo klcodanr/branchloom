@@ -40,7 +40,12 @@ import javax.swing.text.JTextComponent;
 public final class GlobalSettingsView implements View {
     private static final int CONFIGURED_LIST_HEIGHT = 260;
     private static final int ROW_HEIGHT = 50;
-    private static final EmptyBorder ROW_BORDER = new EmptyBorder(7, 10, 7, 10);
+    private static final EmptyBorder ROW_BORDER =
+            new EmptyBorder(
+                    UiConstants.SPACING_SM,
+                    UiConstants.SPACING_MD,
+                    UiConstants.SPACING_SM,
+                    UiConstants.SPACING_MD);
     private static final String WORKTREE_VARIABLES_TOOLTIP =
             "Interpolated variables: {projectName}, {projectPath}, {sessionName}, "
                     + "{sessionSlug}, {worktreePath}";
@@ -77,12 +82,17 @@ public final class GlobalSettingsView implements View {
         theme.setSelectedItem(Theme.FlatLafTheme.from(settings.theme()));
         final JPanel general = new JPanel(new BorderLayout());
         general.setOpaque(false);
-        general.setBorder(new EmptyBorder(8, 8, 8, 8));
+        general.setBorder(
+                new EmptyBorder(
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING));
         final JPanel generalForm = new JPanel();
         generalForm.setOpaque(false);
         generalForm.setLayout(new BoxLayout(generalForm, BoxLayout.Y_AXIS));
         generalForm.add(SettingsPanel.labeledField("Default worktree path", work));
-        generalForm.add(Box.createVerticalStrut(18));
+        generalForm.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
         generalForm.add(SettingsPanel.labeledField("Appearance", theme));
         general.add(generalForm, BorderLayout.NORTH);
         final List<JTextField> names = new ArrayList<>();
@@ -93,13 +103,15 @@ public final class GlobalSettingsView implements View {
         final JTextArea reviewPrompt = new JTextArea(settings.reviewPrompt(), 10, 60);
         UiFactory.configureTextAreaTraversal(reviewPrompt);
         reviewPrompt.setToolTipText(REVIEW_VARIABLES_TOOLTIP);
+        final JTextArea reviewPlanPrompt = new JTextArea(settings.reviewPlanPrompt(), 8, 60);
+        UiFactory.configureTextAreaTraversal(reviewPlanPrompt);
         final JTabbedPane tabs = new JTabbedPane(JTabbedPane.TOP);
         tabs.putClientProperty("JTabbedPane.scrollButtonsPolicy", "asNeeded");
         tabs.addTab("General", general);
         tabs.addTab(
                 "Agents", agentEditor(settings.agents(), names, newSessionCommands, openCommands));
         tabs.addTab("Editors", toolEditor(settings.tools(), toolNames, toolCommands));
-        tabs.addTab("Review", reviewEditor(reviewPrompt));
+        tabs.addTab("Review", reviewEditor(reviewPrompt, reviewPlanPrompt));
         styleTabs(tabs);
         tabs.addChangeListener(
                 event -> viewCoordinator.updateSelectedTab(id(), tabs.getSelectedIndex()));
@@ -110,7 +122,7 @@ public final class GlobalSettingsView implements View {
         final AtomicBoolean dirty = new AtomicBoolean();
         installDirtyTracking(tabs, dirty);
         return SettingsPanel.render(
-                "Settings",
+                "",
                 "",
                 tabs,
                 () -> {
@@ -135,7 +147,10 @@ public final class GlobalSettingsView implements View {
                                     reviewPrompt.getText().trim(),
                                     selectedTheme.toString(),
                                     configuredTools(toolNames, toolCommands),
-                                    work.getText().trim()));
+                                    work.getText().trim(),
+                                    settings.reviewPlanEnabled(),
+                                    settings.reviewPlanCommand(),
+                                    reviewPlanPrompt.getText().trim()));
                     viewCoordinator.updateView(ViewId.HOME, null);
                     Theme.apply(selectedTheme);
                 },
@@ -143,16 +158,24 @@ public final class GlobalSettingsView implements View {
                 dirty::get);
     }
 
-    private static JPanel reviewEditor(final JTextArea prompt) {
-        final JPanel editor = new JPanel(new BorderLayout(0, 10));
+    private static JPanel reviewEditor(final JTextArea prompt, final JTextArea reviewPlanPrompt) {
+        final JPanel editor = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
         editor.setOpaque(false);
-        editor.setBorder(new EmptyBorder(8, 8, 8, 8));
-        editor.add(
-                UiFactory.label("Prompt used when reviewing pull requests", Theme.FontSize.LG),
-                BorderLayout.NORTH);
-        prompt.setLineWrap(true);
-        prompt.setWrapStyleWord(true);
-        editor.add(new JScrollPane(prompt), BorderLayout.CENTER);
+        editor.setBorder(
+                new EmptyBorder(
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING));
+        final JPanel fields = new JPanel();
+        fields.setOpaque(false);
+        fields.setLayout(new BoxLayout(fields, BoxLayout.Y_AXIS));
+        reviewPlanPrompt.setLineWrap(true);
+        reviewPlanPrompt.setWrapStyleWord(true);
+        fields.add(SettingsPanel.labeledField("Pull request prompt", prompt));
+        fields.add(Box.createVerticalStrut(UiConstants.SECTION_PADDING));
+        fields.add(SettingsPanel.labeledField("Review plan prompt", reviewPlanPrompt));
+        editor.add(fields, BorderLayout.CENTER);
         return editor;
     }
 
@@ -192,9 +215,14 @@ public final class GlobalSettingsView implements View {
             final List<JTextField> names,
             final List<JTextField> newSessionCommands,
             final List<JTextField> openCommands) {
-        final JPanel editor = new JPanel(new BorderLayout(0, 12));
+        final JPanel editor = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
         editor.setOpaque(false);
-        editor.setBorder(new EmptyBorder(8, 8, 8, 8));
+        editor.setBorder(
+                new EmptyBorder(
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING));
         final JPanel intro = new JPanel(new BorderLayout());
         intro.setOpaque(false);
         intro.add(UiFactory.label("Configured agents", Theme.FontSize.LG), BorderLayout.WEST);
@@ -218,19 +246,30 @@ public final class GlobalSettingsView implements View {
                     agent.openCommand);
         }
         editor.add(configuredTable(rows, agentHeaders()), BorderLayout.CENTER);
+        final JPanel footer = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
+        footer.setOpaque(false);
         final JButton add = UiFactory.button("+  Add agent");
-        add.setHorizontalAlignment(SwingConstants.LEFT);
         add.addActionListener(
-                e -> addAgentRow(rows, names, newSessionCommands, openCommands, "", "", ""));
-        editor.add(add, BorderLayout.SOUTH);
+                e -> {
+                    addAgentRow(rows, names, newSessionCommands, openCommands, "", "", "");
+                    rows.revalidate();
+                    rows.repaint();
+                });
+        footer.add(add, BorderLayout.NORTH);
+        editor.add(footer, BorderLayout.SOUTH);
         return editor;
     }
 
     private static JPanel toolEditor(
             final List<Tool> tools, final List<JTextField> names, final List<JTextField> commands) {
-        final JPanel editor = new JPanel(new BorderLayout(0, 12));
+        final JPanel editor = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
         editor.setOpaque(false);
-        editor.setBorder(new EmptyBorder(8, 8, 8, 8));
+        editor.setBorder(
+                new EmptyBorder(
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING));
         final JPanel intro = new JPanel(new BorderLayout());
         intro.setOpaque(false);
         intro.add(UiFactory.label("Configured editors", Theme.FontSize.LG), BorderLayout.WEST);
@@ -276,9 +315,14 @@ public final class GlobalSettingsView implements View {
     }
 
     private static JPanel agentHeaders() {
-        final JPanel header = new JPanel(new BorderLayout(8, 0));
+        final JPanel header = new JPanel(new BorderLayout(UiConstants.CONTENT_PADDING, 0));
         header.setOpaque(false);
-        header.setBorder(new EmptyBorder(0, 10, 4, 10));
+        header.setBorder(
+                new EmptyBorder(
+                        0,
+                        UiConstants.COMPONENT_GAP,
+                        UiConstants.SPACING_XS,
+                        UiConstants.COMPONENT_GAP));
         final JLabel agent = columnHeader("Agent");
         agent.setPreferredSize(new JTextField(14).getPreferredSize());
         header.add(agent, BorderLayout.WEST);
@@ -292,9 +336,14 @@ public final class GlobalSettingsView implements View {
     }
 
     private static JPanel editorHeaders() {
-        final JPanel header = new JPanel(new BorderLayout(8, 0));
+        final JPanel header = new JPanel(new BorderLayout(UiConstants.CONTENT_PADDING, 0));
         header.setOpaque(false);
-        header.setBorder(new EmptyBorder(0, 10, 4, 10));
+        header.setBorder(
+                new EmptyBorder(
+                        0,
+                        UiConstants.COMPONENT_GAP,
+                        UiConstants.SPACING_XS,
+                        UiConstants.COMPONENT_GAP));
         final JLabel editor = columnHeader("Editor");
         editor.setPreferredSize(new JTextField(14).getPreferredSize());
         header.add(editor, BorderLayout.WEST);
@@ -325,7 +374,7 @@ public final class GlobalSettingsView implements View {
             final String command) {
         final JTextField nameField = new JTextField(name, 14);
         final JTextField commandField = new JTextField(command, 28);
-        final JPanel row = new JPanel(new BorderLayout(8, 0));
+        final JPanel row = new JPanel(new BorderLayout(UiConstants.CONTENT_PADDING, 0));
         configureRow(row);
         row.add(nameField, BorderLayout.WEST);
         row.add(commandField, BorderLayout.CENTER);
@@ -370,7 +419,7 @@ public final class GlobalSettingsView implements View {
         final JTextField openField = new JTextField(openCommand, 28);
         newSessionField.setToolTipText(AGENT_VARIABLES_TOOLTIP);
         openField.setToolTipText(AGENT_VARIABLES_TOOLTIP);
-        final JPanel row = new JPanel(new BorderLayout(8, 0));
+        final JPanel row = new JPanel(new BorderLayout(UiConstants.CONTENT_PADDING, 0));
         configureRow(row);
         row.add(nameField, BorderLayout.WEST);
         final JPanel commands = new JPanel(new GridLayout(1, 2, 8, 0));

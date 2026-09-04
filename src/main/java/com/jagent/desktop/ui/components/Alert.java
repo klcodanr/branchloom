@@ -1,6 +1,7 @@
 package com.jagent.desktop.ui.components;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -16,30 +17,29 @@ public final class Alert extends JPanel {
         super(new BorderLayout());
         setBorder(
                 BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(Theme.successColor(), 2),
-                        new EmptyBorder(12, 14, 12, 14)));
+                        BorderFactory.createLineBorder(content.color(), 2),
+                        new EmptyBorder(
+                                UiConstants.CARD_PADDING,
+                                UiConstants.COMPONENT_GAP,
+                                UiConstants.CARD_PADDING,
+                                UiConstants.COMPONENT_GAP)));
 
         final JPanel body = new JPanel();
         body.setOpaque(false);
         body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-        final JTextArea text = new JTextArea(content.text());
-        text.setEditable(false);
+        final JTextArea text = UiFactory.selectableText(content.text(), Theme.FontSize.MD);
         text.setFocusable(false);
-        text.setLineWrap(true);
-        text.setWrapStyleWord(true);
         text.setRows(2);
         text.setColumns(40);
-        text.setOpaque(false);
-        text.setBorder(null);
         text.setAlignmentX(LEFT_ALIGNMENT);
         body.add(text);
-        body.add(Box.createVerticalStrut(8));
-        final JButton button = UiFactory.button("Remove session and worktree");
+        body.add(Box.createVerticalStrut(UiConstants.CONTENT_PADDING));
+        final JButton button = UiFactory.button(content.actionLabel());
         button.addActionListener(event -> content.action().run());
         button.setAlignmentX(LEFT_ALIGNMENT);
         body.add(button);
         add(body, BorderLayout.CENTER);
     }
 
-    public record Content(String text, Runnable action) {}
+    public record Content(String text, Color color, String actionLabel, Runnable action) {}
 }

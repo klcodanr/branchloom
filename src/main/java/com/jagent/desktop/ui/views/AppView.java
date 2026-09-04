@@ -25,6 +25,8 @@ import com.jagent.desktop.ui.components.ProjectTreePanel;
 import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiFactory;
+import com.jagent.desktop.ui.components.UiIcons;
+import com.jagent.desktop.ui.components.WorkspaceTreePanel;
 import com.jagent.desktop.ui.utils.TerminalShortcutDispatcher;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -35,11 +37,13 @@ import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.AbstractAction;
+import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -49,7 +53,6 @@ import javax.swing.JSplitPane;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
-import javax.swing.border.EmptyBorder;
 
 /** Application shell until the individual views are migrated to the current state model. */
 public final class AppView extends JFrame {
@@ -59,12 +62,17 @@ public final class AppView extends JFrame {
     private final transient WindowStatePersistence windowStatePersistence;
     private final transient ViewCoordinator viewCoordinator;
     private final transient ActionContext actionContext;
+    private final transient TopLevelViewFactory topLevelViewFactory;
     private final JLabel placeholder = UiFactory.label("", Theme.FontSize.XL);
     private final JPanel content = new JPanel(new BorderLayout());
+    private final JPanel workspaceTree = new JPanel(new BorderLayout());
+    private final JSplitPane workspaceSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+    private int workspaceDividerSize;
     private final ProjectTreePanel projectTreePanel;
     private final BottomBar bottomBar;
     private transient java.awt.KeyEventDispatcher terminalShortcutDispatcher;
     private transient View currentView;
+    private transient WorkspaceTreePanel currentWorkspaceTree;
 
     public AppView() {
         this(Path.of(System.getProperty("user.home"), ".branchloom"));
@@ -77,14 +85,18 @@ public final class AppView extends JFrame {
         windowStatePersistence = new WindowStatePersistence(dataDirectory);
         viewCoordinator = new ViewCoordinator(state, ignored -> render());
         actionContext = new ActionContext(viewCoordinator, state, this);
+        topLevelViewFactory = new TopLevelViewFactory(actionContext);
         configureWindow();
         content.setOpaque(false);
-        content.setBorder(new EmptyBorder(8, 8, 8, 8));
+        content.setBorder(UiFactory.contentAreaBorder());
+        workspaceTree.setOpaque(false);
+        workspaceTree.setVisible(false);
         projectTreePanel = new ProjectTreePanel(actionContext);
         bottomBar =
                 new BottomBar(
                         state,
                         viewCoordinator.backgroundJobs(),
+                        () -> viewCoordinator.updateView(ViewId.HOME, null),
                         () -> new OpenSettingsAction(actionContext).execute(),
                         () -> new FindAction(actionContext).execute(),
                         () -> new ProblemsAction(actionContext).execute());
@@ -240,14 +252,26 @@ public final class AppView extends JFrame {
 
     private JPanel shell(final ActionContext actionContext) {
         final JPanel shell = new JPanel(new BorderLayout());
+        shell.setOpaque(true);
+        shell.setBackground(UIManager.getColor("Panel.background"));
+        workspaceSplit.setLeftComponent(content);
+        workspaceSplit.setRightComponent(workspaceTree);
+        workspaceSplit.setResizeWeight(1.0);
+        workspaceSplit.setContinuousLayout(true);
+        workspaceSplit.setOpaque(false);
+        workspaceSplit.setBorder(null);
         final JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         splitPane.setLeftComponent(projectTreePanel);
-        splitPane.setRightComponent(content);
+        splitPane.setRightComponent(workspaceSplit);
+        workspaceSplit.updateUI();
+        workspaceDividerSize = splitPane.getDividerSize();
+        workspaceSplit.setDividerSize(workspaceDividerSize);
         projectTreePanel.setMinimumSize(new Dimension(220, 0));
         content.setMinimumSize(new Dimension(300, 0));
         splitPane.setDividerLocation(projectTreePanel.getPreferredSize().width);
         splitPane.setResizeWeight(0);
         splitPane.setContinuousLayout(true);
+        splitPane.setOpaque(false);
         splitPane.setBorder(null);
         shell.add(splitPane, BorderLayout.CENTER);
         shell.add(bottomBar, BorderLayout.SOUTH);
@@ -264,7 +288,7 @@ public final class AppView extends JFrame {
         final View topLevel;
         final JComponent rendered;
         try {
-            topLevel = createTopLevelView(view, project, session);
+            topLevel = topLevelViewFactory.create(view, project, session);
             rendered = topLevel.render();
         } catch (RuntimeException exception) {
             LOG.log(
@@ -279,6 +303,7 @@ public final class AppView extends JFrame {
                 currentView = null;
             }
             content.removeAll();
+            workspaceTree.removeAll();
             final String detail =
                     exception.getMessage() == null
                             ? exception.getClass().getSimpleName()
@@ -288,6 +313,9 @@ public final class AppView extends JFrame {
                             "Could not open project view",
                             "The selected view failed to render: " + detail),
                     BorderLayout.CENTER);
+            workspaceSplit.setRightComponent(null);
+            workspaceTree.setMinimumSize(new Dimension(0, 0));
+            workspaceTree.setVisible(false);
             content.revalidate();
             content.repaint();
             return;
@@ -298,39 +326,69 @@ public final class AppView extends JFrame {
         currentView = topLevel;
         content.removeAll();
         content.add(rendered, BorderLayout.CENTER);
+        workspaceTree.removeAll();
+        currentWorkspaceTree = null;
+        if (topLevel instanceof AbstractWorkspaceView workspaceView
+                && Files.isDirectory(workspaceView.workspacePath())) {
+            workspaceSplit.setRightComponent(workspaceTree);
+            final WorkspaceTreePanel tree = workspaceView.workspaceTreePanel();
+            tree.setBorder(UiFactory.contentAreaBorder());
+            tree.setHideAction(this::hideWorkspaceTree);
+            currentWorkspaceTree = tree;
+            hideWorkspaceTree();
+        } else {
+            workspaceSplit.setRightComponent(null);
+            workspaceTree.setMinimumSize(new Dimension(0, 0));
+            workspaceTree.setVisible(false);
+        }
         projectTreePanel.refresh(project, session);
+        workspaceTree.revalidate();
+        workspaceTree.repaint();
         setJMenuBar(AppMenuBar.create(new ActionContext(viewCoordinator, state, this)));
         revalidate();
         repaint();
     }
 
-    private View createTopLevelView(
-            final ViewId view, final Project project, final Session session) {
-        final ViewId resolvedView = resolveView(view, project, session);
-        return switch (resolvedView) {
-            case HOME -> new HomeView(actionContext);
-            case PROJECT -> new ProjectView(actionContext, project);
-            case SESSION -> new SessionView(actionContext);
-            case SETTINGS -> new GlobalSettingsView(actionContext);
-            case PROJECT_SETTINGS -> new ProjectSettingsView(actionContext);
-            case PROBLEMS -> new ProblemsView();
-            case RESOURCE_USAGE -> new ResourceUsageView();
-        };
+    private void showWorkspaceTree() {
+        if (currentWorkspaceTree == null) {
+            return;
+        }
+        workspaceTree.removeAll();
+        workspaceTree.add(currentWorkspaceTree, BorderLayout.CENTER);
+        workspaceTree.setMinimumSize(new Dimension(220, 0));
+        workspaceTree.setVisible(true);
+        workspaceSplit.setDividerSize(workspaceDividerSize);
+        workspaceSplit.setDividerLocation(0.75);
+        workspaceTree.revalidate();
+        workspaceTree.repaint();
     }
 
-    private ViewId resolveView(final ViewId view, final Project project, final Session session) {
-        final ViewId requested = view == null ? ViewId.HOME : view;
-        if (requiresProject(requested) && project == null) {
-            return ViewId.HOME;
+    private void hideWorkspaceTree() {
+        if (currentWorkspaceTree == null) {
+            return;
         }
-        if (requested == ViewId.SESSION && session == null) {
-            return ViewId.HOME;
-        }
-        return requested;
-    }
-
-    private boolean requiresProject(final ViewId view) {
-        return view == ViewId.PROJECT || view == ViewId.PROJECT_SETTINGS || view == ViewId.SESSION;
+        final JPanel dock = new JPanel(new BorderLayout());
+        dock.setOpaque(false);
+        dock.setMinimumSize(new Dimension(32, 0));
+        dock.setPreferredSize(new Dimension(32, 0));
+        final JButton filesButton = UiFactory.iconButton(UiIcons.folderOpen());
+        filesButton.setName("show-files-button");
+        filesButton.setToolTipText("Show files");
+        filesButton.getAccessibleContext().setAccessibleName("Show files");
+        filesButton.addActionListener(ignored -> showWorkspaceTree());
+        dock.add(filesButton, BorderLayout.NORTH);
+        workspaceTree.removeAll();
+        workspaceTree.add(dock, BorderLayout.CENTER);
+        workspaceTree.setMinimumSize(new Dimension(32, 0));
+        workspaceTree.setPreferredSize(new Dimension(32, 0));
+        workspaceTree.setVisible(true);
+        workspaceSplit.setDividerSize(0);
+        workspaceTree.revalidate();
+        workspaceTree.repaint();
+        SwingUtilities.invokeLater(
+                () ->
+                        workspaceSplit.setDividerLocation(
+                                workspaceSplit.getWidth() - dock.getPreferredSize().width));
     }
 
     private void saveWindowState() {

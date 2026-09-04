@@ -11,6 +11,7 @@ import com.jagent.desktop.ui.actions.RunCommandAction;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.FlowLayout;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
@@ -21,7 +22,7 @@ import java.util.Map;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
-import javax.swing.JLabel;
+import javax.swing.JButton;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
@@ -45,10 +46,11 @@ public final class WorkspaceTreePanel extends JPanel {
     private final JTree tree;
     private final DefaultMutableTreeNode root;
     private volatile Map<String, String> statuses = Map.of();
-    private JLabel statusLabel;
+    private GitStatusPanel statusPanel;
     private SmIconButton refreshButton;
     private SmIconButton changedOnlyButton;
     private SmIconButton comparisonButton;
+    private Runnable hideAction = () -> {};
     private boolean compareSourceBranch;
 
     public WorkspaceTreePanel(
@@ -58,6 +60,7 @@ public final class WorkspaceTreePanel extends JPanel {
             final Consumer<Path> openFile) {
         super(new BorderLayout());
         this.actionContext = actionContext;
+        setOpaque(false);
         this.workspace = workspace.toAbsolutePath().normalize();
         this.workspaceFiles = new WorkspaceFiles(this.workspace);
         this.openTerminal = openTerminal;
@@ -73,8 +76,8 @@ public final class WorkspaceTreePanel extends JPanel {
     private JPanel header() {
         final JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
-        header.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
-        statusLabel = UiFactory.label("", Theme.FontSize.XS);
+        header.setBorder(BorderFactory.createEmptyBorder(0, 0, UiConstants.CONTENT_PADDING, 0));
+        statusPanel = new GitStatusPanel();
         refreshButton = new SmIconButton("Refresh Git status", UiIcons.refresh());
         refreshButton.addActionListener(ignored -> refreshStatus());
         changedOnlyButton = new SmIconButton("Show changed files only", UiIcons.funnel());
@@ -94,17 +97,31 @@ public final class WorkspaceTreePanel extends JPanel {
                                                     0,
                                                     comparisonButton.getHeight());
                                 }));
-        final JPanel buttons = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 4, 0));
+        final JButton hideButton = UiFactory.iconButton(UiIcons.chevronRight());
+        hideButton.setToolTipText("Hide files");
+        hideButton.getAccessibleContext().setAccessibleName("Hide files");
+        hideButton.addActionListener(ignored -> hideAction.run());
+        final JPanel buttons =
+                new JPanel(new FlowLayout(FlowLayout.RIGHT, UiConstants.SPACING_XS, 0));
         buttons.setOpaque(false);
         buttons.add(refreshButton);
         buttons.add(changedOnlyButton);
         buttons.add(comparisonButton);
-        final JPanel actions = new JPanel(new BorderLayout(4, 0));
+        buttons.add(hideButton);
+        final JPanel statusWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        statusWrapper.setOpaque(false);
+        statusPanel.setAlignmentY(CENTER_ALIGNMENT);
+        statusWrapper.add(statusPanel);
+        final JPanel actions = new JPanel(new BorderLayout(UiConstants.SPACING_XS, 0));
         actions.setOpaque(false);
-        actions.add(statusLabel, BorderLayout.CENTER);
+        actions.add(statusWrapper, BorderLayout.CENTER);
         actions.add(buttons, BorderLayout.EAST);
         header.add(actions, BorderLayout.EAST);
         return header;
+    }
+
+    public void setHideAction(final Runnable hideAction) {
+        this.hideAction = hideAction;
     }
 
     private JPopupMenu comparisonMenu() {
@@ -132,7 +149,7 @@ public final class WorkspaceTreePanel extends JPanel {
         final boolean includeSourceBranch = compareSourceBranch;
         refreshButton.setSelected(false);
         refreshButton.setEnabled(false);
-        statusLabel.setText("Refreshing Git status...");
+        statusPanel.showRefreshing();
         BackgroundTasks.submit(
                         "Workspace",
                         "git-status",
@@ -149,7 +166,7 @@ public final class WorkspaceTreePanel extends JPanel {
                 .thenAcceptAsync(
                         updated -> {
                             statuses = updated.files();
-                            statusLabel.setText(GitFormatter.statusSummary(updated));
+                            statusPanel.showStatus(updated);
                             refreshButton.setEnabled(true);
                             tree.repaint();
                             reloadWorkspace();
@@ -160,7 +177,7 @@ public final class WorkspaceTreePanel extends JPanel {
                             SwingUtilities.invokeLater(
                                     () -> {
                                         statuses = Map.of();
-                                        statusLabel.setText("Git status unavailable");
+                                        statusPanel.showUnavailable("Git status unavailable");
                                         refreshButton.setEnabled(true);
                                         tree.repaint();
                                     });

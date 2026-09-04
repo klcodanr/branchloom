@@ -1,5 +1,6 @@
 package com.jagent.desktop.ui.components;
 
+import com.formdev.flatlaf.ui.FlatLineBorder;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -12,6 +13,7 @@ import java.awt.KeyboardFocusManager;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.util.Set;
+import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.Icon;
@@ -24,6 +26,7 @@ import javax.swing.JTextArea;
 import javax.swing.JTextPane;
 import javax.swing.KeyStroke;
 import javax.swing.UIManager;
+import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 
 /** Factory methods for common Swing components used by the application. */
@@ -32,6 +35,72 @@ public final class UiFactory {
 
     public static JPanel panel() {
         return new JPanel();
+    }
+
+    public static Border pageBorder() {
+        return new EmptyBorder(
+                UiConstants.PAGE_MARGIN,
+                UiConstants.PAGE_MARGIN,
+                UiConstants.PAGE_MARGIN,
+                UiConstants.PAGE_MARGIN);
+    }
+
+    public static Border sectionBorder() {
+        return new EmptyBorder(
+                UiConstants.SECTION_PADDING,
+                UiConstants.SECTION_PADDING,
+                UiConstants.SECTION_PADDING,
+                UiConstants.SECTION_PADDING);
+    }
+
+    public static Border contentAreaBorder() {
+        final Color borderColor = UIManager.getColor("Component.borderColor");
+        final Insets padding =
+                new Insets(
+                        UiConstants.SPACING_SM,
+                        UiConstants.SPACING_SM,
+                        UiConstants.SPACING_SM,
+                        UiConstants.SPACING_SM);
+        return BorderFactory.createCompoundBorder(
+                new EmptyBorder(
+                        UiConstants.SPACING_XS,
+                        UiConstants.SPACING_XS,
+                        UiConstants.SPACING_XS,
+                        UiConstants.SPACING_XS),
+                new FlatLineBorder(padding, borderColor, 1f, 8));
+    }
+
+    public static Border cardBorder() {
+        return new EmptyBorder(
+                UiConstants.CARD_PADDING,
+                UiConstants.CARD_PADDING,
+                UiConstants.CARD_PADDING,
+                UiConstants.CARD_PADDING);
+    }
+
+    public static JPanel verticalLayout() {
+        final JPanel panel = panel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        return panel;
+    }
+
+    public static JPanel verticalLayoutWithHeader(final Component header) {
+        final JPanel panel = verticalLayout();
+        panel.add(header);
+        panel.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
+        return panel;
+    }
+
+    public static GridBagConstraints formConstraints() {
+        final GridBagConstraints constraints = new GridBagConstraints();
+        constraints.insets =
+                new Insets(
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING);
+        constraints.fill = GridBagConstraints.HORIZONTAL;
+        return constraints;
     }
 
     public static JLabel label(final String text, final Theme.FontSize size) {
@@ -78,7 +147,7 @@ public final class UiFactory {
         pane.setEditable(false);
         pane.setOpaque(false);
         pane.setBorder(new EmptyBorder(0, 0, 0, 0));
-        pane.setMargin(new Insets(0, 0, 0, 0));
+        pane.setMargin(UiConstants.ZERO_INSETS);
         return pane;
     }
 
@@ -88,7 +157,12 @@ public final class UiFactory {
         final JPanel content = new JPanel();
         content.setOpaque(false);
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-        content.setBorder(new EmptyBorder(20, 24, 20, 24));
+        content.setBorder(
+                new EmptyBorder(
+                        UiConstants.SPACING_XL,
+                        UiConstants.SPACING_2XL,
+                        UiConstants.SPACING_XL,
+                        UiConstants.SPACING_2XL));
         final JProgressBar progress = new JProgressBar();
         progress.setIndeterminate(true);
         progress.setPreferredSize(new Dimension(180, 8));
@@ -97,7 +171,7 @@ public final class UiFactory {
         final JLabel message = label(text, Theme.FontSize.MD);
         message.setAlignmentX(Component.CENTER_ALIGNMENT);
         content.add(progress);
-        content.add(Box.createVerticalStrut(12));
+        content.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
         content.add(message);
         loading.add(content);
         return loading;
@@ -138,17 +212,15 @@ public final class UiFactory {
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.setAlignmentX(Component.LEFT_ALIGNMENT);
         metric.add(title);
-        metric.add(Box.createVerticalStrut(4));
+        metric.add(Box.createVerticalStrut(UiConstants.SPACING_XS));
         metric.add(content);
         return metric;
     }
 
     public static JPanel form(final Object... items) {
         final JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(new EmptyBorder(8, 8, 8, 8));
-        final GridBagConstraints constraints = new GridBagConstraints();
-        constraints.insets = new Insets(5, 5, 5, 5);
-        constraints.fill = GridBagConstraints.HORIZONTAL;
+        panel.setBorder(sectionBorder());
+        final GridBagConstraints constraints = formConstraints();
         for (int i = 0; i < items.length; i += 2) {
             constraints.gridy = i / 2;
             constraints.gridx = 0;
@@ -168,7 +240,7 @@ public final class UiFactory {
         final JLabel titleLabel = label(title, Theme.FontSize.XXL);
         titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.add(titleLabel);
-        panel.add(Box.createVerticalStrut(8));
+        panel.add(Box.createVerticalStrut(UiConstants.CONTENT_PADDING));
         final JLabel detailLabel = label(detail, Theme.FontSize.MD);
         detailLabel.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
         detailLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -179,11 +251,10 @@ public final class UiFactory {
 
     public static JButton iconButton(final Icon icon) {
         final JButton button = new JButton(icon);
-        button.setFocusPainted(false);
         button.setBorderPainted(false);
         button.setContentAreaFilled(false);
         button.setOpaque(false);
-        button.setMargin(new Insets(0, 0, 0, 0));
+        button.setMargin(UiConstants.ZERO_INSETS);
         button.setPreferredSize(new Dimension(22, 24));
         return button;
     }
