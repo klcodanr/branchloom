@@ -67,6 +67,10 @@ public final class UiIcons {
         return icon("alert-circle");
     }
 
+    public static Icon triangleAlert() {
+        return icon("triangle-alert");
+    }
+
     public static Icon copy() {
         return icon("copy");
     }
