@@ -6,7 +6,6 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.ViewCoordinator;
-import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.components.FileViewer;
 import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.Theme;
@@ -33,7 +32,6 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
     protected final JTabbedPane tabs = new JTabbedPane();
     protected WorkspaceSplitPane contentSplit = new WorkspaceSplitPane(tabs, JPanel::new);
     private transient WorkspaceTerminalTabs terminalTabs;
-    protected Map<TerminalPanel, TerminalState> terminalStates;
     protected Map<TerminalPanel, TerminalId> terminalIds;
     private final ViewId viewId;
     private JLabel titleLabel;
@@ -65,7 +63,6 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         terminalTabs =
                 new WorkspaceTerminalTabs(
                         tabs,
-                        ignored -> terminalStateChanged(),
                         (terminal, terminalId) -> {
                             if (terminalId != null) {
                                 actionContext.appState().removeTerminal(terminalId);
@@ -73,7 +70,6 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
                             terminalClosed();
                         },
                         this::terminalRenamed);
-        terminalStates = terminalTabs.states();
         terminalIds = terminalTabs.ids();
         addDefaultTabs();
         tabs.addChangeListener(event -> updateCurrentTerminal());
@@ -96,15 +92,10 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         actions.setToolTipText("Actions");
         actions.getAccessibleContext().setAccessibleName("Actions");
         actions.addActionListener(event -> showActions(actions));
-        final JButton files = UiFactory.iconButton(UiIcons.folderOpen());
-        files.setToolTipText("Show files");
-        files.getAccessibleContext().setAccessibleName("Show files");
-        files.addActionListener(event -> showWorkspace());
         final JPanel actionArea = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         actionArea.setOpaque(false);
         actionArea.setBorder(new EmptyBorder(0, 12, 0, 0));
         actionArea.add(actions);
-        actionArea.add(files);
         actionArea.setMinimumSize(actionArea.getPreferredSize());
         header.add(actionArea, BorderLayout.EAST);
         return header;
@@ -130,8 +121,6 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
     protected abstract void showActions(JButton button);
 
     protected abstract void openTerminal(Path path);
-
-    protected abstract void terminalStateChanged();
 
     protected abstract void terminalClosed();
 

@@ -44,6 +44,17 @@ public final class GitParser {
         return Map.copyOf(statuses);
     }
 
+    public static Map<String, String> parseDiffStatus(final String output) {
+        final Map<String, String> statuses = new LinkedHashMap<>();
+        final String[] entries = output.split("\u0000", -1);
+        for (int index = 0; index + 1 < entries.length; index += 2) {
+            if (!entries[index].isBlank() && !entries[index + 1].isBlank()) {
+                statuses.put(entries[index + 1], entries[index].substring(0, 1));
+            }
+        }
+        return Map.copyOf(statuses);
+    }
+
     public static Git.WorktreeStatus parseWorktreeStatus(final String output) {
         final Map<String, String> files = parseStatus(output);
         final int additions =

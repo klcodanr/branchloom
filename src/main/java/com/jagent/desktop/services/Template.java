@@ -3,7 +3,7 @@ package com.jagent.desktop.services;
 import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
-import com.jagent.desktop.ui.GitUtils;
+import com.jagent.desktop.ui.utils.GitUtils;
 import java.nio.file.Path;
 
 /** Expands project and session templates for commands and filesystem paths. */

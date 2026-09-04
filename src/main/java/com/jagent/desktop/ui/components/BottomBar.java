@@ -114,7 +114,7 @@ public final class BottomBar extends JPanel {
                 () -> {
                     try {
                         final String currentBranch = Git.currentBranch(worktree).trim();
-                        final Git.WorktreeStatus status = Git.worktreeStatus(worktree);
+                        final Git.WorktreeStatus status = Git.worktreeStatus(worktree, false);
                         SwingUtilities.invokeLater(
                                 () ->
                                         updateGitStatusIfCurrent(

@@ -8,15 +8,18 @@ import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
+import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
 /** Resizable workspace content with a hideable files panel. */
 public final class WorkspaceSplitPane extends JSplitPane {
     private final Supplier<JPanel> workspace;
+    private final int dividerSize;
 
     public WorkspaceSplitPane(final JTabbedPane content, final Supplier<JPanel> workspace) {
         super(HORIZONTAL_SPLIT);
         this.workspace = workspace;
+        dividerSize = getDividerSize();
         setLeftComponent(content);
         setRightComponent(new WorkspaceSidePanel(workspace.get(), this::hideWorkspace));
         setResizeWeight(1.0);
@@ -27,11 +30,31 @@ public final class WorkspaceSplitPane extends JSplitPane {
 
     public void showWorkspace() {
         setRightComponent(new WorkspaceSidePanel(workspace.get(), this::hideWorkspace));
+        setDividerSize(dividerSize);
         setDividerLocation(0.75);
     }
 
     private void hideWorkspace() {
-        setRightComponent(null);
+        final WorkspaceDock dock = new WorkspaceDock(this::showWorkspace);
+        setDividerSize(0);
+        setRightComponent(dock);
+        SwingUtilities.invokeLater(
+                () ->
+                        setDividerLocation(
+                                getWidth() - dock.getPreferredSize().width - getDividerSize()));
+    }
+
+    private static final class WorkspaceDock extends JPanel {
+        private WorkspaceDock(final Runnable open) {
+            super(new BorderLayout());
+            setMinimumSize(new Dimension(32, 0));
+            setPreferredSize(new Dimension(32, 0));
+            final JButton filesButton = UiFactory.iconButton(UiIcons.folderOpen());
+            filesButton.setToolTipText("Show files");
+            filesButton.getAccessibleContext().setAccessibleName("Show files");
+            filesButton.addActionListener(event -> open.run());
+            add(filesButton, BorderLayout.NORTH);
+        }
     }
 
     private static final class WorkspaceSidePanel extends JPanel {
