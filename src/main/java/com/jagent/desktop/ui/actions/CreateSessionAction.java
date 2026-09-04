@@ -226,16 +226,17 @@ public final class CreateSessionAction extends BaseAction {
                             terminal,
                             Path.of(worktreePath).toAbsolutePath().normalize(),
                             project.name() + " > " + session.name() + " > " + terminal.title());
-            terminalPanel.start();
             actionContext
                     .viewCoordinator()
                     .updateView(
                             ViewId.SESSION,
                             ViewState.sessionTerminal(projectId, sessionId, terminalId));
-            if (!project.startupCommands().isEmpty()) {
+            if (project.startupCommands().isEmpty()) {
+                terminalPanel.start();
+            } else {
                 final var job =
                         actionContext.viewCoordinator().backgroundJobs().start("Session setup");
-                runStartupCommand(project, request, worktreePath, job, 0);
+                runStartupCommand(project, worktreePath, job, 0, terminalPanel::start);
             }
         } catch (IOException exception) {
             LOG.log(Level.SEVERE, CREATE_SESSION, exception);
@@ -249,12 +250,13 @@ public final class CreateSessionAction extends BaseAction {
 
     private void runStartupCommand(
             final Project project,
-            final NewSessionDialog.Request request,
             final String worktreePath,
             final com.jagent.desktop.services.BackgroundJobs.Handle job,
-            final int commandIndex) {
+            final int commandIndex,
+            final Runnable onComplete) {
         if (commandIndex >= project.startupCommands().size()) {
             job.complete();
+            onComplete.run();
             return;
         }
         final String command = project.startupCommands().get(commandIndex);
@@ -267,7 +269,7 @@ public final class CreateSessionAction extends BaseAction {
                 command,
                 Path.of(worktreePath),
                 ignored -> {},
-                () -> runStartupCommand(project, request, worktreePath, job, commandIndex + 1),
+                () -> runStartupCommand(project, worktreePath, job, commandIndex + 1, onComplete),
                 output -> {
                     job.fail(output == null || output.isBlank() ? "Setup command failed." : output);
                 });

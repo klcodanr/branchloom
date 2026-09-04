@@ -60,7 +60,8 @@ public final class SessionView extends AbstractWorkspaceView {
         for (final TerminalId terminalId : session.terminalIds()) {
             final Terminal terminal = state.terminals().get(terminalId);
             if (terminal != null) {
-                addTerminal(terminalId, terminal);
+                addTerminal(
+                        terminalId, terminalDefinitionForRestore(session, terminalId, terminal));
             }
         }
     }
@@ -194,5 +195,26 @@ public final class SessionView extends AbstractWorkspaceView {
         }
         terminalIds.put(terminal, terminalId);
         mountTerminal(persistedTerminal.title(), terminalId, terminal, true);
+    }
+
+    protected static Terminal terminalDefinitionForRestore(
+            final Session session, final TerminalId terminalId, final Terminal persistedTerminal) {
+        final boolean isAgentTerminal =
+                session.agent() != null
+                        && !session.terminalIds().isEmpty()
+                        && terminalId.equals(session.terminalIds().getFirst());
+        if (!isAgentTerminal) {
+            return persistedTerminal;
+        }
+        return new Terminal(
+                persistedTerminal.sessionId(),
+                persistedTerminal.projectId(),
+                persistedTerminal.title(),
+                PlatformCommands.userShell());
+    }
+
+    @Override
+    protected void terminalClosed() {
+        updateCurrentTerminal();
     }
 }

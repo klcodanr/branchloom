@@ -334,7 +334,7 @@ class TargetViewsUiTest {
     }
 
     @Test
-    void sessionViewRestoresPersistedAgentCommandAfterReopening()
+    void sessionViewRestoresAgentTerminalAsUserShell()
             throws InvalidObjectException, InterruptedException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId =
@@ -378,6 +378,14 @@ class TargetViewsUiTest {
                 ASSERTION_MESSAGE);
         assertEquals(sessionId, state.currentSessionId(), ASSERTION_MESSAGE);
         assertEquals(terminalId, state.currentTerminalId(), ASSERTION_MESSAGE);
+        assertEquals(
+                PlatformCommands.userShell(),
+                SessionView.terminalDefinitionForRestore(
+                                state.sessions().get(sessionId),
+                                terminalId,
+                                state.terminals().get(terminalId))
+                        .command(),
+                ASSERTION_MESSAGE);
         final var createdView = GuiActionRunner.execute(() -> new SessionView(context));
         assertEquals(
                 1,
@@ -386,9 +394,6 @@ class TargetViewsUiTest {
                                         .getLeftComponent())
                         .getSelectedIndex(),
                 ASSERTION_MESSAGE);
-        com.jagent.desktop.test.AsyncTestSupport.await(
-                () -> java.nio.file.Files.exists(tempDirectory.resolve("restored")),
-                "restored terminal should execute its persisted command");
         GuiActionRunner.execute(() -> state.updateCurrentTerminal(null));
         final var reopenedView = GuiActionRunner.execute(() -> new SessionView(context));
 
