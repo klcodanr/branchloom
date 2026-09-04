@@ -76,7 +76,6 @@ public final class ProjectTreePanel extends JPanel {
         treeContent.add(search, BorderLayout.NORTH);
         treeContent.add(tree, BorderLayout.CENTER);
         add(treeContent, BorderLayout.CENTER);
-        add(new SettingsButton(actionContext), BorderLayout.SOUTH);
     }
 
     private static final class ProjectHeader extends JPanel {
@@ -160,18 +159,6 @@ public final class ProjectTreePanel extends JPanel {
         }
     }
 
-    private static final class SettingsButton extends JButton {
-        private SettingsButton(final ActionContext actionContext) {
-            super("Settings");
-            setName("settings-button");
-            setIcon(UiIcons.settings());
-            setBorderPainted(false);
-            setHorizontalAlignment(LEFT);
-            addActionListener(
-                    e -> actionContext.viewCoordinator().updateView(ViewId.SETTINGS, null));
-        }
-    }
-
     private final class ProjectTreeCellRenderer extends DefaultTreeCellRenderer {
         @Override
         public Component getTreeCellRendererComponent(
@@ -212,7 +199,11 @@ public final class ProjectTreePanel extends JPanel {
 
     private void restoreSelection(final Project selectedProject, final Session selectedSession) {
         if (selectedProject == null) {
-            selectNode((DefaultMutableTreeNode) root.getFirstChild());
+            if (actionContext.appState().projects().isEmpty()) {
+                selectNode((DefaultMutableTreeNode) root.getFirstChild());
+            } else {
+                tree.clearSelection();
+            }
             return;
         }
         final ProjectId projectId = actionContext.appState().currentProjectId();

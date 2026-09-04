@@ -6,17 +6,17 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
-import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.services.AgentContext;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.CommandRunner;
 import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.PlatformCommands;
-import com.jagent.desktop.services.SessionSetup;
 import com.jagent.desktop.services.Template;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.dialogs.NewSessionDialog;
+import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import com.jagent.desktop.ui.utils.GitUtils;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -107,9 +107,8 @@ public final class CreateSessionAction extends BaseAction {
         };
     }
 
-    private void addSession(final ProjectId projectId, final NewSessionDialog.Request request) {
+    protected void addSession(final ProjectId projectId, final NewSessionDialog.Request request) {
         final AppState state = actionContext.appState();
-        final SessionSetup setup = actionContext.viewCoordinator().sessionSetup();
         final Project project = state.projects().get(projectId);
         if (project.sessionIds().stream()
                 .map(state.sessions()::get)
@@ -122,26 +121,24 @@ public final class CreateSessionAction extends BaseAction {
         }
 
         final String branch = GitUtils.toBranchSlug(request.name());
+        final ProgressOperation progress =
+                ProgressOperation.start(
+                        actionContext.window(), CREATE_SESSION, "Creating agent session...");
         final Session draft =
                 new Session(projectId, request.name(), request.agent().name, request.prompt(), "");
-        final var sessionId = setup.begin(draft);
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
-        actionContext
-                .viewCoordinator()
-                .updateView(ViewId.SESSION, ViewState.session(projectId, sessionId));
         git.branchExists(project, branch)
                 .whenCompleteAsync(
                         (exists, failure) -> {
                             if (failure != null) {
                                 fail(
-                                        sessionId,
+                                        progress,
                                         failure.getMessage() == null
                                                 ? "Git could not list branches."
                                                 : failure.getMessage());
                             } else {
                                 prepareWorktree(
-                                        projectId, project, request, branch, sessionId, exists);
+                                        projectId, project, request, branch, draft, progress,
+                                        exists);
                             }
                         },
                         SwingUtilities::invokeLater);
@@ -152,17 +149,14 @@ public final class CreateSessionAction extends BaseAction {
             final Project project,
             final NewSessionDialog.Request request,
             final String branch,
-            final SessionId sessionId,
+            final Session draft,
+            final ProgressOperation progress,
             final boolean branchExists) {
         if (branchExists) {
-            final String message = "A branch named '" + branch + "' already exists.";
-            fail(sessionId, message);
+            fail(progress, "A branch named '" + branch + "' already exists.");
             return;
         }
         final AppState state = actionContext.appState();
-        final SessionSetup setup = actionContext.viewCoordinator().sessionSetup();
-        final Session draft =
-                new Session(projectId, request.name(), request.agent().name, request.prompt(), "");
         final String worktreePath =
                 Template.resolvePath(
                         Template.expand(
@@ -173,11 +167,9 @@ public final class CreateSessionAction extends BaseAction {
                         project);
         final Path path = Path.of(worktreePath);
         if (GitUtils.isWorktreeRegistered(state.sessions(), path) || Files.exists(path)) {
-            final String message = "The worktree path is already in use:\n" + worktreePath;
-            fail(sessionId, message);
+            fail(progress, "The worktree path is already in use:\n" + worktreePath);
             return;
         }
-        setup.update(sessionId, "Creating worktree...");
         final var worktreeCreation =
                 request.baseBranch() == null
                         ? git.createWorktree(project, branch, path)
@@ -185,12 +177,11 @@ public final class CreateSessionAction extends BaseAction {
         worktreeCreation.whenCompleteAsync(
                 (ignored, failure) -> {
                     if (failure == null) {
-                        setup.complete(sessionId);
-                        runStartupCommand(projectId, project, request, worktreePath, sessionId, 0);
+                        finishSession(projectId, project, request, worktreePath, progress);
                         return;
                     }
                     fail(
-                            sessionId,
+                            progress,
                             failure.getMessage() == null
                                     ? "Git could not create the worktree."
                                     : failure.getMessage());
@@ -200,12 +191,12 @@ public final class CreateSessionAction extends BaseAction {
 
     private void finishSession(
             final ProjectId projectId,
+            final Project project,
             final NewSessionDialog.Request request,
             final String worktreePath,
-            final SessionId sessionId) {
+            final ProgressOperation progress) {
         final AppState state = actionContext.appState();
-        final SessionSetup setup = actionContext.viewCoordinator().sessionSetup();
-        setup.update(sessionId, "Starting agent...");
+        progress.close();
         final Session session =
                 new Session(
                         projectId,
@@ -215,10 +206,10 @@ public final class CreateSessionAction extends BaseAction {
                         worktreePath);
         try {
             AgentContext.write(projectFor(state, projectId), session);
-            final SessionId persistedSessionId = setup.promote(state, sessionId, session);
+            final var sessionId = state.addSession(projectId, session);
             final var terminalId =
                     state.addTerminal(
-                            persistedSessionId,
+                            sessionId,
                             new Terminal(
                                     sessionId,
                                     request.agent().name,
@@ -228,15 +219,28 @@ public final class CreateSessionAction extends BaseAction {
                                                     "{prompt}",
                                                     PlatformCommands.shellQuote(
                                                             request.prompt()))));
+            final Terminal terminal = state.terminals().get(terminalId);
+            final TerminalPanel terminalPanel =
+                    TerminalPanel.retained(
+                            terminalId,
+                            terminal,
+                            Path.of(worktreePath).toAbsolutePath().normalize(),
+                            project.name() + " > " + session.name() + " > " + terminal.title());
+            terminalPanel.start();
             actionContext
                     .viewCoordinator()
                     .updateView(
                             ViewId.SESSION,
-                            ViewState.sessionTerminal(projectId, persistedSessionId, terminalId));
+                            ViewState.sessionTerminal(projectId, sessionId, terminalId));
+            if (!project.startupCommands().isEmpty()) {
+                final var job =
+                        actionContext.viewCoordinator().backgroundJobs().start("Session setup");
+                runStartupCommand(project, request, worktreePath, job, 0);
+            }
         } catch (IOException exception) {
             LOG.log(Level.SEVERE, CREATE_SESSION, exception);
-            fail(
-                    sessionId,
+            showError(
+                    CREATE_SESSION,
                     exception.getMessage() == null
                             ? "Could not save the new session."
                             : exception.getMessage());
@@ -244,32 +248,28 @@ public final class CreateSessionAction extends BaseAction {
     }
 
     private void runStartupCommand(
-            final ProjectId projectId,
             final Project project,
             final NewSessionDialog.Request request,
             final String worktreePath,
-            final SessionId sessionId,
+            final com.jagent.desktop.services.BackgroundJobs.Handle job,
             final int commandIndex) {
         if (commandIndex >= project.startupCommands().size()) {
-            finishSession(projectId, request, worktreePath, sessionId);
+            job.complete();
             return;
         }
         final String command = project.startupCommands().get(commandIndex);
-        final SessionSetup setup = actionContext.viewCoordinator().sessionSetup();
-        setup.update(sessionId, "Running setup command...");
+        job.update(
+                "Running startup command "
+                        + (commandIndex + 1)
+                        + " of "
+                        + project.startupCommands().size());
         CommandRunner.run(
                 command,
                 Path.of(worktreePath),
                 ignored -> {},
-                () -> {
-                    setup.complete(sessionId);
-                    runStartupCommand(
-                            projectId, project, request, worktreePath, sessionId, commandIndex + 1);
-                },
+                () -> runStartupCommand(project, request, worktreePath, job, commandIndex + 1),
                 output -> {
-                    fail(
-                            sessionId,
-                            output == null || output.isBlank() ? "Setup command failed." : output);
+                    job.fail(output == null || output.isBlank() ? "Setup command failed." : output);
                 });
     }
 
@@ -277,14 +277,16 @@ public final class CreateSessionAction extends BaseAction {
         return state.projects().get(projectId);
     }
 
-    private void fail(final SessionId sessionId, final String message) {
-        LOG.severe(CREATE_SESSION + ": " + message);
-        actionContext.viewCoordinator().sessionSetup().fail(sessionId, message);
+    private void fail(final ProgressOperation progress, final String message) {
+        progress.close();
+        showError(CREATE_SESSION, message);
     }
 
     private void showError(final String title, final String message) {
         LOG.severe(title + ": " + message);
-        JOptionPane.showMessageDialog(
-                actionContext.window(), message, title, JOptionPane.ERROR_MESSAGE);
+        if (actionContext.window() != null) {
+            JOptionPane.showMessageDialog(
+                    actionContext.window(), message, title, JOptionPane.ERROR_MESSAGE);
+        }
     }
 }

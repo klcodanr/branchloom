@@ -17,13 +17,11 @@ import com.jagent.desktop.ui.Defaults;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreePath;
-import org.assertj.swing.edt.GuiActionRunnable;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
@@ -34,34 +32,6 @@ class ProjectTreePanelUiTest {
     private static final String GROUP = "Group";
     private static final String PROMPT = "prompt";
     private static final String AGENT = "agent";
-
-    @Test
-    void clickingSettingsUpdatesNavigation() {
-        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.addProject(new Project(DEMO, PROJECT_PATH, null));
-        final var changedViews = new ArrayList<ViewId>();
-        final var coordinator = new ViewCoordinator(state, changedViews::add);
-        final var panel =
-                GuiActionRunner.execute(
-                        () -> {
-                            final var created =
-                                    new ProjectTreePanel(
-                                            new ActionContext(coordinator, state, null));
-                            created.refresh(null, null);
-                            return created;
-                        });
-        final JButton settings = (JButton) panel.getComponent(2);
-        GuiActionRunner.execute((GuiActionRunnable) settings::doClick);
-
-        assertEquals(
-                ViewId.SETTINGS,
-                coordinator.currentViewId(),
-                "settings button should navigate to settings");
-        assertEquals(
-                List.of(ViewId.SETTINGS),
-                changedViews,
-                "settings navigation should notify the coordinator");
-    }
 
     @Test
     void selectingProjectUpdatesApplicationSelection() {

@@ -1,6 +1,7 @@
 package com.jagent.desktop.ui.dialogs;
 
 import com.jagent.desktop.services.BackgroundTasks;
+import java.awt.GraphicsEnvironment;
 import java.awt.Window;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
@@ -11,8 +12,11 @@ public final class ProgressOperation {
     private final ProgressDialog progress;
 
     private ProgressOperation(final Window owner, final String title, final String message) {
-        this.progress = new ProgressDialog(owner, title, message);
-        this.progress.setVisible(true);
+        this.progress =
+                GraphicsEnvironment.isHeadless() ? null : new ProgressDialog(owner, title, message);
+        if (this.progress != null) {
+            this.progress.setVisible(true);
+        }
     }
 
     public static ProgressOperation start(
@@ -21,7 +25,9 @@ public final class ProgressOperation {
     }
 
     public void close() {
-        progress.dispose();
+        if (progress != null) {
+            progress.dispose();
+        }
     }
 
     public static void run(

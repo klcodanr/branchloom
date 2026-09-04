@@ -10,11 +10,8 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.Project;
-import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
-import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.Terminal;
-import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.models.Tool;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
@@ -32,6 +29,7 @@ import javax.swing.JTabbedPane;
 import org.assertj.swing.edt.GuiActionRunnable;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class TargetViewsUiTest {
     private static final String ASSERTION_MESSAGE = "target view behavior should match";
@@ -41,6 +39,7 @@ class TargetViewsUiTest {
     private static final String SESSION_AGENT = "agent";
     private static final String SESSION_PROMPT = "prompt";
     private static final String SUCCESS_COMMAND = "true";
+    @TempDir private java.nio.file.Path tempDirectory;
 
     @Test
     void globalSettingsRendersConfiguredRowsAndSavesChanges() {
@@ -338,45 +337,11 @@ class TargetViewsUiTest {
     }
 
     @Test
-    void restoringAgentTerminalReplacesItsCommandWithAUserShell() {
-        final ProjectId projectId = ProjectId.create();
-        final TerminalId agentTerminalId = TerminalId.create();
-        final TerminalId regularTerminalId = TerminalId.create();
-        final Session session =
-                new Session(projectId, SESSION_NAME, SESSION_AGENT, SESSION_PROMPT, PROJECT_PATH)
-                        .withNewTerminal(agentTerminalId)
-                        .withNewTerminal(regularTerminalId);
-        final SessionId sessionId = SessionId.create();
-        final Terminal persistedAgentTerminal =
-                new Terminal(sessionId, projectId, "Agent 1", "agent --prompt='prompt'");
-        final Terminal persistedRegularTerminal =
-                new Terminal(sessionId, projectId, "Terminal 2", SUCCESS_COMMAND);
-
-        final Terminal restoredAgentTerminal =
-                SessionView.terminalDefinitionForRestore(
-                        session, agentTerminalId, persistedAgentTerminal);
-        final Terminal restoredRegularTerminal =
-                SessionView.terminalDefinitionForRestore(
-                        session, regularTerminalId, persistedRegularTerminal);
-
-        assertEquals(
-                PlatformCommands.userShell(),
-                restoredAgentTerminal.command(),
-                "restored agent tabs should start a user shell");
-        assertEquals(
-                persistedAgentTerminal.title(),
-                restoredAgentTerminal.title(),
-                "restoring the agent tab should preserve its title");
-        assertSame(
-                persistedRegularTerminal,
-                restoredRegularTerminal,
-                "regular terminal tabs should retain their persisted definition");
-    }
-
-    @Test
-    void sessionViewRestoresCreatedTerminalAfterReopening() throws InvalidObjectException {
+    void sessionViewRestoresPersistedAgentCommandAfterReopening()
+            throws InvalidObjectException, InterruptedException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
+        final var projectId =
+                state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
         final var sessionId =
                 state.addSession(
                         projectId,
@@ -385,7 +350,7 @@ class TargetViewsUiTest {
                                 SESSION_NAME,
                                 SESSION_AGENT,
                                 SESSION_PROMPT,
-                                PROJECT_PATH));
+                                tempDirectory.toString()));
         state.updateCurrentProject(projectId);
         state.updateCurrentSession(sessionId);
         final var coordinator = new ViewCoordinator(state);
@@ -398,7 +363,14 @@ class TargetViewsUiTest {
                             final var id =
                                     state.addTerminal(
                                             sessionId,
-                                            new Terminal(sessionId, "Terminal", SUCCESS_COMMAND));
+                                            new Terminal(
+                                                    sessionId,
+                                                    "Agent 1",
+                                                    "printf restored > "
+                                                            + PlatformCommands.shellQuote(
+                                                                    tempDirectory
+                                                                            .resolve("restored")
+                                                                            .toString())));
                             state.updateCurrentTerminal(id);
                             return id;
                         });
@@ -417,6 +389,9 @@ class TargetViewsUiTest {
                                         .getLeftComponent())
                         .getSelectedIndex(),
                 ASSERTION_MESSAGE);
+        com.jagent.desktop.test.AsyncTestSupport.await(
+                () -> java.nio.file.Files.exists(tempDirectory.resolve("restored")),
+                "restored terminal should execute its persisted command");
         GuiActionRunner.execute(() -> state.updateCurrentTerminal(null));
         final var reopenedView = GuiActionRunner.execute(() -> new SessionView(context));
 

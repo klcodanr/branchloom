@@ -7,7 +7,6 @@ import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.PlatformCommands;
-import com.jagent.desktop.services.SessionSetup;
 import com.jagent.desktop.ui.actions.RemoveSessionAction;
 import com.jagent.desktop.ui.components.SessionActions;
 import com.jagent.desktop.ui.components.SessionSummary;
@@ -25,21 +24,18 @@ public final class SessionView extends AbstractWorkspaceView {
 
     private final transient Project project;
     private final transient Session session;
-    private final transient SessionSetup setup;
     private final JLabel gitStatus = new JLabel();
     private int terminalNumber;
 
     public SessionView(final ActionContext actionContext) {
         super(actionContext, ViewId.SESSION);
         final var state = actionContext.appState();
-        this.setup = actionContext.viewCoordinator().sessionSetup();
         final var sessionId = state.currentSessionId();
         this.project = state.projects().get(state.currentProjectId());
         final Session persistedSession = sessionId == null ? null : state.sessions().get(sessionId);
-        final Session setupSession = sessionId == null ? null : setup.session(sessionId);
-        this.session = persistedSession == null ? setupSession : persistedSession;
+        this.session = persistedSession;
         validateSelection();
-        restoreSession(actionContext, state, sessionId);
+        restoreSession(actionContext, state);
     }
 
     private void validateSelection() {
@@ -49,12 +45,8 @@ public final class SessionView extends AbstractWorkspaceView {
     }
 
     private void restoreSession(
-            final ActionContext actionContext,
-            final com.jagent.desktop.services.AppState state,
-            final com.jagent.desktop.models.SessionId sessionId) {
-        if (sessionId == null || setup.progress(sessionId) == null) {
-            MissingWorktreeRecovery.check(actionContext, project, session);
-        }
+            final ActionContext actionContext, final com.jagent.desktop.services.AppState state) {
+        MissingWorktreeRecovery.check(actionContext, project, session);
         final boolean hasSelectedTab = viewCoordinator.hasSelectedTab(id());
         final int selectedTab = viewCoordinator.selectedTab(id());
         initializeWorkspace(session.name());
@@ -68,8 +60,7 @@ public final class SessionView extends AbstractWorkspaceView {
         for (final TerminalId terminalId : session.terminalIds()) {
             final Terminal terminal = state.terminals().get(terminalId);
             if (terminal != null) {
-                addTerminal(
-                        terminalId, terminalDefinitionForRestore(session, terminalId, terminal));
+                addTerminal(terminalId, terminal);
             }
         }
     }
@@ -90,8 +81,6 @@ public final class SessionView extends AbstractWorkspaceView {
                         new SessionSummary(
                                 project,
                                 session,
-                                setup,
-                                actionContext.appState().currentSessionId(),
                                 () -> new RemoveSessionAction(actionContext).execute()));
         summary.setBorder(null);
         summary.getVerticalScrollBar().setUnitIncrement(14);
@@ -187,38 +176,24 @@ public final class SessionView extends AbstractWorkspaceView {
             return;
         }
         final Path worktree = Path.of(session.worktreePath()).toAbsolutePath().normalize();
-        final TerminalPanel terminal =
-                TerminalPanel.retained(
-                        terminalId,
-                        persistedTerminal,
-                        worktree,
-                        project.name()
-                                + " > "
-                                + session.name()
-                                + " > "
-                                + persistedTerminal.title());
+        TerminalPanel terminal = TerminalPanel.existing(terminalId);
+        if (terminal == null) {
+            terminal =
+                    TerminalPanel.retained(
+                            terminalId,
+                            persistedTerminal,
+                            worktree,
+                            project.name()
+                                    + " > "
+                                    + session.name()
+                                    + " > "
+                                    + persistedTerminal.title());
+        }
         if (terminal.getParent() != null) {
             terminal.getParent().remove(terminal);
         }
         terminalIds.put(terminal, terminalId);
         mountTerminal(persistedTerminal.title(), terminalId, terminal, true);
-    }
-
-    /* default */
-    static Terminal terminalDefinitionForRestore(
-            final Session session, final TerminalId terminalId, final Terminal persistedTerminal) {
-        final boolean isAgentTerminal =
-                session.agent() != null
-                        && !session.terminalIds().isEmpty()
-                        && terminalId.equals(session.terminalIds().getFirst());
-        if (!isAgentTerminal) {
-            return persistedTerminal;
-        }
-        return new Terminal(
-                persistedTerminal.sessionId(),
-                persistedTerminal.projectId(),
-                persistedTerminal.title(),
-                PlatformCommands.userShell());
     }
 
     @Override

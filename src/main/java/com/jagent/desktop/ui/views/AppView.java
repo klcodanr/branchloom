@@ -19,6 +19,7 @@ import com.jagent.desktop.ui.actions.ProblemsAction;
 import com.jagent.desktop.ui.actions.ResourceUsageAction;
 import com.jagent.desktop.ui.components.AppIcon;
 import com.jagent.desktop.ui.components.AppMenuBar;
+import com.jagent.desktop.ui.components.BottomBar;
 import com.jagent.desktop.ui.components.CommandPalette;
 import com.jagent.desktop.ui.components.ProjectTreePanel;
 import com.jagent.desktop.ui.components.TerminalPanel;
@@ -61,6 +62,7 @@ public final class AppView extends JFrame {
     private final JLabel placeholder = UiFactory.label("", Theme.FontSize.XL);
     private final JPanel content = new JPanel(new BorderLayout());
     private final ProjectTreePanel projectTreePanel;
+    private final BottomBar bottomBar;
     private transient java.awt.KeyEventDispatcher terminalShortcutDispatcher;
     private transient View currentView;
 
@@ -79,6 +81,13 @@ public final class AppView extends JFrame {
         content.setOpaque(false);
         content.setBorder(new EmptyBorder(8, 8, 8, 8));
         projectTreePanel = new ProjectTreePanel(actionContext);
+        bottomBar =
+                new BottomBar(
+                        state,
+                        viewCoordinator.backgroundJobs(),
+                        () -> new OpenSettingsAction(actionContext).execute(),
+                        () -> new FindAction(actionContext).execute(),
+                        () -> new ProblemsAction(actionContext).execute());
         content.add(placeholder, BorderLayout.CENTER);
         add(shell(actionContext), BorderLayout.CENTER);
         installShortcuts();
@@ -241,6 +250,7 @@ public final class AppView extends JFrame {
         splitPane.setContinuousLayout(true);
         splitPane.setBorder(null);
         shell.add(splitPane, BorderLayout.CENTER);
+        shell.add(bottomBar, BorderLayout.SOUTH);
         setJMenuBar(AppMenuBar.create(actionContext));
         return shell;
     }
@@ -249,6 +259,7 @@ public final class AppView extends JFrame {
         final var view = viewCoordinator.currentViewId();
         final Project project = state.currentProject();
         final Session session = state.currentSession();
+        bottomBar.refresh();
         TerminalPanel.reconcile(state.terminals().keySet());
         final View topLevel;
         final JComponent rendered;
