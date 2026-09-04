@@ -165,6 +165,14 @@ class PresentationHelpersTest {
                 true,
                 GitFormatter.detailsHtml(closed).contains("  ·  Closed  ·  "),
                 "closed pull requests should show their lifecycle state");
+
+        final var conflicting =
+                new com.jagent.desktop.services.GitHub.PullRequestDetails(
+                        1, "", "OPEN", "", "CONFLICTING", "", false, 0, 0, UNKNOWN);
+        assertEquals(
+                true,
+                GitFormatter.detailsHtml(conflicting).contains("  ·  Cannot merge  ·  "),
+                "conflicting pull requests should show that they cannot merge");
     }
 
     @Test
