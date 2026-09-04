@@ -6,6 +6,7 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
+import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.services.AgentContext;
 import com.jagent.desktop.services.AppState;
