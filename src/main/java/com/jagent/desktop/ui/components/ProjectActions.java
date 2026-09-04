@@ -5,6 +5,7 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Tool;
+import com.jagent.desktop.ui.actions.BulkCreateSessionsAction;
 import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.actions.CreateSessionAction;
 import com.jagent.desktop.ui.actions.CreateTerminalAction;
@@ -66,6 +67,9 @@ public final class ProjectActions {
                         projectId,
                         new CreateSessionAction(actionContext),
                         UiIcons.hatGlasses()));
+        menu.add(
+                projectActionItem(
+                        actionContext, projectId, new BulkCreateSessionsAction(actionContext)));
         menu.add(
                 projectActionItem(
                         actionContext,
