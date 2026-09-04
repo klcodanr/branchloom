@@ -169,15 +169,20 @@ class ActionTest {
     }
 
     @Test
-    void createSessionPersistsAgentTerminalBeforeStartupCompletes()
-            throws IOException, InterruptedException {
+    void createSessionStartsAgentAfterStartupCompletes() throws IOException, InterruptedException {
         final Path repository = tempDirectory.resolve("repository");
         Files.createDirectories(repository);
         TestGitRepository.initialize(repository);
         final Path worktree = tempDirectory.resolve("worktree-{sessionSlug}");
-        final Path setupMarker = tempDirectory.resolve("setup-complete");
+        final Path notes = tempDirectory.resolve("worktree-feature/.branchloom/notes.md");
+        final Path agentMarker = tempDirectory.resolve("agent-started");
         final String prompt = "Review 'the changes'";
-        final Agent agent = new Agent("Test agent", "agent --prompt {prompt}");
+        final Agent agent =
+                new Agent(
+                        "Test agent",
+                        "test \"$(cat .branchloom/notes.md)\" = setup"
+                                + " && printf '%s' {prompt} > "
+                                + PlatformCommands.shellQuote(agentMarker.toString()));
         final Project project =
                 new Project(
                         PROJECT_NAME,
@@ -188,9 +193,10 @@ class ActionTest {
                         worktree.toString(),
                         null,
                         List.of(
-                                "sleep 1; printf complete > "
-                                        + PlatformCommands.shellQuote(setupMarker.toString())),
-                        List.of());
+                                "sleep 1; mkdir -p .branchloom; printf setup > .branchloom/notes.md"),
+                        List.of(),
+                        ".branchloom/notes.md",
+                        null);
         final AppState state = TestAppState.empty();
         final var projectId = state.addProject(project);
         state.updateCurrentProject(projectId);
@@ -215,13 +221,28 @@ class ActionTest {
         final var terminal = terminalEntry.getValue();
         assertEquals(sessionId, terminal.sessionId(), ASSERTION_MESSAGE);
         assertEquals(
-                "agent --prompt " + PlatformCommands.shellQuote(prompt),
+                "test \"$(cat .branchloom/notes.md)\" = setup"
+                        + " && printf '%s' "
+                        + PlatformCommands.shellQuote(prompt)
+                        + " > "
+                        + PlatformCommands.shellQuote(agentMarker.toString()),
                 terminal.command(),
                 ASSERTION_MESSAGE);
-        assertTrue(Files.notExists(setupMarker), ASSERTION_MESSAGE);
+        assertFalse("setup".equals(Files.readString(notes)), ASSERTION_MESSAGE);
         AsyncTestSupport.await(
-                () -> Files.exists(setupMarker) && terminalId.equals(state.currentTerminalId()),
+                () -> {
+                    try {
+                        return "setup".equals(Files.readString(notes))
+                                && terminalId.equals(state.currentTerminalId());
+                    } catch (IOException exception) {
+                        return false;
+                    }
+                },
                 "startup command should eventually complete");
+        assertEquals("setup", Files.readString(notes), ASSERTION_MESSAGE);
+        AsyncTestSupport.await(
+                () -> Files.exists(agentMarker),
+                "agent should start after the notes file is ready");
         AsyncTestSupport.await(
                 () ->
                         coordinator.backgroundJobs().jobs().stream()
