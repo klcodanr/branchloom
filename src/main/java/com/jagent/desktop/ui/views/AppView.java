@@ -24,6 +24,7 @@ import com.jagent.desktop.ui.components.ProjectTreePanel;
 import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiFactory;
+import com.jagent.desktop.ui.utils.TerminalShortcutDispatcher;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.KeyboardFocusManager;
@@ -130,29 +131,14 @@ public final class AppView extends JFrame {
                     KeyboardFocusManager.getCurrentKeyboardFocusManager().clearFocusOwner();
                 });
         terminalShortcutDispatcher =
-                event -> {
-                    if (event.getID() != KeyEvent.KEY_PRESSED
-                            || !(event.getSource() instanceof java.awt.Component component)
-                            || (!(component instanceof TerminalPanel)
-                                    && SwingUtilities.getAncestorOfClass(
-                                                    TerminalPanel.class, component)
-                                            == null)) {
-                        return false;
-                    }
-                    final KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(event);
-                    final Object actionId = inputMap.get(keyStroke);
-                    if (actionId == null) {
-                        return false;
-                    }
-                    final var action = actionMap.get(actionId);
-                    if (action == null) {
-                        return false;
-                    }
-                    action.actionPerformed(
-                            new ActionEvent(component, ActionEvent.ACTION_PERFORMED, ""));
-                    event.consume();
-                    return true;
-                };
+                new TerminalShortcutDispatcher(
+                        inputMap,
+                        actionMap,
+                        component ->
+                                component instanceof TerminalPanel
+                                        || SwingUtilities.getAncestorOfClass(
+                                                        TerminalPanel.class, component)
+                                                != null);
         KeyboardFocusManager.getCurrentKeyboardFocusManager()
                 .addKeyEventDispatcher(terminalShortcutDispatcher);
     }
