@@ -206,45 +206,39 @@ public final class CreateSessionAction extends BaseAction {
                         worktreePath);
         try {
             AgentContext.write(projectFor(state, projectId), session);
-            final var sessionId = state.addSession(projectId, session);
-            final var terminalId =
-                    state.addTerminal(
-                            sessionId,
-                            new Terminal(
-                                    sessionId,
-                                    request.agent().name,
-                                    request.agent()
-                                            .newSessionCommand
-                                            .replace(
-                                                    "{prompt}",
-                                                    PlatformCommands.shellQuote(
-                                                            request.prompt()))));
-            final Terminal terminal = state.terminals().get(terminalId);
-            final TerminalPanel terminalPanel =
-                    TerminalPanel.retained(
-                            terminalId,
-                            terminal,
-                            Path.of(worktreePath).toAbsolutePath().normalize(),
-                            project.name() + " > " + session.name() + " > " + terminal.title());
-            actionContext
-                    .viewCoordinator()
-                    .updateView(
-                            ViewId.SESSION,
-                            ViewState.sessionTerminal(projectId, sessionId, terminalId));
-            if (project.startupCommands().isEmpty()) {
-                terminalPanel.start();
-            } else {
-                final var job =
-                        actionContext.viewCoordinator().backgroundJobs().start("Session setup");
-                runStartupCommand(project, worktreePath, job, 0, terminalPanel::start);
-            }
         } catch (IOException exception) {
-            LOG.log(Level.SEVERE, CREATE_SESSION, exception);
-            showError(
-                    CREATE_SESSION,
-                    exception.getMessage() == null
-                            ? "Could not save the new session."
-                            : exception.getMessage());
+            LOG.log(Level.WARNING, "Could not write agent context", exception);
+        }
+        final var sessionId = state.addSession(projectId, session);
+        final var terminalId =
+                state.addTerminal(
+                        sessionId,
+                        new Terminal(
+                                sessionId,
+                                request.agent().name,
+                                request.agent()
+                                        .newSessionCommand
+                                        .replace(
+                                                "{prompt}",
+                                                PlatformCommands.shellQuote(request.prompt()))));
+        final Terminal terminal = state.terminals().get(terminalId);
+        final TerminalPanel terminalPanel =
+                TerminalPanel.retained(
+                        terminalId,
+                        terminal,
+                        Path.of(worktreePath).toAbsolutePath().normalize(),
+                        project.name() + " > " + session.name() + " > " + terminal.title());
+        actionContext
+                .viewCoordinator()
+                .updateView(
+                        ViewId.SESSION,
+                        ViewState.sessionTerminal(projectId, sessionId, terminalId));
+        if (project.startupCommands().isEmpty()) {
+            terminalPanel.start();
+        } else {
+            final var job =
+                    actionContext.viewCoordinator().backgroundJobs().start("Session setup");
+            runStartupCommand(project, worktreePath, job, 0, terminalPanel::start);
         }
     }
 

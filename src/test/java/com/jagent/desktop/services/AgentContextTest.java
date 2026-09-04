@@ -61,4 +61,33 @@ class AgentContextTest {
                 Files.exists(worktree.resolve(".branchloom/context.md")),
                 "blank context paths should not create a file");
     }
+
+    @Test
+    void writesToAnExistingFileWhenItConflictsWithAConfiguredParent(
+            @org.junit.jupiter.api.io.TempDir final Path worktree) throws IOException {
+        final Project project =
+                new Project(
+                        "Demo",
+                        worktree.toString(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        List.of(),
+                        ".cursor-notes/agent-start.md",
+                        null);
+        final Session session =
+                new Session(null, "Fix login", "Codex", "Fix it", worktree.toString());
+        final Path context = worktree.resolve(".cursor-notes");
+        Files.writeString(context, "old agent start content");
+
+        AgentContext.write(project, session);
+
+        final String content = Files.readString(context);
+        assertTrue(content.contains("# Agent context"));
+        assertFalse(content.contains("old agent start content"));
+        assertFalse(Files.exists(worktree.resolve(".cursor-notes/agent-start.md")));
+    }
 }
