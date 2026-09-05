@@ -125,4 +125,22 @@ class TerminalRuntimeTest {
         assertEquals(TerminalState.EXITED, successful.state(), "successful process should exit");
         assertEquals(TerminalState.FAILED, failed.state(), "failed process should fail");
     }
+
+    @Test
+    void marksQuietRunningProcessIdle() throws InterruptedException {
+        final var runtime = new TerminalRuntime("sleep 10", TEMP_DIRECTORY, HISTORY_FILE);
+        final var attached = new CountDownLatch(1);
+        try {
+            runtime.start(ignored -> attached.countDown(), ignored -> {});
+
+            assertTrue(
+                    attached.await(5, java.util.concurrent.TimeUnit.SECONDS), "PTY should attach");
+            AsyncTestSupport.await(
+                    () -> runtime.state() == TerminalState.IDLE,
+                    "quiet terminal should become idle");
+        } finally {
+            runtime.stop();
+        }
+        assertEquals(TerminalState.STOPPED, runtime.state(), "cleanup should stop the runtime");
+    }
 }

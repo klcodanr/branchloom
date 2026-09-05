@@ -66,7 +66,7 @@ public final class PasteSessionsAction extends BaseAction {
                 projectId, project, request.agent(), candidates, "Sessions from pasted lines");
     }
 
-    private String template(final String basePrompt, final String line) {
+    public static String template(final String basePrompt, final String line) {
         return basePrompt.isBlank() ? line : basePrompt.replace("{prompt}", line);
     }
 }

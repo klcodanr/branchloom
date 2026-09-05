@@ -48,6 +48,12 @@ class ContextMenuAndThemeTest {
 
         assertTrue(findMenu(projectMenu, "Agents") != null, "project agents menu should exist");
         assertTrue(findMenu(projectMenu, "Editors") != null, "project editors menu should exist");
+        final var importMenu = findMenu(projectMenu, "Import from");
+        assertNotNull(importMenu, "project import menu should exist");
+        assertEquals("Branches", importMenu.getItem(0).getText(), "branch import should exist");
+        assertEquals("Worktrees", importMenu.getItem(1).getText(), "worktree import should exist");
+        assertEquals("GitHub issues", importMenu.getItem(2).getText(), "issue import should exist");
+        assertEquals("Pasted lines", importMenu.getItem(3).getText(), "paste import should exist");
         assertTrue(findMenu(sessionMenu, "Agents") != null, "session agents menu should exist");
         assertTrue(findMenu(sessionMenu, "Editors") != null, "session editors menu should exist");
     }

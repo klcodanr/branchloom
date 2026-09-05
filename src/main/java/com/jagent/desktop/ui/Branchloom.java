@@ -3,6 +3,7 @@ package com.jagent.desktop.ui;
 import com.formdev.flatlaf.util.SystemInfo;
 import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.JsonLogging;
+import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.ui.components.AppIcon;
 import com.jagent.desktop.ui.views.AppView;
 import java.awt.Taskbar;
@@ -18,7 +19,13 @@ public final class Branchloom {
         } catch (Exception ignored) {
             // Logging setup should not prevent the application from opening.
         }
-        Runtime.getRuntime().addShutdownHook(new Thread(BackgroundTasks::shutdown));
+        Runtime.getRuntime()
+                .addShutdownHook(
+                        new Thread(
+                                () -> {
+                                    TerminalManager.get().disposeAll();
+                                    BackgroundTasks.shutdown();
+                                }));
         configureMacOs();
         if (Taskbar.isTaskbarSupported()) {
             Taskbar.getTaskbar().setIconImage(AppIcon.image(128));
