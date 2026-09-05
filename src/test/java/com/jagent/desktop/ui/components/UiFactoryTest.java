@@ -23,32 +23,73 @@ import org.junit.jupiter.api.Test;
 class UiFactoryTest {
     private static final String VALUE_MESSAGE = "factory value should match";
     private static final String CONDITION_MESSAGE = "factory condition should hold";
+    private static final String SAVE = "Save";
+    private static final String PRESSED = "pressed";
 
     @Test
     void createsConfiguredTextAndButtons() {
         final var text = UiFactory.selectableText(null, Theme.FontSize.MD);
-        final JButton button = UiFactory.button("Save");
-        final JButton iconButton = UiFactory.iconButton(new UiFactory.MenuIcon(Color.BLUE));
+        final JButton button = UiFactory.button(SAVE);
+        final JButton iconButton =
+                UiFactory.iconButton(new UiFactory.MenuIcon(Color.BLUE), "Open menu");
 
         assertEquals("", text.getText(), VALUE_MESSAGE);
         assertFalse(text.isEditable(), CONDITION_MESSAGE);
-        assertEquals("Save", button.getAccessibleContext().getAccessibleName(), VALUE_MESSAGE);
-        assertEquals(22, iconButton.getPreferredSize().width, VALUE_MESSAGE);
+        assertEquals(SAVE, button.getAccessibleContext().getAccessibleName(), VALUE_MESSAGE);
+        assertEquals("Open menu", iconButton.getToolTipText(), VALUE_MESSAGE);
+        assertEquals(
+                "Open menu", iconButton.getAccessibleContext().getAccessibleName(), VALUE_MESSAGE);
+        assertEquals(32, iconButton.getPreferredSize().width, VALUE_MESSAGE);
+        assertEquals(32, iconButton.getPreferredSize().height, VALUE_MESSAGE);
+        assertTrue(iconButton.isFocusPainted(), CONDITION_MESSAGE);
     }
 
     @Test
     void enterActivatesFactoryButtonsAndConfiguredToggles() {
-        final JButton button = UiFactory.button("Save");
+        final JButton button = UiFactory.button(SAVE);
         final JToggleButton toggle = new JToggleButton("Toggle");
         UiFactory.configureButtonEnter(toggle);
         final int[] activations = {0};
         button.addActionListener(event -> activations[0]++);
         toggle.addActionListener(event -> activations[0]++);
 
-        button.getActionMap().get("pressed").actionPerformed(null);
-        toggle.getActionMap().get("pressed").actionPerformed(null);
+        button.getActionMap().get(PRESSED).actionPerformed(null);
+        toggle.getActionMap().get(PRESSED).actionPerformed(null);
 
         assertEquals(2, activations[0], "Enter should activate both configured controls");
+    }
+
+    @Test
+    void spaceActivatesFactoryButtons() {
+        final JButton button = UiFactory.button(SAVE);
+        final int[] activations = {0};
+        button.addActionListener(event -> activations[0]++);
+
+        assertEquals(
+                PRESSED,
+                button.getInputMap(javax.swing.JComponent.WHEN_FOCUSED)
+                        .get(
+                                javax.swing.KeyStroke.getKeyStroke(
+                                        java.awt.event.KeyEvent.VK_SPACE, 0)),
+                "Space should use the activation action");
+        button.getActionMap().get(PRESSED).actionPerformed(null);
+
+        assertEquals(1, activations[0], "Space should activate the button");
+    }
+
+    @Test
+    void configuresSmallIconButtonsForAccessibility() {
+        final SmIconButton button =
+                new SmIconButton("Comparison scope", new UiFactory.MenuIcon(Color.BLUE));
+        final int[] activations = {0};
+        button.addActionListener(event -> activations[0]++);
+
+        button.getActionMap().get(PRESSED).actionPerformed(null);
+
+        assertEquals("Comparison scope", button.getToolTipText(), VALUE_MESSAGE);
+        assertEquals(32, button.getPreferredSize().width, VALUE_MESSAGE);
+        assertTrue(button.isFocusPainted(), CONDITION_MESSAGE);
+        assertEquals(1, activations[0], "Enter should activate the segmented button");
     }
 
     @Test

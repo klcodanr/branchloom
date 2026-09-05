@@ -266,9 +266,7 @@ public final class ProjectCards extends JPanel {
 
     private JButton iconAction(
             final javax.swing.Icon icon, final String tooltip, final Runnable action) {
-        final JButton control = UiFactory.iconButton(icon);
-        control.getAccessibleContext().setAccessibleName(tooltip);
-        control.setToolTipText(tooltip);
+        final JButton control = UiFactory.iconButton(icon, tooltip);
         control.addActionListener(event -> action.run());
         return control;
     }
