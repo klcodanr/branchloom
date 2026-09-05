@@ -21,8 +21,10 @@ import java.awt.FlowLayout;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
@@ -138,6 +140,19 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         terminalTabs.closeActive();
     }
 
+    public boolean closeActiveFile() {
+        return Optional.ofNullable(tabs.getSelectedComponent())
+                .filter(JComponent.class::isInstance)
+                .map(JComponent.class::cast)
+                .filter(component -> component.getClientProperty("workspaceFile") != null)
+                .map(
+                        component -> {
+                            tabs.remove(component);
+                            return true;
+                        })
+                .orElse(false);
+    }
+
     public void renameActiveTerminal() {
         terminalTabs.renameActive(this);
     }
@@ -160,7 +175,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
     protected final void openFile(final Path file) {
         final Path normalized = file.toAbsolutePath().normalize();
         for (int index = 0; index < tabs.getTabCount(); index++) {
-            if (tabs.getComponentAt(index) instanceof javax.swing.JComponent component
+            if (tabs.getComponentAt(index) instanceof JComponent component
                     && normalized.equals(component.getClientProperty("workspaceFile"))) {
                 tabs.setSelectedIndex(index);
                 return;
