@@ -22,11 +22,16 @@ public final class AgentContext {
                 path.isAbsolute()
                         ? path
                         : Path.of(session.worktreePath()).resolve(path).normalize();
-        final Path parent = contextPath.getParent();
+        final Path conflictingParent = contextPath.getParent();
+        final Path target =
+                conflictingParent != null && Files.isRegularFile(conflictingParent)
+                        ? conflictingParent
+                        : contextPath;
+        final Path parent = target.getParent();
         if (parent != null) {
             Files.createDirectories(parent);
         }
-        Files.writeString(contextPath, content(project, session));
+        Files.writeString(target, content(project, session));
     }
 
     private static String content(final Project project, final Session session) {

@@ -98,4 +98,21 @@ class TerminalManagerTest {
 
         assertFalse(Files.exists(history), "disposing with deletion should remove history");
     }
+
+    @Test
+    void disposeAllClearsRetainedAndUnretainedRuntimes() {
+        final TerminalManager manager = TerminalManager.get();
+        final TerminalId id = TerminalId.create();
+        final Terminal terminal = new Terminal(null, "Shell", TRUE_COMMAND);
+        final TerminalRuntime created = manager.create(TRUE_COMMAND, TEMP_DIRECTORY, RESOURCE);
+        final TerminalRuntime retained =
+                manager.retained(id, terminal, TEMP_DIRECTORY, "retained-resource");
+
+        manager.disposeAll();
+
+        assertTrue(manager.activeProcesses().isEmpty(), "disposeAll should clear active resources");
+        assertNull(manager.state(id), "disposeAll should clear retained runtimes");
+        assertEquals(TerminalState.STOPPED, created.state(), "created runtime should be stopped");
+        assertEquals(TerminalState.STOPPED, retained.state(), "retained runtime should be stopped");
+    }
 }

@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import com.jagent.desktop.models.Agent;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class AgentDetectionTest {
@@ -26,5 +28,16 @@ class AgentDetectionTest {
                             agent.openCommand.isBlank(),
                             "detected agents should have open commands");
                 });
+    }
+
+    @Test
+    void defaultCommandUsesTheFirstConfiguredCommand() {
+        final String command =
+                AgentDetection.defaultCommand(
+                        List.of(
+                                new Agent("Blank", "", ""),
+                                new Agent("Configured", "agent {prompt}", "agent")));
+
+        assertEquals("agent {prompt}", command, "the first usable configured command should win");
     }
 }

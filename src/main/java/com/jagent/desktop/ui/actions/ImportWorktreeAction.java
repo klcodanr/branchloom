@@ -14,13 +14,17 @@ import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import com.jagent.desktop.ui.utils.GitUtils;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.JComboBox;
+import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
+import javax.swing.JScrollPane;
+import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 
 /** Starts importing a worktree into the selected project. */
@@ -81,30 +85,47 @@ public final class ImportWorktreeAction extends BaseAction {
             return;
         }
 
-        final JComboBox<String> worktree = new JComboBox<>(worktrees.toArray(new String[0]));
-        final Path first = Path.of(worktrees.getFirst()).getFileName();
-        final JTextField name =
-                new JTextField(first == null ? worktrees.getFirst() : first.toString(), 28);
-        final JPanel worktreeForm = form("Existing worktree", worktree, "Session name", name);
+        final JList<String> worktree = new JList<>(worktrees.toArray(new String[0]));
+        worktree.setName("import-worktrees");
+        worktree.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        worktree.setVisibleRowCount(Math.min(12, Math.max(4, worktrees.size())));
+        final JPanel worktreeForm = form("Existing worktrees", new JScrollPane(worktree));
         if (JOptionPane.showConfirmDialog(
                         actionContext.window(), worktreeForm, TITLE, JOptionPane.OK_CANCEL_OPTION)
                 != JOptionPane.OK_OPTION) {
             return;
         }
-        if (name.getText().isBlank() || worktree.getSelectedItem() == null) {
+        final List<String> selected = worktree.getSelectedValuesList();
+        if (selected.isEmpty()) {
             return;
         }
+        final Set<String> names = existingNames(state, project);
+        for (final String path : selected) {
+            final Path fileName = Path.of(path).getFileName();
+            final String baseName = fileName == null ? path : fileName.toString();
+            final String sessionName = uniqueName(baseName, names);
+            names.add(sessionName.toLowerCase(Locale.ROOT));
+            addSession(projectId, sessionName, path);
+        }
+    }
 
-        final String sessionName = name.getText().trim();
-        if (project.sessionIds().stream()
+    private Set<String> existingNames(final AppState state, final Project project) {
+        final Set<String> names = new HashSet<>();
+        project.sessionIds().stream()
                 .map(state.sessions()::get)
-                .anyMatch(
-                        session ->
-                                session != null && session.name().equalsIgnoreCase(sessionName))) {
-            LOG.severe("Import worktree: A session with that name already exists.");
-            return;
+                .filter(session -> session != null)
+                .map(session -> session.name().toLowerCase(Locale.ROOT))
+                .forEach(names::add);
+        return names;
+    }
+
+    private String uniqueName(final String base, final Set<String> names) {
+        String name = base;
+        int suffix = 2;
+        while (names.contains(name.toLowerCase(Locale.ROOT))) {
+            name = base + "-" + suffix++;
         }
-        addSession(projectId, sessionName, worktree.getSelectedItem().toString());
+        return name;
     }
 
     private List<String> availableWorktrees(

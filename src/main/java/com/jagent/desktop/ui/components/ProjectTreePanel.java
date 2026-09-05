@@ -27,11 +27,13 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import javax.swing.AbstractAction;
 import javax.swing.JButton;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JTree;
+import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.ToolTipManager;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -98,8 +100,25 @@ public final class ProjectTreePanel extends JPanel {
             setRootVisible(false);
             setShowsRootHandles(true);
             setCellRenderer(new ProjectTreeCellRenderer());
+            getAccessibleContext().setAccessibleName("Projects and sessions");
             ToolTipManager.sharedInstance().registerComponent(this);
             getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
+            getInputMap(WHEN_FOCUSED)
+                    .put(
+                            KeyStroke.getKeyStroke(KeyEvent.VK_F10, KeyEvent.SHIFT_DOWN_MASK),
+                            "show-context-menu");
+            getInputMap(WHEN_FOCUSED)
+                    .put(KeyStroke.getKeyStroke(KeyEvent.VK_CONTEXT_MENU, 0), "show-context-menu");
+            getActionMap()
+                    .put(
+                            "show-context-menu",
+                            new AbstractAction() {
+                                @Override
+                                public void actionPerformed(
+                                        final java.awt.event.ActionEvent event) {
+                                    showKeyboardContextMenu();
+                                }
+                            });
             addTreeSelectionListener(
                     event -> {
                         if (!selectingProgrammatically) {
@@ -356,22 +375,36 @@ public final class ProjectTreePanel extends JPanel {
             showAddProjectMenu(event.getPoint());
             return;
         }
+        showContextMenu(path, event.getPoint());
+    }
+
+    private void showKeyboardContextMenu() {
+        final TreePath path = tree.getLeadSelectionPath();
+        if (path == null) {
+            return;
+        }
+        final Rectangle bounds = tree.getPathBounds(path);
+        if (bounds == null) {
+            return;
+        }
+        showContextMenu(path, new Point(bounds.x, bounds.y + bounds.height));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void showContextMenu(final TreePath path, final Point point) {
         tree.setSelectionPath(path);
         final DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
         if (node.getUserObject() instanceof Map.Entry<?, ?> entry
                 && entry.getValue() instanceof Project) {
             ProjectActions.show(
-                    actionContext,
-                    ((Map.Entry<ProjectId, Project>) entry).getKey(),
-                    tree,
-                    event.getPoint());
+                    actionContext, ((Map.Entry<ProjectId, Project>) entry).getKey(), tree, point);
         } else if (node.getUserObject() instanceof Map.Entry<?, ?> entry
                 && entry.getValue() instanceof Session) {
-            showSessionMenu((Map.Entry<SessionId, Session>) entry, event.getPoint());
+            showSessionMenu((Map.Entry<SessionId, Session>) entry, point);
         } else if (node.getUserObject() instanceof String && node.getParent().equals(root)) {
-            showGroupMenu(node, event.getPoint());
+            showGroupMenu(node, point);
         } else {
-            showAddProjectMenu(event.getPoint());
+            showAddProjectMenu(point);
         }
     }
 
@@ -379,7 +412,7 @@ public final class ProjectTreePanel extends JPanel {
         actionContext.appState().updateCurrentProject(entry.getValue().projectId());
         actionContext.appState().updateCurrentSession(entry.getKey());
         final JPopupMenu menu = SessionActions.menu(actionContext, entry.getKey());
-        menu.show(tree, point.x, point.y);
+        UiFactory.showPopupMenu(menu, tree, point.x, point.y);
     }
 
     private void showGroupMenu(final DefaultMutableTreeNode groupNode, final Point point) {
@@ -392,7 +425,7 @@ public final class ProjectTreePanel extends JPanel {
         moveDown.setEnabled(groupIndex(groupNode) < groupCount() - 1);
         moveDown.addActionListener(event -> moveGroup(groupNode, groupIndex(groupNode) + 1));
         menu.add(moveDown);
-        menu.show(tree, point.x, point.y);
+        UiFactory.showPopupMenu(menu, tree, point.x, point.y);
     }
 
     private void moveGroup(final DefaultMutableTreeNode groupNode, final int targetIndex) {
@@ -477,6 +510,6 @@ public final class ProjectTreePanel extends JPanel {
         final JMenuItem add = new JMenuItem("New project");
         add.addActionListener(event -> new CreateProjectAction(actionContext).execute());
         menu.add(add);
-        menu.show(tree, point.x, point.y);
+        UiFactory.showPopupMenu(menu, tree, point.x, point.y);
     }
 }

@@ -13,6 +13,7 @@ import com.jagent.desktop.ui.components.ProjectActions;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
 import com.jagent.desktop.ui.components.TerminalPanel;
+import com.jagent.desktop.ui.components.UiFactory;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -82,7 +83,8 @@ public final class ProjectView extends AbstractWorkspaceView {
     @Override
     protected void showActions(final JButton actions) {
         if (projectId != null) {
-            ProjectActions.menu(actionContext, projectId).show(actions, 0, actions.getHeight());
+            UiFactory.showPopupMenu(
+                    ProjectActions.menu(actionContext, projectId), actions, 0, actions.getHeight());
         }
     }
 
@@ -135,7 +137,7 @@ public final class ProjectView extends AbstractWorkspaceView {
     }
 
     public boolean focusPullRequestSearch() {
-        return false;
+        return authoredPullRequests.focusSearch() || reviewPullRequests.focusSearch();
     }
 
     /** Adds a project terminal; project summary and pull-request tabs are not terminal tabs. */

@@ -19,12 +19,9 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextField;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 
 public final class PullRequestsBoard extends JPanel {
     private static final Logger LOG = Logger.getLogger(PullRequestsBoard.class.getName());
@@ -33,6 +30,7 @@ public final class PullRequestsBoard extends JPanel {
     private final JPanel board = new JPanel(new GridLayout(1, 0, 14, 0));
     private final JButton refreshButton;
     private final JLabel refreshStatus;
+    private final SearchInput search;
     private final JComponent loading = UiFactory.loading("Loading pull requests...");
     private final JScrollPane scroll;
 
@@ -52,8 +50,15 @@ public final class PullRequestsBoard extends JPanel {
         controls.setOpaque(false);
         final JLabel status = UiFactory.label("All projects", Theme.FontSize.SM);
         controls.add(status);
-        final JTextField search = new JTextField(20);
-        search.setToolTipText("Filter pull requests by number, title, author, or branch");
+        search =
+                new SearchInput(
+                        new SearchInput.Text(
+                                "pull-request-search",
+                                "Filter pull requests by number, title, author, or branch",
+                                "Filter pull requests by number, title, author, or branch"));
+        search.setVisible(true);
+        search.onChange(parent::setFilter);
+        search.onCancel(() -> search.setText(""));
         controls.add(search);
         refreshButton = UiFactory.iconButton(UiIcons.refresh());
         refreshButton.setToolTipText("Refresh pull requests");
@@ -62,28 +67,6 @@ public final class PullRequestsBoard extends JPanel {
         refreshButton.addActionListener(event -> parent.refresh());
         controls.add(refreshButton);
         controls.add(refreshStatus);
-        search.getDocument()
-                .addDocumentListener(
-                        new DocumentListener() {
-                            private void update() {
-                                parent.setFilter(search.getText());
-                            }
-
-                            @Override
-                            public void insertUpdate(DocumentEvent event) {
-                                update();
-                            }
-
-                            @Override
-                            public void removeUpdate(DocumentEvent event) {
-                                update();
-                            }
-
-                            @Override
-                            public void changedUpdate(DocumentEvent event) {
-                                update();
-                            }
-                        });
         add(controls, BorderLayout.NORTH);
         board.setOpaque(false);
         scroll = new JScrollPane(board);
@@ -98,6 +81,10 @@ public final class PullRequestsBoard extends JPanel {
     public void setFilter(final String filter) {
         this.filter = filter == null ? "" : filter.trim().toLowerCase(Locale.ROOT);
         render();
+    }
+
+    public boolean focusSearch() {
+        return search.requestFocusInWindow();
     }
 
     private void refresh() {

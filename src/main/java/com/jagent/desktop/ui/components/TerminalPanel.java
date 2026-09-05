@@ -5,26 +5,37 @@ import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
 import com.jagent.desktop.services.terminal.TerminalState;
+import com.jagent.desktop.ui.utils.ClipboardImagePaster;
 import com.jediterm.core.Color;
 import com.jediterm.terminal.TerminalColor;
+import com.jediterm.terminal.TerminalCopyPasteHandler;
+import com.jediterm.terminal.TerminalStarter;
 import com.jediterm.terminal.TextStyle;
 import com.jediterm.terminal.TtyConnector;
 import com.jediterm.terminal.emulator.ColorPalette;
 import com.jediterm.terminal.emulator.ColorPaletteImpl;
+import com.jediterm.terminal.model.StyleState;
+import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 import java.awt.BorderLayout;
 import java.awt.Font;
+import java.awt.datatransfer.DataFlavor;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 import javax.swing.SwingUtilities;
+import javax.swing.TransferHandler;
 import javax.swing.UIManager;
 import org.jetbrains.annotations.Nullable;
 
@@ -57,9 +68,21 @@ public final class TerminalPanel extends JPanel {
             final Path directory,
             final String resourceName,
             final Consumer<TerminalState> stateChanged) {
+        this(TerminalManager.get().create(command, directory, resourceName), null, stateChanged);
+    }
+
+    protected TerminalPanel(
+            final TerminalRuntime runtime, final Consumer<TerminalState> stateChanged) {
+        this(runtime, null, stateChanged);
+    }
+
+    private TerminalPanel(
+            final TerminalRuntime runtime,
+            final @Nullable TerminalId retainedId,
+            final Consumer<TerminalState> stateChanged) {
         super(new BorderLayout());
-        runtime = manager.create(command, directory, resourceName);
-        retainedId = null;
+        this.runtime = runtime;
+        this.retainedId = retainedId;
         setOpaque(false);
         setBorder(UiFactory.cardBorder());
         terminal = new AppJediTermWidget(80, 24, new AppTerminalSettings());
@@ -68,14 +91,7 @@ public final class TerminalPanel extends JPanel {
     }
 
     private TerminalPanel(final TerminalId retainedId, final TerminalRuntime runtime) {
-        super(new BorderLayout());
-        this.retainedId = retainedId;
-        this.runtime = runtime;
-        setOpaque(false);
-        setBorder(UiFactory.cardBorder());
-        terminal = new AppJediTermWidget(80, 24, new AppTerminalSettings());
-        add(terminal, BorderLayout.CENTER);
-        setStateChanged(ignored -> {});
+        this(runtime, retainedId, ignored -> {});
     }
 
     public static TerminalPanel retained(
@@ -242,6 +258,90 @@ public final class TerminalPanel extends JPanel {
             final JScrollBar bar = new JScrollBar();
             bar.setUnitIncrement(16);
             return bar;
+        }
+
+        @Override
+        protected com.jediterm.terminal.ui.TerminalPanel createTerminalPanel(
+                final com.jediterm.terminal.ui.settings.SettingsProvider settings,
+                final StyleState styleState,
+                final TerminalTextBuffer textBuffer) {
+            return new AppTerminalPanel(settings, textBuffer, styleState);
+        }
+    }
+
+    private static final class AppTerminalPanel extends com.jediterm.terminal.ui.TerminalPanel {
+        private transient TerminalStarter terminalStarter;
+
+        private AppTerminalPanel(
+                final com.jediterm.terminal.ui.settings.SettingsProvider settings,
+                final TerminalTextBuffer textBuffer,
+                final StyleState styleState) {
+            super(settings, textBuffer, styleState);
+            setTransferHandler(
+                    new TransferHandler() {
+                        @Override
+                        public boolean canImport(final TransferSupport support) {
+                            return support.isDrop()
+                                    && support.isDataFlavorSupported(DataFlavor.javaFileListFlavor);
+                        }
+
+                        @Override
+                        public boolean importData(final TransferSupport support) {
+                            if (!canImport(support) || terminalStarter == null) {
+                                return false;
+                            }
+                            try {
+                                final Object data =
+                                        support.getTransferable()
+                                                .getTransferData(DataFlavor.javaFileListFlavor);
+                                if (!(data instanceof List<?> files) || files.size() != 1) {
+                                    return false;
+                                }
+                                if (!(files.get(0) instanceof File file)) {
+                                    return false;
+                                }
+                                terminalStarter.sendString(
+                                        file.toPath().toAbsolutePath().normalize().toString(),
+                                        true);
+                                return true;
+                            } catch (IOException
+                                    | java.awt.datatransfer.UnsupportedFlavorException ignored) {
+                                return false;
+                            }
+                        }
+                    });
+        }
+
+        @Override
+        public void setTerminalStarter(final TerminalStarter starter) {
+            super.setTerminalStarter(starter);
+            terminalStarter = starter;
+        }
+
+        @Override
+        protected TerminalCopyPasteHandler createCopyPasteHandler() {
+            final TerminalCopyPasteHandler delegate = super.createCopyPasteHandler();
+            return new TerminalCopyPasteHandler() {
+                @Override
+                public void setContents(final String text, final boolean useSystemSelection) {
+                    delegate.setContents(text, useSystemSelection);
+                }
+
+                @Override
+                public String getContents(final boolean useSystemSelection) {
+                    final var imagePath = new java.util.concurrent.atomic.AtomicReference<String>();
+                    final boolean handled =
+                            ClipboardImagePaster.paste(
+                                    imagePath::set,
+                                    message ->
+                                            JOptionPane.showMessageDialog(
+                                                    AppTerminalPanel.this,
+                                                    message,
+                                                    "Clipboard image paste failed",
+                                                    JOptionPane.ERROR_MESSAGE));
+                    return handled ? imagePath.get() : delegate.getContents(useSystemSelection);
+                }
+            };
         }
     }
 
