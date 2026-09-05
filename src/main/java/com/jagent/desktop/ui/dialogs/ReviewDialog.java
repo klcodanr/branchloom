@@ -67,13 +67,24 @@ public final class ReviewDialog extends JDialog {
         setLocationRelativeTo(actionContext.window());
     }
 
+    /* package */
+    static String defaultPrompt(final String template, final PullRequest request) {
+        return template.replace("{number}", Integer.toString(request.number()))
+                .replace("{title}", request.title());
+    }
+
+    /* package */
+    static boolean validPrompt(final String value) {
+        return !value.isBlank();
+    }
+
     private void submit() {
         if (agent.getSelectedItem() == null) {
             JOptionPane.showMessageDialog(
                     this, "Select an agent.", "Review pull request", JOptionPane.ERROR_MESSAGE);
             return;
         }
-        if (prompt.getText().isBlank()) {
+        if (!validPrompt(prompt.getText())) {
             JOptionPane.showMessageDialog(
                     this, "Prompt is required.", "Review pull request", JOptionPane.ERROR_MESSAGE);
             return;

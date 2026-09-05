@@ -27,7 +27,7 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
 /** Starts the project creation workflow. */
-public final class CreateProjectAction extends BaseAction {
+public class CreateProjectAction extends BaseAction {
 
     private static final Logger LOG = Logger.getLogger(CreateProjectAction.class.getName());
 
@@ -65,6 +65,19 @@ public final class CreateProjectAction extends BaseAction {
                                             }
                                             showDialog(configuredAuths);
                                         }));
+    }
+
+    protected static boolean duplicateName(
+            final java.util.Collection<Project> projects, final String name) {
+        return projects.stream().anyMatch(project -> project.name().equalsIgnoreCase(name));
+    }
+
+    protected static boolean duplicatePath(
+            final java.util.Collection<Project> projects, final Path path) {
+        return projects.stream()
+                .anyMatch(
+                        project ->
+                                path.equals(Path.of(project.path()).toAbsolutePath().normalize()));
     }
 
     private void showDialog(final java.util.List<GitHub.Auth> configuredAuths) {
@@ -124,16 +137,11 @@ public final class CreateProjectAction extends BaseAction {
                     JOptionPane.ERROR_MESSAGE);
             return;
         }
-        if (appState.projects().values().stream()
-                .anyMatch(
-                        project ->
-                                projectPath.equals(
-                                        Path.of(project.path()).toAbsolutePath().normalize()))) {
+        if (duplicatePath(appState.projects().values(), projectPath)) {
             LOG.severe("Add Git project: That project is already registered.");
             return;
         }
-        if (appState.projects().values().stream()
-                .anyMatch(project -> project.name().equalsIgnoreCase(projectName))) {
+        if (duplicateName(appState.projects().values(), projectName)) {
             LOG.severe("Add Git project: A project with that name already exists.");
             return;
         }
