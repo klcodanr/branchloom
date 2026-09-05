@@ -64,6 +64,14 @@ class GitTest {
         TestGitRepository.initialize(directory);
 
         assertTrue(Git.isRepository(directory), "initialized repository should validate");
+        final Path plain = directory.resolveSibling(directory.getFileName() + "-plain");
+        Files.createDirectory(plain);
+        final Path file = plain.resolve("file");
+        Files.writeString(file, "not a repository");
+        assertFalse(
+                Git.isRepository(plain),
+                "ordinary directories should not validate as repositories");
+        assertFalse(Git.isRepository(file), "ordinary files should not validate as repositories");
         assertFalse(
                 Git.isRepository(directory.resolve("missing")),
                 "missing directory should not validate as a repository");
@@ -94,7 +102,9 @@ class GitTest {
                 directory,
                 "git checkout -qb feature && printf 'feature' > feature.txt && git add feature.txt"
                         + " && git commit -qm feature && git update-ref refs/remotes/origin/master"
-                        + " HEAD~1 && git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/master");
+                        + " HEAD~1 && git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/master"
+                        + " && git config branch.feature.remote origin"
+                        + " && git config branch.feature.merge refs/heads/master");
         Files.writeString(directory.resolve(TRACKED_FILE), "local");
 
         final Git.WorktreeStatus local = Git.worktreeStatus(directory, false);
@@ -111,6 +121,22 @@ class GitTest {
     }
 
     @Test
+    void worktreeStatusUsesConfiguredUpstream(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+        run(
+                directory,
+                "git checkout -qb feature && printf 'feature' > feature.txt && git add feature.txt"
+                        + " && git commit -qm feature && git update-ref refs/remotes/origin/master HEAD~1"
+                        + " && git config branch.feature.remote origin"
+                        + " && git config branch.feature.merge refs/heads/master");
+
+        final Git.WorktreeStatus status = Git.worktreeStatus(directory, true);
+
+        assertNotNull(status, "configured upstream status should be returned");
+    }
+
+    @Test
     void statusReportsCleanAndModifiedRepositories(@TempDir final Path directory)
             throws IOException, InterruptedException {
         TestGitRepository.initialize(directory);
@@ -121,6 +147,24 @@ class GitTest {
                 " M tracked.txt\n",
                 Git.status(directory),
                 "modified repositories should report changed files");
+    }
+
+    @Test
+    void worktreeStatusSkipsSourceChangesWithoutAnUpstream(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+        run(
+                directory,
+                "git checkout -qb feature && printf 'feature' > feature.txt && git add feature.txt"
+                        + " && git commit -qm feature");
+        Files.writeString(directory.resolve(TRACKED_FILE), "local");
+
+        final Git.WorktreeStatus status = Git.worktreeStatus(directory, true);
+
+        assertTrue(status.files().containsKey(TRACKED_FILE), "local changes should be retained");
+        assertFalse(
+                status.files().containsKey("feature.txt"),
+                "committed changes should be skipped without a source branch");
     }
 
     @Test
@@ -456,6 +500,42 @@ class GitTest {
                 "created worktree should contain files");
         assertTrue(
                 Files.exists(added.resolve(TRACKED_FILE)), "added worktree should contain files");
+    }
+
+    @Test
+    void createsWorktreeFromAPlainBaseReference(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+        final Path worktree = directory.resolveSibling(directory.getFileName() + "-base");
+
+        new Git().createWorktree(project(directory), "created", worktree, "master").join();
+
+        assertEquals(
+                "created\n",
+                readCommand(worktree, SHOW_BRANCH_COMMAND),
+                "worktree should be created from a plain local base reference");
+
+        assertCompletionFailure(
+                () ->
+                        new Git()
+                                .createWorktree(
+                                        project(directory),
+                                        "remote-created",
+                                        directory.resolveSibling(
+                                                directory.getFileName() + "-remote"),
+                                        "origin/master")
+                                .join());
+    }
+
+    @Test
+    void reportsFailedPullAndPullRequestFetch(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+        final Git git = new Git();
+        final Project project = project(directory);
+
+        assertCompletionFailure(() -> git.fetchPullRequest(project, 12).join());
+        assertCompletionFailure(() -> git.updateCurrentBranch(project).join());
     }
 
     @Test
