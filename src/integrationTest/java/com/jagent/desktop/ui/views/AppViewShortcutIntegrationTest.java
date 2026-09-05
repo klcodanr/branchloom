@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.function.IntConsumer;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JTabbedPane;
 import javax.swing.JTree;
@@ -53,6 +55,12 @@ class AppViewShortcutIntegrationTest {
             assertEquals(3, tabs.getTabCount(), "opening a file should add a tab");
             GuiActionRunner.execute(() -> projectView.openFile(file));
             assertEquals(3, tabs.getTabCount(), "opening an already open file should select it");
+            final JComponent fileViewer = (JComponent) tabs.getSelectedComponent();
+            final IntConsumer closeCallback =
+                    (IntConsumer) fileViewer.getClientProperty("JTabbedPane.tabCloseCallback");
+            GuiActionRunner.execute(() -> closeCallback.accept(tabs.getSelectedIndex()));
+            assertEquals(2, tabs.getTabCount(), "the tab close callback should close the file");
+            GuiActionRunner.execute(() -> projectView.openFile(file));
 
             invokeCloseShortcut(app);
             assertEquals(2, tabs.getTabCount(), "the active file should close first");
