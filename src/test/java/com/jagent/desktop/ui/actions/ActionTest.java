@@ -110,7 +110,11 @@ class ActionTest {
         final var context = new ActionContext(coordinator, state, null);
         final var importBranch = new ImportBranchAction(context);
         final var importWorktree = new ImportWorktreeAction(context);
+        final var importProject = new ImportProjectAction(context);
 
+        assertEquals("import-project", importProject.id(), ASSERTION_MESSAGE);
+        assertEquals("Clone remote project", importProject.label(), ASSERTION_MESSAGE);
+        assertTrue(importProject.enabled(), ASSERTION_MESSAGE);
         assertEquals("import-branch", importBranch.id(), ASSERTION_MESSAGE);
         assertEquals("Import branch", importBranch.label(), ASSERTION_MESSAGE);
         assertFalse(importBranch.enabled(), ASSERTION_MESSAGE);

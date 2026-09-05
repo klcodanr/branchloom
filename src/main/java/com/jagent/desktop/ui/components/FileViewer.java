@@ -29,6 +29,16 @@ public final class FileViewer extends JPanel {
     private final JPanel content = new JPanel(cards);
     private final RSyntaxTextArea source = new RSyntaxTextArea();
     private final JTextArea diff = new JTextArea();
+    private volatile String loadedContent;
+    private final FileSearchControls searchControls =
+            new FileSearchControls(
+                    () -> loadedContent,
+                    (start, end) -> {
+                        source.select(start, end);
+                        source.requestFocusInWindow();
+                    },
+                    () -> cards.show(content, SOURCE),
+                    source::requestFocusInWindow);
 
     public FileViewer(final Path workspace, final Path file) {
         super(new BorderLayout(0, UiConstants.CONTENT_PADDING));
@@ -67,6 +77,7 @@ public final class FileViewer extends JPanel {
         viewModes.add(sourceButton);
         viewModes.add(diffButton);
         controls.add(viewModes);
+        controls.add(searchControls);
         controls.add(status);
         toolbar.add(controls, BorderLayout.EAST);
         return toolbar;
@@ -79,6 +90,7 @@ public final class FileViewer extends JPanel {
         button.getAccessibleContext().setAccessibleName(name);
         button.putClientProperty("JButton.buttonType", "segmented");
         button.putClientProperty("JButton.segmentPosition", position);
+        UiFactory.configureButtonEnter(button);
         return button;
     }
 
@@ -184,13 +196,16 @@ public final class FileViewer extends JPanel {
                 .thenAcceptAsync(
                         document -> {
                             if (document.binary()) {
+                                loadedContent = null;
                                 source.setText("Binary file cannot be displayed.");
                                 status.setText("Binary");
                             } else {
+                                loadedContent = document.content();
                                 source.setText(document.content());
                                 source.setCaretPosition(0);
                                 GitFormatter.renderDiff(diff, document.diff());
                                 status.setText(document.diff().isBlank() ? "Unchanged" : "Changed");
+                                searchControls.refresh();
                             }
                         },
                         javax.swing.SwingUtilities::invokeLater)
@@ -198,6 +213,7 @@ public final class FileViewer extends JPanel {
                         failure -> {
                             javax.swing.SwingUtilities.invokeLater(
                                     () -> {
+                                        loadedContent = null;
                                         source.setText(
                                                 "Could not load file: " + failure.getMessage());
                                         status.setText("Unavailable");

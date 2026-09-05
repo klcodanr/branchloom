@@ -44,8 +44,8 @@ public final class BulkSessionDialog extends JDialog {
                         actionContext.appState().appSettings().agents().toArray(new Agent[0]));
         agent.setName("bulk-agent");
         agent.setPreferredSize(new Dimension(350, agent.getPreferredSize().height));
-        final JButton cancel = new JButton("Cancel");
-        final JButton create = new JButton("Create sessions");
+        final JButton cancel = UiFactory.button("Cancel");
+        final JButton create = UiFactory.button("Create sessions");
         cancel.setName("bulk-cancel");
         create.setName("bulk-create");
         cancel.addActionListener(event -> dispose());
@@ -58,6 +58,8 @@ public final class BulkSessionDialog extends JDialog {
                 UiFactory.form("GitHub issues", new JScrollPane(issues), "Agent", agent),
                 BorderLayout.CENTER);
         add(buttons, BorderLayout.SOUTH);
+        UiFactory.configureDialogCloseOnEscape(this);
+        getRootPane().setDefaultButton(create);
         pack();
         setLocationRelativeTo(actionContext.window());
     }

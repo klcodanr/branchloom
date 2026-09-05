@@ -7,6 +7,7 @@ import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
+import com.jagent.desktop.ui.actions.ImportProjectAction;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiFactory;
@@ -105,11 +106,16 @@ public final class HomeView extends JPanel implements View {
 
     private JPanel getStartedCard() {
         final JPanel card = card("Get started");
-        final var action = new CreateProjectAction(actionContext);
-        final JButton addProject = UiFactory.button(action.label(), UiIcons.plus());
-        addProject.setAlignmentX(LEFT_ALIGNMENT);
-        addProject.addActionListener(event -> action.execute());
-        card.add(centered(addProject), BorderLayout.CENTER);
+        final JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        final var create = new CreateProjectAction(actionContext);
+        final JButton addProject = UiFactory.button(create.label(), UiIcons.plus());
+        addProject.addActionListener(event -> create.execute());
+        actions.add(addProject);
+        final var importProject = new ImportProjectAction(actionContext);
+        final JButton importButton = UiFactory.button(importProject.label());
+        importButton.addActionListener(event -> importProject.execute());
+        actions.add(importButton);
+        card.add(actions, BorderLayout.CENTER);
         return card;
     }
 

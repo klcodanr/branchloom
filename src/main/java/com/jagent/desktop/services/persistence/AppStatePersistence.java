@@ -1,7 +1,5 @@
 package com.jagent.desktop.services.persistence;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
@@ -15,7 +13,6 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -26,12 +23,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
 
-public final class AppStatePersistence implements AutoCloseable {
+public final class AppStatePersistence extends PersistenceSupport implements AutoCloseable {
     private static final Logger LOG = Logger.getLogger(AppStatePersistence.class.getName());
-    private static final Path DEFAULT_DIRECTORY =
-            Path.of(System.getProperty("user.home"), ".branchloom");
     private static final long PERIOD_SECONDS = 1;
-    private static final Gson JSON = new GsonBuilder().setPrettyPrinting().create();
 
     private final AppState appState;
     private final Path directory;
@@ -44,6 +38,7 @@ public final class AppStatePersistence implements AutoCloseable {
     }
 
     public AppStatePersistence(final AppState appState, final Path directory) {
+        super();
         this.appState = appState;
         this.directory = directory;
         this.projectsFile = directory.resolve("projects.json");
@@ -177,16 +172,6 @@ public final class AppStatePersistence implements AutoCloseable {
                 .resolve("terminal-history")
                 .resolve(terminalId.value() + ".history")
                 .toString();
-    }
-
-    private static void writeAtomically(final Path path, final Object value) throws IOException {
-        final Path temporary = path.resolveSibling(path.getFileName() + ".tmp");
-        Files.writeString(temporary, JSON.toJson(value));
-        Files.move(
-                temporary,
-                path,
-                StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE);
     }
 
     private static <T> T read(final Path path, final Class<T> type, final T fallback)

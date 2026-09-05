@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.Nullable;
 
@@ -228,20 +229,23 @@ public class AppState {
         if (session == null) {
             throw new IllegalArgumentException("Session not found: " + sessionId);
         }
-        final var terminalId = TerminalId.create();
-        this.terminals.put(terminalId, terminal);
-        this.updateSession(sessionId, session.withNewTerminal(terminalId));
-        this.projectsUpdated = true;
-        this.terminalEvents.add(new TerminalEvent(TerminalAction.ADD, terminalId));
-        return terminalId;
+        return registerTerminal(
+                terminal,
+                terminalId -> this.updateSession(sessionId, session.withNewTerminal(terminalId)));
     }
 
     public TerminalId addTerminal(final Terminal terminal) {
         if (terminal.projectId() == null || !this.projects.containsKey(terminal.projectId())) {
             throw new IllegalArgumentException("Project terminal must have a project ID.");
         }
+        return registerTerminal(terminal, ignored -> {});
+    }
+
+    private TerminalId registerTerminal(
+            final Terminal terminal, final Consumer<TerminalId> updateOwner) {
         final var terminalId = TerminalId.create();
         this.terminals.put(terminalId, terminal);
+        updateOwner.accept(terminalId);
         this.projectsUpdated = true;
         this.terminalEvents.add(new TerminalEvent(TerminalAction.ADD, terminalId));
         return terminalId;

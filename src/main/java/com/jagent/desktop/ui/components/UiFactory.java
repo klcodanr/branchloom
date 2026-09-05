@@ -13,6 +13,8 @@ import java.awt.KeyboardFocusManager;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.util.Set;
+import javax.swing.AbstractAction;
+import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -26,7 +28,6 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JProgressBar;
 import javax.swing.JTextArea;
-import javax.swing.JTextPane;
 import javax.swing.KeyStroke;
 import javax.swing.MenuElement;
 import javax.swing.MenuSelectionManager;
@@ -92,13 +93,6 @@ public final class UiFactory {
         return panel;
     }
 
-    public static JPanel verticalLayoutWithHeader(final Component header) {
-        final JPanel panel = verticalLayout();
-        panel.add(header);
-        panel.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
-        return panel;
-    }
-
     public static GridBagConstraints formConstraints() {
         final GridBagConstraints constraints = new GridBagConstraints();
         constraints.insets =
@@ -147,18 +141,6 @@ public final class UiFactory {
                         JComponent.WHEN_IN_FOCUSED_WINDOW);
     }
 
-    public static JTextPane selectableHtml(final String html, final Theme.FontSize size) {
-        final JTextPane pane = new JTextPane();
-        pane.setContentType("text/html");
-        pane.setText(html == null ? "" : html);
-        pane.setFont(Theme.font(size));
-        pane.setEditable(false);
-        pane.setOpaque(false);
-        pane.setBorder(new EmptyBorder(0, 0, 0, 0));
-        pane.setMargin(UiConstants.ZERO_INSETS);
-        return pane;
-    }
-
     public static JPanel loading(final String text) {
         final JPanel loading = new JPanel(new GridBagLayout());
         loading.setOpaque(false);
@@ -201,6 +183,7 @@ public final class UiFactory {
         final JButton button = new JButton(text);
         button.getAccessibleContext().setAccessibleName(text);
         button.setBorderPainted(false);
+        configureButtonEnter(button);
         return button;
     }
 
@@ -263,7 +246,22 @@ public final class UiFactory {
         button.putClientProperty("JButton.buttonType", "toolBarButton");
         button.setMargin(UiConstants.ZERO_INSETS);
         button.setPreferredSize(new Dimension(22, 24));
+        configureButtonEnter(button);
         return button;
+    }
+
+    public static void configureButtonEnter(final AbstractButton button) {
+        final KeyStroke enter = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);
+        button.getInputMap(JComponent.WHEN_FOCUSED).put(enter, "pressed");
+        button.getActionMap()
+                .put(
+                        "pressed",
+                        new AbstractAction() {
+                            @Override
+                            public void actionPerformed(final java.awt.event.ActionEvent event) {
+                                button.doClick();
+                            }
+                        });
     }
 
     public static void showPopupMenu(
@@ -311,6 +309,7 @@ public final class UiFactory {
         link.setHorizontalAlignment(JButton.LEFT);
         link.getAccessibleContext().setAccessibleName(text);
         link.addActionListener(event -> action.run());
+        configureButtonEnter(link);
         return link;
     }
 

@@ -40,28 +40,13 @@ public final class ProjectActions {
     }
 
     public static JPopupMenu menu(final ActionContext actionContext, final ProjectId projectId) {
-        return menu(actionContext, projectId, null);
-    }
-
-    public static JPopupMenu menu(
-            final ActionContext actionContext,
-            final ProjectId projectId,
-            final Runnable createTerminal) {
         final JPopupMenu menu = new JPopupMenu();
-        populate(menu, actionContext, projectId, createTerminal);
+        populate(menu, actionContext, projectId);
         return menu;
     }
 
     public static void populate(
             final Container menu, final ActionContext actionContext, final ProjectId projectId) {
-        populate(menu, actionContext, projectId, null);
-    }
-
-    public static void populate(
-            final Container menu,
-            final ActionContext actionContext,
-            final ProjectId projectId,
-            final Runnable createTerminal) {
         menu.add(
                 projectActionItem(
                         actionContext,
@@ -190,6 +175,4 @@ public final class ProjectActions {
                 });
         return item;
     }
-
-    public record MenuAction(String label, Runnable action) {}
 }

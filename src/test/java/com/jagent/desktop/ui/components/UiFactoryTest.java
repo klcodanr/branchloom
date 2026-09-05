@@ -13,6 +13,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.JProgressBar;
 import javax.swing.JTextArea;
+import javax.swing.JToggleButton;
 import javax.swing.MenuElement;
 import javax.swing.MenuSelectionManager;
 import javax.swing.event.PopupMenuEvent;
@@ -26,16 +27,28 @@ class UiFactoryTest {
     @Test
     void createsConfiguredTextAndButtons() {
         final var text = UiFactory.selectableText(null, Theme.FontSize.MD);
-        final var html = UiFactory.selectableHtml(null, Theme.FontSize.SM);
         final JButton button = UiFactory.button("Save");
         final JButton iconButton = UiFactory.iconButton(new UiFactory.MenuIcon(Color.BLUE));
 
         assertEquals("", text.getText(), VALUE_MESSAGE);
         assertFalse(text.isEditable(), CONDITION_MESSAGE);
-        assertTrue(html.getText().contains("<html>"), CONDITION_MESSAGE);
-        assertFalse(html.isEditable(), CONDITION_MESSAGE);
         assertEquals("Save", button.getAccessibleContext().getAccessibleName(), VALUE_MESSAGE);
         assertEquals(22, iconButton.getPreferredSize().width, VALUE_MESSAGE);
+    }
+
+    @Test
+    void enterActivatesFactoryButtonsAndConfiguredToggles() {
+        final JButton button = UiFactory.button("Save");
+        final JToggleButton toggle = new JToggleButton("Toggle");
+        UiFactory.configureButtonEnter(toggle);
+        final int[] activations = {0};
+        button.addActionListener(event -> activations[0]++);
+        toggle.addActionListener(event -> activations[0]++);
+
+        button.getActionMap().get("pressed").actionPerformed(null);
+        toggle.getActionMap().get("pressed").actionPerformed(null);
+
+        assertEquals(2, activations[0], "Enter should activate both configured controls");
     }
 
     @Test

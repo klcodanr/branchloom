@@ -175,9 +175,13 @@ def minimalRuntimeDirectory = layout.buildDirectory.dir('runtime-minimal')
 tasks.register('jlinkRuntime', Exec) {
     dependsOn tasks.named('installDist')
 
+    outputs.dir(minimalRuntimeDirectory)
+
     doFirst {
         def outputDirectory = minimalRuntimeDirectory.get().asFile
-        delete outputDirectory
+        if (outputDirectory.exists()) {
+            outputDirectory.deleteDir()
+        }
         commandLine "${System.getProperty('java.home')}/bin/jlink",
                 '--module-path', "${System.getProperty('java.home')}/jmods",
                 '--add-modules', 'java.base,java.desktop,java.logging',
@@ -194,7 +198,9 @@ tasks.register('jpackage', Exec) {
 
     doFirst {
         def outputDirectory = packageDirectory.get().asFile
-        delete outputDirectory
+        if (outputDirectory.exists()) {
+            outputDirectory.deleteDir()
+        }
         commandLine jpackageExecutable(),
                 '--type', 'app-image',
                 '--name', packageName,
@@ -215,7 +221,9 @@ tasks.register('jpackageInstaller', Exec) {
 
     doFirst {
         def outputDirectory = packageDirectory.get().asFile
-        delete outputDirectory
+        if (outputDirectory.exists()) {
+            outputDirectory.deleteDir()
+        }
         def osName = System.getProperty('os.name').toLowerCase(Locale.ROOT)
         def installerType
         def platformArguments = []
@@ -269,6 +277,7 @@ tasks.register('jpackageInstaller', Exec) {
 
 tasks.register('dev') {
     dependsOn tasks.named('classes')
+    notCompatibleWithConfigurationCache('The development watcher accesses Gradle model values while running.')
 
     doLast {
         def sourceDirectories = files('src/main/java', 'src/main/resources')

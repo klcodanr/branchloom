@@ -15,6 +15,7 @@ import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.CreateSessionAction;
 import com.jagent.desktop.ui.actions.CreateTerminalAction;
 import com.jagent.desktop.ui.actions.FindAction;
+import com.jagent.desktop.ui.actions.ImportProjectAction;
 import com.jagent.desktop.ui.actions.OpenSettingsAction;
 import com.jagent.desktop.ui.actions.ProblemsAction;
 import com.jagent.desktop.ui.actions.ResourceUsageAction;
@@ -212,6 +213,7 @@ public final class AppView extends JFrame {
                 List.of(
                         new FindAction(actionContext),
                         new CreateProjectAction(actionContext),
+                        new ImportProjectAction(actionContext),
                         new CreateSessionAction(actionContext),
                         new CreateTerminalAction(actionContext),
                         new OpenSettingsAction(actionContext),

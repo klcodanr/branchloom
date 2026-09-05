@@ -52,8 +52,8 @@ public final class ReviewDialog extends JDialog {
         final JScrollPane promptScroll = new JScrollPane(prompt);
         promptScroll.setPreferredSize(new Dimension(600, 240));
         promptInput.add(promptScroll, BorderLayout.CENTER);
-        final JButton cancel = new JButton("Cancel");
-        final JButton review = new JButton("Start review");
+        final JButton cancel = UiFactory.button("Cancel");
+        final JButton review = UiFactory.button("Start review");
         final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttons.add(cancel);
         buttons.add(review);

@@ -13,8 +13,8 @@ import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import com.jagent.desktop.ui.utils.GitUtils;
+import com.jagent.desktop.ui.utils.SessionNames;
 import java.nio.file.Path;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -99,33 +99,14 @@ public final class ImportWorktreeAction extends BaseAction {
         if (selected.isEmpty()) {
             return;
         }
-        final Set<String> names = existingNames(state, project);
+        final Set<String> names = SessionNames.existing(state, project);
         for (final String path : selected) {
             final Path fileName = Path.of(path).getFileName();
             final String baseName = fileName == null ? path : fileName.toString();
-            final String sessionName = uniqueName(baseName, names);
+            final String sessionName = SessionNames.unique(baseName, names);
             names.add(sessionName.toLowerCase(Locale.ROOT));
             addSession(projectId, sessionName, path);
         }
-    }
-
-    private Set<String> existingNames(final AppState state, final Project project) {
-        final Set<String> names = new HashSet<>();
-        project.sessionIds().stream()
-                .map(state.sessions()::get)
-                .filter(session -> session != null)
-                .map(session -> session.name().toLowerCase(Locale.ROOT))
-                .forEach(names::add);
-        return names;
-    }
-
-    private String uniqueName(final String base, final Set<String> names) {
-        String name = base;
-        int suffix = 2;
-        while (names.contains(name.toLowerCase(Locale.ROOT))) {
-            name = base + "-" + suffix++;
-        }
-        return name;
     }
 
     private List<String> availableWorktrees(

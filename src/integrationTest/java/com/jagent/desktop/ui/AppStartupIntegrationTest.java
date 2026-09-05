@@ -35,6 +35,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 class AppStartupIntegrationTest {
     private static final String SAVE_BUTTON = "Save";
+    private static final long CLOSE_TIMEOUT_NANOS = 5_000_000_000L;
 
     @TempDir private Path dataDirectory;
 
@@ -76,8 +77,21 @@ class AppStartupIntegrationTest {
         }
 
         assertTrue(
-                Files.exists(dataDirectory.resolve("windowState.json")),
+                waitForFile(dataDirectory.resolve("windowState.json")),
                 "window state should be persisted in the temporary directory");
+    }
+
+    private static boolean waitForFile(final Path path) {
+        final long deadline = System.nanoTime() + CLOSE_TIMEOUT_NANOS;
+        while (!Files.exists(path) && System.nanoTime() < deadline) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return Files.exists(path);
     }
 
     @Test

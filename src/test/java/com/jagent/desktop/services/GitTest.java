@@ -503,6 +503,21 @@ class GitTest {
     }
 
     @Test
+    void clonesRepositoryToDestination(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        final Path source = directory.resolve("source");
+        Files.createDirectory(source);
+        TestGitRepository.initialize(source);
+        final Path destination = directory.resolve("destination");
+
+        new Git().cloneRepository(source.toString(), destination).join();
+
+        assertTrue(Files.isDirectory(destination), "clone destination should be created");
+        assertTrue(Files.exists(destination.resolve(TRACKED_FILE)), "cloned files should exist");
+        assertTrue(Git.isRepository(destination), "clone destination should be a repository");
+    }
+
+    @Test
     void createsWorktreeFromAPlainBaseReference(@TempDir final Path directory)
             throws IOException, InterruptedException {
         TestGitRepository.initialize(directory);
