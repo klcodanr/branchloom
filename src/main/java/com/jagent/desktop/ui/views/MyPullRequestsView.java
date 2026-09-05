@@ -15,14 +15,14 @@ import javax.swing.JPanel;
 public final class MyPullRequestsView extends JPanel implements View {
     private final transient ActionContext actionContext;
     private final transient PullRequestCache pullRequestCache;
+    private final PullRequestsBoard board;
 
     public MyPullRequestsView(final ActionContext actionContext) {
         super(new BorderLayout());
         this.actionContext = actionContext;
         this.pullRequestCache = PullRequestCache.get(actionContext.appState());
-        add(
-                TabBody.wrap(new PullRequestsBoard(actionContext, this::pullRequests)),
-                BorderLayout.CENTER);
+        board = new PullRequestsBoard(actionContext, this::pullRequests);
+        add(TabBody.wrap(board), BorderLayout.CENTER);
     }
 
     @Override
@@ -41,11 +41,16 @@ public final class MyPullRequestsView extends JPanel implements View {
     }
 
     @Override
+    public void refresh() {
+        board.refresh();
+    }
+
+    @Override
     public void detach() {}
 
     private List<PullRequest> pullRequests() {
         return actionContext.appState().projects().keySet().stream()
-                .flatMap(projectId -> pullRequestCache.get(projectId).authored().stream())
+                .flatMap(projectId -> pullRequestCache.refresh(projectId).authored().stream())
                 .toList();
     }
 }

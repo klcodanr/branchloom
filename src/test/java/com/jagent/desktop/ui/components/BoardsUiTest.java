@@ -13,6 +13,7 @@ import com.jagent.desktop.ui.Defaults;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import org.assertj.swing.edt.GuiActionRunner;
@@ -156,6 +157,34 @@ class BoardsUiTest {
                 componentText(board).contains("PR refresh failed"),
                 "refresh failure should be displayed");
         assertTrue(board.isVisible(), "failed board should remain visible");
+    }
+
+    @Test
+    void pullRequestBoardRefreshLoadsDataAgain() throws InterruptedException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        state.addProject(new Project(DEMO, PROJECT_PATH, null));
+        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+        final var loads = new AtomicInteger();
+        final var initialLoad = new CountDownLatch(1);
+        final var refreshed = new CountDownLatch(1);
+        final var board =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestsBoard(
+                                        context,
+                                        () -> {
+                                            if (loads.incrementAndGet() == 1) {
+                                                initialLoad.countDown();
+                                            } else {
+                                                refreshed.countDown();
+                                            }
+                                            return java.util.List.of();
+                                        }));
+
+        assertTrue(initialLoad.await(5, TimeUnit.SECONDS), "initial refresh should complete");
+        GuiActionRunner.execute(board::refresh);
+        assertTrue(refreshed.await(5, TimeUnit.SECONDS), "manual refresh should complete");
+        assertTrue(loads.get() >= 2, "refresh should load pull requests again");
     }
 
     @Test

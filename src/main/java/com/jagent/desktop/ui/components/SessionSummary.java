@@ -67,7 +67,7 @@ public final class SessionSummary extends JPanel {
                                 removeSessionAndWorktree));
         cleanupAlert.setVisible(false);
         add(details(), BorderLayout.CENTER);
-        loadStatus();
+        refresh();
     }
 
     private void openPullRequest() {
@@ -134,9 +134,10 @@ public final class SessionSummary extends JPanel {
         return area;
     }
 
-    private void loadStatus() {
+    public void refresh() {
         diff.setOpaque(false);
         diff.setLayout(new BoxLayout(diff, BoxLayout.Y_AXIS));
+        diff.removeAll();
         diff.add(value("Loading diff..."));
         loadBranchStatus();
         loadPullRequestStatus();

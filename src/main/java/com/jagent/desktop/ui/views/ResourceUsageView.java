@@ -112,7 +112,8 @@ public final class ResourceUsageView extends JPanel implements View {
         return report;
     }
 
-    private void refresh() {
+    @Override
+    public void refresh() {
         final BackgroundTasks.ThreadSummary summary = BackgroundTasks.summary();
         virtualThreads.setText(Long.toString(summary.virtualThreads()));
         platformThreads.setText(Long.toString(summary.platformThreads()));

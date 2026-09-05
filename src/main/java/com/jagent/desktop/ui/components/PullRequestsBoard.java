@@ -87,7 +87,7 @@ public final class PullRequestsBoard extends JPanel {
         return search.requestFocusInWindow();
     }
 
-    private void refresh() {
+    public void refresh() {
         refreshButton.setEnabled(false);
         remove(scroll);
         add(loading, BorderLayout.CENTER);

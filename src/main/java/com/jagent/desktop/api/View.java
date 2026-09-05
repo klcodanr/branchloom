@@ -10,6 +10,8 @@ public interface View {
 
     JComponent render();
 
+    default void refresh() {}
+
     default void detach() {}
 
     default void dispose() {}

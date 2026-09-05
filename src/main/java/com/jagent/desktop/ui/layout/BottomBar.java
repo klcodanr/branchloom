@@ -28,6 +28,7 @@ public final class BottomBar extends JPanel {
     private final JButton homeButton;
     private final JButton searchButton;
     private final JButton problemsButton;
+    private final JButton refreshButton;
     private final JLabel project = UiFactory.label("", Theme.FontSize.XS);
     private final JLabel branchIcon = new JLabel(UiIcons.gitBranch());
     private final JLabel branch = UiFactory.label("", Theme.FontSize.XS);
@@ -42,7 +43,8 @@ public final class BottomBar extends JPanel {
             final Runnable openHome,
             final Runnable openSettings,
             final Runnable openSearch,
-            final Runnable openProblems) {
+            final Runnable openProblems,
+            final Runnable refreshCurrentView) {
         super(new BorderLayout(12, 0));
         this.appState = appState;
         setBorder(
@@ -64,6 +66,9 @@ public final class BottomBar extends JPanel {
         searchButton.setName("search-button");
         problemsButton = iconButton(UiIcons.triangleAlert(), "Open problems", openProblems);
         problemsButton.setName("problems-button");
+        refreshButton = iconButton(UiIcons.refresh(), "Refresh current view", refreshCurrentView);
+        refreshButton.setName("refresh-button");
+        refreshButton.setVisible(false);
 
         final JPanel left =
                 new JPanel(new FlowLayout(FlowLayout.LEFT, UiConstants.CONTENT_PADDING, 0));
@@ -72,6 +77,7 @@ public final class BottomBar extends JPanel {
         left.add(settingsButton);
         left.add(searchButton);
         left.add(problemsButton);
+        left.add(refreshButton);
         left.add(project);
         branchIcon.setVisible(false);
         left.add(branchIcon);
@@ -144,6 +150,10 @@ public final class BottomBar extends JPanel {
                                                 generation, currentProject.name(), "", null));
                     }
                 });
+    }
+
+    public void setRefreshVisible(final boolean visible) {
+        refreshButton.setVisible(visible);
     }
 
     private void clearWorkspaceStatus() {

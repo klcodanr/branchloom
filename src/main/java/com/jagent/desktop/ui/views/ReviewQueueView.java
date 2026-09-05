@@ -34,13 +34,15 @@ import javax.swing.SwingUtilities;
 public final class ReviewQueueView extends JPanel implements View {
     private final transient ActionContext actionContext;
     private final transient PullRequestCache pullRequestCache;
+    private final PullRequestsBoard board;
     private final JTabbedPane tabs = new JTabbedPane();
 
     public ReviewQueueView(final ActionContext actionContext) {
         super(new BorderLayout());
         this.actionContext = actionContext;
         this.pullRequestCache = PullRequestCache.get(actionContext.appState());
-        tabs.addTab("Queue", new PullRequestsBoard(actionContext, this::reviewRequests));
+        board = new PullRequestsBoard(actionContext, this::reviewRequests);
+        tabs.addTab("Queue", board);
         tabs.addTab("Review Plan", reviewPlan());
         add(tabs, BorderLayout.CENTER);
     }
@@ -61,11 +63,16 @@ public final class ReviewQueueView extends JPanel implements View {
     }
 
     @Override
+    public void refresh() {
+        board.refresh();
+    }
+
+    @Override
     public void detach() {}
 
     private List<PullRequest> reviewRequests() {
         return actionContext.appState().projects().keySet().stream()
-                .flatMap(projectId -> pullRequestCache.get(projectId).review().stream())
+                .flatMap(projectId -> pullRequestCache.refresh(projectId).review().stream())
                 .toList();
     }
 
