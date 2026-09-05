@@ -6,22 +6,13 @@ import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.GraphicsEnvironment;
-import java.awt.Toolkit;
-import java.awt.event.InputEvent;
-import java.awt.event.KeyEvent;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import javax.swing.ButtonGroup;
-import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JToggleButton;
-import javax.swing.KeyStroke;
 import javax.swing.UIManager;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxScheme;
@@ -31,7 +22,6 @@ import org.fife.ui.rsyntaxtextarea.TokenTypes;
 public final class FileViewer extends JPanel {
     private static final String SOURCE = "source";
     private static final String DIFF = "diff";
-    private static final String FIND_IN_FILE = "Find in file";
     private final Path workspace;
     private final Path file;
     private final JLabel status = UiFactory.label("Loading...", Theme.FontSize.XS);
@@ -39,16 +29,16 @@ public final class FileViewer extends JPanel {
     private final JPanel content = new JPanel(cards);
     private final RSyntaxTextArea source = new RSyntaxTextArea();
     private final JTextArea diff = new JTextArea();
-    private final SearchInput searchInput =
-            new SearchInput(new SearchInput.Text("file-search", FIND_IN_FILE, FIND_IN_FILE));
-    private final JButton searchButton = UiFactory.iconButton(UiIcons.search());
-    private final JLabel searchCount = UiFactory.label("", Theme.FontSize.XS);
-    private final JButton previousMatch = UiFactory.iconButton(UiIcons.chevronUp());
-    private final JButton nextMatch = UiFactory.iconButton(UiIcons.chevronDown());
     private volatile String loadedContent;
-    private List<Integer> matches = List.of();
-    private int currentMatch = -1;
-    private long searchGeneration;
+    private final FileSearchControls searchControls =
+            new FileSearchControls(
+                    () -> loadedContent,
+                    (start, end) -> {
+                        source.select(start, end);
+                        source.requestFocusInWindow();
+                    },
+                    () -> cards.show(content, SOURCE),
+                    source::requestFocusInWindow);
 
     public FileViewer(final Path workspace, final Path file) {
         super(new BorderLayout(0, UiConstants.CONTENT_PADDING));
@@ -61,7 +51,6 @@ public final class FileViewer extends JPanel {
         content.add(new JScrollPane(source), SOURCE);
         content.add(new JScrollPane(diff), DIFF);
         add(content, BorderLayout.CENTER);
-        configureSearch();
         load();
     }
 
@@ -88,158 +77,10 @@ public final class FileViewer extends JPanel {
         viewModes.add(sourceButton);
         viewModes.add(diffButton);
         controls.add(viewModes);
-        controls.add(searchControls());
+        controls.add(searchControls);
         controls.add(status);
         toolbar.add(controls, BorderLayout.EAST);
         return toolbar;
-    }
-
-    private JPanel searchControls() {
-        final JPanel searchControls = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        searchControls.setOpaque(false);
-        searchButton.setToolTipText(FIND_IN_FILE);
-        searchButton.getAccessibleContext().setAccessibleName(FIND_IN_FILE);
-        searchButton.addActionListener(event -> openSearch());
-        searchCount.setHorizontalAlignment(JLabel.CENTER);
-        searchCount.setToolTipText("Search matches");
-        searchCount.getAccessibleContext().setAccessibleName("Search matches");
-        searchControls.add(searchButton);
-        searchControls.add(searchInput);
-        searchControls.add(searchCount);
-        previousMatch.setToolTipText("Previous match");
-        previousMatch.getAccessibleContext().setAccessibleName("Previous match");
-        previousMatch.setEnabled(false);
-        previousMatch.setVisible(false);
-        previousMatch.addActionListener(event -> selectMatch(-1));
-        nextMatch.setToolTipText("Next match");
-        nextMatch.getAccessibleContext().setAccessibleName("Next match");
-        nextMatch.setEnabled(false);
-        nextMatch.setVisible(false);
-        nextMatch.addActionListener(event -> selectMatch(1));
-        searchControls.add(previousMatch);
-        searchControls.add(nextMatch);
-        return searchControls;
-    }
-
-    private void configureSearch() {
-        searchInput.onChange(this::search);
-        searchInput.onSubmit(() -> selectMatch(1));
-        searchInput.registerKeyboardAction(
-                event -> selectMatch(-1),
-                KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK),
-                WHEN_FOCUSED);
-        searchInput.onCancel(this::closeSearch);
-        registerKeyboardAction(
-                event -> openSearch(),
-                KeyStroke.getKeyStroke(KeyEvent.VK_F, menuShortcutMask()),
-                WHEN_IN_FOCUSED_WINDOW);
-    }
-
-    private static int menuShortcutMask() {
-        return GraphicsEnvironment.isHeadless()
-                ? InputEvent.CTRL_DOWN_MASK
-                : Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
-    }
-
-    private void openSearch() {
-        cards.show(content, SOURCE);
-        searchButton.setVisible(false);
-        searchCount.setText("(0/0)");
-        searchCount.setVisible(true);
-        searchInput.setVisible(true);
-        previousMatch.setVisible(true);
-        nextMatch.setVisible(true);
-        searchInput.requestFocusInWindow();
-        searchInput.selectAll();
-    }
-
-    private void closeSearch() {
-        searchInput.setText("");
-        searchInput.setVisible(false);
-        searchCount.setVisible(false);
-        searchButton.setVisible(true);
-        previousMatch.setVisible(false);
-        nextMatch.setVisible(false);
-        source.requestFocusInWindow();
-        clearSearch();
-    }
-
-    private void search(final String query) {
-        final String contentSnapshot = loadedContent;
-        final long generation = ++searchGeneration;
-        if (query.isBlank() || contentSnapshot == null) {
-            clearSearch();
-            return;
-        }
-        CompletableFuture.supplyAsync(() -> findMatches(contentSnapshot, query))
-                .thenAcceptAsync(
-                        result -> {
-                            if (generation != searchGeneration) {
-                                return;
-                            }
-                            matches = result;
-                            currentMatch = result.isEmpty() ? -1 : 0;
-                            updateSearchStatus();
-                            if (!result.isEmpty()) {
-                                selectCurrentMatch();
-                            }
-                        },
-                        javax.swing.SwingUtilities::invokeLater);
-    }
-
-    private void selectMatch(final int direction) {
-        if (matches.isEmpty()) {
-            return;
-        }
-        currentMatch = (currentMatch + direction + matches.size()) % matches.size();
-        selectCurrentMatch();
-        updateSearchStatus();
-    }
-
-    private void selectCurrentMatch() {
-        final String query = searchInput.getText();
-        final int start = matches.get(currentMatch);
-        source.select(start, start + query.length());
-        source.requestFocusInWindow();
-        searchInput.requestFocusInWindow();
-    }
-
-    private void updateSearchStatus() {
-        if (matches.isEmpty()) {
-            searchCount.setText("(0/0)");
-            previousMatch.setEnabled(false);
-            nextMatch.setEnabled(false);
-        } else {
-            searchCount.setText("(" + (currentMatch + 1) + "/" + matches.size() + ")");
-            previousMatch.setEnabled(true);
-            nextMatch.setEnabled(true);
-        }
-    }
-
-    private void clearSearch() {
-        searchGeneration++;
-        matches = List.of();
-        currentMatch = -1;
-        if (searchInput.isVisible()) {
-            searchCount.setText("(0/0)");
-        }
-        previousMatch.setEnabled(false);
-        nextMatch.setEnabled(false);
-        source.select(0, 0);
-    }
-
-    private static List<Integer> findMatches(final String content, final String query) {
-        final List<Integer> result = new ArrayList<>();
-        int index = 0;
-        while (index <= content.length() - query.length()) {
-            if (content.regionMatches(true, index, query, 0, query.length())) {
-                result.add(index);
-                index += query.length();
-            } else {
-                index++;
-            }
-        }
-        return result;
     }
 
     private static JToggleButton segmentedButton(
@@ -363,9 +204,7 @@ public final class FileViewer extends JPanel {
                                 source.setCaretPosition(0);
                                 GitFormatter.renderDiff(diff, document.diff());
                                 status.setText(document.diff().isBlank() ? "Unchanged" : "Changed");
-                                if (!searchInput.getText().isBlank()) {
-                                    search(searchInput.getText());
-                                }
+                                searchControls.refresh();
                             }
                         },
                         javax.swing.SwingUtilities::invokeLater)
