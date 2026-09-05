@@ -13,6 +13,8 @@ import java.util.List;
 
 public final class GitHub {
     private static final int PR_PAGE_SIZE = 25;
+    private static final int ISSUE_PAGE_SIZE = 50;
+    private static final String TSV_SEPARATOR = "\\t";
     private static final String PR_QUERY =
             "query($search:String!, $endCursor:String, $pageSize:Int!) {"
                     + " search(query:$search, type:ISSUE, first:$pageSize, after:$endCursor) {"
@@ -24,6 +26,13 @@ public final class GitHub {
                     + " ... on StatusContext { state }"
                     + " } } } } }"
                     + " pageInfo { hasNextPage endCursor } } }";
+    private static final String ISSUE_QUERY =
+            "query($search:String!, $endCursor:String, $pageSize:Int!) {"
+                    + " search(query:$search, type:ISSUE, first:$pageSize, after:$endCursor) {"
+                    + " nodes { ... on Issue { number title bodyText url } }"
+                    + " pageInfo { hasNextPage endCursor } } }";
+    private static final String ISSUE_JQ =
+            ".data.search.nodes[] | [.number, .title, (.bodyText // \"\" | gsub(\"[\\\\t\\\\r\\\\n]+\"; \" \") ), .url] | @tsv";
     private static final String PR_JQ =
             ".data.search.nodes[] | [.number, .title, (.bodyText // \"\"), ([.comments.nodes[]? | ((.author.login // \"unknown\") + \": \" + (.bodyText // \"\") | gsub(\"[\\\\t\\\\r\\\\n]+\"; \" \") )] | join(\" | \") ), .url, .createdAt, .updatedAt, .reviewDecision, .mergeable, .isDraft, .author.login, .headRefName, ([.statusCheckRollup.contexts.nodes[]? | select((.conclusion // .state) == \"SUCCESS\" or (.conclusion // .state) == \"SKIPPED\" or (.conclusion // .state) == \"NEUTRAL\")] | length), (.statusCheckRollup.contexts.nodes | length), (if any(.statusCheckRollup.contexts.nodes[]?; (.conclusion // .state) == \"FAILURE\" or (.conclusion // .state) == \"ERROR\") then \"FAILING\" elif any(.statusCheckRollup.contexts.nodes[]?; (.status // \"\") != \"COMPLETED\" and (.state // \"\") != \"SUCCESS\" and (.state // \"\") != \"FAILURE\") then \"PENDING\" elif (.statusCheckRollup.contexts.nodes | length) == 0 then \"UNKNOWN\" else \"PASSING\" end)] | @tsv";
 
@@ -49,6 +58,8 @@ public final class GitHub {
             String checksStatus)
             implements PullRequestInfo {}
 
+    public record Issue(int number, String title, String body, String url) {}
+
     public static List<Auth> configuredAuths() {
         try {
             final String expression =
@@ -72,7 +83,7 @@ public final class GitHub {
                 return List.of();
             }
             return output.lines()
-                    .map(line -> line.split("\\t", 2))
+                    .map(line -> line.split(TSV_SEPARATOR, 2))
                     .filter(
                             values ->
                                     values.length == 2
@@ -100,6 +111,45 @@ public final class GitHub {
         return load(projectId, project, "review-requested:@me -author:@me");
     }
 
+    public static List<Issue> loadIssuesForProject(final Project project)
+            throws IOException, InterruptedException {
+        final Path projectPath = Path.of(project.path());
+        final String repository = repositoryName(projectPath);
+        if (repository == null) {
+            throw new IOException("No GitHub remote found for this project");
+        }
+        final String query =
+                "gh api graphql --paginate -F pageSize="
+                        + ISSUE_PAGE_SIZE
+                        + " -f search="
+                        + PlatformCommands.shellQuote("repo:" + repository + " is:issue is:open")
+                        + " -f query="
+                        + PlatformCommands.shellQuote(ISSUE_QUERY)
+                        + " --jq "
+                        + PlatformCommands.shellQuote(ISSUE_JQ);
+        final ProcessBuilder builder =
+                PlatformCommands.prepare(
+                                new ProcessBuilder(
+                                        PlatformCommands.shell(Git.githubCommand(project, query))))
+                        .directory(projectPath.toFile())
+                        .redirectErrorStream(true);
+        final Process process = builder.start();
+        final String output =
+                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        if (process.waitFor() != 0) {
+            PlatformCommands.logFailure(builder, process.exitValue(), output);
+            throw new IOException(output.trim());
+        }
+        final List<Issue> issues = new ArrayList<>();
+        for (final String line : output.split("\\R")) {
+            final String[] values = line.split(TSV_SEPARATOR, -1);
+            if (values.length >= 4) {
+                issues.add(new Issue(Integer.parseInt(values[0]), values[1], values[2], values[3]));
+            }
+        }
+        return issues;
+    }
+
     public static PullRequestDetails loadCurrent(final Project project, final Path worktree)
             throws IOException, InterruptedException {
         final String command =
@@ -117,7 +167,7 @@ public final class GitHub {
             PlatformCommands.logFailure(builder, process.exitValue(), output);
             throw new IOException(output.trim());
         }
-        final String[] values = output.trim().split("\\t", -1);
+        final String[] values = output.trim().split(TSV_SEPARATOR, -1);
         if (values.length < 10) {
             throw new IOException("No pull request found");
         }
@@ -193,7 +243,7 @@ public final class GitHub {
     }
 
     private static PullRequestRow parse(final String line) {
-        final String[] values = line.split("\\t", -1);
+        final String[] values = line.split(TSV_SEPARATOR, -1);
         if (values.length < 15) {
             return null;
         }

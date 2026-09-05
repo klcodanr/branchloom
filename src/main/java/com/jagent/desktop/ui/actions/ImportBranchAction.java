@@ -13,7 +13,6 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.Template;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
-import com.jagent.desktop.ui.components.SearchableComboBox;
 import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import com.jagent.desktop.ui.utils.GitUtils;
 import java.awt.Cursor;
@@ -21,15 +20,19 @@ import java.io.InvalidObjectException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.JComboBox;
+import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
+import javax.swing.JScrollPane;
+import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 
 /** Starts importing a branch into the selected project. */
@@ -111,13 +114,13 @@ public final class ImportBranchAction extends BaseAction {
                                 return;
                             }
 
-                            final SearchableComboBox<BranchChoice> branch =
-                                    new SearchableComboBox<>(choices);
-                            branch.setToolTipText("Type to search local and remote branches");
-                            final JTextField name =
-                                    new JTextField(choices.getFirst().localName(), 28);
+                            final JList<BranchChoice> branch =
+                                    new JList<>(choices.toArray(new BranchChoice[0]));
+                            branch.setName("import-branches");
+                            branch.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+                            branch.setVisibleRowCount(Math.min(12, Math.max(4, choices.size())));
                             final JPanel branchForm =
-                                    form("Existing branch", branch, "Session name", name);
+                                    form("Existing branches", new JScrollPane(branch));
                             if (JOptionPane.showConfirmDialog(
                                             actionContext.window(),
                                             branchForm,
@@ -127,29 +130,40 @@ public final class ImportBranchAction extends BaseAction {
                                 return;
                             }
 
-                            final BranchChoice selected = selectedBranch(branch, choices);
-                            if (name.getText().isBlank() || selected == null) {
+                            final List<BranchChoice> selected = branch.getSelectedValuesList();
+                            if (selected.isEmpty()) {
                                 return;
                             }
-                            importBranch(actionContext, projectId, selected, name.getText().trim());
+                            final Set<String> names = existingNames(actionContext, projectId);
+                            for (final BranchChoice choice : selected) {
+                                final String name = uniqueName(choice.localName(), names);
+                                names.add(name.toLowerCase(Locale.ROOT));
+                                importBranch(actionContext, projectId, choice, name);
+                            }
                         },
                         SwingUtilities::invokeLater);
     }
 
-    private BranchChoice selectedBranch(
-            final JComboBox<BranchChoice> branch, final List<BranchChoice> choices) {
-        final Object selected = branch.getEditor().getItem();
-        if (selected instanceof BranchChoice choice) {
-            return choice;
+    private static Set<String> existingNames(
+            final ActionContext actionContext, final ProjectId projectId) {
+        final AppState state = actionContext.appState();
+        final Project project = state.projects().get(projectId);
+        final Set<String> names = new HashSet<>();
+        project.sessionIds().stream()
+                .map(state.sessions()::get)
+                .filter(session -> session != null)
+                .map(session -> session.name().toLowerCase(Locale.ROOT))
+                .forEach(names::add);
+        return names;
+    }
+
+    private static String uniqueName(final String base, final Set<String> names) {
+        String name = base;
+        int suffix = 2;
+        while (names.contains(name.toLowerCase(Locale.ROOT))) {
+            name = base + "-" + suffix++;
         }
-        if (selected == null) {
-            return null;
-        }
-        final String search = selected.toString().trim();
-        return choices.stream()
-                .filter(choice -> choice.displayName().equalsIgnoreCase(search))
-                .findFirst()
-                .orElse(null);
+        return name;
     }
 
     public static void importBranch(
