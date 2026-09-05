@@ -31,10 +31,6 @@ public final class StatusDot extends JComponent {
         setMaximumSize(new Dimension(10, 10));
     }
 
-    public static StatusDot forTerminal(final TerminalState state) {
-        return new StatusDot(terminalColor(state), state.label());
-    }
-
     private static Color terminalColor(final TerminalState state) {
         if (state == null) {
             return Theme.mutedColor();
@@ -55,10 +51,6 @@ public final class StatusDot extends JComponent {
     private void setColor(final Color color) {
         this.color = color;
         repaint();
-    }
-
-    public void update(final TerminalState terminalState) {
-        this.update(terminalColor(terminalState), terminalState.label());
     }
 
     public void update(final Color color, final String tooltip) {

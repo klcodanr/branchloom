@@ -6,6 +6,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Stream;
 import javax.swing.DefaultListModel;
 import javax.swing.JDialog;
 import javax.swing.JList;
@@ -56,14 +57,7 @@ public final class CommandPalette {
                 value -> {
                     final String query = value.trim().toLowerCase(Locale.ROOT);
                     model.clear();
-                    choices.stream()
-                            .filter(
-                                    choice ->
-                                            query.isBlank()
-                                                    || choice.label()
-                                                            .toLowerCase(Locale.ROOT)
-                                                            .contains(query))
-                            .forEach(model::addElement);
+                    filteredChoices(choices, query).forEach(model::addElement);
                     if (!model.isEmpty()) {
                         results.setSelectedIndex(0);
                     }
@@ -90,6 +84,15 @@ public final class CommandPalette {
         if (OPEN.equals(pane.getValue()) && results.getSelectedValue() != null) {
             results.getSelectedValue().action().run();
         }
+    }
+
+    /* package */
+    static Stream<Choice> filteredChoices(final List<Choice> choices, final String query) {
+        return choices.stream()
+                .filter(
+                        choice ->
+                                query.isBlank()
+                                        || choice.label().toLowerCase(Locale.ROOT).contains(query));
     }
 
     public record Choice(String label, Runnable action) {

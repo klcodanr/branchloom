@@ -21,14 +21,20 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JProgressBar;
 import javax.swing.JTextArea;
-import javax.swing.JTextPane;
 import javax.swing.KeyStroke;
+import javax.swing.MenuElement;
+import javax.swing.MenuSelectionManager;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 
 /** Factory methods for common Swing components used by the application. */
 public final class UiFactory {
@@ -85,13 +91,6 @@ public final class UiFactory {
         return panel;
     }
 
-    public static JPanel verticalLayoutWithHeader(final Component header) {
-        final JPanel panel = verticalLayout();
-        panel.add(header);
-        panel.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
-        return panel;
-    }
-
     public static GridBagConstraints formConstraints() {
         final GridBagConstraints constraints = new GridBagConstraints();
         constraints.insets =
@@ -138,18 +137,6 @@ public final class UiFactory {
                         event -> dialog.dispose(),
                         KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
                         JComponent.WHEN_IN_FOCUSED_WINDOW);
-    }
-
-    public static JTextPane selectableHtml(final String html, final Theme.FontSize size) {
-        final JTextPane pane = new JTextPane();
-        pane.setContentType("text/html");
-        pane.setText(html == null ? "" : html);
-        pane.setFont(Theme.font(size));
-        pane.setEditable(false);
-        pane.setOpaque(false);
-        pane.setBorder(new EmptyBorder(0, 0, 0, 0));
-        pane.setMargin(UiConstants.ZERO_INSETS);
-        return pane;
     }
 
     public static JPanel loading(final String text) {
@@ -257,6 +244,39 @@ public final class UiFactory {
         button.setMargin(UiConstants.ZERO_INSETS);
         button.setPreferredSize(new Dimension(22, 24));
         return button;
+    }
+
+    public static void showPopupMenu(
+            final JPopupMenu menu, final Component invoker, final int x, final int y) {
+        menu.addPopupMenuListener(
+                new PopupMenuListener() {
+                    @Override
+                    public void popupMenuWillBecomeVisible(final PopupMenuEvent event) {
+                        for (final Component component : menu.getComponents()) {
+                            if (component instanceof JMenuItem item && item.isEnabled()) {
+                                MenuSelectionManager.defaultManager()
+                                        .setSelectedPath(new MenuElement[] {menu, item});
+                                return;
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void popupMenuCanceled(final PopupMenuEvent event) {
+                        restoreFocus();
+                    }
+
+                    @Override
+                    public void popupMenuWillBecomeInvisible(final PopupMenuEvent event) {
+                        restoreFocus();
+                        menu.removePopupMenuListener(this);
+                    }
+
+                    private void restoreFocus() {
+                        SwingUtilities.invokeLater(invoker::requestFocusInWindow);
+                    }
+                });
+        menu.show(invoker, x, y);
     }
 
     public static JButton link(final String text, final Runnable action) {

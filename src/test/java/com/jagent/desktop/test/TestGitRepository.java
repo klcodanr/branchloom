@@ -21,14 +21,7 @@ public final class TestGitRepository {
 
     public static void run(final Path directory, final String command)
             throws IOException, InterruptedException {
-        final Process process =
-                new ProcessBuilder(PlatformCommands.shell(command))
-                        .directory(directory.toFile())
-                        .redirectErrorStream(true)
-                        .start();
-        final String output =
-                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        assertEquals(0, process.waitFor(), "test Git command should succeed: " + output);
+        output(directory, command);
     }
 
     public static String output(final Path directory, final String command)

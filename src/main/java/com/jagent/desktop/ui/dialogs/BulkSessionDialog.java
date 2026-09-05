@@ -62,6 +62,16 @@ public final class BulkSessionDialog extends JDialog {
         setLocationRelativeTo(actionContext.window());
     }
 
+    /* package */
+    static Request request(final List<Issue> selected, final Agent agent) {
+        return new Request(List.copyOf(selected), agent);
+    }
+
+    /* package */
+    static boolean hasSelection(final List<Issue> selected) {
+        return !selected.isEmpty();
+    }
+
     private void submit() {
         final List<Issue> selected = issues.getSelectedValuesList();
         if (selected.isEmpty()) {
@@ -73,7 +83,7 @@ public final class BulkSessionDialog extends JDialog {
             return;
         }
         dispose();
-        onValid.accept(new Request(selected, (Agent) agent.getSelectedItem()));
+        onValid.accept(request(selected, (Agent) agent.getSelectedItem()));
     }
 
     private static final class IssueRenderer extends DefaultListCellRenderer {

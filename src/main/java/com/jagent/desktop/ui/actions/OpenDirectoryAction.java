@@ -2,8 +2,7 @@ package com.jagent.desktop.ui.actions;
 
 import com.jagent.desktop.api.BaseAction;
 import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.models.Project;
-import com.jagent.desktop.models.Session;
+import com.jagent.desktop.ui.utils.CurrentPath;
 import java.awt.Component;
 import java.awt.Desktop;
 import java.nio.file.Path;
@@ -44,32 +43,11 @@ public final class OpenDirectoryAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return currentPath() != null;
+        return CurrentPath.resolve(actionContext.appState()) != null;
     }
 
     @Override
     public void execute() {
-        open(currentPath(), actionContext.window());
-    }
-
-    private String currentPath() {
-        final Session session =
-                actionContext.appState().currentSessionId() == null
-                        ? null
-                        : actionContext
-                                .appState()
-                                .sessions()
-                                .get(actionContext.appState().currentSessionId());
-        if (session != null && session.worktreePath() != null) {
-            return session.worktreePath();
-        }
-        final Project project =
-                actionContext.appState().currentProjectId() == null
-                        ? null
-                        : actionContext
-                                .appState()
-                                .projects()
-                                .get(actionContext.appState().currentProjectId());
-        return project == null ? null : project.path();
+        open(CurrentPath.resolve(actionContext.appState()), actionContext.window());
     }
 }

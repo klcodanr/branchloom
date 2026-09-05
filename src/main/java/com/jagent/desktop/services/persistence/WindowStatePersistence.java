@@ -1,21 +1,15 @@
 package com.jagent.desktop.services.persistence;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.jagent.desktop.models.WindowState;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /** Owns persistence for the application window geometry. */
-public final class WindowStatePersistence implements AutoCloseable {
+public final class WindowStatePersistence extends PersistenceSupport implements AutoCloseable {
     private static final Logger LOG = Logger.getLogger(WindowStatePersistence.class.getName());
-    private static final Gson JSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Path DEFAULT_DIRECTORY =
-            Path.of(System.getProperty("user.home"), ".branchloom");
 
     private final Path path;
     private final Path directory;
@@ -26,6 +20,7 @@ public final class WindowStatePersistence implements AutoCloseable {
     }
 
     public WindowStatePersistence(final Path directory) {
+        super();
         this.path = directory.resolve("windowState.json");
         this.directory = directory;
         this.state = load();
@@ -43,13 +38,7 @@ public final class WindowStatePersistence implements AutoCloseable {
     public void close() {
         try {
             Files.createDirectories(directory);
-            final Path temporary = path.resolveSibling(path.getFileName() + ".tmp");
-            Files.writeString(temporary, JSON.toJson(state));
-            Files.move(
-                    temporary,
-                    path,
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE);
+            writeAtomically(path, state);
         } catch (IOException exception) {
             LOG.log(Level.WARNING, "Failed to persist window state", exception);
         }

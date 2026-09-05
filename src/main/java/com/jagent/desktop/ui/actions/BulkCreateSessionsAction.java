@@ -9,6 +9,7 @@ import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.ui.components.BulkSessionCreator;
 import com.jagent.desktop.ui.dialogs.BulkSessionDialog;
+import com.jagent.desktop.ui.utils.ErrorMessages;
 import com.jagent.desktop.ui.utils.GitUtils;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -17,7 +18,7 @@ import java.util.concurrent.CompletionException;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
-public final class BulkCreateSessionsAction extends BaseAction {
+public class BulkCreateSessionsAction extends BaseAction {
     private final BulkSessionCreator sessionCreator;
 
     public BulkCreateSessionsAction(final ActionContext actionContext) {
@@ -68,7 +69,9 @@ public final class BulkCreateSessionsAction extends BaseAction {
                 .whenCompleteAsync(
                         (issues, failure) -> {
                             if (failure != null) {
-                                showError(message(failure, "Could not load GitHub issues."));
+                                showError(
+                                        ErrorMessages.deepestCause(
+                                                failure, "Could not load GitHub issues."));
                             } else if (issues.isEmpty()) {
                                 JOptionPane.showMessageDialog(
                                         actionContext.window(),
@@ -86,44 +89,42 @@ public final class BulkCreateSessionsAction extends BaseAction {
                         SwingUtilities::invokeLater);
     }
 
+    protected static List<BulkSessionCreator.Candidate> candidates(
+            final List<GitHub.Issue> issues) {
+        return issues.stream()
+                .map(
+                        issue ->
+                                new BulkSessionCreator.Candidate(
+                                        "issue-"
+                                                + issue.number()
+                                                + "-"
+                                                + GitUtils.toBranchSlug(issue.title()),
+                                        "#" + issue.number(),
+                                        "Work on GitHub issue #"
+                                                + issue.number()
+                                                + ": "
+                                                + issue.title()
+                                                + "\n\n"
+                                                + issue.body()
+                                                + "\n\nIssue: "
+                                                + issue.url()))
+                .toList();
+    }
+
+    protected static String message(final Throwable failure, final String fallback) {
+        return ErrorMessages.deepestCause(failure, fallback);
+    }
+
     private void create(
             final ProjectId projectId,
             final Project project,
             final BulkSessionDialog.Request request) {
-        final List<BulkSessionCreator.Candidate> candidates =
-                request.issues().stream()
-                        .map(
-                                issue ->
-                                        new BulkSessionCreator.Candidate(
-                                                "issue-"
-                                                        + issue.number()
-                                                        + "-"
-                                                        + GitUtils.toBranchSlug(issue.title()),
-                                                "#" + issue.number(),
-                                                "Work on GitHub issue #"
-                                                        + issue.number()
-                                                        + ": "
-                                                        + issue.title()
-                                                        + "\n\n"
-                                                        + issue.body()
-                                                        + "\n\nIssue: "
-                                                        + issue.url()))
-                        .toList();
+        final List<BulkSessionCreator.Candidate> candidates = candidates(request.issues());
         sessionCreator.create(projectId, project, request.agent(), candidates, "Bulk sessions");
     }
 
     private void showError(final String message) {
         JOptionPane.showMessageDialog(
                 actionContext.window(), message, "Bulk agent sessions", JOptionPane.ERROR_MESSAGE);
-    }
-
-    private String message(final Throwable failure, final String fallback) {
-        Throwable cause = failure;
-        while (cause.getCause() != null) {
-            cause = cause.getCause();
-        }
-        return cause.getMessage() == null || cause.getMessage().isBlank()
-                ? fallback
-                : cause.getMessage();
     }
 }
