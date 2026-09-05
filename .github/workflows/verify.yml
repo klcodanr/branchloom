@@ -10,8 +10,12 @@ permissions:
 
 jobs:
   verify:
-    name: Run checks
-    runs-on: ubuntu-latest
+    name: Verify on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - name: Check out source
         uses: actions/checkout@v7
@@ -31,5 +35,41 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --no-install-recommends --yes xvfb
 
-      - name: Verify source
-        run: xvfb-run -a gradle --no-daemon check
+      - name: Prepare CI artifact directory
+        run: mkdir -p build/ci-logs
+
+      - name: Compile
+        run: |
+          if [[ "${RUNNER_OS}" == "Linux" ]]; then
+            xvfb-run -a gradle --no-daemon ciCompile 2>&1 | tee build/ci-logs/compile.log
+          else
+            gradle --no-daemon ciCompile 2>&1 | tee build/ci-logs/compile.log
+          fi
+
+      - name: Lint
+        run: |
+          if [[ "${RUNNER_OS}" == "Linux" ]]; then
+            xvfb-run -a gradle --no-daemon ciLint 2>&1 | tee build/ci-logs/lint.log
+          else
+            gradle --no-daemon ciLint 2>&1 | tee build/ci-logs/lint.log
+          fi
+
+      - name: Test
+        run: |
+          if [[ "${RUNNER_OS}" == "Linux" ]]; then
+            xvfb-run -a gradle --no-daemon ciTest 2>&1 | tee build/ci-logs/test.log
+          else
+            gradle --no-daemon ciTest 2>&1 | tee build/ci-logs/test.log
+          fi
+
+      - name: Upload Gradle reports after failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-reports-${{ matrix.os }}
+          path: |
+            build/ci-logs
+            build/reports
+            build/test-results
+            build/jacoco
+          if-no-files-found: ignore
