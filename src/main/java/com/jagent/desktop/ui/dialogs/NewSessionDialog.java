@@ -31,8 +31,8 @@ public final class NewSessionDialog extends JDialog {
     private final SearchableComboBox<String> baseBranch;
     private final List<String> branchNames;
     private final JTextArea prompt = new JTextArea(5, 35);
-    private final JButton cancel = new JButton("Cancel");
-    private final JButton ok = new JButton("OK");
+    private final JButton cancel = UiFactory.button("Cancel");
+    private final JButton ok = UiFactory.button("OK");
 
     public record Request(String name, Agent agent, String prompt, String baseBranch) {
         public Request(final String name, final Agent agent, final String prompt) {

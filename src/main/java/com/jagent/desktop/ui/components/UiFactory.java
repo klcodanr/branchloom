@@ -13,6 +13,8 @@ import java.awt.KeyboardFocusManager;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.util.Set;
+import javax.swing.AbstractAction;
+import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -181,6 +183,7 @@ public final class UiFactory {
         final JButton button = new JButton(text);
         button.getAccessibleContext().setAccessibleName(text);
         button.setBorderPainted(false);
+        configureButtonEnter(button);
         return button;
     }
 
@@ -243,7 +246,22 @@ public final class UiFactory {
         button.putClientProperty("JButton.buttonType", "toolBarButton");
         button.setMargin(UiConstants.ZERO_INSETS);
         button.setPreferredSize(new Dimension(22, 24));
+        configureButtonEnter(button);
         return button;
+    }
+
+    public static void configureButtonEnter(final AbstractButton button) {
+        final KeyStroke enter = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);
+        button.getInputMap(JComponent.WHEN_FOCUSED).put(enter, "pressed");
+        button.getActionMap()
+                .put(
+                        "pressed",
+                        new AbstractAction() {
+                            @Override
+                            public void actionPerformed(final java.awt.event.ActionEvent event) {
+                                button.doClick();
+                            }
+                        });
     }
 
     public static void showPopupMenu(
@@ -291,6 +309,7 @@ public final class UiFactory {
         link.setHorizontalAlignment(JButton.LEFT);
         link.getAccessibleContext().setAccessibleName(text);
         link.addActionListener(event -> action.run());
+        configureButtonEnter(link);
         return link;
     }
 
