@@ -26,7 +26,7 @@ public final class ShortcutsAction extends BaseAction {
         JOptionPane.showMessageDialog(
                 actionContext.window(),
                 "Find: Cmd/Ctrl+F\nCommand palette: Cmd/Ctrl+K\nNew session: Cmd/Ctrl+N\n"
-                        + "New project: Cmd/Ctrl+Shift+N\nNew terminal: Cmd/Ctrl+T\n"
+                        + "Add local project: Cmd/Ctrl+Shift+N\nNew terminal: Cmd/Ctrl+T\n"
                         + "Close terminal: Cmd/Ctrl+W\n"
                         + "Rename terminal: Cmd/Ctrl+Shift+R\nTerminal 1-9: Cmd/Ctrl+1-9",
                 "Keyboard shortcuts",

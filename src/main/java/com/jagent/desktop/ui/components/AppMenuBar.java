@@ -8,6 +8,7 @@ import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.CreateSessionAction;
 import com.jagent.desktop.ui.actions.CreateTerminalAction;
 import com.jagent.desktop.ui.actions.FindAction;
+import com.jagent.desktop.ui.actions.ImportProjectAction;
 import com.jagent.desktop.ui.actions.OpenSettingsAction;
 import com.jagent.desktop.ui.actions.ProblemsAction;
 import com.jagent.desktop.ui.actions.ResourceUsageAction;
@@ -37,6 +38,7 @@ public final class AppMenuBar {
                 actionItem(
                         new CreateProjectAction(actionContext),
                         shortcut(KeyStroke.getKeyStroke(KeyEvent.VK_N, 0), true)));
+        file.add(actionItem(new ImportProjectAction(actionContext)));
         if (projectSelected) {
             file.add(
                     actionItem(

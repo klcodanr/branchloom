@@ -269,6 +269,7 @@ tasks.register('jpackageInstaller', Exec) {
 
 tasks.register('dev') {
     dependsOn tasks.named('classes')
+    notCompatibleWithConfigurationCache('The development watcher accesses Gradle model values while running.')
 
     doLast {
         def sourceDirectories = files('src/main/java', 'src/main/resources')
