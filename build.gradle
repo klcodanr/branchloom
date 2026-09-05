@@ -158,6 +158,24 @@ tasks.named('check') {
     dependsOn tasks.named('spotlessCheck'), tasks.named('pmdMain'), tasks.named('spotbugsMain'), tasks.named('integrationTest'), tasks.named('jacocoTestCoverageVerification')
 }
 
+tasks.register('ciCompile') {
+    description = 'Compiles production sources for CI.'
+    group = 'verification'
+    dependsOn tasks.named('compileJava')
+}
+
+tasks.register('ciLint') {
+    description = 'Runs formatting and static analysis checks for CI.'
+    group = 'verification'
+    dependsOn tasks.named('spotlessCheck'), tasks.named('pmdMain'), tasks.named('spotbugsMain')
+}
+
+tasks.register('ciTest') {
+    description = 'Runs unit and integration tests and verifies coverage for CI.'
+    group = 'verification'
+    dependsOn tasks.named('test'), tasks.named('integrationTest'), tasks.named('jacocoTestCoverageVerification')
+}
+
 
 def jpackageJava = javaToolchains.launcherFor {
     languageVersion = JavaLanguageVersion.of(25)
