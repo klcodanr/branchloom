@@ -123,6 +123,14 @@ public final class UiIcons {
         return icon("refresh-cw");
     }
 
+    public static Icon chevronUp() {
+        return icon("chevron-up");
+    }
+
+    public static Icon chevronDown() {
+        return icon("chevron-down");
+    }
+
     public static Icon chevronRight() {
         return icon("chevron-right");
     }
