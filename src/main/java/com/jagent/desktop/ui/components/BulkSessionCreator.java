@@ -106,18 +106,7 @@ public final class BulkSessionCreator {
         final String base = GitUtils.toBranchSlug(candidate.name());
         String name = base;
         int suffix = 2;
-        boolean collision = true;
-        while (collision) {
-            collision = false;
-            for (final String existing : names) {
-                if (existing.equalsIgnoreCase(name)) {
-                    collision = true;
-                    break;
-                }
-            }
-            if (!collision) {
-                break;
-            }
+        while (names.contains(name.toLowerCase(Locale.ROOT))) {
             name = base + "-" + suffix++;
         }
         return name;

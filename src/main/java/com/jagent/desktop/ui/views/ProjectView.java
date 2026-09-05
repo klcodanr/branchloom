@@ -135,7 +135,7 @@ public final class ProjectView extends AbstractWorkspaceView {
     }
 
     public boolean focusPullRequestSearch() {
-        return false;
+        return authoredPullRequests.focusSearch() || reviewPullRequests.focusSearch();
     }
 
     /** Adds a project terminal; project summary and pull-request tabs are not terminal tabs. */
