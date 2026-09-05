@@ -21,14 +21,21 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JProgressBar;
 import javax.swing.JTextArea;
 import javax.swing.JTextPane;
 import javax.swing.KeyStroke;
+import javax.swing.MenuElement;
+import javax.swing.MenuSelectionManager;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 
 /** Factory methods for common Swing components used by the application. */
 public final class UiFactory {
@@ -257,6 +264,39 @@ public final class UiFactory {
         button.setMargin(UiConstants.ZERO_INSETS);
         button.setPreferredSize(new Dimension(22, 24));
         return button;
+    }
+
+    public static void showPopupMenu(
+            final JPopupMenu menu, final Component invoker, final int x, final int y) {
+        menu.addPopupMenuListener(
+                new PopupMenuListener() {
+                    @Override
+                    public void popupMenuWillBecomeVisible(final PopupMenuEvent event) {
+                        for (final Component component : menu.getComponents()) {
+                            if (component instanceof JMenuItem item && item.isEnabled()) {
+                                MenuSelectionManager.defaultManager()
+                                        .setSelectedPath(new MenuElement[] {menu, item});
+                                return;
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void popupMenuCanceled(final PopupMenuEvent event) {
+                        restoreFocus();
+                    }
+
+                    @Override
+                    public void popupMenuWillBecomeInvisible(final PopupMenuEvent event) {
+                        restoreFocus();
+                        menu.removePopupMenuListener(this);
+                    }
+
+                    private void restoreFocus() {
+                        SwingUtilities.invokeLater(invoker::requestFocusInWindow);
+                    }
+                });
+        menu.show(invoker, x, y);
     }
 
     public static JButton link(final String text, final Runnable action) {

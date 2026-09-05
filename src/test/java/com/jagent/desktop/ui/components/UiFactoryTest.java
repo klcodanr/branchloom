@@ -1,14 +1,22 @@
 package com.jagent.desktop.ui.components;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.Color;
+import java.awt.IllegalComponentStateException;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
+import javax.swing.JPopupMenu;
 import javax.swing.JProgressBar;
 import javax.swing.JTextArea;
+import javax.swing.MenuElement;
+import javax.swing.MenuSelectionManager;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 import org.junit.jupiter.api.Test;
 
 class UiFactoryTest {
@@ -54,5 +62,49 @@ class UiFactoryTest {
         assertEquals(2, form.getComponentCount(), VALUE_MESSAGE);
         assertEquals(5, empty.getComponentCount(), VALUE_MESSAGE);
         assertEquals("Nothing", ((JLabel) empty.getComponent(1)).getText(), VALUE_MESSAGE);
+    }
+
+    @Test
+    void popupMenuSelectsFirstEnabledItemAndRestoresFocus() {
+        final JPopupMenu menu = new JPopupMenu();
+        final JMenuItem disabled = new JMenuItem("Disabled");
+        disabled.setEnabled(false);
+        menu.add(disabled);
+        final JMenuItem enabled = new JMenuItem("Enabled");
+        menu.add(enabled);
+        final JButton invoker = new JButton();
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalComponentStateException.class,
+                () -> UiFactory.showPopupMenu(menu, invoker, 0, 0));
+        final PopupMenuEvent event = new PopupMenuEvent(menu);
+        for (final PopupMenuListener listener : menu.getPopupMenuListeners()) {
+            listener.popupMenuWillBecomeVisible(event);
+        }
+        assertArrayEquals(
+                new MenuElement[] {menu, enabled},
+                MenuSelectionManager.defaultManager().getSelectedPath(),
+                "first enabled popup item should receive focus");
+        for (final PopupMenuListener listener : menu.getPopupMenuListeners()) {
+            listener.popupMenuWillBecomeInvisible(event);
+        }
+    }
+
+    @Test
+    void popupMenuHandlesMenusWithoutEnabledItemsAndCancellation() {
+        final JPopupMenu menu = new JPopupMenu();
+        final JMenuItem disabled = new JMenuItem("Disabled");
+        disabled.setEnabled(false);
+        menu.add(disabled);
+        final JButton invoker = new JButton();
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalComponentStateException.class,
+                () -> UiFactory.showPopupMenu(menu, invoker, 0, 0));
+        final PopupMenuEvent event = new PopupMenuEvent(menu);
+        for (final PopupMenuListener listener : menu.getPopupMenuListeners()) {
+            listener.popupMenuWillBecomeVisible(event);
+            listener.popupMenuCanceled(event);
+        }
     }
 }
