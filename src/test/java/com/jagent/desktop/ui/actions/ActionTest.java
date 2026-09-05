@@ -17,11 +17,14 @@ import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.test.AsyncTestSupport;
 import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.test.TestGitRepository;
+import com.jagent.desktop.ui.components.TerminalPanel;
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -31,6 +34,11 @@ class ActionTest {
     private static final String REPOSITORY_DIRECTORY = "repository";
     private static final String SESSION_NAME = "Feature";
     @TempDir private Path tempDirectory;
+
+    @AfterEach
+    void disposeRetainedTerminals() {
+        TerminalPanel.reconcile(Set.of());
+    }
 
     @Test
     void navigationActionsUpdateTheExpectedViews() throws InvalidObjectException {
@@ -92,6 +100,27 @@ class ActionTest {
         assertTrue(createSession.enabled(), ASSERTION_MESSAGE);
         assertTrue(copyPath.enabled(), ASSERTION_MESSAGE);
         assertFalse(sessionAction.enabled(), ASSERTION_MESSAGE);
+    }
+
+    @Test
+    void importActionsRequireASelectedProject() {
+        final AppState state = TestAppState.empty();
+        final var coordinator = new ViewCoordinator(state);
+        coordinator.updateView(ViewId.HOME, ViewCoordinator.ViewState.reset());
+        final var context = new ActionContext(coordinator, state, null);
+        final var importBranch = new ImportBranchAction(context);
+        final var importWorktree = new ImportWorktreeAction(context);
+
+        assertEquals("import-branch", importBranch.id(), ASSERTION_MESSAGE);
+        assertEquals("Import branch", importBranch.label(), ASSERTION_MESSAGE);
+        assertFalse(importBranch.enabled(), ASSERTION_MESSAGE);
+        assertEquals("import-worktree", importWorktree.id(), ASSERTION_MESSAGE);
+        assertEquals("Import worktree", importWorktree.label(), ASSERTION_MESSAGE);
+        assertFalse(importWorktree.enabled(), ASSERTION_MESSAGE);
+
+        importBranch.execute();
+        importWorktree.execute();
+        assertEquals(ViewId.HOME, coordinator.currentViewId(), ASSERTION_MESSAGE);
     }
 
     @Test

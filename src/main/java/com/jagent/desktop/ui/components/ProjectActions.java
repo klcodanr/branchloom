@@ -36,7 +36,7 @@ public final class ProjectActions {
             final Point point) {
         actionContext.appState().updateCurrentProject(projectId);
         actionContext.appState().updateCurrentSession(null);
-        menu(actionContext, projectId).show(invoker, point.x, point.y);
+        UiFactory.showPopupMenu(menu(actionContext, projectId), invoker, point.x, point.y);
     }
 
     public static JPopupMenu menu(final ActionContext actionContext, final ProjectId projectId) {

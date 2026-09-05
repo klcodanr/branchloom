@@ -69,7 +69,7 @@ public final class BulkSessionCreator {
         final List<String> failures = new ArrayList<>();
         final AtomicInteger completed = new AtomicInteger();
         for (final Candidate candidate : candidates) {
-            final String name = SessionNames.unique(GitUtils.toBranchSlug(candidate.name()), names);
+            final String name = uniqueName(candidate, names);
             try {
                 job.update(
                         "Creating "
@@ -92,6 +92,11 @@ public final class BulkSessionCreator {
             }
         }
         return new Result(successes, failures);
+    }
+
+    public static String uniqueName(
+            final Candidate candidate, final Set<String> names) { // default access
+        return SessionNames.unique(GitUtils.toBranchSlug(candidate.name()), names);
     }
 
     private void showResult(final String title, final Result result) {

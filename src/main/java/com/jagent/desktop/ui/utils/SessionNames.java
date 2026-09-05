@@ -24,9 +24,19 @@ public final class SessionNames {
     public static String unique(final String base, final Set<String> names) {
         String name = base;
         int suffix = 2;
-        while (names.contains(name.toLowerCase(Locale.ROOT))) {
-            name = base + "-" + suffix++;
-        }
+        boolean exists;
+        do {
+            exists = false;
+            for (final String existing : names) {
+                if (existing.equalsIgnoreCase(name)) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (exists) {
+                name = base + "-" + suffix++;
+            }
+        } while (exists);
         return name;
     }
 }

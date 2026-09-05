@@ -11,6 +11,7 @@ import com.jagent.desktop.ui.actions.RemoveSessionAction;
 import com.jagent.desktop.ui.components.SessionActions;
 import com.jagent.desktop.ui.components.SessionSummary;
 import com.jagent.desktop.ui.components.TerminalPanel;
+import com.jagent.desktop.ui.components.UiFactory;
 import com.jagent.desktop.ui.dialogs.MissingWorktreeRecovery;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -109,8 +110,11 @@ public final class SessionView extends AbstractWorkspaceView {
 
     @Override
     protected void showActions(final JButton button) {
-        SessionActions.menu(actionContext, actionContext.appState().currentSessionId())
-                .show(button, 0, button.getHeight());
+        UiFactory.showPopupMenu(
+                SessionActions.menu(actionContext, actionContext.appState().currentSessionId()),
+                button,
+                0,
+                button.getHeight());
     }
 
     @Override

@@ -141,13 +141,7 @@ public final class PullRequestCard extends JPanel {
     }
 
     private static String mergeStatus(final PullRequest request) {
-        if ("MERGEABLE".equals(request.mergeable())) {
-            return "Can merge";
-        }
-        if ("CONFLICTING".equals(request.mergeable())) {
-            return "Cannot merge";
-        }
-        return "Mergeability unknown";
+        return GitFormatter.mergeStatus(request.mergeState());
     }
 
     private static String checksSummary(final PullRequest request) {

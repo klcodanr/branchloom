@@ -14,15 +14,18 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.Defaults;
+import java.awt.IllegalComponentStateException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.swing.Action;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreePath;
 import org.assertj.swing.edt.GuiActionRunner;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class ProjectTreePanelUiTest {
@@ -55,6 +58,81 @@ class ProjectTreePanelUiTest {
         assertEquals(
                 ViewId.PROJECT, coordinator.currentViewId(), "project selection should navigate");
         assertEquals(List.of(ViewId.PROJECT), changedViews, "selection should notify navigation");
+    }
+
+    @Test
+    void contextMenuKeyOpensMenuForTheSelectedProject() {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var projectId = state.addProject(new Project(DEMO, PROJECT_PATH, null));
+        final var panel =
+                GuiActionRunner.execute(
+                        () -> {
+                            final var created =
+                                    new ProjectTreePanel(
+                                            new ActionContext(
+                                                    new ViewCoordinator(state), state, null));
+                            created.refresh(null, null);
+                            created.tree().setSelectionRow(3);
+                            return created;
+                        });
+
+        assertEquals(projectId, state.currentProjectId(), "selected project should be active");
+        final Action action = panel.tree().getActionMap().get("show-context-menu");
+        assertNotNull(action, "context menu action should exist");
+        assertTrue(action.isEnabled(), "context menu action should be enabled");
+        Assertions.assertThrows(
+                IllegalComponentStateException.class, () -> action.actionPerformed(null));
+    }
+
+    @Test
+    void contextMenuKeyHandlesOtherTreeNodesAndNoSelection() throws java.io.InvalidObjectException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var projectId = state.addProject(project(DEMO, PROJECT_PATH, GROUP));
+        state.addSession(projectId, new Session(projectId, SESSION_NAME, AGENT, PROMPT, null));
+        final var panel =
+                GuiActionRunner.execute(
+                        () -> {
+                            final var created =
+                                    new ProjectTreePanel(
+                                            new ActionContext(
+                                                    new ViewCoordinator(state), state, null));
+                            created.refresh(null, null);
+                            return created;
+                        });
+        final Action action = panel.tree().getActionMap().get("show-context-menu");
+        assertNotNull(action, "context menu action should exist");
+        assertTrue(action.isEnabled(), "context menu action should be enabled");
+        final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
+        final var groupNode = (DefaultMutableTreeNode) root.getChildAt(2);
+        final var projectNode = (DefaultMutableTreeNode) groupNode.getChildAt(0);
+        final var sessionNode = (DefaultMutableTreeNode) projectNode.getChildAt(0);
+
+        GuiActionRunner.execute(
+                () -> {
+                    panel.tree().clearSelection();
+                    action.actionPerformed(null);
+                });
+        GuiActionRunner.execute(
+                () -> {
+                    panel.tree().setSelectionRow(2);
+                    Assertions.assertThrows(
+                            IllegalComponentStateException.class,
+                            () -> action.actionPerformed(null));
+                });
+        GuiActionRunner.execute(
+                () -> {
+                    panel.tree().setSelectionPath(new TreePath(sessionNode.getPath()));
+                    Assertions.assertThrows(
+                            IllegalComponentStateException.class,
+                            () -> action.actionPerformed(null));
+                });
+        GuiActionRunner.execute(
+                () -> {
+                    panel.tree().setSelectionRow(0);
+                    Assertions.assertThrows(
+                            IllegalComponentStateException.class,
+                            () -> action.actionPerformed(null));
+                });
     }
 
     @Test
@@ -134,8 +212,7 @@ class ProjectTreePanelUiTest {
                         });
         final var treeContent = (JPanel) panel.getComponent(1);
         final var search = (JTextField) treeContent.getComponent(0);
-        org.junit.jupiter.api.Assertions.assertFalse(
-                search.isVisible(), "search should be hidden until typing starts");
+        Assertions.assertFalse(search.isVisible(), "search should be hidden until typing starts");
         assertNotNull(
                 search.getClientProperty("JTextField.leadingIcon"),
                 "search should show the FlatLaf leading search icon");
@@ -234,7 +311,7 @@ class ProjectTreePanelUiTest {
         final var projectNode =
                 (DefaultMutableTreeNode)
                         ((DefaultMutableTreeNode) root.getChildAt(2)).getChildAt(0);
-        org.junit.jupiter.api.Assertions.assertFalse(
+        Assertions.assertFalse(
                 tree.isExpanded(new TreePath(projectNode.getPath())),
                 "project should be collapsed before searching");
 
@@ -322,11 +399,11 @@ class ProjectTreePanelUiTest {
                                             ((DefaultMutableTreeNode) secondProject).getPath()));
                     panel.refresh(null, null);
 
-                    org.junit.jupiter.api.Assertions.assertSame(
+                    Assertions.assertSame(
                             firstProject,
                             group.getChildAt(0),
                             "unchanged project nodes should not be recreated");
-                    org.junit.jupiter.api.Assertions.assertSame(
+                    Assertions.assertSame(
                             secondProject,
                             group.getChildAt(1),
                             "unchanged project nodes should retain their identity");
@@ -340,7 +417,7 @@ class ProjectTreePanelUiTest {
                     state.updateProject(
                             firstNodeId, state.projects().get(firstNodeId).withName("Updated"));
                     panel.refresh(null, null);
-                    org.junit.jupiter.api.Assertions.assertSame(
+                    Assertions.assertSame(
                             firstProject,
                             group.getChildAt(0),
                             "changed project nodes should retain their identity");
