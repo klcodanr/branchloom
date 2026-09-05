@@ -69,12 +69,25 @@ public final class PasteSessionsDialog extends JDialog {
         setLocationRelativeTo(actionContext.window());
     }
 
+    /* package */
+    static List<String> nonBlankLines(final String text) {
+        return Arrays.stream(text.split("\\R"))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .toList();
+    }
+
+    /* package */
+    static Request request(final String text, final Agent agent, final String basePrompt) {
+        return new Request(nonBlankLines(text), agent, basePrompt.trim());
+    }
+
     private void submit() {
-        final List<String> values =
-                Arrays.stream(lines.getText().split("\\R"))
-                        .map(String::trim)
-                        .filter(value -> !value.isEmpty())
-                        .toList();
+        final List<String> values = nonBlankLines(lines.getText());
+        Arrays.stream(lines.getText().split("\\R"))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .toList();
         if (values.isEmpty()) {
             JOptionPane.showMessageDialog(
                     this,
@@ -85,6 +98,6 @@ public final class PasteSessionsDialog extends JDialog {
         }
         dispose();
         onValid.accept(
-                new Request(values, (Agent) agent.getSelectedItem(), basePrompt.getText().trim()));
+                request(lines.getText(), (Agent) agent.getSelectedItem(), basePrompt.getText()));
     }
 }

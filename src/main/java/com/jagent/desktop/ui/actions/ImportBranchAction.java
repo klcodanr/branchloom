@@ -36,17 +36,17 @@ import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 
 /** Starts importing a branch into the selected project. */
-public final class ImportBranchAction extends BaseAction {
+public class ImportBranchAction extends BaseAction {
     private static final String TITLE = "Import branch";
     private static final Logger LOG = Logger.getLogger(ImportBranchAction.class.getName());
 
-    private record BranchChoice(String displayName, String ref, boolean remote) {
+    protected record BranchChoice(String displayName, String ref, boolean remote) {
         @Override
         public String toString() {
             return displayName;
         }
 
-        private String localName() {
+        protected String localName() {
             if (!remote) {
                 return ref;
             }
@@ -157,7 +157,7 @@ public final class ImportBranchAction extends BaseAction {
         return names;
     }
 
-    private static String uniqueName(final String base, final Set<String> names) {
+    protected static String uniqueName(final String base, final Set<String> names) {
         String name = base;
         int suffix = 2;
         while (names.contains(name.toLowerCase(Locale.ROOT))) {
