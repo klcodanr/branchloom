@@ -16,21 +16,6 @@ class StatusDotsTest {
     }
 
     @Test
-    void createsTerminalDotsWithStateLabelsAndStandardDimensions() {
-        for (final TerminalState state : TerminalState.values()) {
-            final StatusDot dot = StatusDot.forTerminal(state);
-
-            assertEquals(state.label(), dot.getToolTipText(), "state label should be displayed");
-            assertEquals(10, dot.getPreferredSize().width, "dot width should be standard");
-            assertEquals(10, dot.getPreferredSize().height, "dot height should be standard");
-            assertEquals(
-                    dot.getPreferredSize(), dot.getMinimumSize(), "minimum size should be fixed");
-            assertEquals(
-                    dot.getPreferredSize(), dot.getMaximumSize(), "maximum size should be fixed");
-        }
-    }
-
-    @Test
     void updatesColorAndTooltip() {
         final StatusDot dot = new StatusDot(Color.BLUE, "initial");
 

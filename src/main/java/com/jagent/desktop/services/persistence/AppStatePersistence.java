@@ -1,7 +1,5 @@
 package com.jagent.desktop.services.persistence;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
@@ -15,7 +13,6 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -28,10 +25,8 @@ import javax.swing.SwingUtilities;
 
 public final class AppStatePersistence implements AutoCloseable {
     private static final Logger LOG = Logger.getLogger(AppStatePersistence.class.getName());
-    private static final Path DEFAULT_DIRECTORY =
-            Path.of(System.getProperty("user.home"), ".branchloom");
+    private static final Path DEFAULT_DIRECTORY = PersistenceSupport.DEFAULT_DIRECTORY;
     private static final long PERIOD_SECONDS = 1;
-    private static final Gson JSON = new GsonBuilder().setPrettyPrinting().create();
 
     private final AppState appState;
     private final Path directory;
@@ -141,11 +136,11 @@ public final class AppStatePersistence implements AutoCloseable {
                         .forEach(
                                 (id, terminal) ->
                                         projects.terminals.put(id.value().toString(), terminal));
-                writeAtomically(projectsFile, projects);
+                PersistenceSupport.writeAtomically(projectsFile, projects);
                 snapshot.terminalEvents().forEach(this::updateTerminalHistory);
             }
             if (snapshot.appSettingsUpdated()) {
-                writeAtomically(settingsFile, snapshot.appSettings());
+                PersistenceSupport.writeAtomically(settingsFile, snapshot.appSettings());
             }
         } catch (IOException exception) {
             LOG.log(Level.WARNING, "Failed to persist application state", exception);
@@ -179,22 +174,12 @@ public final class AppStatePersistence implements AutoCloseable {
                 .toString();
     }
 
-    private static void writeAtomically(final Path path, final Object value) throws IOException {
-        final Path temporary = path.resolveSibling(path.getFileName() + ".tmp");
-        Files.writeString(temporary, JSON.toJson(value));
-        Files.move(
-                temporary,
-                path,
-                StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE);
-    }
-
     private static <T> T read(final Path path, final Class<T> type, final T fallback)
             throws IOException {
         if (!Files.exists(path)) {
             return fallback;
         }
-        return JSON.fromJson(Files.readString(path), type);
+        return PersistenceSupport.JSON.fromJson(Files.readString(path), type);
     }
 
     private static <T> T readOrDefault(final Path path, final Class<T> type, final T fallback) {

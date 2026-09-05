@@ -6,11 +6,11 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.CommandRunner;
 import com.jagent.desktop.services.Template;
+import com.jagent.desktop.ui.utils.CurrentPath;
 import java.awt.Window;
 import java.nio.file.Path;
 import java.util.Locale;
 import javax.swing.JOptionPane;
-import org.jetbrains.annotations.Nullable;
 
 /** Runs a command at the current session worktree or project path. */
 public final class RunCommandAction extends BaseAction {
@@ -51,7 +51,7 @@ public final class RunCommandAction extends BaseAction {
     @Override
     public boolean enabled() {
         final var appState = actionContext.appState();
-        return currentPath(appState.currentProject(), appState.currentSession()) != null;
+        return CurrentPath.resolve(appState) != null;
     }
 
     @Override
@@ -61,21 +61,10 @@ public final class RunCommandAction extends BaseAction {
             return;
         }
         final Session session = this.actionContext.appState().currentSession();
-        final String path = currentPath(project, session);
+        final String path = CurrentPath.resolve(actionContext.appState());
         if (path == null) {
             return;
         }
         run(Template.expand(command, project, session, true), path, label, actionContext.window());
-    }
-
-    private String currentPath(final @Nullable Project project, final @Nullable Session session) {
-        if (project == null) {
-            return null;
-        }
-
-        if (session != null) {
-            return session.worktreePath();
-        }
-        return project.path();
     }
 }

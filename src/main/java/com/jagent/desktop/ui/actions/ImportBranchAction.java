@@ -15,12 +15,12 @@ import com.jagent.desktop.services.Template;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import com.jagent.desktop.ui.utils.GitUtils;
+import com.jagent.desktop.ui.utils.SessionNames;
 import java.awt.Cursor;
 import java.io.InvalidObjectException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -134,36 +134,15 @@ public final class ImportBranchAction extends BaseAction {
                             if (selected.isEmpty()) {
                                 return;
                             }
-                            final Set<String> names = existingNames(actionContext, projectId);
+                            final Set<String> names =
+                                    SessionNames.existing(actionContext.appState(), project);
                             for (final BranchChoice choice : selected) {
-                                final String name = uniqueName(choice.localName(), names);
+                                final String name = SessionNames.unique(choice.localName(), names);
                                 names.add(name.toLowerCase(Locale.ROOT));
                                 importBranch(actionContext, projectId, choice, name);
                             }
                         },
                         SwingUtilities::invokeLater);
-    }
-
-    private static Set<String> existingNames(
-            final ActionContext actionContext, final ProjectId projectId) {
-        final AppState state = actionContext.appState();
-        final Project project = state.projects().get(projectId);
-        final Set<String> names = new HashSet<>();
-        project.sessionIds().stream()
-                .map(state.sessions()::get)
-                .filter(session -> session != null)
-                .map(session -> session.name().toLowerCase(Locale.ROOT))
-                .forEach(names::add);
-        return names;
-    }
-
-    private static String uniqueName(final String base, final Set<String> names) {
-        String name = base;
-        int suffix = 2;
-        while (names.contains(name.toLowerCase(Locale.ROOT))) {
-            name = base + "-" + suffix++;
-        }
-        return name;
     }
 
     public static void importBranch(

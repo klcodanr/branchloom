@@ -366,6 +366,20 @@ public final class GlobalSettingsView implements View {
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, ROW_HEIGHT));
     }
 
+    private static JButton removeButton(
+            final JPanel rows, final JPanel row, final Runnable removeFields) {
+        final JButton remove = UiFactory.button("Remove");
+        remove.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+        remove.addActionListener(
+                e -> {
+                    removeFields.run();
+                    rows.remove(row);
+                    rows.revalidate();
+                    rows.repaint();
+                });
+        return remove;
+    }
+
     private static void addToolRow(
             final JPanel rows,
             final List<JTextField> names,
@@ -378,17 +392,15 @@ public final class GlobalSettingsView implements View {
         configureRow(row);
         row.add(nameField, BorderLayout.WEST);
         row.add(commandField, BorderLayout.CENTER);
-        final JButton remove = UiFactory.button("Remove");
-        remove.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
-        remove.addActionListener(
-                e -> {
-                    names.remove(nameField);
-                    commands.remove(commandField);
-                    rows.remove(row);
-                    rows.revalidate();
-                    rows.repaint();
-                });
-        row.add(remove, BorderLayout.EAST);
+        row.add(
+                removeButton(
+                        rows,
+                        row,
+                        () -> {
+                            names.remove(nameField);
+                            commands.remove(commandField);
+                        }),
+                BorderLayout.EAST);
         names.add(nameField);
         commands.add(commandField);
         rows.add(row);
@@ -427,18 +439,16 @@ public final class GlobalSettingsView implements View {
         commands.add(newSessionField);
         commands.add(openField);
         row.add(commands, BorderLayout.CENTER);
-        final JButton remove = UiFactory.button("Remove");
-        remove.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
-        remove.addActionListener(
-                e -> {
-                    names.remove(nameField);
-                    newSessionCommands.remove(newSessionField);
-                    openCommands.remove(openField);
-                    rows.remove(row);
-                    rows.revalidate();
-                    rows.repaint();
-                });
-        row.add(remove, BorderLayout.EAST);
+        row.add(
+                removeButton(
+                        rows,
+                        row,
+                        () -> {
+                            names.remove(nameField);
+                            newSessionCommands.remove(newSessionField);
+                            openCommands.remove(openField);
+                        }),
+                BorderLayout.EAST);
         names.add(nameField);
         newSessionCommands.add(newSessionField);
         openCommands.add(openField);

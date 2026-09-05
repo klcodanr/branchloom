@@ -24,7 +24,6 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JTextArea;
-import javax.swing.JTextPane;
 import javax.swing.KeyStroke;
 import javax.swing.UIManager;
 import javax.swing.border.Border;
@@ -85,13 +84,6 @@ public final class UiFactory {
         return panel;
     }
 
-    public static JPanel verticalLayoutWithHeader(final Component header) {
-        final JPanel panel = verticalLayout();
-        panel.add(header);
-        panel.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
-        return panel;
-    }
-
     public static GridBagConstraints formConstraints() {
         final GridBagConstraints constraints = new GridBagConstraints();
         constraints.insets =
@@ -138,18 +130,6 @@ public final class UiFactory {
                         event -> dialog.dispose(),
                         KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
                         JComponent.WHEN_IN_FOCUSED_WINDOW);
-    }
-
-    public static JTextPane selectableHtml(final String html, final Theme.FontSize size) {
-        final JTextPane pane = new JTextPane();
-        pane.setContentType("text/html");
-        pane.setText(html == null ? "" : html);
-        pane.setFont(Theme.font(size));
-        pane.setEditable(false);
-        pane.setOpaque(false);
-        pane.setBorder(new EmptyBorder(0, 0, 0, 0));
-        pane.setMargin(UiConstants.ZERO_INSETS);
-        return pane;
     }
 
     public static JPanel loading(final String text) {

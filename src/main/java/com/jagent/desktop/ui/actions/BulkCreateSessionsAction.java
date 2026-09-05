@@ -9,6 +9,7 @@ import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.ui.components.BulkSessionCreator;
 import com.jagent.desktop.ui.dialogs.BulkSessionDialog;
+import com.jagent.desktop.ui.utils.ErrorMessages;
 import com.jagent.desktop.ui.utils.GitUtils;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -68,7 +69,9 @@ public final class BulkCreateSessionsAction extends BaseAction {
                 .whenCompleteAsync(
                         (issues, failure) -> {
                             if (failure != null) {
-                                showError(message(failure, "Could not load GitHub issues."));
+                                showError(
+                                        ErrorMessages.deepestCause(
+                                                failure, "Could not load GitHub issues."));
                             } else if (issues.isEmpty()) {
                                 JOptionPane.showMessageDialog(
                                         actionContext.window(),
@@ -115,15 +118,5 @@ public final class BulkCreateSessionsAction extends BaseAction {
     private void showError(final String message) {
         JOptionPane.showMessageDialog(
                 actionContext.window(), message, "Bulk agent sessions", JOptionPane.ERROR_MESSAGE);
-    }
-
-    private String message(final Throwable failure, final String fallback) {
-        Throwable cause = failure;
-        while (cause.getCause() != null) {
-            cause = cause.getCause();
-        }
-        return cause.getMessage() == null || cause.getMessage().isBlank()
-                ? fallback
-                : cause.getMessage();
     }
 }

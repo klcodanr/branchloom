@@ -16,6 +16,7 @@ import com.jagent.desktop.ui.Defaults;
 import java.awt.Font;
 import java.util.List;
 import java.util.Map;
+import org.assertj.swing.edt.GuiActionRunnable;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +37,7 @@ class ContextMenuAndThemeTest {
         final AppState state = new AppState(settings, Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(new Project("Demo", "/tmp", null));
         final var sessionId =
-                state.addSession(projectId, new Session(projectId, "Feature", null, null, "/tmp"));
+                state.addSession(projectId, new Session(projectId, "Feature", null, null, null));
         state.updateCurrentProject(projectId);
         state.updateCurrentSession(sessionId);
         final var context = new ActionContext(new ViewCoordinator(state), state, null);
@@ -50,6 +51,12 @@ class ContextMenuAndThemeTest {
         assertTrue(findMenu(projectMenu, "Editors") != null, "project editors menu should exist");
         assertTrue(findMenu(sessionMenu, "Agents") != null, "session agents menu should exist");
         assertTrue(findMenu(sessionMenu, "Editors") != null, "session editors menu should exist");
+
+        final var updateBranch = findItem(sessionMenu, "Update branch");
+        assertNotNull(updateBranch, "session update branch action should exist");
+        GuiActionRunner.execute((GuiActionRunnable) updateBranch::doClick);
+        assertEquals(
+                sessionId, state.currentSessionId(), "session action should select the session");
     }
 
     @Test
@@ -76,6 +83,16 @@ class ContextMenuAndThemeTest {
         for (final java.awt.Component component : menu.getComponents()) {
             if (component instanceof javax.swing.JMenu submenu && label.equals(submenu.getText())) {
                 return submenu;
+            }
+        }
+        return null;
+    }
+
+    private static javax.swing.JMenuItem findItem(
+            final javax.swing.JPopupMenu menu, final String label) {
+        for (final java.awt.Component component : menu.getComponents()) {
+            if (component instanceof javax.swing.JMenuItem item && label.equals(item.getText())) {
+                return item;
             }
         }
         return null;

@@ -18,14 +18,11 @@ class UiFactoryTest {
     @Test
     void createsConfiguredTextAndButtons() {
         final var text = UiFactory.selectableText(null, Theme.FontSize.MD);
-        final var html = UiFactory.selectableHtml(null, Theme.FontSize.SM);
         final JButton button = UiFactory.button("Save");
         final JButton iconButton = UiFactory.iconButton(new UiFactory.MenuIcon(Color.BLUE));
 
         assertEquals("", text.getText(), VALUE_MESSAGE);
         assertFalse(text.isEditable(), CONDITION_MESSAGE);
-        assertTrue(html.getText().contains("<html>"), CONDITION_MESSAGE);
-        assertFalse(html.isEditable(), CONDITION_MESSAGE);
         assertEquals("Save", button.getAccessibleContext().getAccessibleName(), VALUE_MESSAGE);
         assertEquals(22, iconButton.getPreferredSize().width, VALUE_MESSAGE);
     }

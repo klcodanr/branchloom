@@ -24,23 +24,13 @@ public final class SessionActions {
     private SessionActions() {}
 
     public static JPopupMenu menu(final ActionContext actionContext, final SessionId sessionId) {
-        return menu(actionContext, sessionId, null);
-    }
-
-    public static JPopupMenu menu(
-            final ActionContext actionContext,
-            final SessionId sessionId,
-            final Runnable createTerminal) {
         final JPopupMenu menu = new JPopupMenu();
-        populate(menu, actionContext, sessionId, createTerminal);
+        populate(menu, actionContext, sessionId);
         return menu;
     }
 
     public static void populate(
-            final Container menu,
-            final ActionContext actionContext,
-            final SessionId sessionId,
-            final Runnable createTerminal) {
+            final Container menu, final ActionContext actionContext, final SessionId sessionId) {
         menu.add(
                 sessionActionItem(
                         actionContext,

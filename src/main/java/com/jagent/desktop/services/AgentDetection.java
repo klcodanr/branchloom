@@ -18,23 +18,7 @@ public final class AgentDetection {
         return List.copyOf(agents);
     }
 
-    public static String firstAvailableCommand() {
-        return detect().stream().map(agent -> agent.newSessionCommand).findFirst().orElse("");
-    }
-
-    public static String defaultCommand(final List<Agent> configuredAgents) {
-        return configuredAgents.stream()
-                .map(agent -> agent.newSessionCommand)
-                .filter(command -> command != null && !command.isBlank())
-                .findFirst()
-                .orElseGet(AgentDetection::firstAvailableCommand);
-    }
-
-    public static String defaultHeadlessCommand() {
-        return firstAvailableHeadlessCommand();
-    }
-
-    public static String firstAvailableHeadlessCommand() {
+    public static String headlessCommand() {
         if (PlatformCommands.commandAvailable("claude")) {
             return "claude -p {prompt}";
         }

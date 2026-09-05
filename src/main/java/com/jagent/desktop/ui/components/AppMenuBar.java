@@ -80,7 +80,7 @@ public final class AppMenuBar {
         if (sessionSelected) {
             final JMenu session = new JMenu("Session");
             SessionActions.populate(
-                    session, actionContext, actionContext.appState().currentSessionId(), null);
+                    session, actionContext, actionContext.appState().currentSessionId());
             bar.add(session);
         }
 
