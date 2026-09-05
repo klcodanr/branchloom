@@ -10,6 +10,12 @@ To start a session:
 4. Project startup commands run in order inside the new worktree.
 5. The selected agent starts in a terminal tab in that worktree.
 
+Clipboard images can be pasted into an embedded terminal using any of the terminal's paste actions,
+including the platform paste shortcut, context menu, and selection paste. Branchloom writes the image
+to a temporary PNG file and pastes that file's absolute path into the terminal, so shells and agents can
+read the image using their normal file handling. Text paste behavior is unchanged.
+Dragging a file onto the terminal inserts that file's absolute path without copying the file.
+
 Sessions can also be created by importing an existing branch, linked worktree, or
 pull-request branch. Removing a session can preserve its worktree or delete it
 after explicit confirmation.
