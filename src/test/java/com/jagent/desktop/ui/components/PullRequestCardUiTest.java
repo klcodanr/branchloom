@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
@@ -39,6 +41,23 @@ class PullRequestCardUiTest {
     }
 
     @Test
+    void rendersDetailedConflictingMergeState() {
+        final PullRequestCard card =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestCard(
+                                        context(), request("UNKNOWN", "DIRTY", false, "PASSING")));
+
+        final JLabel metadata =
+                SwingTestSupport.find(
+                        card,
+                        JLabel.class,
+                        component -> component.getText().contains("Cannot merge"));
+
+        assertNotNull(metadata, "conflicting pull requests should show that they cannot merge");
+    }
+
+    @Test
     void contextMenuContainsSupportedPullRequestActions() {
         final PullRequestCard card =
                 GuiActionRunner.execute(
@@ -61,6 +80,13 @@ class PullRequestCardUiTest {
                                 ? item.getText()
                                 : ""),
                 "context menu should expose supported actions");
+    }
+
+    @Test
+    void buildsProjectAndApplicationMenusWithoutSelections() {
+        assertTrue(
+                ProjectActions.menu(context(), ProjectId.create()).getComponentCount() > 0,
+                "project menu should contain actions");
     }
 
     private static ActionContext context() {
