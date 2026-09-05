@@ -193,12 +193,14 @@ public final class ReviewQueueView extends JPanel implements View {
             valueConstraints.insets = new Insets(0, 0, UiConstants.SPACING_XS, 0);
             details.add(UiFactory.label("Why:", Theme.FontSize.SM), labelConstraints);
             details.add(
-                    UiFactory.selectableText(reason(request), Theme.FontSize.SM), valueConstraints);
+                    UiFactory.selectableText(reasonFor(request), Theme.FontSize.SM),
+                    valueConstraints);
             labelConstraints.gridy = 1;
             valueConstraints.gridy = 1;
             details.add(UiFactory.label("Focus:", Theme.FontSize.SM), labelConstraints);
             details.add(
-                    UiFactory.selectableText(focus(request), Theme.FontSize.SM), valueConstraints);
+                    UiFactory.selectableText(focusFor(request), Theme.FontSize.SM),
+                    valueConstraints);
             row.add(details, BorderLayout.CENTER);
             items.add(row);
             items.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
@@ -207,7 +209,7 @@ public final class ReviewQueueView extends JPanel implements View {
         items.repaint();
     }
 
-    private int bucket(final PullRequest request) {
+    protected static int bucketFor(final PullRequest request) {
         if (!request.draft()
                 && "MERGEABLE".equals(request.mergeable())
                 && !"FAILING".equals(request.checksStatus())) {
@@ -216,14 +218,14 @@ public final class ReviewQueueView extends JPanel implements View {
         return 1;
     }
 
-    private String reason(final PullRequest request) {
-        if (bucket(request) == 0) {
+    protected static String reasonFor(final PullRequest request) {
+        if (bucketFor(request) == 0) {
             return "Review requested, ready to inspect, and not blocked by checks or conflicts.";
         }
         return "Review requested, but the request is waiting on author, checks, or mergeability.";
     }
 
-    private String focus(final PullRequest request) {
+    protected static String focusFor(final PullRequest request) {
         if (request.draft()) {
             return "Confirm whether the draft is ready for review.";
         }
