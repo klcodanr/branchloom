@@ -1,5 +1,6 @@
 package com.jagent.desktop.ui.components;
 
+import java.awt.Dimension;
 import javax.swing.Icon;
 import javax.swing.JToggleButton;
 
@@ -11,5 +12,7 @@ public final class SmIconButton extends JToggleButton {
         getAccessibleContext().setAccessibleName(tooltip);
         putClientProperty("JButton.buttonType", "segmented");
         putClientProperty("JButton.segmentPosition", "only");
+        setPreferredSize(new Dimension(32, 32));
+        UiFactory.configureButtonEnter(this);
     }
 }

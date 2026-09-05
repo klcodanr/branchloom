@@ -60,9 +60,7 @@ public final class PullRequestsBoard extends JPanel {
         search.onChange(parent::setFilter);
         search.onCancel(() -> search.setText(""));
         controls.add(search);
-        refreshButton = UiFactory.iconButton(UiIcons.refresh());
-        refreshButton.setToolTipText("Refresh pull requests");
-        refreshButton.getAccessibleContext().setAccessibleName("Refresh pull requests");
+        refreshButton = UiFactory.iconButton(UiIcons.refresh(), "Refresh pull requests");
         refreshStatus = UiFactory.label("Loading PRs...", Theme.FontSize.SM);
         refreshButton.addActionListener(event -> parent.refresh());
         controls.add(refreshButton);
