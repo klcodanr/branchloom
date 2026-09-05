@@ -24,6 +24,7 @@ import java.awt.datatransfer.DataFlavor;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
@@ -298,7 +299,8 @@ public final class TerminalPanel extends JPanel {
                                         file.toPath().toAbsolutePath().normalize().toString(),
                                         true);
                                 return true;
-                            } catch (Exception ignored) {
+                            } catch (IOException
+                                    | java.awt.datatransfer.UnsupportedFlavorException ignored) {
                                 return false;
                             }
                         }

@@ -90,7 +90,11 @@ public final class ClipboardImagePaster {
     }
 
     private static boolean isClipboardImage(final Path path) {
-        final String fileName = path.getFileName().toString();
+        final Path fileNamePath = path.getFileName();
+        if (fileNamePath == null) {
+            return false;
+        }
+        final String fileName = fileNamePath.toString();
         return Files.isRegularFile(path)
                 && fileName.startsWith(IMAGE_PREFIX)
                 && fileName.endsWith(".png");
