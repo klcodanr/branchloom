@@ -133,7 +133,14 @@ public final class AppView extends JFrame {
                 actionMap,
                 KeyStroke.getKeyStroke('W', menuMask),
                 "close-terminal",
-                () -> currentWorkspaceView().ifPresent(AbstractWorkspaceView::closeActiveTerminal));
+                () ->
+                        currentWorkspaceView()
+                                .ifPresent(
+                                        view -> {
+                                            if (!view.closeActiveFile()) {
+                                                view.closeActiveTerminal();
+                                            }
+                                        }));
         bind(
                 inputMap,
                 actionMap,

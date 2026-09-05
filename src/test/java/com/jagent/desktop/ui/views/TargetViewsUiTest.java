@@ -18,6 +18,7 @@ import com.jagent.desktop.test.SwingTestSupport;
 import com.jagent.desktop.ui.Defaults;
 import com.jagent.desktop.ui.components.SessionSummary;
 import com.jagent.desktop.ui.components.WorkspaceSplitPane;
+import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.util.List;
 import java.util.Map;
@@ -119,6 +120,42 @@ class TargetViewsUiTest {
         view.selectTerminal(0);
         view.closeActiveTerminal();
         view.renameActiveTerminal();
+        view.dispose();
+    }
+
+    @Test
+    void closingActiveFileSelectsTheNextAvailableTabAndDoesNothingWithoutAFile()
+            throws IOException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var projectId =
+                state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
+        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+        final var firstFile =
+                java.nio.file.Files.writeString(tempDirectory.resolve("first.txt"), "first");
+        final var secondFile =
+                java.nio.file.Files.writeString(tempDirectory.resolve("second.txt"), "second");
+        final var view =
+                GuiActionRunner.execute(
+                        () -> new ProjectView(context, state.projects().get(projectId)));
+        final var tabs =
+                (JTabbedPane) ((WorkspaceSplitPane) view.getComponent(1)).getLeftComponent();
+
+        GuiActionRunner.execute(
+                () -> {
+                    view.openFile(firstFile);
+                    view.openFile(secondFile);
+                });
+
+        assertEquals(4, tabs.getTabCount(), ASSERTION_MESSAGE);
+        assertEquals("second.txt", tabs.getTitleAt(tabs.getSelectedIndex()), ASSERTION_MESSAGE);
+        assertTrue(view.closeActiveFile(), ASSERTION_MESSAGE);
+        assertEquals(3, tabs.getTabCount(), ASSERTION_MESSAGE);
+        assertEquals("first.txt", tabs.getTitleAt(tabs.getSelectedIndex()), ASSERTION_MESSAGE);
+        assertTrue(view.closeActiveFile(), ASSERTION_MESSAGE);
+        assertEquals(2, tabs.getTabCount(), ASSERTION_MESSAGE);
+        assertFalse(view.closeActiveFile(), ASSERTION_MESSAGE);
+        assertEquals(2, tabs.getTabCount(), ASSERTION_MESSAGE);
+
         view.dispose();
     }
 
