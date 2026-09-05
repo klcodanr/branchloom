@@ -10,6 +10,7 @@ import com.jagent.desktop.services.SessionCreationService;
 import com.jagent.desktop.ui.components.SessionLauncher;
 import com.jagent.desktop.ui.dialogs.NewSessionDialog;
 import com.jagent.desktop.ui.dialogs.ProgressOperation;
+import com.jagent.desktop.ui.utils.ErrorMessages;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Comparator;
@@ -139,22 +140,13 @@ public final class CreateSessionAction extends BaseAction {
                             if (failure != null) {
                                 showError(
                                         CREATE_SESSION,
-                                        message(failure, "Could not create the session."));
+                                        ErrorMessages.deepestCause(
+                                                failure, "Could not create the session."));
                             } else {
                                 sessionLauncher.launch(project, created);
                             }
                         },
                         SwingUtilities::invokeLater);
-    }
-
-    private String message(final Throwable failure, final String fallback) {
-        Throwable cause = failure;
-        while (cause.getCause() != null) {
-            cause = cause.getCause();
-        }
-        return cause.getMessage() == null || cause.getMessage().isBlank()
-                ? fallback
-                : cause.getMessage();
     }
 
     private void showError(final String title, final String message) {
