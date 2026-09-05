@@ -26,7 +26,7 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
-/** Starts the project creation workflow. */
+/** Starts the workflow for adding an existing local Git project. */
 public final class CreateProjectAction extends BaseAction {
 
     private static final Logger LOG = Logger.getLogger(CreateProjectAction.class.getName());
@@ -42,7 +42,7 @@ public final class CreateProjectAction extends BaseAction {
 
     @Override
     public String label() {
-        return "New project";
+        return "Add local project";
     }
 
     @Override

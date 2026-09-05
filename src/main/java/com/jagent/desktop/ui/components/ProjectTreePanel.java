@@ -13,6 +13,7 @@ import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
+import com.jagent.desktop.ui.actions.ImportProjectAction;
 import com.jagent.desktop.ui.actions.OpenProjectAction;
 import com.jagent.desktop.ui.actions.OpenSessionAction;
 import java.awt.BorderLayout;
@@ -85,8 +86,12 @@ public final class ProjectTreePanel extends JPanel {
             final JButton add = UiFactory.button("Project", UiIcons.plus());
             add.setFont(Theme.font(Theme.FontSize.XS));
             add.getAccessibleContext().setAccessibleName("Add project");
-            add.setToolTipText("Add project");
-            add.addActionListener(e -> new CreateProjectAction(actionContext).execute());
+            add.setToolTipText("Add or clone a project");
+            add.addActionListener(
+                    event -> {
+                        final JPopupMenu menu = projectAddMenu(actionContext);
+                        menu.show(add, 0, add.getHeight());
+                    });
             add(add, BorderLayout.WEST);
         }
     }
@@ -473,10 +478,18 @@ public final class ProjectTreePanel extends JPanel {
     }
 
     private void showAddProjectMenu(final Point point) {
-        final JPopupMenu menu = new JPopupMenu();
-        final JMenuItem add = new JMenuItem("New project");
-        add.addActionListener(event -> new CreateProjectAction(actionContext).execute());
-        menu.add(add);
+        final JPopupMenu menu = projectAddMenu(actionContext);
         menu.show(tree, point.x, point.y);
+    }
+
+    private static JPopupMenu projectAddMenu(final ActionContext actionContext) {
+        final JPopupMenu menu = new JPopupMenu();
+        final JMenuItem create = new JMenuItem("Add local project");
+        create.addActionListener(event -> new CreateProjectAction(actionContext).execute());
+        menu.add(create);
+        final JMenuItem importProject = new JMenuItem("Clone remote project");
+        importProject.addActionListener(event -> new ImportProjectAction(actionContext).execute());
+        menu.add(importProject);
+        return menu;
     }
 }

@@ -227,6 +227,18 @@ public final class Git {
         return runCommand("git worktree prune", Path.of(project.path())).thenApply(ignored -> null);
     }
 
+    public CompletableFuture<Void> cloneRepository(final String remote, final Path destination) {
+        final Path normalized = destination.toAbsolutePath().normalize();
+        final Path parent =
+                Optional.ofNullable(normalized.getParent())
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "The clone destination must have a parent directory."));
+        return runGitCommand(parent, "clone", remote, normalized.toString())
+                .thenApply(ignored -> null);
+    }
+
     public CompletableFuture<Void> restoreWorktree(final Project project, final Worktree worktree) {
         if (worktree.branch() == null || worktree.branch().isBlank()) {
             return CompletableFuture.failedFuture(
@@ -350,6 +362,24 @@ public final class Git {
                 () -> {
                     try {
                         future.complete(run(directory, command));
+                    } catch (IOException exception) {
+                        future.completeExceptionally(exception);
+                    } catch (InterruptedException exception) {
+                        Thread.currentThread().interrupt();
+                        future.completeExceptionally(exception);
+                    }
+                });
+        return future;
+    }
+
+    private CompletableFuture<String> runGitCommand(final Path directory, final String... args) {
+        final CompletableFuture<String> future = new CompletableFuture<>();
+        BackgroundTasks.submit(
+                "Git",
+                "git-clone",
+                () -> {
+                    try {
+                        future.complete(runGit(directory, 0, args));
                     } catch (IOException exception) {
                         future.completeExceptionally(exception);
                     } catch (InterruptedException exception) {

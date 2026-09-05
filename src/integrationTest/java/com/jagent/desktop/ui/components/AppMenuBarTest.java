@@ -43,7 +43,7 @@ class AppMenuBarTest {
         assertFalse(hasMenu(bar, "Session"), ASSERTION_MESSAGE);
 
         final JMenu file = bar.getMenu(0);
-        assertEquals("New project", file.getItem(0).getText(), ASSERTION_MESSAGE);
+        assertEquals("Add local project", file.getItem(0).getText(), ASSERTION_MESSAGE);
         assertTrue(file.getItem(0).isEnabled(), ASSERTION_MESSAGE);
         assertEquals("Settings", file.getItem(2).getText(), ASSERTION_MESSAGE);
         assertTrue(file.getMenuComponent(1) instanceof JSeparator, ASSERTION_MESSAGE);
