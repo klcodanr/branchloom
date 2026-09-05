@@ -97,9 +97,7 @@ public final class WorkspaceTreePanel extends JPanel {
                                                     0,
                                                     comparisonButton.getHeight());
                                 }));
-        final JButton hideButton = UiFactory.iconButton(UiIcons.chevronRight());
-        hideButton.setToolTipText("Hide files");
-        hideButton.getAccessibleContext().setAccessibleName("Hide files");
+        final JButton hideButton = UiFactory.iconButton(UiIcons.chevronRight(), "Hide files");
         hideButton.addActionListener(ignored -> hideAction.run());
         final JPanel buttons =
                 new JPanel(new FlowLayout(FlowLayout.RIGHT, UiConstants.SPACING_XS, 0));

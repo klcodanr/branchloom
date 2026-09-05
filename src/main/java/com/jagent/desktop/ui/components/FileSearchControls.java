@@ -23,10 +23,11 @@ public final class FileSearchControls extends javax.swing.JPanel {
     private final Runnable focusSource;
     private final SearchInput searchInput =
             new SearchInput(new SearchInput.Text("file-search", FIND_IN_FILE, FIND_IN_FILE));
-    private final JButton searchButton = UiFactory.iconButton(UiIcons.search());
+    private final JButton searchButton = UiFactory.iconButton(UiIcons.search(), FIND_IN_FILE);
     private final JLabel searchCount = UiFactory.label("", Theme.FontSize.XS);
-    private final JButton previousMatch = UiFactory.iconButton(UiIcons.chevronUp());
-    private final JButton nextMatch = UiFactory.iconButton(UiIcons.chevronDown());
+    private final JButton previousMatch =
+            UiFactory.iconButton(UiIcons.chevronUp(), "Previous match");
+    private final JButton nextMatch = UiFactory.iconButton(UiIcons.chevronDown(), "Next match");
     private List<Integer> matches = List.of();
     private int currentMatch = -1;
     private long searchGeneration;
@@ -55,8 +56,6 @@ public final class FileSearchControls extends javax.swing.JPanel {
 
     private void configureControls() {
         searchButton.setName("file-search-button");
-        searchButton.setToolTipText(FIND_IN_FILE);
-        searchButton.getAccessibleContext().setAccessibleName(FIND_IN_FILE);
         searchButton.addActionListener(event -> openSearch());
         searchCount.setName("file-search-count");
         searchCount.setHorizontalAlignment(JLabel.CENTER);
@@ -76,7 +75,6 @@ public final class FileSearchControls extends javax.swing.JPanel {
             final JButton button, final String name, final String tooltip, final int direction) {
         button.setName(name);
         button.setToolTipText(tooltip);
-        button.getAccessibleContext().setAccessibleName(tooltip);
         button.setEnabled(false);
         button.setVisible(false);
         button.addActionListener(event -> selectMatch(direction));

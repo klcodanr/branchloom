@@ -241,18 +241,29 @@ public final class UiFactory {
     }
 
     public static JButton iconButton(final Icon icon) {
+        return iconButton(icon, null);
+    }
+
+    public static JButton iconButton(final Icon icon, final String accessibleName) {
         final JButton button = new JButton(icon);
+        if (accessibleName != null && !accessibleName.isBlank()) {
+            button.setToolTipText(accessibleName);
+            button.getAccessibleContext().setAccessibleName(accessibleName);
+        }
         button.setBorderPainted(false);
         button.putClientProperty("JButton.buttonType", "toolBarButton");
         button.setMargin(UiConstants.ZERO_INSETS);
-        button.setPreferredSize(new Dimension(22, 24));
+        button.setPreferredSize(new Dimension(32, 32));
         configureButtonEnter(button);
         return button;
     }
 
     public static void configureButtonEnter(final AbstractButton button) {
+        button.setFocusPainted(true);
         final KeyStroke enter = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);
+        final KeyStroke space = KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0);
         button.getInputMap(JComponent.WHEN_FOCUSED).put(enter, "pressed");
+        button.getInputMap(JComponent.WHEN_FOCUSED).put(space, "pressed");
         button.getActionMap()
                 .put(
                         "pressed",
