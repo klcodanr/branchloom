@@ -8,9 +8,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /** Owns persistence for the application window geometry. */
-public final class WindowStatePersistence implements AutoCloseable {
+public final class WindowStatePersistence extends PersistenceSupport implements AutoCloseable {
     private static final Logger LOG = Logger.getLogger(WindowStatePersistence.class.getName());
-    private static final Path DEFAULT_DIRECTORY = PersistenceSupport.DEFAULT_DIRECTORY;
 
     private final Path path;
     private final Path directory;
@@ -21,6 +20,7 @@ public final class WindowStatePersistence implements AutoCloseable {
     }
 
     public WindowStatePersistence(final Path directory) {
+        super();
         this.path = directory.resolve("windowState.json");
         this.directory = directory;
         this.state = load();
@@ -38,7 +38,7 @@ public final class WindowStatePersistence implements AutoCloseable {
     public void close() {
         try {
             Files.createDirectories(directory);
-            PersistenceSupport.writeAtomically(path, state);
+            writeAtomically(path, state);
         } catch (IOException exception) {
             LOG.log(Level.WARNING, "Failed to persist window state", exception);
         }
@@ -49,7 +49,7 @@ public final class WindowStatePersistence implements AutoCloseable {
             if (!Files.exists(path)) {
                 return new WindowState();
             }
-            return PersistenceSupport.JSON.fromJson(Files.readString(path), WindowState.class);
+            return JSON.fromJson(Files.readString(path), WindowState.class);
         } catch (IOException | RuntimeException exception) {
             LOG.log(Level.WARNING, "Failed to load window state", exception);
             return new WindowState();

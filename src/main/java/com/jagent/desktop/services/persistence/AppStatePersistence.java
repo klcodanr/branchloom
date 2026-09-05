@@ -23,9 +23,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
 
-public final class AppStatePersistence implements AutoCloseable {
+public final class AppStatePersistence extends PersistenceSupport implements AutoCloseable {
     private static final Logger LOG = Logger.getLogger(AppStatePersistence.class.getName());
-    private static final Path DEFAULT_DIRECTORY = PersistenceSupport.DEFAULT_DIRECTORY;
     private static final long PERIOD_SECONDS = 1;
 
     private final AppState appState;
@@ -39,6 +38,7 @@ public final class AppStatePersistence implements AutoCloseable {
     }
 
     public AppStatePersistence(final AppState appState, final Path directory) {
+        super();
         this.appState = appState;
         this.directory = directory;
         this.projectsFile = directory.resolve("projects.json");
@@ -136,11 +136,11 @@ public final class AppStatePersistence implements AutoCloseable {
                         .forEach(
                                 (id, terminal) ->
                                         projects.terminals.put(id.value().toString(), terminal));
-                PersistenceSupport.writeAtomically(projectsFile, projects);
+                writeAtomically(projectsFile, projects);
                 snapshot.terminalEvents().forEach(this::updateTerminalHistory);
             }
             if (snapshot.appSettingsUpdated()) {
-                PersistenceSupport.writeAtomically(settingsFile, snapshot.appSettings());
+                writeAtomically(settingsFile, snapshot.appSettings());
             }
         } catch (IOException exception) {
             LOG.log(Level.WARNING, "Failed to persist application state", exception);
@@ -179,7 +179,7 @@ public final class AppStatePersistence implements AutoCloseable {
         if (!Files.exists(path)) {
             return fallback;
         }
-        return PersistenceSupport.JSON.fromJson(Files.readString(path), type);
+        return JSON.fromJson(Files.readString(path), type);
     }
 
     private static <T> T readOrDefault(final Path path, final Class<T> type, final T fallback) {

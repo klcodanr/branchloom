@@ -7,15 +7,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-final class PersistenceSupport {
-    /* default */ static final Gson JSON = new GsonBuilder().setPrettyPrinting().create();
-    /* default */ static final Path DEFAULT_DIRECTORY =
+class PersistenceSupport {
+    protected static final Gson JSON = new GsonBuilder().setPrettyPrinting().create();
+    protected static final Path DEFAULT_DIRECTORY =
             Path.of(System.getProperty("user.home"), ".branchloom");
 
-    private PersistenceSupport() {}
+    protected PersistenceSupport() {}
 
-    /* default */ static void writeAtomically(final Path path, final Object value)
-            throws IOException {
+    protected void writeAtomically(final Path path, final Object value) throws IOException {
         final Path temporary = path.resolveSibling(path.getFileName() + ".tmp");
         Files.writeString(temporary, JSON.toJson(value));
         Files.move(

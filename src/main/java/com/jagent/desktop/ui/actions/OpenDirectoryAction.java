@@ -43,15 +43,11 @@ public final class OpenDirectoryAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return currentPath() != null;
+        return CurrentPath.resolve(actionContext.appState()) != null;
     }
 
     @Override
     public void execute() {
-        open(currentPath(), actionContext.window());
-    }
-
-    private String currentPath() {
-        return CurrentPath.resolve(actionContext.appState());
+        open(CurrentPath.resolve(actionContext.appState()), actionContext.window());
     }
 }

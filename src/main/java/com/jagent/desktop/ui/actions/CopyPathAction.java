@@ -30,15 +30,11 @@ public final class CopyPathAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return currentPath() != null;
+        return CurrentPath.resolve(actionContext.appState()) != null;
     }
 
     @Override
     public void execute() {
-        copy(currentPath());
-    }
-
-    private String currentPath() {
-        return CurrentPath.resolve(actionContext.appState());
+        copy(CurrentPath.resolve(actionContext.appState()));
     }
 }
