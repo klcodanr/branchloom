@@ -13,6 +13,7 @@ import com.jagent.desktop.ui.actions.ImportBranchAction;
 import com.jagent.desktop.ui.actions.ImportWorktreeAction;
 import com.jagent.desktop.ui.actions.OpenDirectoryAction;
 import com.jagent.desktop.ui.actions.OpenProjectSettingsAction;
+import com.jagent.desktop.ui.actions.PasteSessionsAction;
 import com.jagent.desktop.ui.actions.RemoveProjectAction;
 import com.jagent.desktop.ui.actions.RunCommandAction;
 import com.jagent.desktop.ui.actions.UpdateBranchAction;
@@ -69,9 +70,6 @@ public final class ProjectActions {
                         UiIcons.hatGlasses()));
         menu.add(
                 projectActionItem(
-                        actionContext, projectId, new BulkCreateSessionsAction(actionContext)));
-        menu.add(
-                projectActionItem(
                         actionContext,
                         projectId,
                         new CreateTerminalAction(actionContext),
@@ -83,11 +81,32 @@ public final class ProjectActions {
         menu.add(projectActionItem(actionContext, projectId, new CopyPathAction(actionContext)));
         menu.add(
                 projectActionItem(actionContext, projectId, new UpdateBranchAction(actionContext)));
-        menu.add(
-                projectActionItem(actionContext, projectId, new ImportBranchAction(actionContext)));
-        menu.add(
+        final JMenu importFrom = new JMenu("Import from");
+        importFrom.add(
                 projectActionItem(
-                        actionContext, projectId, new ImportWorktreeAction(actionContext)));
+                        actionContext,
+                        projectId,
+                        new ImportBranchAction(actionContext),
+                        "Branches"));
+        importFrom.add(
+                projectActionItem(
+                        actionContext,
+                        projectId,
+                        new ImportWorktreeAction(actionContext),
+                        "Worktrees"));
+        importFrom.add(
+                projectActionItem(
+                        actionContext,
+                        projectId,
+                        new BulkCreateSessionsAction(actionContext),
+                        "GitHub issues"));
+        importFrom.add(
+                projectActionItem(
+                        actionContext,
+                        projectId,
+                        new PasteSessionsAction(actionContext),
+                        "Pasted lines"));
+        menu.add(importFrom);
 
         addAgents(menu, actionContext, projectId);
         addEditors(menu, actionContext, projectId);
@@ -135,7 +154,8 @@ public final class ProjectActions {
 
     private static JMenuItem projectActionItem(
             final ActionContext actionContext, final ProjectId projectId, final Action action) {
-        return projectActionItem(actionContext, projectId, action, null);
+        return projectActionItem(
+                actionContext, projectId, action, action.label(), (javax.swing.Icon) null);
     }
 
     private static JMenuItem projectActionItem(
@@ -143,7 +163,24 @@ public final class ProjectActions {
             final ProjectId projectId,
             final Action action,
             final javax.swing.Icon icon) {
-        final JMenuItem item = new JMenuItem(action.label(), icon);
+        return projectActionItem(actionContext, projectId, action, action.label(), icon);
+    }
+
+    private static JMenuItem projectActionItem(
+            final ActionContext actionContext,
+            final ProjectId projectId,
+            final Action action,
+            final String label) {
+        return projectActionItem(actionContext, projectId, action, label, null);
+    }
+
+    private static JMenuItem projectActionItem(
+            final ActionContext actionContext,
+            final ProjectId projectId,
+            final Action action,
+            final String label,
+            final javax.swing.Icon icon) {
+        final JMenuItem item = new JMenuItem(label, icon);
         item.setEnabled(action.enabled());
         item.addActionListener(
                 event -> {
