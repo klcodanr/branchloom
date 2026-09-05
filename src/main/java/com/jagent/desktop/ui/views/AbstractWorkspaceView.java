@@ -53,7 +53,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         titleText = title;
         add(header(), BorderLayout.NORTH);
         tabs.putClientProperty("JTabbedPane.scrollButtonsPolicy", "asNeeded");
-        final JButton addTerminal = new JButton(UiIcons.plus());
+        final JButton addTerminal = UiFactory.iconButton(UiIcons.plus());
         addTerminal.setToolTipText("New terminal");
         addTerminal.getAccessibleContext().setAccessibleName("New terminal");
         addTerminal.addActionListener(event -> openTerminal(workspacePath()));

@@ -90,6 +90,7 @@ public final class FileViewer extends JPanel {
         button.getAccessibleContext().setAccessibleName(name);
         button.putClientProperty("JButton.buttonType", "segmented");
         button.putClientProperty("JButton.segmentPosition", position);
+        UiFactory.configureButtonEnter(button);
         return button;
     }
 
