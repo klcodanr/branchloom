@@ -25,6 +25,7 @@ public final class SessionView extends AbstractWorkspaceView {
 
     private final transient Project project;
     private final transient Session session;
+    private SessionSummary summary;
     private final JLabel gitStatus = new JLabel();
     private int terminalNumber;
 
@@ -78,15 +79,13 @@ public final class SessionView extends AbstractWorkspaceView {
     }
 
     private void addSummary() {
-        final JScrollPane summary =
-                new JScrollPane(
-                        new SessionSummary(
-                                project,
-                                session,
-                                () -> new RemoveSessionAction(actionContext).execute()));
-        summary.setBorder(null);
-        summary.getVerticalScrollBar().setUnitIncrement(14);
-        tabs.addTab("Summary", summary);
+        summary =
+                new SessionSummary(
+                        project, session, () -> new RemoveSessionAction(actionContext).execute());
+        final JScrollPane summaryScroll = new JScrollPane(summary);
+        summaryScroll.setBorder(null);
+        summaryScroll.getVerticalScrollBar().setUnitIncrement(14);
+        tabs.addTab("Summary", summaryScroll);
     }
 
     @Override
@@ -128,6 +127,11 @@ public final class SessionView extends AbstractWorkspaceView {
 
     public void openSummary() {
         tabs.setSelectedIndex(tabs.indexOfTab("Summary"));
+    }
+
+    @Override
+    public void refresh() {
+        summary.refresh();
     }
 
     public void renameSession() {

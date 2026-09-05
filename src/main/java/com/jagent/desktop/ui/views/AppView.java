@@ -103,7 +103,8 @@ public final class AppView extends JFrame {
                         () -> viewCoordinator.updateView(ViewId.HOME, null),
                         () -> new OpenSettingsAction(actionContext).execute(),
                         () -> new FindAction(actionContext).execute(),
-                        () -> new ProblemsAction(actionContext).execute());
+                        () -> new ProblemsAction(actionContext).execute(),
+                        this::refreshCurrentView);
         content.add(placeholder, BorderLayout.CENTER);
         add(shell(actionContext), BorderLayout.CENTER);
         installShortcuts();
@@ -325,6 +326,7 @@ public final class AppView extends JFrame {
         final Project project = state.currentProject();
         final Session session = state.currentSession();
         bottomBar.refresh();
+        bottomBar.setRefreshVisible(false);
         TerminalPanel.reconcile(state.terminals().keySet());
         final View topLevel;
         final JComponent rendered;
@@ -365,6 +367,10 @@ public final class AppView extends JFrame {
             currentView.detach();
         }
         currentView = topLevel;
+        bottomBar.setRefreshVisible(
+                currentView instanceof SessionView
+                        || currentView instanceof MyPullRequestsView
+                        || currentView instanceof ReviewQueueView);
         content.removeAll();
         content.add(rendered, BorderLayout.CENTER);
         workspaceTree.removeAll();
@@ -388,6 +394,12 @@ public final class AppView extends JFrame {
         setJMenuBar(AppMenuBar.create(new ActionContext(viewCoordinator, state, this)));
         revalidate();
         repaint();
+    }
+
+    private void refreshCurrentView() {
+        if (currentView != null) {
+            currentView.refresh();
+        }
     }
 
     private void showWorkspaceTree() {
