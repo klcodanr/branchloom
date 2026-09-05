@@ -68,9 +68,21 @@ public final class TerminalPanel extends JPanel {
             final Path directory,
             final String resourceName,
             final Consumer<TerminalState> stateChanged) {
+        this(TerminalManager.get().create(command, directory, resourceName), null, stateChanged);
+    }
+
+    protected TerminalPanel(
+            final TerminalRuntime runtime, final Consumer<TerminalState> stateChanged) {
+        this(runtime, null, stateChanged);
+    }
+
+    private TerminalPanel(
+            final TerminalRuntime runtime,
+            final @Nullable TerminalId retainedId,
+            final Consumer<TerminalState> stateChanged) {
         super(new BorderLayout());
-        runtime = manager.create(command, directory, resourceName);
-        retainedId = null;
+        this.runtime = runtime;
+        this.retainedId = retainedId;
         setOpaque(false);
         setBorder(UiFactory.cardBorder());
         terminal = new AppJediTermWidget(80, 24, new AppTerminalSettings());
@@ -79,14 +91,7 @@ public final class TerminalPanel extends JPanel {
     }
 
     private TerminalPanel(final TerminalId retainedId, final TerminalRuntime runtime) {
-        super(new BorderLayout());
-        this.retainedId = retainedId;
-        this.runtime = runtime;
-        setOpaque(false);
-        setBorder(UiFactory.cardBorder());
-        terminal = new AppJediTermWidget(80, 24, new AppTerminalSettings());
-        add(terminal, BorderLayout.CENTER);
-        setStateChanged(ignored -> {});
+        this(runtime, retainedId, ignored -> {});
     }
 
     public static TerminalPanel retained(

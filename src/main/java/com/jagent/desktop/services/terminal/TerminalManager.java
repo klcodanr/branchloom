@@ -6,6 +6,7 @@ import com.jagent.desktop.services.TerminalResources;
 import com.jagent.desktop.services.persistence.TerminalHistory;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -65,6 +66,15 @@ public final class TerminalManager {
             TerminalHistory.delete(runtime.historyFile());
         }
         retained.values().removeIf(value -> value.equals(runtime));
+    }
+
+    /** Stops every terminal, including runtimes that are not retained in application state. */
+    public void disposeAll() {
+        final Set<TerminalRuntime> runtimes = new HashSet<>(resources.keySet());
+        runtimes.addAll(retained.values());
+        resources.clear();
+        retained.clear();
+        runtimes.forEach(TerminalRuntime::stopAndWait);
     }
 
     public void setResourceName(final TerminalRuntime runtime, final String resourceName) {

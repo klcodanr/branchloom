@@ -12,25 +12,28 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /** Owns one terminal process and its lifecycle monitors. */
-public final class TerminalRuntime {
+public class TerminalRuntime {
     private static final long QUIET_PERIOD_MILLIS = 4000;
     private static final Logger LOG = Logger.getLogger(TerminalRuntime.class.getName());
     private final String command;
     private final Path directory;
     private final String historyFile;
     private final Object lifecycleLock = new Object();
-    private volatile PtyProcess process;
-    private volatile TtyConnector connector;
+    protected volatile PtyProcess process;
+    protected volatile TtyConnector connector;
     private volatile TerminalState state = TerminalState.STARTING;
     private volatile Consumer<TerminalState> stateChanged = ignored -> {};
-    private volatile boolean disposed;
-    private volatile boolean started;
+    protected volatile boolean disposed;
+    protected volatile boolean started;
     private volatile long lastOutputAt;
+    protected volatile CompletableFuture<Void> launchTask;
+    protected volatile Thread launchThread;
 
     public TerminalRuntime(final String command, final Path directory, final String historyFile) {
         this.command = command;
@@ -51,10 +54,13 @@ public final class TerminalRuntime {
                 return;
             }
             started = true;
+            setState(TerminalState.STARTING);
+            launchTask =
+                    BackgroundTasks.submit(
+                            "Terminals",
+                            "agent-terminal-start",
+                            () -> startProcess(attach, failed));
         }
-        setState(TerminalState.STARTING);
-        BackgroundTasks.submit(
-                "Terminals", "agent-terminal-start", () -> startProcess(attach, failed));
     }
 
     public void onStateChanged(final Consumer<TerminalState> listener) {
@@ -75,37 +81,72 @@ public final class TerminalRuntime {
     }
 
     public void stop() {
-        disposed = true;
-        setState(TerminalState.STOPPED);
-        if (connector != null) {
-            connector.close();
+        stopAndWait();
+    }
+
+    public void stopAndWait() {
+        TerminalRuntimeShutdown.stop(this);
+    }
+
+    protected TerminalRuntimeShutdown.StopState prepareStop() {
+        synchronized (lifecycleLock) {
+            disposed = true;
+            setState(TerminalState.STOPPED);
+            final CompletableFuture<Void> task = launchTask;
+            final Thread startingThread = launchThread;
+            if (connector != null) {
+                connector.close();
+            }
+            final PtyProcess processAtStop = process;
+            if (startingThread != null) {
+                startingThread.interrupt();
+            }
+            if (processAtStop != null && processAtStop.isAlive()) {
+                processAtStop.destroy();
+            }
+            return new TerminalRuntimeShutdown.StopState(task, startingThread, processAtStop);
         }
-        if (process != null && process.isAlive()) {
-            process.destroy();
+    }
+
+    protected PtyProcess runningProcess(final PtyProcess processAtStop) {
+        synchronized (lifecycleLock) {
+            final PtyProcess runningProcess = process == null ? processAtStop : process;
+            if (runningProcess != null && runningProcess.isAlive()) {
+                runningProcess.destroy();
+            }
+            return runningProcess;
         }
     }
 
     private void startProcess(
             final Consumer<TtyConnector> attach, final Consumer<Exception> failed) {
+        launchThread = Thread.currentThread();
         try {
             final PtyProcess startedProcess = launchProcess();
-            if (disposed) {
-                startedProcess.destroy();
-                return;
+            synchronized (lifecycleLock) {
+                if (disposed || Thread.currentThread().isInterrupted()) {
+                    startedProcess.destroy();
+                    return;
+                }
+                process = startedProcess;
+                lastOutputAt = System.currentTimeMillis();
+                final TtyConnector tty = new Pty4jTtyConnector(startedProcess, this::setState);
+                connector = tty;
+                attach.accept(tty);
             }
-            process = startedProcess;
-            lastOutputAt = System.currentTimeMillis();
-            final TtyConnector tty = new Pty4jTtyConnector(startedProcess, this::setState);
-            connector = tty;
-            attach.accept(tty);
             BackgroundTasks.submit(
                     "Terminals", "agent-terminal-monitor", () -> monitorExit(startedProcess));
             BackgroundTasks.submit(
                     "Terminals", "agent-terminal-activity", () -> monitorActivity(startedProcess));
         } catch (Exception exception) {
+            if (disposed) {
+                return;
+            }
             setState(TerminalState.FAILED);
             LOG.log(Level.SEVERE, "Terminal process at " + directory + ": " + command, exception);
             failed.accept(exception);
+        } finally {
+            launchThread = null;
         }
     }
 
@@ -161,7 +202,7 @@ public final class TerminalRuntime {
         }
     }
 
-    private void setState(final TerminalState next) {
+    protected void setState(final TerminalState next) {
         if (state != next) {
             state = next;
             stateChanged.accept(next);

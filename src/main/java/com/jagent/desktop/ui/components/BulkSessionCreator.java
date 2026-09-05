@@ -101,11 +101,23 @@ public final class BulkSessionCreator {
         return names;
     }
 
-    private String uniqueName(final Candidate candidate, final Set<String> names) {
+    public static String uniqueName(
+            final Candidate candidate, final Set<String> names) { // default access
         final String base = GitUtils.toBranchSlug(candidate.name());
         String name = base;
         int suffix = 2;
-        while (names.contains(name.toLowerCase(Locale.ROOT))) {
+        boolean collision = true;
+        while (collision) {
+            collision = false;
+            for (final String existing : names) {
+                if (existing.equalsIgnoreCase(name)) {
+                    collision = true;
+                    break;
+                }
+            }
+            if (!collision) {
+                break;
+            }
             name = base + "-" + suffix++;
         }
         return name;

@@ -10,6 +10,7 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.services.persistence.AppStatePersistence;
 import com.jagent.desktop.services.persistence.WindowStatePersistence;
+import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.CreateSessionAction;
 import com.jagent.desktop.ui.actions.CreateTerminalAction;
@@ -27,6 +28,7 @@ import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiFactory;
 import com.jagent.desktop.ui.components.UiIcons;
 import com.jagent.desktop.ui.components.WorkspaceTreePanel;
+import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import com.jagent.desktop.ui.utils.TerminalShortcutDispatcher;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -73,6 +75,7 @@ public final class AppView extends JFrame {
     private transient java.awt.KeyEventDispatcher terminalShortcutDispatcher;
     private transient View currentView;
     private transient WorkspaceTreePanel currentWorkspaceTree;
+    private transient boolean closing;
 
     public AppView() {
         this(Path.of(System.getProperty("user.home"), ".branchloom"));
@@ -223,19 +226,12 @@ public final class AppView extends JFrame {
     }
 
     private void configureWindow() {
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         addWindowListener(
                 new WindowAdapter() {
                     @Override
                     public void windowClosing(WindowEvent event) {
-                        if (currentView != null) {
-                            currentView.dispose();
-                        }
-                        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                                .removeKeyEventDispatcher(terminalShortcutDispatcher);
-                        saveWindowState();
-                        persistence.close();
-                        windowStatePersistence.close();
+                        closeApplication();
                     }
                 });
         setMinimumSize(new Dimension(900, 600));
@@ -255,6 +251,42 @@ public final class AppView extends JFrame {
         UIManager.put("OptionPane.warningIcon", null);
         UIManager.put("OptionPane.errorIcon", null);
         Theme.apply(Theme.FlatLafTheme.from(state.appSettings().theme()));
+    }
+
+    private void closeApplication() {
+        if (closing) {
+            return;
+        }
+        closing = true;
+        ProgressOperation.run(
+                this,
+                "Closing Branchloom",
+                "Stopping terminal processes...",
+                () -> {
+                    TerminalManager.get().disposeAll();
+                    return null;
+                },
+                this::finishClose,
+                failure -> {
+                    LOG.log(
+                            Level.WARNING,
+                            "Terminal cleanup failed during application shutdown",
+                            failure);
+                    finishClose();
+                });
+    }
+
+    private void finishClose() {
+        if (currentView != null) {
+            currentView.dispose();
+        }
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .removeKeyEventDispatcher(terminalShortcutDispatcher);
+        saveWindowState();
+        persistence.close();
+        windowStatePersistence.close();
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));
     }
 
     private JPanel shell(final ActionContext actionContext) {
