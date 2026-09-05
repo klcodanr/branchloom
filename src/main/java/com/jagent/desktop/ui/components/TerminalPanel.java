@@ -228,9 +228,7 @@ public final class TerminalPanel extends JPanel {
 
     private static final class AppJediTermWidget extends JediTermWidget {
         private AppJediTermWidget(
-                final int columns,
-                final int rows,
-                final AppTerminalSettings settings) {
+                final int columns, final int rows, final AppTerminalSettings settings) {
             super(columns, rows, settings);
             getTerminalPanel()
                     .addCustomKeyListener(
@@ -265,9 +263,8 @@ public final class TerminalPanel extends JPanel {
         }
     }
 
-    private static final class AppTerminalPanel
-            extends com.jediterm.terminal.ui.TerminalPanel {
-        private TerminalStarter terminalStarter;
+    private static final class AppTerminalPanel extends com.jediterm.terminal.ui.TerminalPanel {
+        private transient TerminalStarter terminalStarter;
 
         private AppTerminalPanel(
                 final com.jediterm.terminal.ui.settings.SettingsProvider settings,
@@ -279,8 +276,7 @@ public final class TerminalPanel extends JPanel {
                         @Override
                         public boolean canImport(final TransferSupport support) {
                             return support.isDrop()
-                                    && support.isDataFlavorSupported(
-                                            DataFlavor.javaFileListFlavor);
+                                    && support.isDataFlavorSupported(DataFlavor.javaFileListFlavor);
                         }
 
                         @Override
@@ -299,7 +295,8 @@ public final class TerminalPanel extends JPanel {
                                     return false;
                                 }
                                 terminalStarter.sendString(
-                                        file.toPath().toAbsolutePath().normalize().toString(), true);
+                                        file.toPath().toAbsolutePath().normalize().toString(),
+                                        true);
                                 return true;
                             } catch (Exception ignored) {
                                 return false;

@@ -39,8 +39,7 @@ public final class ClipboardImagePaster {
      * @return true when the clipboard contained an image and the paste was handled
      */
     public static boolean paste(
-            final Consumer<String> pasteText,
-            final Consumer<String> reportError) {
+            final Consumer<String> pasteText, final Consumer<String> reportError) {
         final Transferable contents;
         try {
             contents = Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null);
@@ -59,7 +58,9 @@ public final class ClipboardImagePaster {
             final Path imageFile =
                     clipboardDirectory.resolve(IMAGE_PREFIX + UUID.randomUUID() + ".png");
             if (!ImageIO.write(toBufferedImage(image), "png", imageFile.toFile())) {
-                throw new IOException("PNG image encoding is unavailable");
+                reportError.accept(
+                        "Could not paste clipboard image: PNG image encoding is unavailable");
+                return true;
             }
             pasteText.accept(imageFile.toAbsolutePath().toString());
             return true;
@@ -75,7 +76,8 @@ public final class ClipboardImagePaster {
         }
         final var bufferedImage =
                 new java.awt.image.BufferedImage(
-                        image.getWidth(null), image.getHeight(null),
+                        image.getWidth(null),
+                        image.getHeight(null),
                         java.awt.image.BufferedImage.TYPE_INT_ARGB);
         final var graphics = bufferedImage.createGraphics();
         graphics.drawImage(image, 0, 0, null);
