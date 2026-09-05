@@ -97,9 +97,7 @@ public final class BottomBar extends JPanel {
 
     private JButton iconButton(
             final javax.swing.Icon icon, final String tooltip, final Runnable action) {
-        final JButton button = UiFactory.iconButton(icon);
-        button.setToolTipText(tooltip);
-        button.getAccessibleContext().setAccessibleName(tooltip);
+        final JButton button = UiFactory.iconButton(icon, tooltip);
         button.addActionListener(event -> action.run());
         return button;
     }

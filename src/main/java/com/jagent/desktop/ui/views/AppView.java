@@ -412,10 +412,8 @@ public final class AppView extends JFrame {
         dock.setOpaque(false);
         dock.setMinimumSize(new Dimension(32, 0));
         dock.setPreferredSize(new Dimension(32, 0));
-        final JButton filesButton = UiFactory.iconButton(UiIcons.folderOpen());
+        final JButton filesButton = UiFactory.iconButton(UiIcons.folderOpen(), "Show files");
         filesButton.setName("show-files-button");
-        filesButton.setToolTipText("Show files");
-        filesButton.getAccessibleContext().setAccessibleName("Show files");
         filesButton.addActionListener(ignored -> showWorkspaceTree());
         dock.add(filesButton, BorderLayout.NORTH);
         workspaceTree.removeAll();

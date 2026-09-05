@@ -53,9 +53,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         titleText = title;
         add(header(), BorderLayout.NORTH);
         tabs.putClientProperty("JTabbedPane.scrollButtonsPolicy", "asNeeded");
-        final JButton addTerminal = UiFactory.iconButton(UiIcons.plus());
-        addTerminal.setToolTipText("New terminal");
-        addTerminal.getAccessibleContext().setAccessibleName("New terminal");
+        final JButton addTerminal = UiFactory.iconButton(UiIcons.plus(), "New terminal");
         addTerminal.addActionListener(event -> openTerminal(workspacePath()));
         final JToolBar trailingComponent = new JToolBar();
         trailingComponent.setFloatable(false);
@@ -94,10 +92,8 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         header.add(titleArea, BorderLayout.CENTER);
 
         if (Files.isDirectory(workspacePath())) {
-            final JButton actions = UiFactory.iconButton(UiIcons.ellipsis());
+            final JButton actions = UiFactory.iconButton(UiIcons.ellipsis(), "Actions");
             actions.setName("workspace-actions-button");
-            actions.setToolTipText("Actions");
-            actions.getAccessibleContext().setAccessibleName("Actions");
             actions.addActionListener(event -> showActions(actions));
             final JPanel actionArea = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
             actionArea.setOpaque(false);
