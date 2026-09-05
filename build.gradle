@@ -109,6 +109,16 @@ ext {
     packageCopyright = 'Copyright 2026 Dan Klco'
 }
 
+def configuredPackageName = packageName
+def configuredPackageIdentifier = packageIdentifier
+def configuredPackageVendor = packageVendor
+def configuredPackageDescription = packageDescription
+def configuredPackageCopyright = packageCopyright
+def configuredMainClass = application.mainClass.get()
+def configuredVersion = project.version.toString()
+def macIconPath = file('src/main/resources/Branchloom.icns').absolutePath
+def configuredJarName = tasks.named('jar').get().archiveFileName.get()
+
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(25) }
 }
@@ -185,6 +195,7 @@ def jpackageExecutable = {
     def javaExecutable = jpackageJava.get().executablePath.asFile
     new File(javaExecutable.parentFile, 'jpackage').absolutePath
 }
+def configuredJpackageExecutable = jpackageExecutable()
 
 def distributionDirectory = layout.buildDirectory.dir("install/${project.name}/lib")
 def packageDirectory = layout.buildDirectory.dir('jpackage')
@@ -219,17 +230,17 @@ tasks.register('jpackage', Exec) {
         if (outputDirectory.exists()) {
             outputDirectory.deleteDir()
         }
-        commandLine jpackageExecutable(),
+        commandLine configuredJpackageExecutable,
                 '--type', 'app-image',
-                '--name', packageName,
-                '--app-version', project.version.toString(),
-                '--vendor', packageVendor,
-                '--description', packageDescription,
-                '--copyright', packageCopyright,
+                '--name', configuredPackageName,
+                '--app-version', configuredVersion,
+                '--vendor', configuredPackageVendor,
+                '--description', configuredPackageDescription,
+                '--copyright', configuredPackageCopyright,
                 '--runtime-image', minimalRuntimeDirectory.get().asFile.absolutePath,
                 '--input', distributionDirectory.get().asFile.absolutePath,
-                '--main-jar', tasks.named('jar').get().archiveFileName.get(),
-                '--main-class', application.mainClass.get(),
+                '--main-jar', configuredJarName,
+                '--main-class', configuredMainClass,
                 '--dest', outputDirectory.absolutePath
     }
 }
@@ -247,9 +258,9 @@ tasks.register('jpackageInstaller', Exec) {
         def platformArguments = []
         if (osName.contains('mac')) {
             installerType = 'dmg'
-            platformArguments.addAll('--mac-package-identifier', packageIdentifier,
-                    '--mac-package-name', packageName,
-                    '--icon', file('src/main/resources/Branchloom.icns').absolutePath)
+            platformArguments.addAll('--mac-package-identifier', configuredPackageIdentifier,
+                    '--mac-package-name', configuredPackageName,
+                    '--icon', macIconPath)
         } else if (osName.contains('win')) {
             installerType = 'msi'
             platformArguments.addAll('--win-menu', '--win-shortcut',
@@ -277,17 +288,17 @@ tasks.register('jpackageInstaller', Exec) {
             if (keyStoreType) platformArguments.addAll('--win-signing-key-store-type', keyStoreType)
         }
 
-        commandLine jpackageExecutable(),
+        commandLine configuredJpackageExecutable,
                 '--type', installerType,
-                '--name', packageName,
-                '--app-version', project.version.toString(),
-                '--vendor', packageVendor,
-                '--description', packageDescription,
-                '--copyright', packageCopyright,
+                '--name', configuredPackageName,
+                '--app-version', configuredVersion,
+                '--vendor', configuredPackageVendor,
+                '--description', configuredPackageDescription,
+                '--copyright', configuredPackageCopyright,
                 '--runtime-image', minimalRuntimeDirectory.get().asFile.absolutePath,
                 '--input', distributionDirectory.get().asFile.absolutePath,
-                '--main-jar', tasks.named('jar').get().archiveFileName.get(),
-                '--main-class', application.mainClass.get(),
+                '--main-jar', configuredJarName,
+                '--main-class', configuredMainClass,
                 '--dest', outputDirectory.absolutePath,
                 *platformArguments
     }
