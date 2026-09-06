@@ -261,6 +261,8 @@ public final class AppView extends JFrame {
             return;
         }
         closing = true;
+        saveWindowState();
+        windowStatePersistence.close();
         ProgressOperation.run(
                 this,
                 "Closing Branchloom",
@@ -285,9 +287,7 @@ public final class AppView extends JFrame {
         }
         KeyboardFocusManager.getCurrentKeyboardFocusManager()
                 .removeKeyEventDispatcher(terminalShortcutDispatcher);
-        saveWindowState();
         persistence.close();
-        windowStatePersistence.close();
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));
     }

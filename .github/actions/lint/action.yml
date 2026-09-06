@@ -1,0 +1,30 @@
+name: Lint source
+description: Run source formatting and static analysis
+inputs:
+  release-version:
+    description: Optional release version passed to Gradle
+    required: false
+    default: ''
+  log-directory:
+    description: Optional directory for Gradle output logs
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Lint
+      shell: bash
+      env:
+        RELEASE_VERSION: ${{ inputs.release-version }}
+        LOG_DIRECTORY: ${{ inputs.log-directory }}
+      run: |
+        set -o pipefail
+        args=(--no-daemon)
+        if [[ -n "$RELEASE_VERSION" ]]; then
+          args+=("-PreleaseVersion=$RELEASE_VERSION")
+        fi
+        if [[ -n "$LOG_DIRECTORY" ]]; then
+          gradle "${args[@]}" ciLint 2>&1 | tee "$LOG_DIRECTORY/lint.log"
+        else
+          gradle "${args[@]}" ciLint
+        fi
