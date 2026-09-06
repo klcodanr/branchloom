@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-@SuppressWarnings("PMD.GodClass")
+@SuppressWarnings({"PMD.GodClass", "PMD.CyclomaticComplexity"})
 public final class Git {
     public record Branch(String name, boolean remote) {}
 
@@ -325,22 +325,60 @@ public final class Git {
     }
 
     public CompletableFuture<Void> updateBranch(final Path worktree) {
-        return runCommand("git pull --ff-only", worktree).thenApply(ignored -> null);
+        return new GitCurrentBranchUpdate(this).update(worktree);
+    }
+
+    /** Fetches and fast-forwards the repository's configured remote default branch. */
+    public CompletableFuture<Void> updatePrimaryBranch(final Project project) {
+        return new GitPrimaryBranchIntegration(this).update(project);
+    }
+
+    public CompletableFuture<Void> integratePrimaryBranch(
+            final Project project, final Path worktree, final GitIntegrationStrategy strategy) {
+        return new GitPrimaryBranchIntegration(this).integrate(project, worktree, strategy);
+    }
+
+    /* default */ static String fetchCommand(final String remote, final String branch) {
+        return "git fetch "
+                + PlatformCommands.shellQuote(remote)
+                + " "
+                + PlatformCommands.shellQuote(branch);
+    }
+
+    /* default */ CompletableFuture<String> ensureClean(final Path worktree) {
+        return runCommand("git status --porcelain", worktree)
+                .thenCompose(
+                        status ->
+                                Optional.of(status)
+                                        .filter(String::isBlank)
+                                        .map(CompletableFuture::completedFuture)
+                                        .orElseGet(
+                                                () ->
+                                                        CompletableFuture.failedFuture(
+                                                                new IOException(
+                                                                        "The worktree has local changes. Commit or stash them before updating."))));
+    }
+
+    /* default */ static String selectRemote(final String remotes) {
+        final List<String> names =
+                remotes.lines().map(String::trim).filter(name -> !name.isBlank()).toList();
+        return names.stream()
+                .filter("origin"::equals)
+                .findFirst()
+                .or(() -> names.stream().findFirst())
+                .orElse("");
     }
 
     private CompletableFuture<Void> fetchRemoteRef(final Project project, final String ref) {
-        if (ref == null || ref.isBlank() || !ref.contains("/")) {
+        if (!Optional.ofNullable(ref)
+                .filter(value -> !value.isBlank() && value.contains("/"))
+                .isPresent()) {
             return CompletableFuture.completedFuture(null);
         }
         final int separator = ref.indexOf('/');
         final String remote = ref.substring(0, separator);
         final String branch = ref.substring(separator + 1);
-        return runCommand(
-                        "git fetch "
-                                + PlatformCommands.shellQuote(remote)
-                                + " "
-                                + PlatformCommands.shellQuote(branch),
-                        Path.of(project.path()))
+        return runCommand(fetchCommand(remote, branch), Path.of(project.path()))
                 .thenApply(ignored -> null);
     }
 
@@ -354,7 +392,7 @@ public final class Git {
                                         .toList());
     }
 
-    private CompletableFuture<String> runCommand(final String command, final Path directory) {
+    /* default */ CompletableFuture<String> runCommand(final String command, final Path directory) {
         final CompletableFuture<String> future = new CompletableFuture<>();
         BackgroundTasks.submit(
                 "Git",
