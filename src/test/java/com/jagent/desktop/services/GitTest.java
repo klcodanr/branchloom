@@ -21,7 +21,13 @@ class GitTest {
     private static final String SESSION_NAME = "session";
     private static final String FEATURE_ARGUMENT = " feature";
     private static final String FEATURE_BRANCH = "feature";
+    private static final String FEATURE_FILE = "feature.txt";
     private static final String BRANCH_COMMAND = "git branch ";
+    private static final String REMOTE_ADD_ORIGIN = "git remote add origin ";
+    private static final String CLONE_COMMAND = "git clone -q ";
+    private static final String ADD_COMMAND = " && git add ";
+    private static final String CLONE_SUFFIX =
+            " . && git config user.name test && git config user.email test";
     private static final String WORKTREE_BRANCH_COMMAND =
             BRANCH_COMMAND + FEATURE_BRANCH + " && git worktree add -q ";
     private static final String SHOW_BRANCH_COMMAND = "git branch --show-current";
@@ -100,7 +106,10 @@ class GitTest {
         TestGitRepository.initialize(directory);
         run(
                 directory,
-                "git checkout -qb feature && printf 'feature' > feature.txt && git add feature.txt"
+                "git checkout -qb feature && printf 'feature' > "
+                        + FEATURE_FILE
+                        + ADD_COMMAND
+                        + FEATURE_FILE
                         + " && git commit -qm feature && git update-ref refs/remotes/origin/master"
                         + " HEAD~1 && git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/master"
                         + " && git config branch.feature.remote origin"
@@ -110,10 +119,9 @@ class GitTest {
         final Git.WorktreeStatus local = Git.worktreeStatus(directory, false);
         final Git.WorktreeStatus includingSource = Git.worktreeStatus(directory, true);
 
-        assertFalse(
-                local.files().containsKey("feature.txt"), "local status should exclude commits");
+        assertFalse(local.files().containsKey(FEATURE_FILE), "local status should exclude commits");
         assertTrue(
-                includingSource.files().containsKey("feature.txt"),
+                includingSource.files().containsKey(FEATURE_FILE),
                 "source comparison should include committed branch changes");
         assertTrue(
                 includingSource.files().containsKey(TRACKED_FILE),
@@ -126,7 +134,10 @@ class GitTest {
         TestGitRepository.initialize(directory);
         run(
                 directory,
-                "git checkout -qb feature && printf 'feature' > feature.txt && git add feature.txt"
+                "git checkout -qb feature && printf 'feature' > "
+                        + FEATURE_FILE
+                        + ADD_COMMAND
+                        + FEATURE_FILE
                         + " && git commit -qm feature && git update-ref refs/remotes/origin/master HEAD~1"
                         + " && git config branch.feature.remote origin"
                         + " && git config branch.feature.merge refs/heads/master");
@@ -155,7 +166,10 @@ class GitTest {
         TestGitRepository.initialize(directory);
         run(
                 directory,
-                "git checkout -qb feature && printf 'feature' > feature.txt && git add feature.txt"
+                "git checkout -qb feature && printf 'feature' > "
+                        + FEATURE_FILE
+                        + ADD_COMMAND
+                        + FEATURE_FILE
                         + " && git commit -qm feature");
         Files.writeString(directory.resolve(TRACKED_FILE), "local");
 
@@ -163,7 +177,7 @@ class GitTest {
 
         assertTrue(status.files().containsKey(TRACKED_FILE), "local changes should be retained");
         assertFalse(
-                status.files().containsKey("feature.txt"),
+                status.files().containsKey(FEATURE_FILE),
                 "committed changes should be skipped without a source branch");
     }
 
@@ -551,6 +565,176 @@ class GitTest {
 
         assertCompletionFailure(() -> git.fetchPullRequest(project, 12).join());
         assertCompletionFailure(() -> git.updateCurrentBranch(project).join());
+    }
+
+    @Test
+    void updatesCurrentBranchFromItsConfiguredUpstream(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+        final Path remote = directory.resolveSibling(directory.getFileName() + "-remote.git");
+        final Path source = directory.resolveSibling(directory.getFileName() + "-source");
+        Files.createDirectories(remote);
+        Files.createDirectories(source);
+        run(remote, "git init --bare -q");
+        run(
+                directory,
+                REMOTE_ADD_ORIGIN
+                        + PlatformCommands.shellQuote(remote.toString())
+                        + " && git push -qu origin master");
+        run(
+                source,
+                CLONE_COMMAND
+                        + PlatformCommands.shellQuote(remote.toString())
+                        + CLONE_SUFFIX
+                        + " && printf 'remote' > upstream.txt && git add upstream.txt"
+                        + " && git commit -qm upstream && git push -q origin master");
+
+        new Git().updateCurrentBranch(project(directory)).join();
+
+        assertTrue(
+                Files.exists(directory.resolve("upstream.txt")),
+                "current branch should fast-forward from its upstream");
+    }
+
+    @Test
+    void updatesPrimaryBranchFromRemoteDefaultBranch(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+        final Path remote = directory.resolveSibling(directory.getFileName() + "-primary.git");
+        final Path source = directory.resolveSibling(directory.getFileName() + "-primary-source");
+        Files.createDirectories(remote);
+        Files.createDirectories(source);
+        run(remote, "git init --bare -q && git symbolic-ref HEAD refs/heads/master");
+        run(
+                directory,
+                REMOTE_ADD_ORIGIN
+                        + PlatformCommands.shellQuote(remote.toString())
+                        + " && git push -qu origin master"
+                        + " && git remote set-head origin -a");
+        run(
+                source,
+                CLONE_COMMAND
+                        + PlatformCommands.shellQuote(remote.toString())
+                        + CLONE_SUFFIX
+                        + " && printf 'primary' > primary.txt && git add primary.txt"
+                        + " && git commit -qm primary && git push -q origin master");
+
+        new Git().updatePrimaryBranch(project(directory)).join();
+
+        assertTrue(
+                Files.exists(directory.resolve("primary.txt")),
+                "primary branch should fast-forward from the remote default branch");
+    }
+
+    @Test
+    void reportsActionableUpdateConfigurationFailures(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+        final Git git = new Git();
+
+        final CompletionException missingUpstream =
+                assertThrows(
+                        CompletionException.class,
+                        () -> git.updateCurrentBranch(project(directory)).join());
+        assertTrue(
+                missingUpstream.getCause().getMessage().contains("No upstream"),
+                "missing upstream should explain how to configure one");
+
+        final CompletionException missingRemote =
+                assertThrows(
+                        CompletionException.class,
+                        () -> git.updatePrimaryBranch(project(directory)).join());
+        assertTrue(
+                missingRemote.getCause().getMessage().contains("No Git remote"),
+                "missing remote should explain why primary update cannot proceed");
+
+        Files.writeString(directory.resolve(TRACKED_FILE), "changed");
+        final CompletionException dirty =
+                assertThrows(
+                        CompletionException.class,
+                        () -> git.updateCurrentBranch(project(directory)).join());
+        assertTrue(
+                dirty.getCause().getMessage().contains("Commit or stash"),
+                "dirty worktrees should explain how to proceed");
+    }
+
+    @Test
+    void mergesPrimaryBranchIntoCurrentWorktree(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        final Path remote = directory.resolveSibling(directory.getFileName() + "-merge.git");
+        final Path source = directory.resolveSibling(directory.getFileName() + "-merge-source");
+        TestGitRepository.initialize(directory);
+        Files.createDirectories(remote);
+        Files.createDirectories(source);
+        run(remote, "git init --bare -q && git symbolic-ref HEAD refs/heads/master");
+        run(
+                directory,
+                REMOTE_ADD_ORIGIN
+                        + PlatformCommands.shellQuote(remote.toString())
+                        + " && git push -qu origin master && git remote set-head origin -a"
+                        + " && git checkout -qb feature && printf 'feature' > "
+                        + FEATURE_FILE
+                        + ADD_COMMAND
+                        + FEATURE_FILE
+                        + " && git commit -qm feature");
+        run(
+                source,
+                CLONE_COMMAND
+                        + PlatformCommands.shellQuote(remote.toString())
+                        + CLONE_SUFFIX
+                        + " && printf 'primary' > primary.txt && git add primary.txt"
+                        + " && git commit -qm primary && git push -q origin master");
+
+        new Git()
+                .integratePrimaryBranch(project(directory), directory, GitIntegrationStrategy.MERGE)
+                .join();
+
+        assertTrue(
+                Files.exists(directory.resolve("primary.txt")),
+                "merge should include the latest primary file");
+        assertTrue(
+                Files.exists(directory.resolve(FEATURE_FILE)),
+                "merge should preserve current branch commits");
+    }
+
+    @Test
+    void reportsConflictsWhenIntegratingPrimaryBranch(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        final Path remote = directory.resolveSibling(directory.getFileName() + "-conflict.git");
+        final Path source = directory.resolveSibling(directory.getFileName() + "-conflict-source");
+        TestGitRepository.initialize(directory);
+        Files.createDirectories(remote);
+        Files.createDirectories(source);
+        run(remote, "git init --bare -q && git symbolic-ref HEAD refs/heads/master");
+        run(
+                directory,
+                REMOTE_ADD_ORIGIN
+                        + PlatformCommands.shellQuote(remote.toString())
+                        + " && git push -qu origin master && git remote set-head origin -a"
+                        + " && git checkout -qb feature && printf 'feature' > tracked.txt"
+                        + " && git add tracked.txt && git commit -qm feature");
+        run(
+                source,
+                CLONE_COMMAND
+                        + PlatformCommands.shellQuote(remote.toString())
+                        + CLONE_SUFFIX
+                        + " && printf 'primary' > tracked.txt && git add tracked.txt"
+                        + " && git commit -qm primary && git push -q origin master");
+
+        final CompletionException failure =
+                assertThrows(
+                        CompletionException.class,
+                        () ->
+                                new Git()
+                                        .integratePrimaryBranch(
+                                                project(directory),
+                                                directory,
+                                                GitIntegrationStrategy.REBASE)
+                                        .join());
+
+        assertTrue(
+                failure.getCause().getMessage().contains("Resolve any conflicts"),
+                "conflicts should include recovery guidance");
     }
 
     @Test
