@@ -19,3 +19,5 @@ an agent model. Agents such as OpenCode and Claude are external tools.
 - [Install Branchloom](docs/INSTALL.md)
 - [Use Branchloom](docs/USAGE.md)
 - [Develop and release Branchloom](docs/DEVELOPMENT.md)
+- [Design standards for maintainable UX](docs/DESIGN_STANDARDS.md)
+- [UX design review and consistency checklist](docs/DESIGN_REVIEW.md)
