@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-14]
+        os: [ubuntu-latest, macos-latest]
     steps:
       - name: Check out source
         uses: actions/checkout@v7
@@ -23,8 +23,18 @@ jobs:
       - name: Set up build environment
         uses: ./.github/actions/setup
 
-      - name: Verify source
-        uses: ./.github/actions/verify
+      - name: Compile
+        uses: ./.github/actions/compile
+        with:
+          log-directory: build/ci-logs
+
+      - name: Lint
+        uses: ./.github/actions/lint
+        with:
+          log-directory: build/ci-logs
+
+      - name: Test
+        uses: ./.github/actions/test
         with:
           log-directory: build/ci-logs
 

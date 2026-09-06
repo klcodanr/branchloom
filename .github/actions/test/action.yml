@@ -1,0 +1,35 @@
+name: Test source
+description: Run tests and verify coverage
+inputs:
+  release-version:
+    description: Optional release version passed to Gradle
+    required: false
+    default: ''
+  log-directory:
+    description: Optional directory for Gradle output logs
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Test
+      shell: bash
+      env:
+        RELEASE_VERSION: ${{ inputs.release-version }}
+        LOG_DIRECTORY: ${{ inputs.log-directory }}
+      run: |
+        set -o pipefail
+        args=(--no-daemon)
+        if [[ -n "$RELEASE_VERSION" ]]; then
+          args+=("-PreleaseVersion=$RELEASE_VERSION")
+        fi
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          command=(xvfb-run -a gradle "${args[@]}" ciTest)
+        else
+          command=(gradle "${args[@]}" ciTest)
+        fi
+        if [[ -n "$LOG_DIRECTORY" ]]; then
+          "${command[@]}" 2>&1 | tee "$LOG_DIRECTORY/test.log"
+        else
+          "${command[@]}"
+        fi

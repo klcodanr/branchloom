@@ -62,9 +62,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
+          - os: macos-latest
             platform: macOS
-          - os: ubuntu-24.04
+          - os: ubuntu-latest
             platform: Linux
 
     steps:
@@ -88,8 +88,18 @@ jobs:
           fi
           echo "value=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Verify source
-        uses: ./.github/actions/verify
+      - name: Compile
+        uses: ./.github/actions/compile
+        with:
+          release-version: ${{ steps.version.outputs.value }}
+
+      - name: Lint
+        uses: ./.github/actions/lint
+        with:
+          release-version: ${{ steps.version.outputs.value }}
+
+      - name: Test
+        uses: ./.github/actions/test
         with:
           release-version: ${{ steps.version.outputs.value }}
 
