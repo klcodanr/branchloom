@@ -15,52 +15,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-24.04, macos-14]
     steps:
       - name: Check out source
         uses: actions/checkout@v7
 
-      - name: Set up Java 25
-        uses: actions/setup-java@v6
+      - name: Set up build environment
+        uses: ./.github/actions/setup
+
+      - name: Verify source
+        uses: ./.github/actions/verify
         with:
-          distribution: temurin
-          java-version: '25'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: '9.7.1'
-
-      - name: Set up virtual display
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends --yes xvfb
-
-      - name: Prepare CI artifact directory
-        run: mkdir -p build/ci-logs
-
-      - name: Compile
-        run: |
-          if [[ "${RUNNER_OS}" == "Linux" ]]; then
-            xvfb-run -a gradle --no-daemon ciCompile 2>&1 | tee build/ci-logs/compile.log
-          else
-            gradle --no-daemon ciCompile 2>&1 | tee build/ci-logs/compile.log
-          fi
-
-      - name: Lint
-        run: |
-          if [[ "${RUNNER_OS}" == "Linux" ]]; then
-            xvfb-run -a gradle --no-daemon ciLint 2>&1 | tee build/ci-logs/lint.log
-          else
-            gradle --no-daemon ciLint 2>&1 | tee build/ci-logs/lint.log
-          fi
-
-      - name: Test
-        run: |
-          if [[ "${RUNNER_OS}" == "Linux" ]]; then
-            xvfb-run -a gradle --no-daemon ciTest 2>&1 | tee build/ci-logs/test.log
-          else
-            gradle --no-daemon ciTest 2>&1 | tee build/ci-logs/test.log
-          fi
+          log-directory: build/ci-logs
 
       - name: Upload Gradle reports after failure
         if: failure()
