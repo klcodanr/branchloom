@@ -63,7 +63,9 @@ public final class SessionView extends AbstractWorkspaceView {
             final Terminal terminal = state.terminals().get(terminalId);
             if (terminal != null) {
                 addTerminal(
-                        terminalId, terminalDefinitionForRestore(session, terminalId, terminal));
+                        terminalId,
+                        terminalDefinitionForRestore(session, terminalId, terminal),
+                        false);
             }
         }
     }
@@ -174,10 +176,11 @@ public final class SessionView extends AbstractWorkspaceView {
                                         actionContext.appState().currentSessionId(),
                                         tabTitle,
                                         command));
-        addTerminal(terminalId, actionContext.appState().terminals().get(terminalId));
+        addTerminal(terminalId, actionContext.appState().terminals().get(terminalId), true);
     }
 
-    private void addTerminal(final TerminalId terminalId, final Terminal persistedTerminal) {
+    private void addTerminal(
+            final TerminalId terminalId, final Terminal persistedTerminal, final boolean selected) {
         if (terminalId == null
                 || persistedTerminal == null
                 || session.worktreePath() == null
@@ -202,7 +205,7 @@ public final class SessionView extends AbstractWorkspaceView {
             terminal.getParent().remove(terminal);
         }
         terminalIds.put(terminal, terminalId);
-        mountTerminal(persistedTerminal.title(), terminalId, terminal, true);
+        mountTerminal(persistedTerminal.title(), terminalId, terminal, selected);
     }
 
     protected static Terminal terminalDefinitionForRestore(
