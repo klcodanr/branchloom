@@ -127,7 +127,7 @@ public final class ReviewQueueView extends JPanel implements View {
         launcher.setOpaque(false);
         final JComboBox<Agent> selector = new JComboBox<>(agents.toArray(Agent[]::new));
         final JButton start = UiFactory.button("Start review plan");
-        start.setEnabled(selector.getItemCount() > 0);
+        start.setEnabled(selector.getItemCount() > 0 && !requests.isEmpty());
         start.addActionListener(
                 event -> {
                     final Agent selected = (Agent) selector.getSelectedItem();

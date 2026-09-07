@@ -17,6 +17,7 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.UIManager;
@@ -49,6 +50,8 @@ public final class PullRequestCard extends JPanel {
         final JButton title =
                 UiFactory.link(request.title(), () -> PlatformCommands.openUrl(request.url()));
         title.setAlignmentX(LEFT_ALIGNMENT);
+        title.setToolTipText(request.title());
+        title.getAccessibleContext().setAccessibleName("Open pull request: " + request.title());
         title.setFont(Theme.boldFont(Theme.FontSize.MD));
         title.setComponentPopupMenu(contextMenu);
         add(title);
@@ -68,6 +71,13 @@ public final class PullRequestCard extends JPanel {
                                 + mergeStatus(request),
                         Theme.FontSize.XS);
         metadata.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+        metadata.setToolTipText(
+                "@"
+                        + request.author()
+                        + "  "
+                        + reviewStatus(request)
+                        + "  ·  "
+                        + mergeStatus(request));
         statusRow.add(statusDot);
         statusRow.add(Box.createHorizontalStrut(UiConstants.SPACING_XS));
         statusRow.add(metadata);
@@ -95,6 +105,22 @@ public final class PullRequestCard extends JPanel {
     private void startReview(final PullRequest request) {
         if (actionContext.appState().appSettings().agents().isEmpty()) {
             LOG.warning("Review PR: No agents configured");
+            final Object[] options = {"Open settings", "Cancel"};
+            final int choice =
+                    JOptionPane.showOptionDialog(
+                            actionContext.window(),
+                            "Configure an agent before starting a review.",
+                            "No review agent configured",
+                            JOptionPane.DEFAULT_OPTION,
+                            JOptionPane.WARNING_MESSAGE,
+                            null,
+                            options,
+                            options[0]);
+            if (choice == 0) {
+                actionContext
+                        .viewCoordinator()
+                        .updateView(ViewId.SETTINGS, ViewCoordinator.ViewState.reset());
+            }
             return;
         }
         new ReviewDialog(

@@ -18,6 +18,7 @@ import javax.swing.JLabel;
 import javax.swing.JScrollPane;
 import javax.swing.JToggleButton;
 import javax.swing.JTree;
+import javax.swing.KeyStroke;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreePath;
 import org.assertj.swing.edt.GuiActionRunner;
@@ -26,6 +27,27 @@ import org.junit.jupiter.api.Test;
 class WorkspaceTreePanelUiTest {
     private static final String NESTED = "nested";
     private static final String FILE = "file.txt";
+
+    @Test
+    void exposesKeyboardActionsForSelectedWorkspaceItems() {
+        final WorkspaceTreePanel panel = create(Path.of("workspace"));
+        final JTree tree = tree(panel);
+
+        assertEquals(
+                "open-selected-file",
+                tree.getInputMap(JTree.WHEN_FOCUSED)
+                        .get(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ENTER, 0)),
+                "Enter should open the selected file");
+        assertEquals(
+                "show-context-menu",
+                tree.getInputMap(JTree.WHEN_FOCUSED)
+                        .get(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_CONTEXT_MENU, 0)),
+                "context-menu key should expose file actions");
+        assertEquals(
+                "Workspace files",
+                tree.getAccessibleContext().getAccessibleName(),
+                "workspace tree should have an accessible name");
+    }
 
     @Test
     void loadsWorkspaceFilesAndRendersGitStatus() throws IOException, InterruptedException {

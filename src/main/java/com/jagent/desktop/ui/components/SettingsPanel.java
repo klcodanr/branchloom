@@ -102,6 +102,7 @@ public final class SettingsPanel {
         label.setPreferredSize(new Dimension(180, label.getPreferredSize().height));
         group.add(label, labelConstraints);
         final GridBagConstraints fieldConstraints = new GridBagConstraints();
+        fieldConstraints.anchor = GridBagConstraints.NORTHWEST;
         fieldConstraints.fill = GridBagConstraints.HORIZONTAL;
         fieldConstraints.weightx = 1;
         fieldConstraints.gridwidth = GridBagConstraints.REMAINDER;

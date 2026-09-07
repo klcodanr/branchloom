@@ -12,6 +12,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.FlowLayout;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
@@ -23,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
+import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JMenuItem;
@@ -30,6 +32,7 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTree;
+import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
@@ -330,33 +333,7 @@ public final class WorkspaceTreePanel extends JPanel {
         if (treePath == null) {
             return;
         }
-        tree.setSelectionPath(treePath);
-        final Object value =
-                ((DefaultMutableTreeNode) treePath.getLastPathComponent()).getUserObject();
-        if (!(value instanceof Path path)) {
-            return;
-        }
-        final JPopupMenu menu = new JPopupMenu();
-        if (!directory(path)) {
-            final JMenuItem open = new JMenuItem("Open in editor");
-            open.addActionListener(ignored -> openInEditor(path));
-            menu.add(open);
-        }
-        final JMenuItem reveal = new JMenuItem("Reveal in file manager");
-        reveal.addActionListener(
-                ignored ->
-                        OpenDirectoryAction.open(
-                                directory(path) ? path.toString() : parentOrSelf(path).toString(),
-                                actionContext.window()));
-        menu.add(reveal);
-        final JMenuItem terminal = new JMenuItem("Open terminal here");
-        terminal.addActionListener(
-                ignored -> openTerminal.accept(directory(path) ? path : parentOrSelf(path)));
-        menu.add(terminal);
-        final JMenuItem copy = new JMenuItem("Copy path");
-        copy.addActionListener(ignored -> CopyPathAction.copy(path.toAbsolutePath().toString()));
-        menu.add(copy);
-        menu.show(tree, event.getX(), event.getY());
+        showMenuAt(treePath, event.getX(), event.getY());
     }
 
     private boolean directory(final Path path) {
@@ -384,8 +361,60 @@ public final class WorkspaceTreePanel extends JPanel {
             setRootVisible(true);
             setShowsRootHandles(true);
             setCellRenderer(new WorkspaceRenderer());
+            getAccessibleContext().setAccessibleName("Workspace files");
+            getInputMap(WHEN_FOCUSED)
+                    .put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "open-selected-file");
+            getActionMap()
+                    .put(
+                            "open-selected-file",
+                            new AbstractAction() {
+                                @Override
+                                public void actionPerformed(
+                                        final java.awt.event.ActionEvent event) {
+                                    openSelectedPath();
+                                }
+                            });
+            getInputMap(WHEN_FOCUSED)
+                    .put(KeyStroke.getKeyStroke(KeyEvent.VK_CONTEXT_MENU, 0), "show-context-menu");
+            getInputMap(WHEN_FOCUSED)
+                    .put(
+                            KeyStroke.getKeyStroke(KeyEvent.VK_F10, KeyEvent.SHIFT_DOWN_MASK),
+                            "show-context-menu");
+            getActionMap()
+                    .put(
+                            "show-context-menu",
+                            new AbstractAction() {
+                                @Override
+                                public void actionPerformed(
+                                        final java.awt.event.ActionEvent event) {
+                                    showKeyboardMenu();
+                                }
+                            });
             installExpansionListener();
             installMouseListener();
+        }
+
+        private void openSelectedPath() {
+            final TreePath selected = getSelectionPath();
+            if (selected == null) {
+                return;
+            }
+            final Object value =
+                    ((DefaultMutableTreeNode) selected.getLastPathComponent()).getUserObject();
+            if (value instanceof Path path) {
+                openSelected(path);
+            }
+        }
+
+        private void showKeyboardMenu() {
+            final TreePath selected = getSelectionPath();
+            if (selected == null) {
+                return;
+            }
+            final java.awt.Rectangle bounds = getPathBounds(selected);
+            if (bounds != null) {
+                showMenuAt(selected, bounds.x, bounds.y + bounds.height);
+            }
         }
 
         private void installExpansionListener() {
@@ -445,6 +474,36 @@ public final class WorkspaceTreePanel extends JPanel {
                         }
                     });
         }
+    }
+
+    private void showMenuAt(final TreePath treePath, final int x, final int y) {
+        tree.setSelectionPath(treePath);
+        final Object value =
+                ((DefaultMutableTreeNode) treePath.getLastPathComponent()).getUserObject();
+        if (!(value instanceof Path path)) {
+            return;
+        }
+        final JPopupMenu menu = new JPopupMenu();
+        if (!directory(path)) {
+            final JMenuItem open = new JMenuItem("Open in editor");
+            open.addActionListener(ignored -> openInEditor(path));
+            menu.add(open);
+        }
+        final JMenuItem reveal = new JMenuItem("Reveal in file manager");
+        reveal.addActionListener(
+                ignored ->
+                        OpenDirectoryAction.open(
+                                directory(path) ? path.toString() : parentOrSelf(path).toString(),
+                                actionContext.window()));
+        menu.add(reveal);
+        final JMenuItem terminal = new JMenuItem("Open terminal here");
+        terminal.addActionListener(
+                ignored -> openTerminal.accept(directory(path) ? path : parentOrSelf(path)));
+        menu.add(terminal);
+        final JMenuItem copy = new JMenuItem("Copy path");
+        copy.addActionListener(ignored -> CopyPathAction.copy(path.toAbsolutePath().toString()));
+        menu.add(copy);
+        UiFactory.showPopupMenu(menu, tree, x, y);
     }
 
     private final class WorkspaceRenderer extends DefaultTreeCellRenderer {
