@@ -17,8 +17,10 @@ import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
@@ -52,6 +54,8 @@ public final class WorkspaceTreePanel extends JPanel {
     private SmIconButton comparisonButton;
     private Runnable hideAction = () -> {};
     private boolean compareSourceBranch;
+    private Set<Path> expandedPaths = Set.of();
+    private Path selectedPath;
 
     public WorkspaceTreePanel(
             final ActionContext actionContext,
@@ -184,10 +188,32 @@ public final class WorkspaceTreePanel extends JPanel {
     }
 
     private void reloadWorkspace() {
+        saveTreeState();
         root.removeAllChildren();
         root.add(new DefaultMutableTreeNode(LOADING));
         ((DefaultTreeModel) tree.getModel()).reload(root);
         loadChildren(root);
+    }
+
+    private void saveTreeState() {
+        final Set<Path> expanded = new HashSet<>();
+        final var paths = tree.getExpandedDescendants(new TreePath(root.getPath()));
+        if (paths != null) {
+            while (paths.hasMoreElements()) {
+                final Object value = paths.nextElement().getLastPathComponent();
+                if (value instanceof DefaultMutableTreeNode node
+                        && node.getUserObject() instanceof Path path) {
+                    expanded.add(path);
+                }
+            }
+        }
+        expandedPaths = Set.copyOf(expanded);
+        final Object selected = tree.getLastSelectedPathComponent();
+        selectedPath =
+                selected instanceof DefaultMutableTreeNode node
+                                && node.getUserObject() instanceof Path path
+                        ? path
+                        : null;
     }
 
     private DefaultMutableTreeNode node(final Path path) {
@@ -238,8 +264,39 @@ public final class WorkspaceTreePanel extends JPanel {
                                 }
                                 ((DefaultTreeModel) tree.getModel()).reload(parent);
                                 tree.expandPath(new TreePath(parent.getPath()));
+                                restoreTreeState();
                             });
                 });
+    }
+
+    private void restoreTreeState() {
+        for (final Path path : expandedPaths) {
+            final DefaultMutableTreeNode node = findNode(root, path);
+            if (node != null) {
+                tree.expandPath(new TreePath(node.getPath()));
+            }
+        }
+        if (selectedPath != null) {
+            final DefaultMutableTreeNode node = findNode(root, selectedPath);
+            if (node != null) {
+                tree.setSelectionPath(new TreePath(node.getPath()));
+                selectedPath = null;
+            }
+        }
+    }
+
+    private DefaultMutableTreeNode findNode(final DefaultMutableTreeNode parent, final Path path) {
+        if (path.equals(parent.getUserObject())) {
+            return parent;
+        }
+        for (int index = 0; index < parent.getChildCount(); index++) {
+            final DefaultMutableTreeNode node =
+                    findNode((DefaultMutableTreeNode) parent.getChildAt(index), path);
+            if (node != null) {
+                return node;
+            }
+        }
+        return null;
     }
 
     private void openSelected(final Path path) {
