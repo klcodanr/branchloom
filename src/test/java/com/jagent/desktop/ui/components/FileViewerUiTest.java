@@ -38,6 +38,26 @@ class FileViewerUiTest {
     }
 
     @Test
+    void opensInDiffModeWhenRequested() throws IOException, InterruptedException {
+        final Path workspace = Files.createTempDirectory("file-viewer-filtered-test");
+        final Path file = workspace.resolve("Example.java");
+        Files.writeString(file, "class Example {}\n");
+        try {
+            final FileViewer viewer =
+                    GuiActionRunner.execute(() -> new FileViewer(workspace, file, true));
+            waitForStatus(viewer, "Changed");
+            assertTrue(
+                    diffButton(viewer).isSelected(),
+                    "filtered tree opens the file viewer in diff mode");
+            assertTrue(
+                    !sourceButton(viewer).isSelected(),
+                    "source mode should not be selected for a filtered open");
+        } finally {
+            delete(workspace);
+        }
+    }
+
+    @Test
     void reportsBinaryFile() throws IOException, InterruptedException {
         final Path workspace = Files.createTempDirectory("file-viewer-binary-test");
         final Path file = workspace.resolve("data.bin");
@@ -164,6 +184,28 @@ class FileViewerUiTest {
         final java.awt.Container controls =
                 (java.awt.Container) ((java.awt.Container) viewer.getComponent(0)).getComponent(1);
         return (JButton) ((java.awt.Container) controls.getComponent(1)).getComponent(4);
+    }
+
+    private static javax.swing.JToggleButton sourceButton(final FileViewer viewer) {
+        return modeButton(viewer, "File");
+    }
+
+    private static javax.swing.JToggleButton diffButton(final FileViewer viewer) {
+        return modeButton(viewer, "Diff");
+    }
+
+    private static javax.swing.JToggleButton modeButton(
+            final FileViewer viewer, final String accessibleName) {
+        final java.awt.Container controls =
+                (java.awt.Container) ((java.awt.Container) viewer.getComponent(0)).getComponent(1);
+        final java.awt.Container modes = (java.awt.Container) controls.getComponent(0);
+        for (final java.awt.Component component : modes.getComponents()) {
+            if (component instanceof javax.swing.JToggleButton button
+                    && accessibleName.equals(button.getAccessibleContext().getAccessibleName())) {
+                return button;
+            }
+        }
+        throw new AssertionError("mode button not found: " + accessibleName);
     }
 
     private static void delete(final Path workspace) throws IOException {

@@ -24,6 +24,7 @@ public final class FileViewer extends JPanel {
     private static final String DIFF = "diff";
     private final Path workspace;
     private final Path file;
+    private final boolean showDiffInitially;
     private final JLabel status = UiFactory.label("Loading...", Theme.FontSize.XS);
     private final CardLayout cards = new CardLayout();
     private final JPanel content = new JPanel(cards);
@@ -41,9 +42,14 @@ public final class FileViewer extends JPanel {
                     source::requestFocusInWindow);
 
     public FileViewer(final Path workspace, final Path file) {
+        this(workspace, file, false);
+    }
+
+    public FileViewer(final Path workspace, final Path file, final boolean showDiffInitially) {
         super(new BorderLayout(0, UiConstants.CONTENT_PADDING));
         this.workspace = workspace.toAbsolutePath().normalize();
         this.file = file.toAbsolutePath().normalize();
+        this.showDiffInitially = showDiffInitially;
         setBorder(UiFactory.sectionBorder());
         add(toolbar(), BorderLayout.NORTH);
         configureSource();
@@ -71,7 +77,8 @@ public final class FileViewer extends JPanel {
         final ButtonGroup group = new ButtonGroup();
         group.add(sourceButton);
         group.add(diffButton);
-        sourceButton.setSelected(true);
+        sourceButton.setSelected(!showDiffInitially);
+        diffButton.setSelected(showDiffInitially);
         sourceButton.addActionListener(event -> cards.show(content, SOURCE));
         diffButton.addActionListener(event -> cards.show(content, DIFF));
         viewModes.add(sourceButton);

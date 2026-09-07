@@ -99,7 +99,7 @@ class WorkspaceTreePanelUiTest {
                 new ActionContext(new ViewCoordinator(state), state, null),
                 workspace,
                 ignored -> {},
-                ignored -> {});
+                (ignored, filtered) -> {});
     }
 
     private static JTree tree(final WorkspaceTreePanel panel) {
