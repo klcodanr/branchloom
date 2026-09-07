@@ -7,6 +7,7 @@ import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
+import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.PullRequestCache;
 import com.jagent.desktop.ui.components.ProjectActions;
@@ -14,11 +15,15 @@ import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
 import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.UiFactory;
+import java.awt.FlowLayout;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 
 public final class ProjectView extends AbstractWorkspaceView {
     private final transient Project project;
@@ -26,6 +31,8 @@ public final class ProjectView extends AbstractWorkspaceView {
     private final transient PullRequestCache pullRequestCache;
     private final PullRequestsBoard authoredPullRequests;
     private final PullRequestsBoard reviewPullRequests;
+    private final JPanel gitWarning = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+    private final JButton initializeGit = new JButton("Initialize Git");
     private int terminalNumber;
 
     public ProjectView(final ActionContext actionContext, final Project project) {
@@ -72,7 +79,40 @@ public final class ProjectView extends AbstractWorkspaceView {
     }
 
     @Override
-    protected void addTitleDetails(final JPanel titleArea) {}
+    protected void addTitleDetails(final JPanel titleArea) {
+        if (Git.isRepository(Path.of(project.path()))) {
+            return;
+        }
+        gitWarning.setOpaque(false);
+        gitWarning.add(new JLabel("This folder is not a Git repository."));
+        initializeGit.addActionListener(event -> initializeGit());
+        gitWarning.add(initializeGit);
+        titleArea.add(gitWarning);
+    }
+
+    private void initializeGit() {
+        initializeGit.setEnabled(false);
+        new Git()
+                .initializeRepository(Path.of(project.path()))
+                .whenComplete(
+                        (ignored, failure) ->
+                                SwingUtilities.invokeLater(
+                                        () -> {
+                                            if (failure == null) {
+                                                gitWarning.setVisible(false);
+                                                gitWarning.getParent().revalidate();
+                                                gitWarning.getParent().repaint();
+                                            } else {
+                                                initializeGit.setEnabled(true);
+                                                JOptionPane.showMessageDialog(
+                                                        this,
+                                                        "Git could not be initialized: "
+                                                                + failure.getMessage(),
+                                                        "Initialize Git",
+                                                        JOptionPane.ERROR_MESSAGE);
+                                            }
+                                        }));
+    }
 
     @Override
     protected void addDefaultTabs() {

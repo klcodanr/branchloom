@@ -239,6 +239,12 @@ public final class Git {
                 .thenApply(ignored -> null);
     }
 
+    /** Initializes a Git repository in an existing folder. */
+    public CompletableFuture<Void> initializeRepository(final Path directory) {
+        return runGitCommand(directory.toAbsolutePath().normalize(), "init")
+                .thenApply(ignored -> null);
+    }
+
     public CompletableFuture<Void> restoreWorktree(final Project project, final Worktree worktree) {
         if (worktree.branch() == null || worktree.branch().isBlank()) {
             return CompletableFuture.failedFuture(
