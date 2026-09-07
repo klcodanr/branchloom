@@ -9,7 +9,6 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.services.BackgroundTasks;
-import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.ui.components.GitHubAuthSelector;
@@ -26,10 +25,11 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
-/** Starts the workflow for adding an existing local Git project. */
+/** Starts the workflow for adding an existing local project. */
 public class CreateProjectAction extends BaseAction {
 
     private static final Logger LOG = Logger.getLogger(CreateProjectAction.class.getName());
+    private static final String ADD_PROJECT_TITLE = "Add local project";
 
     public CreateProjectAction(final ActionContext actionContext) {
         super(actionContext);
@@ -42,7 +42,7 @@ public class CreateProjectAction extends BaseAction {
 
     @Override
     public String label() {
-        return "Add local project";
+        return ADD_PROJECT_TITLE;
     }
 
     @Override
@@ -50,7 +50,7 @@ public class CreateProjectAction extends BaseAction {
         final ProgressOperation progress =
                 ProgressOperation.start(
                         this.actionContext.window(),
-                        "Add Git project",
+                        ADD_PROJECT_TITLE,
                         "Loading GitHub accounts...");
         BackgroundTasks.submit("Operations", "Load GitHub accounts", GitHub::configuredAuths)
                 .whenComplete(
@@ -60,7 +60,7 @@ public class CreateProjectAction extends BaseAction {
                                             progress.close();
                                             if (failure != null) {
                                                 LOG.severe(
-                                                        "Add Git project: Failed to load GitHub accounts.");
+                                                        "Add local project: Failed to load GitHub accounts.");
                                                 return;
                                             }
                                             showDialog(configuredAuths);
@@ -91,7 +91,7 @@ public class CreateProjectAction extends BaseAction {
         browse.addActionListener(
                 event -> {
                     final JFileChooser chooser = new JFileChooser(System.getProperty("user.home"));
-                    chooser.setDialogTitle("Select Git repository");
+                    chooser.setDialogTitle("Select project folder");
                     chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
                     chooser.setAcceptAllFileFilterUsed(false);
                     chooser.setApproveButtonText("Select Folder");
@@ -108,14 +108,14 @@ public class CreateProjectAction extends BaseAction {
                 form(
                         "Project name",
                         name,
-                        "Git repository path",
+                        "Project folder",
                         pathInput,
                         "GitHub CLI auth",
                         githubAuth);
         if (JOptionPane.showConfirmDialog(
                         this.actionContext.window(),
                         projectForm,
-                        "Add Git project",
+                        ADD_PROJECT_TITLE,
                         JOptionPane.OK_CANCEL_OPTION)
                 != JOptionPane.OK_OPTION) {
             return;
@@ -123,26 +123,25 @@ public class CreateProjectAction extends BaseAction {
         final String projectName = name.getText().trim();
         final Path projectPath = Path.of(path.getText().trim()).toAbsolutePath().normalize();
         if (projectName.isBlank()) {
-            LOG.severe("Add Git project: Project name is required.");
+            LOG.severe("Add local project: Project name is required.");
             return;
         }
-        if (!Files.isDirectory(projectPath) || !Git.isRepository(projectPath)) {
-            final String message =
-                    "The selected folder is not a Git repository, or Git is not available to the app.";
-            LOG.severe("Add Git project: " + message);
+        if (!Files.isDirectory(projectPath)) {
+            final String message = "The selected path is not a folder.";
+            LOG.severe("Add local project: " + message);
             JOptionPane.showMessageDialog(
                     this.actionContext.window(),
                     message,
-                    "Add Git project",
+                    ADD_PROJECT_TITLE,
                     JOptionPane.ERROR_MESSAGE);
             return;
         }
         if (duplicatePath(appState.projects().values(), projectPath)) {
-            LOG.severe("Add Git project: That project is already registered.");
+            LOG.severe("Add local project: That project is already registered.");
             return;
         }
         if (duplicateName(appState.projects().values(), projectName)) {
-            LOG.severe("Add Git project: A project with that name already exists.");
+            LOG.severe("Add local project: A project with that name already exists.");
             return;
         }
         final GitHub.Auth auth =

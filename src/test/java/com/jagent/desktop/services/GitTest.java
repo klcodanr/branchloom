@@ -25,6 +25,8 @@ class GitTest {
     private static final String BRANCH_COMMAND = "git branch ";
     private static final String REMOTE_ADD_ORIGIN = "git remote add origin ";
     private static final String CLONE_COMMAND = "git clone -q ";
+    private static final String BARE_REMOTE_INIT =
+            "git init --bare -q && git symbolic-ref HEAD refs/heads/master";
     private static final String ADD_COMMAND = " && git add ";
     private static final String CLONE_SUFFIX =
             " . && git config user.name test && git config user.email test";
@@ -81,6 +83,16 @@ class GitTest {
         assertFalse(
                 Git.isRepository(directory.resolve("missing")),
                 "missing directory should not validate as a repository");
+    }
+
+    @Test
+    void initializesRepositoryInSelectedDirectory(@TempDir final Path directory)
+            throws IOException {
+        assertFalse(Git.isRepository(directory), "test directory should start without Git");
+
+        new Git().initializeRepository(directory).join();
+
+        assertTrue(Git.isRepository(directory), "initialized directory should be a repository");
     }
 
     @Test
@@ -571,11 +583,9 @@ class GitTest {
     void updatesCurrentBranchFromItsConfiguredUpstream(@TempDir final Path directory)
             throws IOException, InterruptedException {
         TestGitRepository.initialize(directory);
-        final Path remote = directory.resolveSibling(directory.getFileName() + "-remote.git");
-        final Path source = directory.resolveSibling(directory.getFileName() + "-source");
-        Files.createDirectories(remote);
-        Files.createDirectories(source);
-        run(remote, "git init --bare -q");
+        final Path remote = Files.createTempDirectory("branchloom-remote-");
+        final Path source = Files.createTempDirectory("branchloom-source-");
+        run(remote, BARE_REMOTE_INIT);
         run(
                 directory,
                 REMOTE_ADD_ORIGIN
@@ -604,7 +614,7 @@ class GitTest {
         final Path source = directory.resolveSibling(directory.getFileName() + "-primary-source");
         Files.createDirectories(remote);
         Files.createDirectories(source);
-        run(remote, "git init --bare -q && git symbolic-ref HEAD refs/heads/master");
+        run(remote, BARE_REMOTE_INIT);
         run(
                 directory,
                 REMOTE_ADD_ORIGIN
@@ -666,7 +676,7 @@ class GitTest {
         TestGitRepository.initialize(directory);
         Files.createDirectories(remote);
         Files.createDirectories(source);
-        run(remote, "git init --bare -q && git symbolic-ref HEAD refs/heads/master");
+        run(remote, BARE_REMOTE_INIT);
         run(
                 directory,
                 REMOTE_ADD_ORIGIN
@@ -705,7 +715,7 @@ class GitTest {
         TestGitRepository.initialize(directory);
         Files.createDirectories(remote);
         Files.createDirectories(source);
-        run(remote, "git init --bare -q && git symbolic-ref HEAD refs/heads/master");
+        run(remote, BARE_REMOTE_INIT);
         run(
                 directory,
                 REMOTE_ADD_ORIGIN
