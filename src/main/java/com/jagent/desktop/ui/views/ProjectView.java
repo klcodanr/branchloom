@@ -166,6 +166,12 @@ public final class ProjectView extends AbstractWorkspaceView {
         updateCurrentTerminal();
     }
 
+    @Override
+    public void refresh() {
+        authoredPullRequests.refresh();
+        reviewPullRequests.refresh();
+    }
+
     public void reviewPullRequest(final PullRequest request) {
         final PullRequestCache.ProjectPullRequests requests =
                 pullRequestCache.getCached(this.projectId);

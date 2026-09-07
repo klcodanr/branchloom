@@ -8,17 +8,23 @@ import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.Git;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.geom.AffineTransform;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.swing.BorderFactory;
+import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.UIManager;
 
 /** Compact bottom bar for problems, workspace status, and background jobs. */
@@ -35,6 +41,11 @@ public final class BottomBar extends JPanel {
     private final GitStatusPanel gitStatus = new GitStatusPanel();
     private final JProgressBar jobsProgress = new JProgressBar();
     private final AtomicLong refreshGeneration = new AtomicLong();
+    private final transient RotatingIcon refreshIcon = new RotatingIcon(UiIcons.refresh());
+    private final Timer refreshAnimation;
+    private final Runnable refreshCurrentViewAction;
+    private boolean refreshWorkObserved;
+    private int refreshAnimationTicks;
     private List<BackgroundJobs.Job> jobs = List.of();
 
     public BottomBar(
@@ -47,6 +58,7 @@ public final class BottomBar extends JPanel {
             final Runnable refreshCurrentView) {
         super(new BorderLayout(12, 0));
         this.appState = appState;
+        refreshCurrentViewAction = refreshCurrentView;
         setBorder(
                 BorderFactory.createCompoundBorder(
                         BorderFactory.createMatteBorder(
@@ -66,9 +78,23 @@ public final class BottomBar extends JPanel {
         searchButton.setName("search-button");
         problemsButton = iconButton(UiIcons.triangleAlert(), "Open problems", openProblems);
         problemsButton.setName("problems-button");
-        refreshButton = iconButton(UiIcons.refresh(), "Refresh current view", refreshCurrentView);
+        refreshButton = iconButton(refreshIcon, "Refresh current view", this::refreshCurrentView);
         refreshButton.setName("refresh-button");
         refreshButton.setVisible(false);
+        refreshAnimation =
+                new Timer(
+                        75,
+                        event -> {
+                            refreshIcon.rotate();
+                            refreshButton.repaint();
+                            refreshAnimationTicks++;
+                            final boolean active =
+                                    !BackgroundTasks.summary().activeTasks().isEmpty();
+                            refreshWorkObserved |= active;
+                            if ((refreshWorkObserved && !active) || refreshAnimationTicks >= 20) {
+                                stopRefreshAnimation();
+                            }
+                        });
 
         final JPanel left =
                 new JPanel(new FlowLayout(FlowLayout.LEFT, UiConstants.CONTENT_PADDING, 0));
@@ -101,8 +127,7 @@ public final class BottomBar extends JPanel {
         refresh();
     }
 
-    private JButton iconButton(
-            final javax.swing.Icon icon, final String tooltip, final Runnable action) {
+    private JButton iconButton(final Icon icon, final String tooltip, final Runnable action) {
         final JButton button = UiFactory.iconButton(icon, tooltip);
         button.addActionListener(event -> action.run());
         return button;
@@ -152,6 +177,30 @@ public final class BottomBar extends JPanel {
 
     public void setRefreshVisible(final boolean visible) {
         refreshButton.setVisible(visible);
+        if (visible && !BackgroundTasks.summary().activeTasks().isEmpty()) {
+            startRefreshAnimation();
+        }
+        if (!visible) {
+            stopRefreshAnimation();
+        }
+    }
+
+    private void refreshCurrentView() {
+        startRefreshAnimation();
+        refreshCurrentViewAction.run();
+    }
+
+    private void startRefreshAnimation() {
+        refreshWorkObserved = false;
+        refreshAnimationTicks = 0;
+        refreshAnimation.start();
+    }
+
+    private void stopRefreshAnimation() {
+        refreshAnimation.stop();
+        refreshAnimationTicks = 0;
+        refreshIcon.reset();
+        refreshButton.repaint();
     }
 
     private void clearWorkspaceStatus() {
@@ -232,5 +281,52 @@ public final class BottomBar extends JPanel {
                                                     + job.message()));
         }
         menu.show(jobsProgress, 0, -menu.getPreferredSize().height);
+    }
+
+    private static final class RotatingIcon implements Icon {
+        private final Icon delegate;
+        private double angle;
+
+        private RotatingIcon(final Icon delegate) {
+            this.delegate = delegate;
+        }
+
+        private void rotate() {
+            angle += Math.PI / 12;
+            if (angle >= Math.PI * 2) {
+                angle -= Math.PI * 2;
+            }
+        }
+
+        private void reset() {
+            angle = 0;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return delegate.getIconWidth();
+        }
+
+        @Override
+        public int getIconHeight() {
+            return delegate.getIconHeight();
+        }
+
+        @Override
+        public void paintIcon(
+                final java.awt.Component component,
+                final Graphics graphics,
+                final int x,
+                final int y) {
+            final Graphics2D graphics2d = (Graphics2D) graphics.create();
+            graphics2d.setRenderingHint(
+                    RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            final AffineTransform transform =
+                    AffineTransform.getRotateInstance(
+                            angle, x + getIconWidth() / 2.0, y + getIconHeight() / 2.0);
+            graphics2d.transform(transform);
+            delegate.paintIcon(component, graphics2d, x, y);
+            graphics2d.dispose();
+        }
     }
 }
