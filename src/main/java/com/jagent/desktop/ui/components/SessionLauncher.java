@@ -7,7 +7,10 @@ import com.jagent.desktop.services.BackgroundJobs.Handle;
 import com.jagent.desktop.services.CommandRunner;
 import com.jagent.desktop.services.SessionCreationService.CreatedSession;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import java.awt.GraphicsEnvironment;
 import java.nio.file.Path;
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 
 /** Opens a newly created session and runs its configured setup commands. */
 public final class SessionLauncher {
@@ -42,7 +45,8 @@ public final class SessionLauncher {
         } else {
             final Handle job =
                     actionContext.viewCoordinator().backgroundJobs().start("Session setup");
-            runStartupCommand(project, created.worktreePath(), job, 0, terminalPanel::start);
+            runStartupCommand(
+                    project, created.worktreePath(), job, 0, terminalPanel::start, terminalPanel);
         }
     }
 
@@ -51,7 +55,8 @@ public final class SessionLauncher {
             final String worktreePath,
             final Handle job,
             final int index,
-            final Runnable onComplete) {
+            final Runnable onComplete,
+            final TerminalPanel terminalPanel) {
         if (index >= project.startupCommands().size()) {
             job.complete();
             onComplete.run();
@@ -66,11 +71,53 @@ public final class SessionLauncher {
                 project.startupCommands().get(index),
                 Path.of(worktreePath),
                 ignored -> {},
-                () -> runStartupCommand(project, worktreePath, job, index + 1, onComplete),
+                () ->
+                        runStartupCommand(
+                                project, worktreePath, job, index + 1, onComplete, terminalPanel),
                 output ->
-                        job.fail(
-                                output == null || output.isBlank()
-                                        ? "Setup command failed."
-                                        : output));
+                        failStartup(
+                                project,
+                                worktreePath,
+                                job,
+                                index,
+                                onComplete,
+                                terminalPanel,
+                                output));
+    }
+
+    private void failStartup(
+            final Project project,
+            final String worktreePath,
+            final Handle job,
+            final int index,
+            final Runnable onComplete,
+            final TerminalPanel terminalPanel,
+            final String output) {
+        final String message =
+                output == null || output.isBlank() ? "Setup command failed." : output;
+        job.fail(message);
+        if (GraphicsEnvironment.isHeadless()) {
+            return;
+        }
+        SwingUtilities.invokeLater(
+                () -> {
+                    final Object[] options = {"Open terminal", "Retry setup"};
+                    final int choice =
+                            JOptionPane.showOptionDialog(
+                                    actionContext.window(),
+                                    "Startup setup failed. Choose how to continue.",
+                                    "Session setup failed",
+                                    JOptionPane.DEFAULT_OPTION,
+                                    JOptionPane.WARNING_MESSAGE,
+                                    null,
+                                    options,
+                                    options[0]);
+                    if (choice == 1) {
+                        runStartupCommand(
+                                project, worktreePath, job, index, onComplete, terminalPanel);
+                    } else if (choice == 0) {
+                        terminalPanel.start();
+                    }
+                });
     }
 }
