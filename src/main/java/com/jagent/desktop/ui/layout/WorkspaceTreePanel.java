@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
@@ -46,7 +47,7 @@ public final class WorkspaceTreePanel extends JPanel {
     private final transient ActionContext actionContext;
     private final transient WorkspaceFiles workspaceFiles;
     private final transient Consumer<Path> openTerminal;
-    private final transient Consumer<Path> openFile;
+    private final transient BiConsumer<Path, Boolean> openFile;
     private final Path workspace;
     private final JTree tree;
     private final DefaultMutableTreeNode root;
@@ -64,7 +65,7 @@ public final class WorkspaceTreePanel extends JPanel {
             final ActionContext actionContext,
             final Path workspace,
             final Consumer<Path> openTerminal,
-            final Consumer<Path> openFile) {
+            final BiConsumer<Path, Boolean> openFile) {
         super(new BorderLayout());
         this.actionContext = actionContext;
         setOpaque(false);
@@ -306,7 +307,7 @@ public final class WorkspaceTreePanel extends JPanel {
         if (directory(path)) {
             return;
         }
-        openFile.accept(path);
+        openFile.accept(path, changedOnlyButton.isSelected());
     }
 
     private void openInEditor(final Path path) {

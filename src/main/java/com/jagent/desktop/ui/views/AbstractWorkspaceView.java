@@ -169,6 +169,10 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
     }
 
     protected final void openFile(final Path file) {
+        openFile(file, false);
+    }
+
+    private void openFile(final Path file, final boolean filtered) {
         final Path normalized = file.toAbsolutePath().normalize();
         for (int index = 0; index < tabs.getTabCount(); index++) {
             if (tabs.getComponentAt(index) instanceof JComponent component
@@ -181,7 +185,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         if (name == null) {
             return;
         }
-        final FileViewer viewer = new FileViewer(workspacePath(), normalized);
+        final FileViewer viewer = new FileViewer(workspacePath(), normalized, filtered);
         viewer.putClientProperty("workspaceFile", normalized);
         tabs.addTab(name.toString(), viewer);
         viewer.putClientProperty("JTabbedPane.tabClosable", true);
