@@ -24,6 +24,9 @@ import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
 class WorkspaceTreePanelUiTest {
+    private static final String NESTED = "nested";
+    private static final String FILE = "file.txt";
+
     @Test
     void loadsWorkspaceFilesAndRendersGitStatus() throws IOException, InterruptedException {
         final Path workspace = Files.createTempDirectory("workspace-tree-test");
@@ -75,17 +78,57 @@ class WorkspaceTreePanelUiTest {
 
             final var panel = GuiActionRunner.execute(() -> create(workspace));
             waitForFile(panel, "clean.txt");
-            expandDirectory(panel, "nested");
-            waitForFile(panel, "file.txt");
+            expandDirectory(panel, NESTED);
+            waitForFile(panel, FILE);
             waitForLabel(panel, "~1");
             GuiActionRunner.execute(() -> changedOnlyButton(panel).doClick());
 
-            expandDirectory(panel, "nested");
-            waitForFile(panel, "file.txt");
+            expandDirectory(panel, NESTED);
+            waitForFile(panel, FILE);
             waitForFileAbsent(panel, "clean.txt");
             assertTrue(
-                    containsFile(tree(panel), "nested"),
-                    "changed parent directories should remain");
+                    containsFile(tree(panel), NESTED), "changed parent directories should remain");
+        } finally {
+            try (var paths = Files.walk(workspace)) {
+                paths.sorted(Comparator.reverseOrder()).forEach(WorkspaceTreePanelUiTest::delete);
+            }
+        }
+    }
+
+    @Test
+    void refreshPreservesExpandedDirectoriesAndSelectedFile()
+            throws IOException, InterruptedException {
+        final Path workspace = Files.createTempDirectory("workspace-tree-refresh-test");
+        try {
+            TestGitRepository.initialize(workspace);
+            TestGitRepository.run(
+                    workspace,
+                    "mkdir nested && printf 'file' > nested/file.txt"
+                            + " && git add nested/file.txt && git commit -qm files");
+
+            final var panel = GuiActionRunner.execute(() -> create(workspace));
+            waitForFile(panel, NESTED);
+            expandDirectory(panel, NESTED);
+            waitForFile(panel, FILE);
+            final var fileNode = findNode(root(panel), FILE);
+            GuiActionRunner.execute(
+                    () -> tree(panel).setSelectionPath(new TreePath(fileNode.getPath())));
+
+            GuiActionRunner.execute(() -> refreshButton(panel).doClick());
+            waitForSelection(panel, FILE);
+
+            final var nestedNode = findNode(root(panel), NESTED);
+            assertTrue(
+                    tree(panel).isExpanded(new TreePath(nestedNode.getPath())),
+                    "refresh should preserve expanded directories");
+            assertEquals(
+                    FILE,
+                    fileName(
+                            (Path)
+                                    ((DefaultMutableTreeNode)
+                                                    tree(panel).getLastSelectedPathComponent())
+                                            .getUserObject()),
+                    "refresh should preserve the selected file");
         } finally {
             try (var paths = Files.walk(workspace)) {
                 paths.sorted(Comparator.reverseOrder()).forEach(WorkspaceTreePanelUiTest::delete);
@@ -104,6 +147,10 @@ class WorkspaceTreePanelUiTest {
 
     private static JTree tree(final WorkspaceTreePanel panel) {
         return (JTree) ((JScrollPane) panel.getComponent(1)).getViewport().getView();
+    }
+
+    private static DefaultMutableTreeNode root(final WorkspaceTreePanel panel) {
+        return (DefaultMutableTreeNode) tree(panel).getModel().getRoot();
     }
 
     private static JLabel statusLabel(final WorkspaceTreePanel panel) {
@@ -211,6 +258,26 @@ class WorkspaceTreePanelUiTest {
             }
         }
         return null;
+    }
+
+    private static void waitForSelection(final WorkspaceTreePanel panel, final String file)
+            throws InterruptedException {
+        final long deadline = System.nanoTime() + 5_000_000_000L;
+        while (System.nanoTime() < deadline) {
+            final boolean selected =
+                    GuiActionRunner.execute(
+                            () -> {
+                                final Object value = tree(panel).getLastSelectedPathComponent();
+                                return value instanceof DefaultMutableTreeNode node
+                                        && node.getUserObject() instanceof Path path
+                                        && file.equals(fileName(path));
+                            });
+            if (selected) {
+                return;
+            }
+            Thread.sleep(10);
+        }
+        throw new AssertionError("workspace file was not reselected: " + file);
     }
 
     private static String fileName(final Path path) {
