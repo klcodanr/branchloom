@@ -70,12 +70,11 @@ public final class ProjectSettingsView extends JPanel implements View {
                                                 state.currentProjectId()));
         final JTextField name = new JTextField(project.name(), 45);
         final JTextField group = new JTextField(project.group(), 45);
-        final JTextArea template = new JTextArea(project.worktreeTemplate(), 2, 45);
+        final JTextField template = new JTextField(project.worktreeTemplate(), 45);
         final JTextArea startup =
                 new JTextArea(String.join("\n", project.startupCommands()), 4, 45);
         final JTextField agentContextPath = new JTextField(agentContextPath(project), 45);
         final JTextArea agentContextText = new JTextArea(agentContextText(project), 6, 45);
-        UiFactory.configureTextAreaTraversal(template);
         UiFactory.configureTextAreaTraversal(agentContextText);
         UiFactory.configureTextAreaTraversal(startup);
         template.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
@@ -214,7 +213,7 @@ public final class ProjectSettingsView extends JPanel implements View {
             final Project project,
             final JTextField name,
             final JTextField group,
-            final JTextArea template,
+            final JTextField template,
             final JTextArea startup,
             final JTextField agentContextPath,
             final JTextArea agentContextText,
@@ -277,7 +276,7 @@ public final class ProjectSettingsView extends JPanel implements View {
             final String initialUser,
             final JTextField name,
             final JTextField group,
-            final JTextArea template,
+            final JTextField template,
             final JTextArea startup,
             final JTextField agentContextPath,
             final JTextArea agentContextText,

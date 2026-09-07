@@ -75,8 +75,7 @@ public final class GlobalSettingsView implements View {
     @Override
     public JComponent render() {
         final AppSettings settings = state.appSettings();
-        final JTextArea work = new JTextArea(settings.worktreeTemplate(), 2, 45);
-        UiFactory.configureTextAreaTraversal(work);
+        final JTextField work = new JTextField(settings.worktreeTemplate(), 45);
         work.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
         final JComboBox<Theme.FlatLafTheme> theme = new JComboBox<>(Theme.FlatLafTheme.values());
         theme.setSelectedItem(Theme.FlatLafTheme.from(settings.theme()));
