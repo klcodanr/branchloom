@@ -4,12 +4,13 @@ import com.jagent.desktop.api.BaseAction;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
+import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.Git;
+import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.ui.dialogs.ImportProjectDialog;
 import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import java.nio.file.Path;
-import java.util.Optional;
 import java.util.concurrent.CompletionException;
 import java.util.logging.Logger;
 import javax.swing.JOptionPane;
@@ -36,13 +37,29 @@ public final class ImportProjectAction extends BaseAction {
 
     @Override
     public void execute() {
-        new ImportProjectDialog(actionContext, this::importProject).setVisible(true);
+        final ProgressOperation progress =
+                ProgressOperation.start(
+                        actionContext.window(), TITLE, "Loading GitHub accounts...");
+        BackgroundTasks.submit("Operations", "Load GitHub accounts", GitHub::configuredAuths)
+                .whenComplete(
+                        (configuredAuths, failure) ->
+                                SwingUtilities.invokeLater(
+                                        () -> {
+                                            progress.close();
+                                            new ImportProjectDialog(
+                                                            actionContext,
+                                                            failure == null
+                                                                    ? configuredAuths
+                                                                    : java.util.List.of(),
+                                                            this::importProject)
+                                                    .setVisible(true);
+                                        }));
     }
 
     private void importProject(final ImportProjectDialog.Request request) {
-        final Path destinationPath = request.destination();
-        final String projectName =
-                Optional.ofNullable(destinationPath.getFileName()).map(Path::toString).orElse("");
+        final Path parentPath = request.destination();
+        final String projectName = repositoryName(request.remote());
+        final Path destinationPath = parentPath.resolve(projectName).normalize();
         if (projectName.isBlank()) {
             showError("Choose a destination directory below the filesystem root.");
             return;
@@ -56,7 +73,7 @@ public final class ImportProjectAction extends BaseAction {
         final ProgressOperation progress =
                 ProgressOperation.start(actionContext.window(), TITLE, "Cloning repository...");
         new Git()
-                .cloneRepository(request.remote(), destinationPath)
+                .cloneRepositoryIntoParent(request.remote(), parentPath, request.auth())
                 .whenCompleteAsync(
                         (ignored, failure) -> {
                             progress.close();
@@ -111,5 +128,17 @@ public final class ImportProjectAction extends BaseAction {
         return failure.getMessage() == null || failure.getMessage().isBlank()
                 ? "Git did not provide more details."
                 : failure.getMessage();
+    }
+
+    private static String repositoryName(final String remote) {
+        String name = remote.trim();
+        final int queryStart = name.indexOf('?');
+        if (queryStart >= 0) {
+            name = name.substring(0, queryStart);
+        }
+        name = name.replaceAll("[/\\\\]+$", "");
+        final int separator = Math.max(name.lastIndexOf('/'), name.lastIndexOf(':'));
+        name = separator >= 0 ? name.substring(separator + 1) : name;
+        return name.endsWith(".git") ? name.substring(0, name.length() - 4) : name;
     }
 }
