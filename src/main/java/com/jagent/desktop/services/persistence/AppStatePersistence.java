@@ -33,10 +33,6 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
     private final Path settingsFile;
     private final ScheduledExecutorService executor;
 
-    public AppStatePersistence(final AppState appState) {
-        this(appState, DEFAULT_DIRECTORY);
-    }
-
     public AppStatePersistence(final AppState appState, final Path directory) {
         super();
         this.appState = appState;
@@ -52,10 +48,6 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
                         });
         this.executor.scheduleWithFixedDelay(
                 this::persist, PERIOD_SECONDS, PERIOD_SECONDS, TimeUnit.SECONDS);
-    }
-
-    public static AppState load() {
-        return load(DEFAULT_DIRECTORY);
     }
 
     public static AppState load(final Path directory) {

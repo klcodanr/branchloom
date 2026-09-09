@@ -79,10 +79,6 @@ public final class UiIcons {
         return icon("copy");
     }
 
-    public static Icon download() {
-        return icon("download");
-    }
-
     public static Icon folderOpen() {
         return icon(FOLDER_OPEN);
     }
