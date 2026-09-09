@@ -35,7 +35,7 @@ final class GitCurrentBranchUpdate {
                                     .thenCompose(
                                             ignoredFetch ->
                                                     git.runCommand(
-                                                            "git merge --ff-only "
+                                                            "git merge --no-edit "
                                                                     + PlatformCommands.shellQuote(
                                                                             ref),
                                                             worktree));
