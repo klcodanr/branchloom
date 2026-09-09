@@ -4,13 +4,16 @@ import static com.jagent.desktop.ui.components.UiFactory.button;
 import static com.jagent.desktop.ui.components.UiFactory.form;
 
 import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.services.GitHub;
+import com.jagent.desktop.ui.components.GitHubAuthSelector;
 import java.awt.BorderLayout;
 import java.awt.ContainerOrderFocusTraversalPolicy;
-import java.io.IOException;
+import java.awt.FlowLayout;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Consumer;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
@@ -24,14 +27,23 @@ public final class ImportProjectDialog extends JDialog {
     private final Consumer<Request> onValid;
     private final JTextField remote = new JTextField(35);
     private final JTextField destination = new JTextField(35);
+    private final JComboBox<GitHub.Auth> githubAuth;
     private final JButton cancel = new JButton("Cancel");
     private final JButton ok = new JButton("OK");
 
-    public record Request(String remote, Path destination) {}
+    public record Request(String remote, Path destination, GitHub.Auth auth) {}
 
     public ImportProjectDialog(final ActionContext actionContext, final Consumer<Request> onValid) {
+        this(actionContext, GitHub.configuredAuths(), onValid);
+    }
+
+    public ImportProjectDialog(
+            final ActionContext actionContext,
+            final java.util.List<GitHub.Auth> configuredAuths,
+            final Consumer<Request> onValid) {
         super(actionContext.window(), TITLE, ModalityType.APPLICATION_MODAL);
         this.onValid = onValid;
+        githubAuth = GitHubAuthSelector.renderConfigured(configuredAuths);
         setFocusTraversalPolicy(new ContainerOrderFocusTraversalPolicy());
         remote.setName("import-remote");
         destination.setName("import-destination");
@@ -45,8 +57,16 @@ public final class ImportProjectDialog extends JDialog {
         destinationInput.add(browse, BorderLayout.EAST);
 
         setLayout(new BorderLayout());
-        add(form("Git remote URL", remote, "Destination directory", destinationInput));
-        final JPanel buttons = new JPanel();
+        add(
+                form(
+                        "Git remote URL",
+                        remote,
+                        "Repository folder",
+                        destinationInput,
+                        "GitHub CLI auth",
+                        githubAuth),
+                BorderLayout.CENTER);
+        final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttons.add(cancel);
         buttons.add(ok);
         add(buttons, BorderLayout.SOUTH);
@@ -76,39 +96,27 @@ public final class ImportProjectDialog extends JDialog {
         }
         final Path path = Path.of(destination.getText().trim()).toAbsolutePath().normalize();
         dispose();
-        onValid.accept(new Request(remote.getText().trim(), path));
+        onValid.accept(
+                new Request(
+                        remote.getText().trim(), path, (GitHub.Auth) githubAuth.getSelectedItem()));
     }
 
-    @SuppressWarnings({"PMD.CommentDefaultAccessModifier", "PMD.CyclomaticComplexity"})
+    @SuppressWarnings("PMD.CommentDefaultAccessModifier")
     static String validationFailure( // default access
             final String remoteText, final String destinationText) {
         if (remoteText.isBlank()) {
             return "Enter a Git remote URL.";
         }
         if (destinationText.isBlank()) {
-            return "Choose a destination directory.";
+            return "Choose a parent folder.";
         }
 
         final Path path = Path.of(destinationText.trim()).toAbsolutePath().normalize();
-        if (Files.exists(path)) {
-            if (!Files.isDirectory(path)) {
-                return "The destination must be a directory.";
-            }
-            try (var entries = Files.list(path)) {
-                if (entries.findAny().isPresent()) {
-                    return "The destination directory must be empty.";
-                }
-            } catch (IOException exception) {
-                return "The destination directory cannot be read: " + exception.getMessage();
-            }
-        } else {
-            final Path parent = path.getParent();
-            if (parent == null || !Files.isDirectory(parent)) {
-                return "The destination's parent directory must already exist.";
-            }
+        if (!Files.isDirectory(path)) {
+            return "The parent folder must already exist.";
         }
         return path.getFileName() == null
-                ? "Choose a destination directory below the filesystem root."
+                ? "Choose a parent folder below the filesystem root."
                 : null;
     }
 

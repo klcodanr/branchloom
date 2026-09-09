@@ -227,7 +227,8 @@ public final class Git {
         return runCommand("git worktree prune", Path.of(project.path())).thenApply(ignored -> null);
     }
 
-    public CompletableFuture<Void> cloneRepository(final String remote, final Path destination) {
+    public CompletableFuture<Void> cloneRepository(
+            final String remote, final Path destination, final GitHub.Auth auth) {
         final Path normalized = destination.toAbsolutePath().normalize();
         final Path parent =
                 Optional.ofNullable(normalized.getParent())
@@ -235,7 +236,40 @@ public final class Git {
                                 () ->
                                         new IllegalArgumentException(
                                                 "The clone destination must have a parent directory."));
-        return runGitCommand(parent, "clone", remote, normalized.toString())
+        final String command =
+                "git clone "
+                        + PlatformCommands.shellQuote(remote)
+                        + " "
+                        + PlatformCommands.shellQuote(normalized.toString());
+        final String authenticatedCommand =
+                auth == null
+                        ? command
+                        : "GH_TOKEN=$(gh auth token --hostname "
+                                + PlatformCommands.shellQuote(auth.host())
+                                + " --user "
+                                + PlatformCommands.shellQuote(auth.user())
+                                + ") "
+                                + command;
+        return runCommand(authenticatedCommand, parent).thenApply(ignored -> null);
+    }
+
+    public CompletableFuture<Void> cloneRepository(final String remote, final Path destination) {
+        return cloneRepository(remote, destination, null);
+    }
+
+    public CompletableFuture<Void> cloneRepositoryIntoParent(
+            final String remote, final Path parent, final GitHub.Auth auth) {
+        final String command = "git clone " + PlatformCommands.shellQuote(remote);
+        final String authenticatedCommand =
+                auth == null
+                        ? command
+                        : "GH_TOKEN=$(gh auth token --hostname "
+                                + PlatformCommands.shellQuote(auth.host())
+                                + " --user "
+                                + PlatformCommands.shellQuote(auth.user())
+                                + ") "
+                                + command;
+        return runCommand(authenticatedCommand, parent.toAbsolutePath().normalize())
                 .thenApply(ignored -> null);
     }
 
