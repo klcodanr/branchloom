@@ -411,7 +411,7 @@ class ActionTest {
 
         @Override
         protected int removalChoice(final Session session) {
-            return 1;
+            return 2;
         }
 
         @Override
