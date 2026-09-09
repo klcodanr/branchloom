@@ -18,14 +18,6 @@ public final class AgentDetection {
         return List.copyOf(agents);
     }
 
-    public static String defaultCommand(final List<Agent> agents) {
-        return agents.stream()
-                .map(agent -> agent.newSessionCommand)
-                .filter(command -> !command.isBlank())
-                .findFirst()
-                .orElse("");
-    }
-
     public static String headlessCommand() {
         if (PlatformCommands.commandAvailable("claude")) {
             return "claude -p {prompt}";
