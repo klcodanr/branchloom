@@ -17,7 +17,11 @@ import java.nio.file.Path;
 import java.util.concurrent.CompletionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.BoxLayout;
+import javax.swing.JCheckBox;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
 /** Starts the selected session removal workflow. */
@@ -59,11 +63,11 @@ public class RemoveSessionAction extends BaseAction {
         }
 
         final int choice = removalChoice(session);
-        if (choice < 0 || choice == 2) {
+        if (choice < 0 || choice == 1) {
             return;
         }
 
-        if (choice == 1) {
+        if (choice == 2) {
             removeWorktree(state, sessionId, projectId, project, session);
             return;
         }
@@ -72,18 +76,26 @@ public class RemoveSessionAction extends BaseAction {
     }
 
     protected int removalChoice(final Session session) {
-        final Object[] options = {TITLE, "Remove session and worktree", "Cancel"};
-        return JOptionPane.showOptionDialog(
-                actionContext.window(),
-                "Remove "
-                        + session.name()
-                        + "?\nThe session record can be removed while keeping its worktree.",
-                TITLE,
-                JOptionPane.DEFAULT_OPTION,
-                JOptionPane.WARNING_MESSAGE,
-                null,
-                options,
-                options[2]);
+        final JCheckBox removeWorktree = new JCheckBox("Also remove worktree", true);
+        final JPanel message = new JPanel();
+        message.setLayout(new BoxLayout(message, BoxLayout.Y_AXIS));
+        message.add(new JLabel("Remove " + session.name() + "?"));
+        message.add(removeWorktree);
+        final Object[] options = {TITLE, "Cancel"};
+        final int choice =
+                JOptionPane.showOptionDialog(
+                        actionContext.window(),
+                        message,
+                        TITLE,
+                        JOptionPane.DEFAULT_OPTION,
+                        JOptionPane.WARNING_MESSAGE,
+                        null,
+                        options,
+                        options[0]);
+        if (choice == 0 && removeWorktree.isSelected()) {
+            return 2;
+        }
+        return choice;
     }
 
     protected boolean confirmWorktreeDeletion(final Session session) {
