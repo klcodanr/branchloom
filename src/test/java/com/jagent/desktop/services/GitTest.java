@@ -24,6 +24,8 @@ class GitTest {
     private static final String FEATURE_FILE = "feature.txt";
     private static final String BRANCH_COMMAND = "git branch ";
     private static final String REMOTE_ADD_ORIGIN = "git remote add origin ";
+    private static final String PUSH_MASTER = " && git push -qu origin master";
+    private static final String SET_REMOTE_HEAD = " && git remote set-head origin -a";
     private static final String CLONE_COMMAND = "git clone -q ";
     private static final String BARE_REMOTE_INIT =
             "git init --bare -q && git symbolic-ref HEAD refs/heads/master";
@@ -588,9 +590,7 @@ class GitTest {
         run(remote, BARE_REMOTE_INIT);
         run(
                 directory,
-                REMOTE_ADD_ORIGIN
-                        + PlatformCommands.shellQuote(remote.toString())
-                        + " && git push -qu origin master");
+                REMOTE_ADD_ORIGIN + PlatformCommands.shellQuote(remote.toString()) + PUSH_MASTER);
         run(
                 source,
                 CLONE_COMMAND
@@ -607,6 +607,38 @@ class GitTest {
     }
 
     @Test
+    void mergesUpstreamWhenCurrentBranchHasLocalCommits(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+        final Path remote = Files.createTempDirectory("branchloom-remote-");
+        final Path source = Files.createTempDirectory("branchloom-source-");
+        run(remote, BARE_REMOTE_INIT);
+        run(
+                directory,
+                REMOTE_ADD_ORIGIN
+                        + PlatformCommands.shellQuote(remote.toString())
+                        + PUSH_MASTER
+                        + " && printf 'local' > local.txt"
+                        + " && git add local.txt && git commit -qm local");
+        run(
+                source,
+                CLONE_COMMAND
+                        + PlatformCommands.shellQuote(remote.toString())
+                        + CLONE_SUFFIX
+                        + " && printf 'remote' > remote.txt && git add remote.txt"
+                        + " && git commit -qm remote && git push -q origin master");
+
+        new Git().updateCurrentBranch(project(directory)).join();
+
+        assertTrue(
+                Files.exists(directory.resolve("local.txt")),
+                "local commits should remain after updating from upstream");
+        assertTrue(
+                Files.exists(directory.resolve("remote.txt")),
+                "upstream commits should be merged when histories diverge");
+    }
+
+    @Test
     void updatesPrimaryBranchFromRemoteDefaultBranch(@TempDir final Path directory)
             throws IOException, InterruptedException {
         TestGitRepository.initialize(directory);
@@ -619,8 +651,8 @@ class GitTest {
                 directory,
                 REMOTE_ADD_ORIGIN
                         + PlatformCommands.shellQuote(remote.toString())
-                        + " && git push -qu origin master"
-                        + " && git remote set-head origin -a");
+                        + PUSH_MASTER
+                        + SET_REMOTE_HEAD);
         run(
                 source,
                 CLONE_COMMAND
@@ -634,6 +666,35 @@ class GitTest {
         assertTrue(
                 Files.exists(directory.resolve("primary.txt")),
                 "primary branch should fast-forward from the remote default branch");
+    }
+
+    @Test
+    void refusesToUpdatePrimaryBranchFromAnUnexpectedCheckout(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+        final Path remote = directory.resolveSibling(directory.getFileName() + "-unexpected.git");
+        Files.createDirectories(remote);
+        run(remote, BARE_REMOTE_INIT);
+        run(
+                directory,
+                REMOTE_ADD_ORIGIN
+                        + PlatformCommands.shellQuote(remote.toString())
+                        + PUSH_MASTER
+                        + SET_REMOTE_HEAD
+                        + " && git switch -qc unexpected");
+
+        final CompletionException failure =
+                assertThrows(
+                        CompletionException.class,
+                        () -> new Git().updatePrimaryBranch(project(directory)).join());
+
+        assertTrue(
+                failure.getCause().getMessage().contains("Switch to 'master'"),
+                "unexpected project branches should explain how to continue");
+        assertEquals(
+                "unexpected\n",
+                readCommand(directory, SHOW_BRANCH_COMMAND),
+                "refusing the update should not change the checked-out branch");
     }
 
     @Test
@@ -681,7 +742,8 @@ class GitTest {
                 directory,
                 REMOTE_ADD_ORIGIN
                         + PlatformCommands.shellQuote(remote.toString())
-                        + " && git push -qu origin master && git remote set-head origin -a"
+                        + PUSH_MASTER
+                        + SET_REMOTE_HEAD
                         + " && git checkout -qb feature && printf 'feature' > "
                         + FEATURE_FILE
                         + ADD_COMMAND
@@ -720,7 +782,8 @@ class GitTest {
                 directory,
                 REMOTE_ADD_ORIGIN
                         + PlatformCommands.shellQuote(remote.toString())
-                        + " && git push -qu origin master && git remote set-head origin -a"
+                        + PUSH_MASTER
+                        + SET_REMOTE_HEAD
                         + " && git checkout -qb feature && printf 'feature' > tracked.txt"
                         + " && git add tracked.txt && git commit -qm feature");
         run(

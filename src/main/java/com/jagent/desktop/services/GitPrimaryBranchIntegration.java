@@ -36,12 +36,15 @@ final class GitPrimaryBranchIntegration {
                                 fetchRef(repository, primaryRef)
                                         .thenCompose(
                                                 ignored ->
-                                                        git.runCommand(
-                                                                "git merge --ff-only "
-                                                                        + PlatformCommands
-                                                                                .shellQuote(
-                                                                                        primaryRef),
-                                                                repository)))
+                                                        verifyPrimaryBranch(repository, primaryRef)
+                                                                .thenCompose(
+                                                                        verified ->
+                                                                                git.runCommand(
+                                                                                        "git merge --ff-only "
+                                                                                                + PlatformCommands
+                                                                                                        .shellQuote(
+                                                                                                                primaryRef),
+                                                                                        repository))))
                 .thenApply(ignored -> null);
     }
 
@@ -94,6 +97,29 @@ final class GitPrimaryBranchIntegration {
                                 CompletableFuture.<Void>failedFuture(
                                         new IOException(
                                                 "The remote default branch reference is invalid.")));
+    }
+
+    private CompletableFuture<Void> verifyPrimaryBranch(
+            final Path repository, final String primaryRef) {
+        final int separator = primaryRef.indexOf('/');
+        final String primaryBranch = primaryRef.substring(separator + 1);
+        return git.runCommand("git branch --show-current", repository)
+                .thenCompose(
+                        currentBranch -> {
+                            final String current = currentBranch.trim();
+                            if (primaryBranch.equals(current)) {
+                                return CompletableFuture.completedFuture(null);
+                            }
+                            return CompletableFuture.failedFuture(
+                                    new IOException(
+                                            "The project is on branch '"
+                                                    + (current.isBlank()
+                                                            ? "(detached HEAD)"
+                                                            : current)
+                                                    + "'. Switch to '"
+                                                    + primaryBranch
+                                                    + "' before updating the primary branch."));
+                        });
     }
 
     private CompletableFuture<String> integrate(
