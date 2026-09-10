@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.test.SwingTestSupport;
 import com.jagent.desktop.test.TestGitRepository;
 import com.jagent.desktop.ui.Defaults;
 import java.io.IOException;
@@ -236,33 +237,22 @@ class WorkspaceTreePanelUiTest {
 
     private static void expandDirectory(final WorkspaceTreePanel panel, final String directory)
             throws InterruptedException {
-        final long deadline = System.nanoTime() + 2_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            final boolean expanded =
-                    GuiActionRunner.execute(
-                            () -> {
-                                final JTree tree = tree(panel);
-                                final DefaultMutableTreeNode node =
-                                        findNode(
-                                                (DefaultMutableTreeNode) tree.getModel().getRoot(),
-                                                directory);
-                                if (node == null) {
-                                    return false;
-                                }
-                                tree.expandPath(new TreePath(node.getPath()));
-                                return node.getChildCount() != 1
-                                        || !"Loading..."
-                                                .equals(
-                                                        ((DefaultMutableTreeNode)
-                                                                        node.getChildAt(0))
-                                                                .getUserObject());
-                            });
-            if (expanded) {
-                return;
-            }
-            Thread.sleep(10);
-        }
-        throw new AssertionError("workspace directory did not load: " + directory);
+        SwingTestSupport.await(
+                () -> {
+                    final JTree tree = tree(panel);
+                    final DefaultMutableTreeNode node =
+                            findNode((DefaultMutableTreeNode) tree.getModel().getRoot(), directory);
+                    if (node == null) {
+                        return false;
+                    }
+                    tree.expandPath(new TreePath(node.getPath()));
+                    return node.getChildCount() != 1
+                            || !"Loading..."
+                                    .equals(
+                                            ((DefaultMutableTreeNode) node.getChildAt(0))
+                                                    .getUserObject());
+                },
+                "workspace directory did not load: " + directory);
     }
 
     private static DefaultMutableTreeNode findNode(
@@ -284,22 +274,14 @@ class WorkspaceTreePanelUiTest {
 
     private static void waitForSelection(final WorkspaceTreePanel panel, final String file)
             throws InterruptedException {
-        final long deadline = System.nanoTime() + 5_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            final boolean selected =
-                    GuiActionRunner.execute(
-                            () -> {
-                                final Object value = tree(panel).getLastSelectedPathComponent();
-                                return value instanceof DefaultMutableTreeNode node
-                                        && node.getUserObject() instanceof Path path
-                                        && file.equals(fileName(path));
-                            });
-            if (selected) {
-                return;
-            }
-            Thread.sleep(10);
-        }
-        throw new AssertionError("workspace file was not reselected: " + file);
+        SwingTestSupport.await(
+                () -> {
+                    final Object value = tree(panel).getLastSelectedPathComponent();
+                    return value instanceof DefaultMutableTreeNode node
+                            && node.getUserObject() instanceof Path path
+                            && file.equals(fileName(path));
+                },
+                "workspace file was not reselected: " + file);
     }
 
     private static String fileName(final Path path) {
@@ -309,21 +291,9 @@ class WorkspaceTreePanelUiTest {
 
     private static void waitForFile(final WorkspaceTreePanel panel, final String file)
             throws InterruptedException {
-        final long deadline = System.nanoTime() + 5_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            final boolean loaded =
-                    GuiActionRunner.execute(
-                            () ->
-                                    contains(
-                                            (DefaultMutableTreeNode)
-                                                    tree(panel).getModel().getRoot(),
-                                            file));
-            if (loaded) {
-                return;
-            }
-            Thread.sleep(10);
-        }
-        throw new AssertionError("workspace file did not load: " + file);
+        SwingTestSupport.await(
+                () -> contains((DefaultMutableTreeNode) tree(panel).getModel().getRoot(), file),
+                "workspace file did not load: " + file);
     }
 
     private static boolean contains(final DefaultMutableTreeNode node, final String value) {
@@ -368,28 +338,14 @@ class WorkspaceTreePanelUiTest {
 
     private static void waitForLabel(final WorkspaceTreePanel panel, final String expected)
             throws InterruptedException {
-        final long deadline = System.nanoTime() + 2_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            final boolean rendered =
-                    GuiActionRunner.execute(() -> expected.equals(statusLabel(panel).getText()));
-            if (rendered) {
-                return;
-            }
-            Thread.sleep(10);
-        }
-        throw new AssertionError("workspace status did not render: " + expected);
+        SwingTestSupport.await(
+                () -> expected.equals(statusLabel(panel).getText()),
+                "workspace status did not render: " + expected);
     }
 
     private static void waitForFileAbsent(final WorkspaceTreePanel panel, final String file)
             throws InterruptedException {
-        final long deadline = System.nanoTime() + 2_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            final boolean absent = GuiActionRunner.execute(() -> !containsFile(tree(panel), file));
-            if (absent) {
-                return;
-            }
-            Thread.sleep(10);
-        }
-        throw new AssertionError("workspace file remained visible: " + file);
+        SwingTestSupport.await(
+                () -> !containsFile(tree(panel), file), "workspace file remained visible: " + file);
     }
 }

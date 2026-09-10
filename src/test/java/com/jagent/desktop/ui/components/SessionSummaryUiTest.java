@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
+import com.jagent.desktop.test.SwingTestSupport;
 import com.jagent.desktop.test.TestGitRepository;
 import java.awt.Component;
 import java.awt.Container;
@@ -92,17 +93,13 @@ class SessionSummaryUiTest {
 
     private static void waitForText(final Container container, final String expected)
             throws InterruptedException {
-        final long deadline = System.nanoTime() + 2_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            final var text = new ArrayList<String>();
-            collectText(container, new ArrayList<>(), text);
-            if (text.stream().anyMatch(value -> value.contains(expected))) {
-                return;
-            }
-            GuiActionRunner.execute(() -> {});
-            Thread.sleep(10);
-        }
-        throw new AssertionError("summary did not render expected text: " + expected);
+        SwingTestSupport.await(
+                () -> {
+                    final var text = new ArrayList<String>();
+                    collectText(container, new ArrayList<>(), text);
+                    return text.stream().anyMatch(value -> value.contains(expected));
+                },
+                "summary did not render expected text: " + expected);
     }
 
     private static boolean allComponentsAreSwing(final Container container) {

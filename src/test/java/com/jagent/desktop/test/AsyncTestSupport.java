@@ -11,10 +11,12 @@ public final class AsyncTestSupport {
     public static void await(final BooleanSupplier condition, final String message)
             throws InterruptedException {
         final long deadline = System.nanoTime() + 5_000_000_000L;
-        while (!condition.getAsBoolean() && System.nanoTime() < deadline) {
+        boolean satisfied = condition.getAsBoolean();
+        while (!satisfied && System.nanoTime() < deadline) {
             Thread.sleep(25);
+            satisfied = condition.getAsBoolean();
         }
-        if (!condition.getAsBoolean()) {
+        if (!satisfied) {
             fail(message);
         }
     }

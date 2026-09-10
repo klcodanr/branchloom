@@ -9,6 +9,7 @@ import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
 import com.jagent.desktop.services.terminal.TerminalState;
+import com.jagent.desktop.test.SwingTestSupport;
 import com.jediterm.terminal.TtyConnector;
 import java.nio.file.Path;
 import java.util.Set;
@@ -142,15 +143,9 @@ class TerminalPanelUiTest {
 
     private static void waitForState(final TerminalPanel panel, final TerminalState expected)
             throws InterruptedException {
-        final long deadline = System.nanoTime() + 5_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            if (panel.state() == expected) {
-                GuiActionRunner.execute(() -> {});
-                return;
-            }
-            Thread.sleep(10);
-        }
-        throw new AssertionError("terminal did not reach expected state: " + expected);
+        SwingTestSupport.await(
+                () -> panel.state() == expected,
+                "terminal did not reach expected state: " + expected);
     }
 
     private static final class FakeTerminalRuntime extends TerminalRuntime {
