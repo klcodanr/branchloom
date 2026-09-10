@@ -2,6 +2,7 @@ package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
+import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
 import com.jagent.desktop.services.terminal.TerminalState;
@@ -85,7 +86,8 @@ public final class TerminalPanel extends JPanel {
         this.retainedId = retainedId;
         setOpaque(false);
         setBorder(UiFactory.cardBorder());
-        terminal = new AppJediTermWidget(80, 24, new AppTerminalSettings());
+        terminal =
+                new AppJediTermWidget(80, 24, new AppTerminalSettings(), runtime.directory(), this);
         add(terminal, BorderLayout.CENTER);
         setStateChanged(stateChanged);
     }
@@ -234,8 +236,17 @@ public final class TerminalPanel extends JPanel {
 
     private static final class AppJediTermWidget extends JediTermWidget {
         private AppJediTermWidget(
-                final int columns, final int rows, final AppTerminalSettings settings) {
+                final int columns,
+                final int rows,
+                final AppTerminalSettings settings,
+                final Path directory,
+                final JPanel owner) {
             super(columns, rows, settings);
+            addHyperlinkFilter(new TerminalLinkFilter(PlatformCommands::openUrl));
+            addHyperlinkFilter(
+                    new TerminalFileLinkFilter(
+                            directory,
+                            link -> TerminalFileLinkOpener.open(link, directory, owner)));
             getTerminalPanel()
                     .addCustomKeyListener(
                             new KeyAdapter() {

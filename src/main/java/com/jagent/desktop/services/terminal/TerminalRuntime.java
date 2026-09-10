@@ -80,6 +80,10 @@ public class TerminalRuntime {
         return historyFile;
     }
 
+    public Path directory() {
+        return directory;
+    }
+
     public void stop() {
         stopAndWait();
     }
