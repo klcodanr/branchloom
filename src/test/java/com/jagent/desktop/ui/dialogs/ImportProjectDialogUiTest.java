@@ -38,21 +38,21 @@ class ImportProjectDialogUiTest {
                 ImportProjectDialog.validationFailure(" ", destination.toString()),
                 "remote URL should be required");
         assertEquals(
-                "Choose a parent folder.",
+                "Choose a destination directory.",
                 ImportProjectDialog.validationFailure(REMOTE, " "),
                 "destination should be required");
         assertEquals(
-                "The parent folder must already exist.",
+                "The destination must be a directory.",
                 ImportProjectDialog.validationFailure(REMOTE, file.toString()),
                 "parent folder should be a directory");
         assertEquals(
-                "The parent folder must already exist.",
+                "The destination's parent directory must already exist.",
                 ImportProjectDialog.validationFailure(REMOTE, missingParent.toString()),
                 "parent folder should exist");
         assertEquals(
-                null,
+                "The destination directory must be empty.",
                 ImportProjectDialog.validationFailure(REMOTE, populated.toString()),
-                "parent folder may contain other files");
+                "destination should be empty");
         assertEquals(
                 null,
                 ImportProjectDialog.validationFailure(REMOTE, destination.toString()),

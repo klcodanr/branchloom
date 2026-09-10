@@ -11,6 +11,7 @@ import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.ui.dialogs.ImportProjectDialog;
 import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.concurrent.CompletionException;
 import java.util.logging.Logger;
 import javax.swing.JOptionPane;
@@ -57,9 +58,9 @@ public final class ImportProjectAction extends BaseAction {
     }
 
     private void importProject(final ImportProjectDialog.Request request) {
-        final Path parentPath = request.destination();
-        final String projectName = repositoryName(request.remote());
-        final Path destinationPath = parentPath.resolve(projectName).normalize();
+        final Path destinationPath = request.destination();
+        final String projectName =
+                Optional.ofNullable(destinationPath.getFileName()).map(Path::toString).orElse("");
         if (projectName.isBlank()) {
             showError("Choose a destination directory below the filesystem root.");
             return;
@@ -73,7 +74,7 @@ public final class ImportProjectAction extends BaseAction {
         final ProgressOperation progress =
                 ProgressOperation.start(actionContext.window(), TITLE, "Cloning repository...");
         new Git()
-                .cloneRepositoryIntoParent(request.remote(), parentPath, request.auth())
+                .cloneRepository(request.remote(), destinationPath, request.auth())
                 .whenCompleteAsync(
                         (ignored, failure) -> {
                             progress.close();
@@ -128,17 +129,5 @@ public final class ImportProjectAction extends BaseAction {
         return failure.getMessage() == null || failure.getMessage().isBlank()
                 ? "Git did not provide more details."
                 : failure.getMessage();
-    }
-
-    private static String repositoryName(final String remote) {
-        String name = remote.trim();
-        final int queryStart = name.indexOf('?');
-        if (queryStart >= 0) {
-            name = name.substring(0, queryStart);
-        }
-        name = name.replaceAll("[/\\\\]+$", "");
-        final int separator = Math.max(name.lastIndexOf('/'), name.lastIndexOf(':'));
-        name = separator >= 0 ? name.substring(separator + 1) : name;
-        return name.endsWith(".git") ? name.substring(0, name.length() - 4) : name;
     }
 }
