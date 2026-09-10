@@ -60,6 +60,18 @@ class ImportProjectDialogUiTest {
     }
 
     @Test
+    void browserStartsAtEnteredDestinationOrHomeWhenBlank(@TempDir final Path tempDirectory) {
+        assertEquals(
+                tempDirectory.toString(),
+                ImportProjectDialog.initialDirectory("  " + tempDirectory + "  "),
+                "browser should use the trimmed destination");
+        assertEquals(
+                System.getProperty("user.home"),
+                ImportProjectDialog.initialDirectory(" \t "),
+                "browser should use home when destination is blank");
+    }
+
+    @Test
     void enteringImportDetailsAndAcceptingReportsRequest(@TempDir final Path tempDirectory)
             throws IOException {
         Assumptions.assumeFalse(GraphicsEnvironment.isHeadless());

@@ -78,7 +78,7 @@ public final class ImportProjectDialog extends JDialog {
     }
 
     private void chooseDestination(final ActionContext actionContext) {
-        final JFileChooser chooser = new JFileChooser(System.getProperty("user.home"));
+        final JFileChooser chooser = new JFileChooser(initialDirectory(destination.getText()));
         chooser.setDialogTitle("Select clone destination");
         chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         chooser.setAcceptAllFileFilterUsed(false);
@@ -86,6 +86,12 @@ public final class ImportProjectDialog extends JDialog {
         if (chooser.showOpenDialog(actionContext.window()) == JFileChooser.APPROVE_OPTION) {
             destination.setText(chooser.getSelectedFile().getAbsolutePath());
         }
+    }
+
+    @SuppressWarnings("PMD.CommentDefaultAccessModifier")
+    static String initialDirectory(final String folderPath) { // default access
+        final String trimmedPath = folderPath.trim();
+        return trimmedPath.isBlank() ? System.getProperty("user.home") : trimmedPath;
     }
 
     private void validateAndSubmit() {

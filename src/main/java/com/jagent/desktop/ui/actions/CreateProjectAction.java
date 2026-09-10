@@ -80,6 +80,11 @@ public class CreateProjectAction extends BaseAction {
                                 path.equals(Path.of(project.path()).toAbsolutePath().normalize()));
     }
 
+    protected static String initialDirectory(final String folderPath) {
+        final String trimmedPath = folderPath.trim();
+        return trimmedPath.isBlank() ? System.getProperty("user.home") : trimmedPath;
+    }
+
     private void showDialog(final java.util.List<GitHub.Auth> configuredAuths) {
         final var appState = this.actionContext.appState();
         final JTextField name = new JTextField(35);
@@ -90,7 +95,7 @@ public class CreateProjectAction extends BaseAction {
         final JButton browse = button("Browse...");
         browse.addActionListener(
                 event -> {
-                    final JFileChooser chooser = new JFileChooser(System.getProperty("user.home"));
+                    final JFileChooser chooser = new JFileChooser(initialDirectory(path.getText()));
                     chooser.setDialogTitle("Select project folder");
                     chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
                     chooser.setAcceptAllFileFilterUsed(false);
