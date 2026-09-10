@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
+import com.jagent.desktop.models.WindowState;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.persistence.AppStatePersistence;
+import com.jagent.desktop.services.persistence.WindowStatePersistence;
 import com.jagent.desktop.ui.views.AppView;
 import com.jagent.desktop.ui.views.HomeView;
 import com.jagent.desktop.ui.views.ProblemsView;
@@ -79,6 +81,28 @@ class AppStartupIntegrationTest {
         assertTrue(
                 waitForFile(dataDirectory.resolve("windowState.json")),
                 "window state should be persisted in the temporary directory");
+    }
+
+    @Test
+    void reloadsPersistedWindowGeometryDuringStartup() {
+        final WindowState saved = new WindowState();
+        saved.windowX = 123;
+        saved.windowY = 145;
+        saved.windowWidth = 1000;
+        saved.windowHeight = 650;
+        try (WindowStatePersistence persistence = new WindowStatePersistence(dataDirectory)) {
+            persistence.update(saved);
+        }
+
+        final AppView app = GuiActionRunner.execute(() -> new AppView(dataDirectory));
+        try {
+            assertEquals(123, app.getX(), "saved window x should be restored");
+            assertEquals(145, app.getY(), "saved window y should be restored");
+            assertEquals(1000, app.getWidth(), "saved window width should be restored");
+            assertEquals(650, app.getHeight(), "saved window height should be restored");
+        } finally {
+            close(app);
+        }
     }
 
     private static boolean waitForFile(final Path path) {

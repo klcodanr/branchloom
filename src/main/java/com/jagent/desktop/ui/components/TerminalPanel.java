@@ -20,6 +20,7 @@ import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.event.KeyAdapter;
@@ -32,6 +33,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
+import javax.swing.BoundedRangeModel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
@@ -85,7 +87,9 @@ public final class TerminalPanel extends JPanel {
         this.runtime = runtime;
         this.retainedId = retainedId;
         setOpaque(false);
-        setBorder(UiFactory.cardBorder());
+        setBorder(
+                new javax.swing.border.EmptyBorder(
+                        UiConstants.CARD_PADDING, 0, UiConstants.CARD_PADDING, 0));
         terminal =
                 new AppJediTermWidget(80, 24, new AppTerminalSettings(), runtime.directory(), this);
         add(terminal, BorderLayout.CENTER);
@@ -252,7 +256,15 @@ public final class TerminalPanel extends JPanel {
                             new KeyAdapter() {
                                 @Override
                                 public void keyPressed(final KeyEvent event) {
-                                    if (event.getKeyCode() == KeyEvent.VK_ENTER
+                                    if (event.isControlDown()
+                                            && event.getKeyCode() == KeyEvent.VK_C
+                                            && getTerminalPanel().getSelection() == null) {
+                                        final var starter = getTerminalStarter();
+                                        if (starter != null) {
+                                            starter.sendBytes(new byte[] {0x03}, true);
+                                            event.consume();
+                                        }
+                                    } else if (event.getKeyCode() == KeyEvent.VK_ENTER
                                             && event.isControlDown()) {
                                         final var starter = getTerminalStarter();
                                         if (starter != null) {
@@ -266,7 +278,7 @@ public final class TerminalPanel extends JPanel {
 
         @Override
         protected JScrollBar createScrollBar() {
-            final JScrollBar bar = new JScrollBar();
+            final JScrollBar bar = new AppScrollBar();
             bar.setUnitIncrement(16);
             return bar;
         }
@@ -353,6 +365,29 @@ public final class TerminalPanel extends JPanel {
                     return handled ? imagePath.get() : delegate.getContents(useSystemSelection);
                 }
             };
+        }
+    }
+
+    private static final class AppScrollBar extends JScrollBar {
+        @Override
+        public Dimension getPreferredSize() {
+            final BoundedRangeModel model = getModel();
+            if (model.getMaximum() - model.getMinimum() <= model.getExtent()) {
+                return new Dimension(0, 0);
+            }
+            return super.getPreferredSize();
+        }
+
+        @Override
+        public void setModel(final BoundedRangeModel model) {
+            super.setModel(model);
+            model.addChangeListener(
+                    ignored -> {
+                        revalidate();
+                        if (getParent() != null) {
+                            getParent().revalidate();
+                        }
+                    });
         }
     }
 

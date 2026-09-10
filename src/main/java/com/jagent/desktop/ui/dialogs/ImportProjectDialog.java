@@ -9,6 +9,7 @@ import com.jagent.desktop.ui.components.GitHubAuthSelector;
 import java.awt.BorderLayout;
 import java.awt.ContainerOrderFocusTraversalPolicy;
 import java.awt.FlowLayout;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Consumer;
@@ -61,7 +62,7 @@ public final class ImportProjectDialog extends JDialog {
                 form(
                         "Git remote URL",
                         remote,
-                        "Repository folder",
+                        "Destination directory",
                         destinationInput,
                         "GitHub CLI auth",
                         githubAuth),
@@ -78,7 +79,7 @@ public final class ImportProjectDialog extends JDialog {
     }
 
     private void chooseDestination(final ActionContext actionContext) {
-        final JFileChooser chooser = new JFileChooser(System.getProperty("user.home"));
+        final JFileChooser chooser = new JFileChooser(initialDirectory(destination.getText()));
         chooser.setDialogTitle("Select clone destination");
         chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         chooser.setAcceptAllFileFilterUsed(false);
@@ -86,6 +87,11 @@ public final class ImportProjectDialog extends JDialog {
         if (chooser.showOpenDialog(actionContext.window()) == JFileChooser.APPROVE_OPTION) {
             destination.setText(chooser.getSelectedFile().getAbsolutePath());
         }
+    }
+
+    protected static String initialDirectory(final String folderPath) {
+        final String trimmedPath = folderPath.trim();
+        return trimmedPath.isBlank() ? System.getProperty("user.home") : trimmedPath;
     }
 
     private void validateAndSubmit() {
@@ -108,15 +114,33 @@ public final class ImportProjectDialog extends JDialog {
             return "Enter a Git remote URL.";
         }
         if (destinationText.isBlank()) {
-            return "Choose a parent folder.";
+            return "Choose a destination directory.";
         }
 
         final Path path = Path.of(destinationText.trim()).toAbsolutePath().normalize();
-        if (!Files.isDirectory(path)) {
-            return "The parent folder must already exist.";
+        return destinationFailure(path);
+    }
+
+    private static String destinationFailure(final Path path) {
+        if (Files.exists(path)) {
+            if (!Files.isDirectory(path)) {
+                return "The destination must be a directory.";
+            }
+            try (var entries = Files.list(path)) {
+                if (entries.findAny().isPresent()) {
+                    return "The destination directory must be empty.";
+                }
+            } catch (IOException exception) {
+                return "The destination directory cannot be read: " + exception.getMessage();
+            }
+        } else {
+            final Path parent = path.getParent();
+            if (parent == null || !Files.isDirectory(parent)) {
+                return "The destination's parent directory must already exist.";
+            }
         }
         return path.getFileName() == null
-                ? "Choose a parent folder below the filesystem root."
+                ? "Choose a destination directory below the filesystem root."
                 : null;
     }
 

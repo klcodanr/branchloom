@@ -56,6 +56,7 @@ public final class FileViewer extends JPanel {
         configureDiff();
         content.add(new JScrollPane(source), SOURCE);
         content.add(new JScrollPane(diff), DIFF);
+        cards.show(content, showDiffInitially ? DIFF : SOURCE);
         add(content, BorderLayout.CENTER);
         load();
     }

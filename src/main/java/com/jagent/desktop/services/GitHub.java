@@ -184,6 +184,43 @@ public final class GitHub {
                 values[9]);
     }
 
+    public static void markReady(final Project project, final int number)
+            throws IOException, InterruptedException {
+        runPullRequestCommand(project, number, "ready");
+    }
+
+    public static void convertToDraft(final Project project, final int number)
+            throws IOException, InterruptedException {
+        runPullRequestCommand(project, number, "ready --undo");
+    }
+
+    public static void close(final Project project, final int number)
+            throws IOException, InterruptedException {
+        runPullRequestCommand(project, number, "close");
+    }
+
+    public static void merge(final Project project, final int number)
+            throws IOException, InterruptedException {
+        runPullRequestCommand(project, number, "merge --merge --delete-branch=false");
+    }
+
+    private static void runPullRequestCommand(
+            final Project project, final int number, final String arguments)
+            throws IOException, InterruptedException {
+        final String command = Git.githubCommand(project, "gh pr " + arguments + " " + number);
+        final ProcessBuilder builder =
+                PlatformCommands.prepare(new ProcessBuilder(PlatformCommands.shell(command)))
+                        .directory(Path.of(project.path()).toFile())
+                        .redirectErrorStream(true);
+        final Process process = builder.start();
+        final String output =
+                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        if (process.waitFor() != 0) {
+            PlatformCommands.logFailure(builder, process.exitValue(), output);
+            throw new IOException(output.trim());
+        }
+    }
+
     private static List<PullRequest> load(
             final ProjectId projectId, final Project project, final String search)
             throws IOException, InterruptedException {

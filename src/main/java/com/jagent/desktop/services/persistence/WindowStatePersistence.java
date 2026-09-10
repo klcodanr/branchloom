@@ -32,10 +32,15 @@ public final class WindowStatePersistence extends PersistenceSupport implements 
 
     public void update(final WindowState state) {
         this.state = state;
+        persist();
     }
 
     @Override
     public void close() {
+        persist();
+    }
+
+    private void persist() {
         try {
             Files.createDirectories(directory);
             writeAtomically(path, state);
