@@ -79,14 +79,7 @@ class ProblemsViewUiTest {
 
     private static void waitForRows(final ProblemsView view, final int rows)
             throws InterruptedException {
-        final long deadline = System.nanoTime() + 2_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            if (table(view).getRowCount() == rows) {
-                GuiActionRunner.execute(() -> {});
-                return;
-            }
-            Thread.sleep(10);
-        }
-        throw new AssertionError("problem rows did not load");
+        SwingTestSupport.await(
+                () -> table(view).getRowCount() == rows, "problem rows did not load");
     }
 }

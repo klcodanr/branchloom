@@ -9,6 +9,7 @@ import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.test.SwingTestSupport;
 import com.jagent.desktop.ui.Defaults;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -59,10 +60,8 @@ class BoardsUiTest {
         final var cards = GuiActionRunner.execute(() -> new ProjectCards(context));
 
         final var cardContainer = (JPanel) cards.getComponent(0);
-        for (int attempt = 0; attempt < 100 && cardContainer.getComponentCount() == 0; attempt++) {
-            GuiActionRunner.execute(() -> {});
-            Thread.sleep(10);
-        }
+        SwingTestSupport.await(
+                () -> cardContainer.getComponentCount() > 0, "project card should be rendered");
         final var card = (JPanel) cardContainer.getComponent(0);
         assertTrue(componentText(card).contains("Demo"), "project name should be rendered");
         assertTrue(componentText(card).contains(PROJECT_PATH), "project path should be rendered");
@@ -110,19 +109,17 @@ class BoardsUiTest {
                                             return java.util.List.of(request);
                                         }));
         assertTrue(loaded.await(5, TimeUnit.SECONDS), "pull request loading should complete");
-        for (int attempt = 0; attempt < 50 && board.getComponentCount() < 2; attempt++) {
-            GuiActionRunner.execute(() -> {});
-            Thread.sleep(20);
-        }
+        SwingTestSupport.await(
+                () -> board.getComponentCount() >= 2,
+                "pull request board should render loaded requests");
         GuiActionRunner.execute(() -> board.setFilter("login"));
-        for (int attempt = 0; attempt < 50; attempt++) {
-            GuiActionRunner.execute(() -> {});
-            if (board.getComponent(1) instanceof javax.swing.JScrollPane currentScroll
-                    && ((JPanel) currentScroll.getViewport().getView()).getComponentCount() == 4) {
-                break;
-            }
-            Thread.sleep(20);
-        }
+        SwingTestSupport.await(
+                () ->
+                        board.getComponent(1) instanceof javax.swing.JScrollPane currentScroll
+                                && ((JPanel) currentScroll.getViewport().getView())
+                                                .getComponentCount()
+                                        == 4,
+                "filtered pull request board should render columns");
 
         final var scroll = (javax.swing.JScrollPane) board.getComponent(1);
         final var columns = (JPanel) scroll.getViewport().getView();
@@ -146,12 +143,9 @@ class BoardsUiTest {
                                             throw new IllegalStateException("fixture failure");
                                         }));
 
-        final long deadline = System.nanoTime() + 5_000_000_000L;
-        while (System.nanoTime() < deadline
-                && !componentText(board).contains("PR refresh failed")) {
-            GuiActionRunner.execute(() -> {});
-            Thread.sleep(10);
-        }
+        SwingTestSupport.await(
+                () -> componentText(board).contains("PR refresh failed"),
+                "refresh failure should be displayed");
 
         assertTrue(
                 componentText(board).contains("PR refresh failed"),
@@ -229,17 +223,11 @@ class BoardsUiTest {
     }
 
     private static void awaitLoaded(final PullRequestsBoard board) throws InterruptedException {
-        for (int attempt = 0;
-                attempt < 100
-                        && !GuiActionRunner.execute(
-                                () ->
-                                        board.getComponentCount() > 1
-                                                && board.getComponent(1)
-                                                        instanceof javax.swing.JScrollPane);
-                attempt++) {
-            GuiActionRunner.execute(() -> {});
-            Thread.sleep(10);
-        }
+        SwingTestSupport.await(
+                () ->
+                        board.getComponentCount() > 1
+                                && board.getComponent(1) instanceof javax.swing.JScrollPane,
+                "pull request board did not load");
     }
 
     private static int matchingNumber(final String filter) {

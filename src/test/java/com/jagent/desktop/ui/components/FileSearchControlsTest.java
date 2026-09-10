@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.jagent.desktop.test.SwingTestSupport;
 import java.awt.Component;
 import java.awt.Container;
 import java.util.List;
@@ -77,13 +78,7 @@ class FileSearchControlsTest {
 
     private static void waitForCount(final JLabel count, final String expected)
             throws InterruptedException {
-        final long deadline = System.nanoTime() + 3_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            if (GuiActionRunner.execute(() -> expected.equals(count.getText()))) {
-                return;
-            }
-            Thread.sleep(10);
-        }
-        throw new AssertionError("search count did not render: " + expected);
+        SwingTestSupport.await(
+                () -> expected.equals(count.getText()), "search count did not render: " + expected);
     }
 }

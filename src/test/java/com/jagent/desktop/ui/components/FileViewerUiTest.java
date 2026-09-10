@@ -3,6 +3,7 @@ package com.jagent.desktop.ui.components;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.jagent.desktop.test.SwingTestSupport;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -140,14 +141,9 @@ class FileViewerUiTest {
 
     private static void waitForStatus(final FileViewer viewer, final String expected)
             throws InterruptedException {
-        final long deadline = System.nanoTime() + 3_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            if (GuiActionRunner.execute(() -> status(viewer).getText().equals(expected))) {
-                return;
-            }
-            Thread.sleep(10);
-        }
-        throw new AssertionError("file viewer status did not render: " + expected);
+        SwingTestSupport.await(
+                () -> status(viewer).getText().equals(expected),
+                "file viewer status did not render: " + expected);
     }
 
     private static JLabel status(final FileViewer viewer) {
@@ -176,14 +172,9 @@ class FileViewerUiTest {
 
     private static void waitForSelectedText(final FileViewer viewer, final String expected)
             throws InterruptedException {
-        final long deadline = System.nanoTime() + 3_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            if (GuiActionRunner.execute(() -> expected.equals(source(viewer).getSelectedText()))) {
-                return;
-            }
-            Thread.sleep(10);
-        }
-        throw new AssertionError("file search selection did not render: " + expected);
+        SwingTestSupport.await(
+                () -> expected.equals(source(viewer).getSelectedText()),
+                "file search selection did not render: " + expected);
     }
 
     private static JButton nextButton(final FileViewer viewer) {
