@@ -52,6 +52,8 @@ class FileViewerUiTest {
             assertTrue(
                     !sourceButton(viewer).isSelected(),
                     "source mode should not be selected for a filtered open");
+            assertTrue(card(viewer, 1).isVisible(), "filtered open should display the diff card");
+            assertTrue(!card(viewer, 0).isVisible(), "filtered open should hide the source card");
         } finally {
             delete(workspace);
         }
@@ -130,6 +132,10 @@ class FileViewerUiTest {
                 ((JScrollPane) ((java.awt.Container) viewer.getComponent(1)).getComponent(1))
                         .getViewport()
                         .getView();
+    }
+
+    private static JScrollPane card(final FileViewer viewer, final int index) {
+        return (JScrollPane) ((java.awt.Container) viewer.getComponent(1)).getComponent(index);
     }
 
     private static void waitForStatus(final FileViewer viewer, final String expected)
