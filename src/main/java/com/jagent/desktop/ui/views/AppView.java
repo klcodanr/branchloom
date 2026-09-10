@@ -36,6 +36,8 @@ import java.awt.Dimension;
 import java.awt.KeyboardFocusManager;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
@@ -248,6 +250,18 @@ public final class AppView extends JFrame {
             setSize(1240, 760);
             setLocationRelativeTo(null);
         }
+        addComponentListener(
+                new ComponentAdapter() {
+                    @Override
+                    public void componentResized(final ComponentEvent event) {
+                        saveWindowState();
+                    }
+
+                    @Override
+                    public void componentMoved(final ComponentEvent event) {
+                        saveWindowState();
+                    }
+                });
         setIconImage(AppIcon.image(64));
         UIManager.put("OptionPane.questionIcon", null);
         UIManager.put("OptionPane.informationIcon", null);

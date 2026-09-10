@@ -19,6 +19,9 @@ class WindowStatePersistenceTest {
 
         try (WindowStatePersistence persistence = new WindowStatePersistence(directory)) {
             persistence.update(state);
+            assertTrue(
+                    Files.exists(directory.resolve("windowState.json")),
+                    "window state should be written when updated");
         }
 
         final Path path = directory.resolve("windowState.json");
