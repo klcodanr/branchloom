@@ -130,6 +130,10 @@ class GitHubTest {
                     GitHub.loadCurrent(project(directory), directory);
             assertEquals(42, current.number(), "current pull request should parse");
             assertEquals("PASSING", current.checksStatus(), "checks status should parse");
+            GitHub.markReady(project(directory), 42);
+            GitHub.convertToDraft(project(directory), 42);
+            GitHub.close(project(directory), 42);
+            GitHub.merge(project(directory), 42);
         } finally {
             discoveredPath.set(previousPath);
         }
