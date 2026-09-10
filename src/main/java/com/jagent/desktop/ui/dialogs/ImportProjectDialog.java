@@ -88,8 +88,7 @@ public final class ImportProjectDialog extends JDialog {
         }
     }
 
-    @SuppressWarnings("PMD.CommentDefaultAccessModifier")
-    static String initialDirectory(final String folderPath) { // default access
+    protected static String initialDirectory(final String folderPath) {
         final String trimmedPath = folderPath.trim();
         return trimmedPath.isBlank() ? System.getProperty("user.home") : trimmedPath;
     }
