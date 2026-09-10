@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import javax.swing.JScrollBar;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
@@ -34,10 +35,36 @@ class TerminalPanelUiTest {
                 "terminal panel should use an empty border for spacing");
         assertTrue(!panel.isOpaque(), "terminal spacing should be outside the terminal background");
         assertEquals(
+                0,
+                panel.getInsets().left,
+                "terminal should align with the tab content on the left");
+        assertEquals(
+                0,
+                panel.getInsets().right,
+                "terminal should align with the tab content on the right");
+        assertTrue(
+                findScrollBar(panel).getPreferredSize().width == 0,
+                "terminal should not reserve space for an unused scrollbar");
+        assertEquals(
                 TerminalState.STARTING,
                 panel.state(),
                 "new terminal should start in STARTING state");
         panel.dispose();
+    }
+
+    private static JScrollBar findScrollBar(final java.awt.Container container) {
+        for (final java.awt.Component component : container.getComponents()) {
+            if (component instanceof JScrollBar scrollBar) {
+                return scrollBar;
+            }
+            if (component instanceof java.awt.Container child) {
+                final JScrollBar scrollBar = findScrollBar(child);
+                if (scrollBar != null) {
+                    return scrollBar;
+                }
+            }
+        }
+        return null;
     }
 
     @Test
