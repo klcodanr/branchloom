@@ -245,7 +245,15 @@ public final class TerminalPanel extends JPanel {
                             new KeyAdapter() {
                                 @Override
                                 public void keyPressed(final KeyEvent event) {
-                                    if (event.getKeyCode() == KeyEvent.VK_ENTER
+                                    if (event.isControlDown()
+                                            && event.getKeyCode() == KeyEvent.VK_C
+                                            && getTerminalPanel().getSelection() == null) {
+                                        final var starter = getTerminalStarter();
+                                        if (starter != null) {
+                                            starter.sendBytes(new byte[] {0x03}, true);
+                                            event.consume();
+                                        }
+                                    } else if (event.getKeyCode() == KeyEvent.VK_ENTER
                                             && event.isControlDown()) {
                                         final var starter = getTerminalStarter();
                                         if (starter != null) {
