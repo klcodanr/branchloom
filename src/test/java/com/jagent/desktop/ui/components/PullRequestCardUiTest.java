@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.services.AppState;
@@ -69,17 +70,49 @@ class PullRequestCardUiTest {
         assertNotNull(card.getComponentPopupMenu(), "pull request card should have a context menu");
         assertEquals(
                 List.of("Open PR", "Import PR branch", "Review PR"),
-                List.of(
-                        card.getComponentPopupMenu().getComponent(0) instanceof JMenuItem item
-                                ? item.getText()
-                                : "",
-                        card.getComponentPopupMenu().getComponent(2) instanceof JMenuItem item
-                                ? item.getText()
-                                : "",
-                        card.getComponentPopupMenu().getComponent(3) instanceof JMenuItem item
-                                ? item.getText()
-                                : ""),
+                java.util.Arrays.stream(card.getComponentPopupMenu().getComponents())
+                        .filter(JMenuItem.class::isInstance)
+                        .map(component -> ((JMenuItem) component).getText())
+                        .toList(),
                 "context menu should expose supported actions");
+    }
+
+    @Test
+    void authoredPullRequestShowsContextSensitiveLifecycleActions() {
+        final ProjectId projectId = ProjectId.create();
+        final PullRequest request = request(projectId, "APPROVED", "MERGEABLE", false, "PASSING");
+        final AppState state =
+                new AppState(
+                        Defaults.appSettings(),
+                        Map.of(
+                                projectId.value().toString(),
+                                new Project(
+                                        "Test",
+                                        "/tmp/test",
+                                        new com.jagent.desktop.services.GitHub.Auth(
+                                                "github.com", "author"))),
+                        Map.of(),
+                        Map.of());
+        final PullRequestCard card =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestCard(
+                                        new ActionContext(new ViewCoordinator(state), state, null),
+                                        request));
+
+        assertEquals(
+                List.of(
+                        "Open PR",
+                        "Import PR branch",
+                        "Review PR",
+                        "Convert to draft",
+                        "Merge PR",
+                        "Close PR"),
+                java.util.Arrays.stream(card.getComponentPopupMenu().getComponents())
+                        .filter(JMenuItem.class::isInstance)
+                        .map(component -> ((JMenuItem) component).getText())
+                        .toList(),
+                "authored PR should expose its lifecycle actions");
     }
 
     @Test
@@ -96,8 +129,17 @@ class PullRequestCardUiTest {
 
     private static PullRequest request(
             final String review, final String mergeable, final boolean draft, final String checks) {
+        return request(null, review, mergeable, draft, checks);
+    }
+
+    private static PullRequest request(
+            final ProjectId projectId,
+            final String review,
+            final String mergeable,
+            final boolean draft,
+            final String checks) {
         return new PullRequest(
-                null,
+                projectId,
                 12,
                 "Fix login",
                 "Description",
