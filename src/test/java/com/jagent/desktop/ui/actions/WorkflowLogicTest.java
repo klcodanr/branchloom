@@ -9,9 +9,22 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class WorkflowLogicTest {
     private static final String FEATURE = "feature";
+
+    @Test
+    void projectBrowserStartsAtEnteredPathOrHomeWhenBlank(@TempDir final Path tempDirectory) {
+        assertEquals(
+                tempDirectory.toString(),
+                CreateProjectAction.initialDirectory("  " + tempDirectory + "  "),
+                "browser should use the trimmed project path");
+        assertEquals(
+                System.getProperty("user.home"),
+                CreateProjectAction.initialDirectory(" \t "),
+                "browser should use home when project path is blank");
+    }
 
     @Test
     void projectChecksDetectDuplicateNamesAndNormalizedPaths() {
