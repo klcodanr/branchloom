@@ -48,6 +48,16 @@ class TemplateTest {
     }
 
     @Test
+    void expandsProjectOnlyCommandWithoutSession() {
+        final Project project = new Project("Demo Project", "/workspace/demo", null);
+
+        assertEquals(
+                "code .|Demo Project|",
+                Template.expand("code .|{projectName}|{worktreePath}", project, null, false),
+                "project menu commands should expand without a selected session");
+    }
+
+    @Test
     void resolvesRelativePathsAgainstProjectAndNormalizesAbsolutePaths(
             @org.junit.jupiter.api.io.TempDir final Path projectDirectory) {
         final Project project = new Project("Demo", projectDirectory.toString(), null);

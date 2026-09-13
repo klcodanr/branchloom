@@ -34,8 +34,6 @@ public final class ProjectActions {
             final ProjectId projectId,
             final Component invoker,
             final Point point) {
-        actionContext.appState().updateCurrentProject(projectId);
-        actionContext.appState().updateCurrentSession(null);
         UiFactory.showPopupMenu(menu(actionContext, projectId), invoker, point.x, point.y);
     }
 
@@ -47,6 +45,8 @@ public final class ProjectActions {
 
     public static void populate(
             final Container menu, final ActionContext actionContext, final ProjectId projectId) {
+        actionContext.appState().updateCurrentProject(projectId);
+        actionContext.appState().updateCurrentSession(null);
         menu.add(
                 projectActionItem(
                         actionContext,

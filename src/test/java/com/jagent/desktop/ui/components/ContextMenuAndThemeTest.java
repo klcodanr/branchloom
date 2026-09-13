@@ -66,6 +66,22 @@ class ContextMenuAndThemeTest {
     }
 
     @Test
+    void projectMenuSelectsTargetBeforeEvaluatingActionState()
+            throws java.io.InvalidObjectException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var projectId = state.addProject(new Project("Demo", "/tmp", null));
+        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+
+        final var menu = GuiActionRunner.execute(() -> ProjectActions.menu(context, projectId));
+
+        assertEquals(projectId, state.currentProjectId(), "menu should select its target project");
+        assertNotNull(findItem(menu, "Start agent session"), "project action should be present");
+        assertTrue(
+                findItem(menu, "Start agent session").isEnabled(),
+                "project action should be enabled for the target project");
+    }
+
+    @Test
     void themeHelpersResolveValuesAndFonts() {
         assertEquals("System", Theme.FlatLafTheme.SYSTEM.toString(), VALUE_MESSAGE);
         assertEquals(Theme.FlatLafTheme.DARK, Theme.FlatLafTheme.from("dark"), VALUE_MESSAGE);

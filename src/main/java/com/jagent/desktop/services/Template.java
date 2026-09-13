@@ -22,13 +22,16 @@ public final class Template {
             final Project project,
             final Session session,
             final boolean escapePaths) {
-        final String worktreePath = session.worktreePath();
         final String projectName =
                 escapePaths ? GitUtils.toBranchSlug(project.name()) : project.name();
-        final String sessionName =
-                escapePaths ? session.name() : GitUtils.toBranchSlug(session.name());
         final String projectPath =
                 escapePaths ? PlatformCommands.shellQuote(project.path()) : project.path();
+        final String sessionName =
+                session == null
+                        ? ""
+                        : escapePaths ? session.name() : GitUtils.toBranchSlug(session.name());
+        final String sessionSlug = session == null ? "" : GitUtils.toBranchSlug(session.name());
+        final String worktreePath = session == null ? "" : session.worktreePath();
         final String resolvedWorktreePath = worktreePath == null ? "" : worktreePath;
         final String path =
                 escapePaths
@@ -37,7 +40,7 @@ public final class Template {
         return template.replace("{projectName}", projectName)
                 .replace("{projectPath}", projectPath)
                 .replace("{sessionName}", sessionName)
-                .replace("{sessionSlug}", GitUtils.toBranchSlug(session.name()))
+                .replace("{sessionSlug}", sessionSlug)
                 .replace("{worktreePath}", path);
     }
 

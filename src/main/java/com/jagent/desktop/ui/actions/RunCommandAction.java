@@ -26,16 +26,20 @@ public final class RunCommandAction extends BaseAction {
 
     public static void run(
             final String command, final String path, final String title, final Window owner) {
-        CommandRunner.run(
-                command,
-                Path.of(path),
-                null,
-                output ->
-                        JOptionPane.showMessageDialog(
-                                owner,
-                                output == null || output.isBlank() ? "Command failed." : output,
-                                title,
-                                JOptionPane.ERROR_MESSAGE));
+        try {
+            CommandRunner.run(
+                    command,
+                    Path.of(path),
+                    null,
+                    output ->
+                            JOptionPane.showMessageDialog(
+                                    owner,
+                                    output == null || output.isBlank() ? "Command failed." : output,
+                                    title,
+                                    JOptionPane.ERROR_MESSAGE));
+        } catch (RuntimeException exception) {
+            showFailure(title, owner, exception);
+        }
     }
 
     @Override
@@ -56,15 +60,33 @@ public final class RunCommandAction extends BaseAction {
 
     @Override
     public void execute() {
-        final Project project = actionContext.appState().currentProject();
-        if (project == null) {
-            return;
+        try {
+            final Project project = actionContext.appState().currentProject();
+            if (project == null) {
+                return;
+            }
+            final Session session = this.actionContext.appState().currentSession();
+            final String path = CurrentPath.resolve(actionContext.appState());
+            if (path == null) {
+                return;
+            }
+            run(
+                    Template.expand(command, project, session, true),
+                    path,
+                    label,
+                    actionContext.window());
+        } catch (RuntimeException exception) {
+            showFailure(label, actionContext.window(), exception);
         }
-        final Session session = this.actionContext.appState().currentSession();
-        final String path = CurrentPath.resolve(actionContext.appState());
-        if (path == null) {
-            return;
-        }
-        run(Template.expand(command, project, session, true), path, label, actionContext.window());
+    }
+
+    private static void showFailure(
+            final String title, final Window owner, final RuntimeException exception) {
+        final String message = exception.getMessage();
+        JOptionPane.showMessageDialog(
+                owner,
+                message == null || message.isBlank() ? "Could not run command." : message,
+                title,
+                JOptionPane.ERROR_MESSAGE);
     }
 }
