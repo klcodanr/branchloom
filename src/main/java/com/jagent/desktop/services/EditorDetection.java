@@ -15,8 +15,6 @@ public final class EditorDetection {
         addIfAvailable(editors, "Zed", "zed", "zed .");
         addIfAvailable(editors, "Sublime Text", "subl", "subl .");
         addIfAvailable(editors, "IntelliJ IDEA", "idea", "idea .");
-        addIfAvailable(editors, "Neovim", "nvim", "nvim .");
-        addIfAvailable(editors, "Vim", "vim", "vim .");
         return List.copyOf(editors);
     }
 
