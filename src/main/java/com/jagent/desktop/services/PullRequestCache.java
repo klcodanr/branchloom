@@ -43,6 +43,7 @@ public final class PullRequestCache {
 
     private ProjectPullRequests load(final ProjectId projectId)
             throws IOException, InterruptedException {
+        final long started = System.nanoTime();
         final var project = appState.projects().get(projectId);
         if (project == null) {
             return new ProjectPullRequests(List.of(), List.of());
@@ -52,6 +53,16 @@ public final class PullRequestCache {
                         GitHub.loadForProject(projectId, project),
                         GitHub.loadReviewRequestedForProject(projectId, project));
         put(projectId, requests);
+        LOG.info(
+                () ->
+                        "PR cache load finished: project="
+                                + project.name()
+                                + ", authored="
+                                + requests.authored().size()
+                                + ", review="
+                                + requests.review().size()
+                                + ", elapsedMs="
+                                + (System.nanoTime() - started) / 1_000_000);
         return requests;
     }
 
@@ -102,6 +113,30 @@ public final class PullRequestCache {
         } catch (IOException | InterruptedException e) {
             LOG.log(Level.SEVERE, "Failed to refresh pull requests", e);
             return new ProjectPullRequests(List.of(), List.of());
+        }
+    }
+
+    public List<PullRequest> refreshReview(final ProjectId projectId) {
+        final long started = System.nanoTime();
+        final var project = appState.projects().get(projectId);
+        if (project == null) {
+            return List.of();
+        }
+        try {
+            final List<PullRequest> requests =
+                    GitHub.loadReviewRequestedForProject(projectId, project);
+            LOG.info(
+                    () ->
+                            "PR review load finished: project="
+                                    + project.name()
+                                    + ", count="
+                                    + requests.size()
+                                    + ", elapsedMs="
+                                    + (System.nanoTime() - started) / 1_000_000);
+            return requests;
+        } catch (IOException | InterruptedException e) {
+            LOG.log(Level.SEVERE, "Failed to refresh review requests", e);
+            return List.of();
         }
     }
 

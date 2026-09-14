@@ -10,8 +10,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
+import java.util.stream.Stream;
 
 public final class GitHub {
+    private static final Logger LOG = Logger.getLogger(GitHub.class.getName());
     private static final int PR_PAGE_SIZE = 25;
     private static final int ISSUE_PAGE_SIZE = 50;
     private static final String TSV_SEPARATOR = "\\t";
@@ -108,7 +111,11 @@ public final class GitHub {
     public static List<PullRequest> loadReviewRequestedForProject(
             final ProjectId projectId, final Project project)
             throws IOException, InterruptedException {
-        return load(projectId, project, "review-requested:@me -author:@me");
+        return Stream.concat(
+                        load(projectId, project, "review-requested:@me -author:@me").stream(),
+                        load(projectId, project, "reviewed-by:@me -author:@me").stream())
+                .distinct()
+                .toList();
     }
 
     public static List<Issue> loadIssuesForProject(final Project project)
@@ -164,6 +171,16 @@ public final class GitHub {
         final String output =
                 new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         if (process.waitFor() != 0) {
+            if (output.toLowerCase(java.util.Locale.ROOT).contains("no pull request")) {
+                LOG.info(
+                        () ->
+                                "PR status lookup finished: project="
+                                        + project.name()
+                                        + ", worktree="
+                                        + worktree
+                                        + ", result=no-pull-request");
+                throw new IOException("No pull request found");
+            }
             PlatformCommands.logFailure(builder, process.exitValue(), output);
             throw new IOException(output.trim());
         }
@@ -171,17 +188,28 @@ public final class GitHub {
         if (values.length < 10) {
             throw new IOException("No pull request found");
         }
-        return new PullRequestDetails(
-                Integer.parseInt(values[0]),
-                values[1],
-                values[2],
-                values[3],
-                values[4],
-                values[5],
-                Boolean.parseBoolean(values[6]),
-                Integer.parseInt(values[7]),
-                Integer.parseInt(values[8]),
-                values[9]);
+        final PullRequestDetails details =
+                new PullRequestDetails(
+                        Integer.parseInt(values[0]),
+                        values[1],
+                        values[2],
+                        values[3],
+                        values[4],
+                        values[5],
+                        Boolean.parseBoolean(values[6]),
+                        Integer.parseInt(values[7]),
+                        Integer.parseInt(values[8]),
+                        values[9]);
+        LOG.info(
+                () ->
+                        "PR status lookup finished: project="
+                                + project.name()
+                                + ", worktree="
+                                + worktree
+                                + ", result=found"
+                                + ", number="
+                                + details.number());
+        return details;
     }
 
     public static void markReady(final Project project, final int number)
@@ -224,6 +252,8 @@ public final class GitHub {
     private static List<PullRequest> load(
             final ProjectId projectId, final Project project, final String search)
             throws IOException, InterruptedException {
+        final long started = System.nanoTime();
+        LOG.info(() -> "PR CLI load started: project=" + project.name() + ", search=" + search);
         final Path projectPath = Path.of(project.path());
         final String repository = repositoryName(projectPath);
         if (repository == null) {
@@ -249,6 +279,13 @@ public final class GitHub {
         final String output =
                 new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         if (process.waitFor() != 0) {
+            LOG.warning(
+                    "PR CLI load failed: project="
+                            + project.name()
+                            + ", search="
+                            + search
+                            + ", elapsedMs="
+                            + elapsedMillis(started));
             PlatformCommands.logFailure(builder, process.exitValue(), output);
             throw new IOException(output.trim());
         }
@@ -276,7 +313,21 @@ public final class GitHub {
                                 row.checksStatus()));
             }
         }
+        LOG.info(
+                () ->
+                        "PR CLI load finished: project="
+                                + project.name()
+                                + ", search="
+                                + search
+                                + ", count="
+                                + requests.size()
+                                + ", elapsedMs="
+                                + elapsedMillis(started));
         return requests;
+    }
+
+    private static long elapsedMillis(final long started) {
+        return (System.nanoTime() - started) / 1_000_000;
     }
 
     private static PullRequestRow parse(final String line) {

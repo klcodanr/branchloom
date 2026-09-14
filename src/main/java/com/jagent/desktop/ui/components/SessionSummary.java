@@ -135,6 +135,17 @@ public final class SessionSummary extends JPanel {
     }
 
     public void refresh() {
+        LOG.info(
+                () ->
+                        "Session summary refresh started: project="
+                                + project.name()
+                                + ", projectPath="
+                                + project.path()
+                                + ", session="
+                                + session.name()
+                                + ", worktree="
+                                + session.worktreePath()
+                                + ", checks=branch-status,pull-request-status,diff-summary");
         diff.setOpaque(false);
         diff.setLayout(new BoxLayout(diff, BoxLayout.Y_AXIS));
         diff.removeAll();

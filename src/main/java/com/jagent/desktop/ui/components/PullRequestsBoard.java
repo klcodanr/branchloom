@@ -21,6 +21,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 
 public final class PullRequestsBoard extends JPanel {
@@ -30,6 +31,8 @@ public final class PullRequestsBoard extends JPanel {
     private final JPanel board = new JPanel(new GridLayout(1, 0, 14, 0));
     private final JButton refreshButton;
     private final JLabel refreshStatus;
+    private final transient RotatingIcon refreshIcon = new RotatingIcon(UiIcons.refresh());
+    private final Timer refreshAnimation;
     private final SearchInput search;
     private final JComponent loading = UiFactory.loading("Loading pull requests...");
     private final JScrollPane scroll;
@@ -60,11 +63,18 @@ public final class PullRequestsBoard extends JPanel {
         search.onChange(parent::setFilter);
         search.onCancel(() -> search.setText(""));
         controls.add(search);
-        refreshButton = UiFactory.iconButton(UiIcons.refresh(), "Refresh pull requests");
+        refreshButton = UiFactory.iconButton(refreshIcon, "Refresh pull requests");
         refreshStatus = UiFactory.label("Loading PRs...", Theme.FontSize.SM);
         refreshButton.addActionListener(event -> parent.refresh());
         controls.add(refreshButton);
         controls.add(refreshStatus);
+        refreshAnimation =
+                new Timer(
+                        75,
+                        event -> {
+                            refreshIcon.rotate();
+                            refreshButton.repaint();
+                        });
         add(controls, BorderLayout.NORTH);
         board.setOpaque(false);
         scroll = new JScrollPane(board);
@@ -86,28 +96,43 @@ public final class PullRequestsBoard extends JPanel {
     }
 
     public void refresh() {
+        final long started = System.nanoTime();
+        LOG.info(
+                () ->
+                        "PR board refresh started: projects="
+                                + this.actionContext.appState().projects().size());
         refreshButton.setEnabled(false);
-        remove(scroll);
-        add(loading, BorderLayout.CENTER);
-        revalidate();
-        repaint();
+        startRefreshAnimation();
+        refreshStatus.setText("Refreshing PRs...");
+        if (scroll.getParent() == null) {
+            add(loading, BorderLayout.CENTER);
+            revalidate();
+            repaint();
+        }
         if (this.actionContext.appState().projects().isEmpty()) {
             refreshButton.setEnabled(true);
+            stopRefreshAnimation();
             remove(loading);
             add(scroll, BorderLayout.CENTER);
             return;
         }
-        refreshStatus.setText("Refreshing PRs...");
         BackgroundTasks.submit(
                         "Pull Requests",
                         "pull-request-cache-refresh",
                         () -> {
                             this.requests = onRefresh.get();
+                            LOG.info(
+                                    () ->
+                                            "PR board load finished: count="
+                                                    + this.requests.size()
+                                                    + ", elapsedMs="
+                                                    + (System.nanoTime() - started) / 1_000_000);
                             return null;
                         })
                 .thenRunAsync(
                         () -> {
                             refreshButton.setEnabled(true);
+                            stopRefreshAnimation();
                             refreshStatus.setText("PRs refreshed");
                             remove(loading);
                             add(scroll, BorderLayout.CENTER);
@@ -121,8 +146,14 @@ public final class PullRequestsBoard extends JPanel {
                             SwingUtilities.invokeLater(
                                     () -> {
                                         refreshButton.setEnabled(true);
+                                        stopRefreshAnimation();
                                         refreshStatus.setText("PR refresh failed");
-                                        LOG.log(Level.WARNING, "Pull request refresh", failure);
+                                        LOG.log(
+                                                Level.WARNING,
+                                                "PR board load failed after "
+                                                        + (System.nanoTime() - started) / 1_000_000
+                                                        + "ms",
+                                                failure);
                                         remove(loading);
                                         add(scroll, BorderLayout.CENTER);
                                         revalidate();
@@ -189,5 +220,16 @@ public final class PullRequestsBoard extends JPanel {
 
     private String group(final PullRequest request) {
         return request.relevanceGroup();
+    }
+
+    private void startRefreshAnimation() {
+        refreshIcon.reset();
+        refreshAnimation.start();
+    }
+
+    private void stopRefreshAnimation() {
+        refreshAnimation.stop();
+        refreshIcon.reset();
+        refreshButton.repaint();
     }
 }
