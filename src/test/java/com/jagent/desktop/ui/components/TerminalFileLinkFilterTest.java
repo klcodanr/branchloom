@@ -44,6 +44,30 @@ class TerminalFileLinkFilterTest {
     }
 
     @Test
+    void rejectsSingleCharacterFileNames() throws IOException {
+        Files.writeString(directory.resolve("a"), "content");
+
+        final var filter = new TerminalFileLinkFilter(directory, ignored -> {});
+
+        assertNull(filter.apply("a"), "single-character CLI tokens should not be linked");
+        assertNull(filter.apply("a:3"), "single-character paths with locations should not link");
+    }
+
+    @Test
+    void findsRelativeParentPath() throws IOException {
+        final Path terminalDirectory = directory.resolve("work/nested");
+        Files.createDirectories(terminalDirectory);
+        final Path parentFile = directory.resolve("some-file");
+        Files.writeString(parentFile, "content");
+
+        final var result =
+                new TerminalFileLinkFilter(terminalDirectory, ignored -> {})
+                        .apply("error: ../../some-file:8");
+
+        assertEquals(1, result.getItems().size(), "relative parent paths should be linked");
+    }
+
+    @Test
     void findsEveryExistingFileOnTheLine() throws IOException {
         Files.writeString(directory.resolve("first.txt"), "first");
         Files.writeString(directory.resolve("second.txt"), "second");
