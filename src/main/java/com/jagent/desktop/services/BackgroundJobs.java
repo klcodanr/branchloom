@@ -18,7 +18,14 @@ public final class BackgroundJobs {
         FAILED
     }
 
-    public record Job(UUID id, String title, Status status, String message) {}
+    public record Job(
+            UUID id,
+            String title,
+            String project,
+            String session,
+            Status status,
+            String message,
+            String output) {}
 
     public final class Handle {
         private final UUID id;
@@ -28,21 +35,69 @@ public final class BackgroundJobs {
         }
 
         public void update(final String message) {
-            updateJob(new Job(id, job(id).title(), Status.RUNNING, message));
+            final Job current = job(id);
+            updateJob(
+                    new Job(
+                            id,
+                            current.title(),
+                            current.project(),
+                            current.session(),
+                            Status.RUNNING,
+                            message,
+                            current.output()));
+        }
+
+        public void output(final String line) {
+            final Job current = job(id);
+            final String output =
+                    current.output().isBlank()
+                            ? line
+                            : current.output() + System.lineSeparator() + line;
+            updateJob(
+                    new Job(
+                            id,
+                            current.title(),
+                            current.project(),
+                            current.session(),
+                            current.status(),
+                            current.message(),
+                            output));
         }
 
         public void complete() {
-            updateJob(new Job(id, job(id).title(), Status.SUCCEEDED, "Complete"));
+            final Job current = job(id);
+            updateJob(
+                    new Job(
+                            id,
+                            current.title(),
+                            current.project(),
+                            current.session(),
+                            Status.SUCCEEDED,
+                            "Complete",
+                            current.output()));
         }
 
         public void fail(final String message) {
-            updateJob(new Job(id, job(id).title(), Status.FAILED, message));
+            final Job current = job(id);
+            updateJob(
+                    new Job(
+                            id,
+                            current.title(),
+                            current.project(),
+                            current.session(),
+                            Status.FAILED,
+                            message,
+                            current.output()));
         }
     }
 
     public Handle start(final String title) {
+        return start(title, "", "");
+    }
+
+    public Handle start(final String title, final String project, final String session) {
         final UUID id = UUID.randomUUID();
-        jobs.put(id, new Job(id, title, Status.RUNNING, "Starting..."));
+        jobs.put(id, new Job(id, title, project, session, Status.RUNNING, "Starting...", ""));
         notifyListeners();
         return new Handle(id);
     }
