@@ -186,12 +186,15 @@ public final class TerminalPanel extends JPanel {
     }
 
     private static final class AppTerminalSettings extends DefaultSettingsProvider {
+        private static final String FOCUS_COLOR = "Component.focusColor";
+        private static final String LABEL_FOREGROUND = "Label.foreground";
+        private static final String PANEL_BACKGROUND = "Panel.background";
         private static final ColorPalette PALETTE =
                 new ColorPalette() {
                     @Override
                     protected Color getForegroundByColorIndex(final int index) {
                         return index == 7
-                                ? toTerminalColor(UIManager.getColor("Label.foreground"))
+                                ? toTerminalColor(UIManager.getColor(LABEL_FOREGROUND))
                                 : ColorPaletteImpl.XTERM_PALETTE.getForeground(
                                         TerminalColor.index(index));
                     }
@@ -199,7 +202,7 @@ public final class TerminalPanel extends JPanel {
                     @Override
                     protected Color getBackgroundByColorIndex(final int index) {
                         return index == 0
-                                ? toTerminalColor(UIManager.getColor("Panel.background"))
+                                ? toTerminalColor(UIManager.getColor(PANEL_BACKGROUND))
                                 : ColorPaletteImpl.XTERM_PALETTE.getBackground(
                                         TerminalColor.index(index));
                     }
@@ -222,19 +225,28 @@ public final class TerminalPanel extends JPanel {
 
         @Override
         public TerminalColor getDefaultForeground() {
-            return terminalColor(UIManager.getColor("Label.foreground"));
+            return terminalColor(UIManager.getColor(LABEL_FOREGROUND));
         }
 
         @Override
         public TerminalColor getDefaultBackground() {
-            return terminalColor(UIManager.getColor("Panel.background"));
+            return terminalColor(UIManager.getColor(PANEL_BACKGROUND));
         }
 
         @Override
         public TextStyle getSelectionColor() {
             return new TextStyle(
-                    terminalColor(UIManager.getColor("Label.foreground")),
-                    terminalColor(UIManager.getColor("Component.focusColor")));
+                    terminalColor(UIManager.getColor(LABEL_FOREGROUND)),
+                    terminalColor(UIManager.getColor(FOCUS_COLOR)));
+        }
+
+        @Override
+        public TextStyle getHyperlinkColor() {
+            final var focusColor = UIManager.getColor(FOCUS_COLOR);
+            return new TextStyle(
+                    terminalColor(
+                            focusColor == null ? UIManager.getColor(LABEL_FOREGROUND) : focusColor),
+                    terminalColor(UIManager.getColor(PANEL_BACKGROUND)));
         }
     }
 
