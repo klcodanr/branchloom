@@ -1,6 +1,7 @@
 package com.jagent.desktop.services;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import com.jagent.desktop.models.LogEntry;
@@ -24,7 +25,7 @@ import java.util.logging.Logger;
 
 public final class JsonLogging {
     private static final Logger LOGGER = Logger.getLogger("com.jagent.desktop");
-    private static final Gson JSON = new Gson();
+    private static final Gson JSON = new GsonBuilder().disableHtmlEscaping().create();
     private static final java.lang.reflect.Type DATA_TYPE =
             new TypeToken<Map<String, Object>>() {}.getType();
     private static final Object LOCK = new Object();

@@ -182,6 +182,65 @@ class BoardsUiTest {
     }
 
     @Test
+    void pullRequestBoardKeepsExistingRequestsVisibleWhileRefreshing() throws InterruptedException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        state.addProject(new Project(DEMO, PROJECT_PATH, null));
+        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+        final var initialLoad = new CountDownLatch(1);
+        final var refreshStarted = new CountDownLatch(1);
+        final var releaseRefresh = new CountDownLatch(1);
+        final var request =
+                new PullRequest(
+                        null,
+                        12,
+                        "Existing request",
+                        "Description",
+                        "Comments",
+                        "https://example.test/12",
+                        "created",
+                        "updated",
+                        "APPROVED",
+                        "MERGEABLE",
+                        false,
+                        "author",
+                        "feature",
+                        1,
+                        1,
+                        "PASSING");
+        final var loads = new AtomicInteger();
+        final var board =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestsBoard(
+                                        context,
+                                        () -> {
+                                            if (loads.incrementAndGet() == 1) {
+                                                initialLoad.countDown();
+                                                return java.util.List.of(request);
+                                            }
+                                            refreshStarted.countDown();
+                                            try {
+                                                releaseRefresh.await();
+                                            } catch (InterruptedException exception) {
+                                                Thread.currentThread().interrupt();
+                                            }
+                                            return java.util.List.of(request);
+                                        }));
+
+        assertTrue(initialLoad.await(5, TimeUnit.SECONDS), "initial refresh should complete");
+        awaitLoaded(board);
+        GuiActionRunner.execute(board::refresh);
+        assertTrue(refreshStarted.await(5, TimeUnit.SECONDS), "manual refresh should start");
+        assertTrue(
+                componentText(board).contains("Existing request"),
+                "existing requests should remain visible while refreshing");
+        assertTrue(
+                componentText(board).contains("Refreshing PRs..."),
+                "refresh status should be visible while refreshing");
+        releaseRefresh.countDown();
+    }
+
+    @Test
     void pullRequestBoardFiltersByNumberTitleAuthorAndBranch() throws InterruptedException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         state.addProject(new Project(DEMO, PROJECT_PATH, null));

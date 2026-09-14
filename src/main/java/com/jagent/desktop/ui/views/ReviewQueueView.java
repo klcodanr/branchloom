@@ -72,7 +72,7 @@ public final class ReviewQueueView extends JPanel implements View {
 
     private List<PullRequest> reviewRequests() {
         return actionContext.appState().projects().keySet().stream()
-                .flatMap(projectId -> pullRequestCache.refresh(projectId).review().stream())
+                .flatMap(projectId -> pullRequestCache.refreshReview(projectId).stream())
                 .toList();
     }
 
