@@ -97,8 +97,8 @@ class GitHubTest {
                 "#!/bin/sh\n"
                         + "case \"$1\" in\n"
                         + "  auth) printf 'github.example\\talice\\n' ;;\n"
-                        + "  pr) printf '42\\tTitle\\tOPEN\\tAPPROVED\\tMERGEABLE\\t"
-                        + "https://github.com/adobe/branchloom/pull/42\\tfalse\\t2\\t3\\tPASSING\\n' ;;\n"
+                        + "  pr) if [ \"$4\" = \"baseRefName\" ]; then printf 'master\\n'; else printf '42\\tTitle\\tOPEN\\tAPPROVED\\tMERGEABLE\\t"
+                        + "https://github.com/adobe/branchloom/pull/42\\tfalse\\t2\\t3\\tPASSING\\n'; fi ;;\n"
                         + "  api) printf '42\\tTitle\\tbody\\tcomment\\turl\\tcreated\\tupdated\\tAPPROVED\\tMERGEABLE\\tfalse\\tauthor\\tfeature\\t2\\t3\\tPASSING\\n' ;;\n"
                         + "  *) exit 1 ;;\n"
                         + "esac\n",
@@ -130,6 +130,10 @@ class GitHubTest {
                     GitHub.loadCurrent(project(directory), directory);
             assertEquals(42, current.number(), "current pull request should parse");
             assertEquals("PASSING", current.checksStatus(), "checks status should parse");
+            assertEquals(
+                    "master",
+                    GitHubPullRequest.baseBranch(project(directory), directory),
+                    "current pull request base branch should parse");
             GitHub.markReady(project(directory), 42);
             GitHub.convertToDraft(project(directory), 42);
             GitHub.close(project(directory), 42);
