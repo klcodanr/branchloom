@@ -32,4 +32,15 @@ class TerminalLinkFilterTest {
         assertEquals(2, result.getItems().size(), "all URLs in a line should be detected");
         assertNull(filter.apply("no links here"), "lines without URLs should not create a result");
     }
+
+    @Test
+    void findsUrlSpanningTerminalLines() {
+        final var opened = new AtomicReference<String>();
+        final var result =
+                new TerminalLinkFilter(opened::set).apply("https://example.com/long-\npath");
+
+        assertEquals(1, result.getItems().size(), "a URL may span terminal lines");
+        result.getItems().getFirst().getLinkInfo().navigate();
+        assertEquals("https://example.com/long-path", opened.get(), "line breaks are not URL data");
+    }
 }
