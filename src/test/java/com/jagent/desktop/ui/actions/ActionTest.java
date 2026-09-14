@@ -320,6 +320,14 @@ class ActionTest {
                 BackgroundJobs.Status.SUCCEEDED,
                 coordinator.backgroundJobs().jobs().getFirst().status(),
                 coordinator.backgroundJobs().jobs().getFirst().message());
+        assertTrue(
+                coordinator
+                        .backgroundJobs()
+                        .jobs()
+                        .getFirst()
+                        .output()
+                        .contains("Worktree removed."),
+                "worktree removal should record its result");
         assertTrue(state.sessions().isEmpty(), ASSERTION_MESSAGE);
         assertTrue(!Files.exists(worktree), ASSERTION_MESSAGE);
     }

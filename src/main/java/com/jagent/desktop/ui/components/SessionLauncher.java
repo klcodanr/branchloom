@@ -44,7 +44,10 @@ public final class SessionLauncher {
             terminalPanel.start();
         } else {
             final Handle job =
-                    actionContext.viewCoordinator().backgroundJobs().start("Session setup");
+                    actionContext
+                            .viewCoordinator()
+                            .backgroundJobs()
+                            .start("Session setup", project.name(), created.session().name());
             runStartupCommand(
                     project, created.worktreePath(), job, 0, terminalPanel::start, terminalPanel);
         }
@@ -70,7 +73,7 @@ public final class SessionLauncher {
         CommandRunner.run(
                 project.startupCommands().get(index),
                 Path.of(worktreePath),
-                ignored -> {},
+                job::output,
                 () ->
                         runStartupCommand(
                                 project, worktreePath, job, index + 1, onComplete, terminalPanel),

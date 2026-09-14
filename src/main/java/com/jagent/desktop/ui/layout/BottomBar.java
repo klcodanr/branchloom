@@ -6,16 +6,21 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundJobs;
 import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.Git;
+import com.jagent.desktop.ui.dialogs.BackgroundJobDialog;
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JProgressBar;
@@ -36,6 +41,7 @@ public final class BottomBar extends JPanel {
     private final JLabel branch = UiFactory.label("", Theme.FontSize.XS);
     private final GitStatusPanel gitStatus = new GitStatusPanel();
     private final JProgressBar jobsProgress = new JProgressBar();
+    private final JLabel jobsStatus = UiFactory.label("", Theme.FontSize.XS);
     private final AtomicLong refreshGeneration = new AtomicLong();
     private final transient RotatingIcon refreshIcon = new RotatingIcon(UiIcons.refresh());
     private final Timer refreshAnimation;
@@ -108,7 +114,9 @@ public final class BottomBar extends JPanel {
         add(left, BorderLayout.WEST);
 
         jobsProgress.setIndeterminate(true);
-        jobsProgress.setPreferredSize(new java.awt.Dimension(140, 8));
+        jobsProgress.setPreferredSize(new Dimension(140, 8));
+        jobsProgress.setMaximumSize(new Dimension(140, 8));
+        jobsProgress.setName("jobs-progress");
         jobsProgress.setVisible(false);
         jobsProgress.setToolTipText("View background job status");
         jobsProgress.addMouseListener(
@@ -118,7 +126,17 @@ public final class BottomBar extends JPanel {
                         showJobs();
                     }
                 });
-        add(jobsProgress, BorderLayout.EAST);
+        jobsStatus.setName("jobs-status-label");
+        jobsStatus.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+        jobsStatus.setAlignmentX(CENTER_ALIGNMENT);
+        jobsStatus.setVisible(false);
+        final JPanel jobsStatusPanel = new JPanel();
+        jobsStatusPanel.setOpaque(false);
+        jobsStatusPanel.setLayout(new BoxLayout(jobsStatusPanel, BoxLayout.Y_AXIS));
+        jobsStatusPanel.add(jobsProgress);
+        jobsStatusPanel.add(Box.createVerticalStrut(UiConstants.SPACING_XS));
+        jobsStatusPanel.add(jobsStatus);
+        add(jobsStatusPanel, BorderLayout.EAST);
         backgroundJobs.listen(this::updateJobs);
         refresh();
     }
@@ -240,7 +258,13 @@ public final class BottomBar extends JPanel {
                     final boolean running =
                             jobs.stream()
                                     .anyMatch(job -> job.status() == BackgroundJobs.Status.RUNNING);
+                    final long runningCount =
+                            jobs.stream()
+                                    .filter(job -> job.status() == BackgroundJobs.Status.RUNNING)
+                                    .count();
                     jobsProgress.setVisible(running);
+                    jobsStatus.setText(runningJobCountText(runningCount));
+                    jobsStatus.setVisible(running);
                     jobsProgress.setToolTipText(
                             running ? runningJobText() : "View background job status");
                 };
@@ -260,22 +284,60 @@ public final class BottomBar extends JPanel {
                 .orElse("View background job status");
     }
 
+    private String runningJobCountText(final long count) {
+        return count == 1 ? "1 job running" : count + " jobs running";
+    }
+
     private void showJobs() {
+        final JPopupMenu menu = createJobsMenu();
+        menu.show(jobsProgress, 0, -menu.getPreferredSize().height);
+    }
+
+    protected JPopupMenu createJobsMenu() {
         final JPopupMenu menu = new JPopupMenu();
         if (jobs.isEmpty()) {
             menu.add("No background jobs").setEnabled(false);
         } else {
+            final JLabel heading = UiFactory.label("Background jobs", Theme.FontSize.MD);
+            heading.setFont(Theme.boldFont(Theme.FontSize.MD));
+            heading.setBorder(
+                    BorderFactory.createEmptyBorder(
+                            UiConstants.SPACING_XS,
+                            UiConstants.CONTENT_PADDING,
+                            UiConstants.SPACING_XS,
+                            UiConstants.CONTENT_PADDING));
+            menu.add(heading);
+            menu.addSeparator();
             jobs.stream()
                     .sorted(Comparator.comparing(BackgroundJobs.Job::title))
-                    .forEach(
-                            job ->
-                                    menu.add(
-                                            job.title()
-                                                    + " - "
-                                                    + job.status()
-                                                    + ": "
-                                                    + job.message()));
+                    .map(this::jobSelector)
+                    .forEach(menu::add);
         }
-        menu.show(jobsProgress, 0, -menu.getPreferredSize().height);
+        return menu;
+    }
+
+    private JMenuItem jobSelector(final BackgroundJobs.Job job) {
+        final JMenuItem item = new JMenuItem(job.title() + "  ·  " + jobStatusText(job.status()));
+        item.setToolTipText(jobSelectorTooltip(job));
+        item.addActionListener(event -> BackgroundJobDialog.show(this, job));
+        return item;
+    }
+
+    private String jobSelectorTooltip(final BackgroundJobs.Job job) {
+        final String context =
+                job.project().isBlank()
+                        ? ""
+                        : "Project: "
+                                + job.project()
+                                + (job.session().isBlank() ? "" : "  ·  Session: " + job.session());
+        return context.isBlank() ? job.message() : context + "  ·  " + job.message();
+    }
+
+    private String jobStatusText(final BackgroundJobs.Status status) {
+        return switch (status) {
+            case RUNNING -> "Running";
+            case SUCCEEDED -> "Completed";
+            case FAILED -> "Failed";
+        };
     }
 }

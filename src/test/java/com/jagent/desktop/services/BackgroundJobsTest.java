@@ -23,4 +23,21 @@ class BackgroundJobsTest {
         assertEquals("Complete", job.message(), "completion message should be reported");
         assertEquals(4, updates.size(), "listeners should receive each lifecycle update");
     }
+
+    @Test
+    void retainsJobContextAndConsoleOutput() {
+        final BackgroundJobs jobs = new BackgroundJobs();
+        final var handle = jobs.start("Session setup", "Branchloom", "Fix login");
+
+        handle.output("npm install");
+        handle.output("npm test");
+
+        final var job = jobs.jobs().getFirst();
+        assertEquals("Branchloom", job.project(), "project context should be retained");
+        assertEquals("Fix login", job.session(), "session context should be retained");
+        assertEquals(
+                "npm install" + System.lineSeparator() + "npm test",
+                job.output(),
+                "console output should be retained");
+    }
 }

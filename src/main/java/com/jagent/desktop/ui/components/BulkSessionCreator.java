@@ -39,7 +39,11 @@ public final class BulkSessionCreator {
             final Agent agent,
             final List<Candidate> candidates,
             final String title) {
-        final Handle job = actionContext.viewCoordinator().backgroundJobs().start(title);
+        final Handle job =
+                actionContext
+                        .viewCoordinator()
+                        .backgroundJobs()
+                        .start(title, project.name(), "Multiple sessions");
         BackgroundTasks.submit(
                         "Sessions",
                         "bulk-create",

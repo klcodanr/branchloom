@@ -115,8 +115,13 @@ public class RemoveSessionAction extends BaseAction {
             final ProjectId projectId,
             final Project project,
             final Session session) {
-        final var job = actionContext.viewCoordinator().backgroundJobs().start(TITLE);
+        final var job =
+                actionContext
+                        .viewCoordinator()
+                        .backgroundJobs()
+                        .start(TITLE, project.name(), session.name());
         job.update("Checking worktree...");
+        job.output("Checking worktree: " + session.worktreePath());
         BackgroundTasks.submit("Operations", TITLE, () -> checkWorktree(project, session))
                 .whenCompleteAsync(
                         (check, failure) ->
@@ -152,10 +157,12 @@ public class RemoveSessionAction extends BaseAction {
             return;
         }
         if (check.hasChanges() && !confirmWorktreeDeletion(session)) {
+            job.output("Worktree removal cancelled.");
             job.complete();
             return;
         }
         job.update("Removing worktree...");
+        job.output("Removing worktree: " + check.path());
         BackgroundTasks.submit("Operations", TITLE, () -> deleteWorktree(project, check.path()))
                 .whenCompleteAsync(
                         (ignored, removalFailure) ->
@@ -179,6 +186,7 @@ public class RemoveSessionAction extends BaseAction {
             final Handle job,
             final Throwable failure) {
         if (failure == null) {
+            job.output("Worktree removed.");
             job.complete();
             removeSession(state, sessionId, projectId);
         } else {
@@ -193,6 +201,7 @@ public class RemoveSessionAction extends BaseAction {
                         : failure;
         final String message =
                 cause.getMessage() == null ? "Could not remove worktree." : cause.getMessage();
+        job.output(message);
         job.fail(message);
         LOG.log(Level.SEVERE, "Could not remove worktree", cause);
         JOptionPane.showMessageDialog(
