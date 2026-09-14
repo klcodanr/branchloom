@@ -168,6 +168,7 @@ public final class TerminalPanel extends JPanel {
                 () -> {
                     terminal.setTtyConnector(connector);
                     terminal.start();
+                    runtime.submitCommand();
                 });
     }
 
