@@ -224,6 +224,47 @@ class TargetViewsUiTest {
     }
 
     @Test
+    void sessionViewOpensTerminalUsingProjectPathWhenWorktreeIsMissing()
+            throws InvalidObjectException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var projectId =
+                state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
+        final var sessionId =
+                state.addSession(projectId, new Session(projectId, SESSION_NAME, null, null, null));
+        state.updateCurrentProject(projectId);
+        state.updateCurrentSession(sessionId);
+        final var view =
+                GuiActionRunner.execute(
+                        () ->
+                                new SessionView(
+                                        new ActionContext(
+                                                new ViewCoordinator(state), state, null)));
+
+        GuiActionRunner.execute(view::createTerminal);
+
+        final var tabs =
+                (JTabbedPane) ((WorkspaceSplitPane) view.getComponent(1)).getLeftComponent();
+        assertEquals(2, tabs.getTabCount(), ASSERTION_MESSAGE);
+        assertEquals(1, tabs.getSelectedIndex(), ASSERTION_MESSAGE);
+        view.dispose();
+    }
+
+    @Test
+    void sessionViewRejectsAgentSessionWithoutWorktree() throws InvalidObjectException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var projectId =
+                state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
+        final var sessionId =
+                state.addSession(
+                        projectId, new Session(projectId, SESSION_NAME, SESSION_AGENT, null, null));
+        state.updateCurrentProject(projectId);
+        state.updateCurrentSession(sessionId);
+        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+
+        assertThrows(IllegalStateException.class, () -> new SessionView(context));
+    }
+
+    @Test
     void sharedTerminalCloseRemovesProjectAndSessionTerminals() throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));

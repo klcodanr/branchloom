@@ -30,7 +30,10 @@ public final class CopyBranchAction extends BaseAction {
     public void execute() {
         final Session session = currentSession();
         if (session != null) {
-            CopyPathAction.copy(GitUtils.toBranchSlug(session.name()));
+            CopyPathAction.copy(
+                    session.name().contains("/")
+                            ? session.name()
+                            : GitUtils.toBranchSlug(session.name()));
         }
     }
 
