@@ -46,7 +46,6 @@ public final class ProjectActions {
     public static void populate(
             final Container menu, final ActionContext actionContext, final ProjectId projectId) {
         actionContext.appState().updateCurrentProject(projectId);
-        actionContext.appState().updateCurrentSession(null);
         menu.add(
                 projectActionItem(
                         actionContext,

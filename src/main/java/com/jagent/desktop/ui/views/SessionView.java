@@ -44,6 +44,10 @@ public final class SessionView extends AbstractWorkspaceView {
         if (project == null || session == null) {
             throw new IllegalStateException("A project and session must be selected.");
         }
+        final String worktreePath = session.worktreePath();
+        if (session.agent() != null && (worktreePath == null || worktreePath.isBlank())) {
+            throw new IllegalStateException("An agent session must have a worktree path.");
+        }
     }
 
     private void restoreSession(
@@ -65,6 +69,7 @@ public final class SessionView extends AbstractWorkspaceView {
                 addTerminal(
                         terminalId,
                         terminalDefinitionForRestore(session, terminalId, terminal),
+                        workspacePath(),
                         false);
             }
         }
@@ -120,11 +125,11 @@ public final class SessionView extends AbstractWorkspaceView {
 
     @Override
     protected void openTerminal(final Path path) {
-        addTerminal("Terminal", PlatformCommands.userShell());
+        addTerminal("Terminal", PlatformCommands.userShell(), path);
     }
 
     public void createTerminal() {
-        addTerminal("Terminal", PlatformCommands.userShell());
+        addTerminal("Terminal", PlatformCommands.userShell(), workspacePath());
     }
 
     public void openSummary() {
@@ -165,7 +170,7 @@ public final class SessionView extends AbstractWorkspaceView {
                                 session.terminalIds()));
     }
 
-    private void addTerminal(final String title, final String command) {
+    private void addTerminal(final String title, final String command, final Path directory) {
         final String tabTitle = title + " " + (++terminalNumber);
         final TerminalId terminalId =
                 actionContext
@@ -176,18 +181,19 @@ public final class SessionView extends AbstractWorkspaceView {
                                         actionContext.appState().currentSessionId(),
                                         tabTitle,
                                         command));
-        addTerminal(terminalId, actionContext.appState().terminals().get(terminalId), true);
+        addTerminal(
+                terminalId, actionContext.appState().terminals().get(terminalId), directory, true);
     }
 
     private void addTerminal(
-            final TerminalId terminalId, final Terminal persistedTerminal, final boolean selected) {
-        if (terminalId == null
-                || persistedTerminal == null
-                || session.worktreePath() == null
-                || !Files.isDirectory(Path.of(session.worktreePath()))) {
+            final TerminalId terminalId,
+            final Terminal persistedTerminal,
+            final Path directory,
+            final boolean selected) {
+        if (terminalId == null || persistedTerminal == null || !Files.isDirectory(directory)) {
             return;
         }
-        final Path worktree = Path.of(session.worktreePath()).toAbsolutePath().normalize();
+        final Path worktree = directory.toAbsolutePath().normalize();
         TerminalPanel terminal = TerminalPanel.existing(terminalId);
         if (terminal == null) {
             terminal =
