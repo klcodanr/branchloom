@@ -86,6 +86,21 @@ public record Project(
                 this.agentContextText);
     }
 
+    public Project withGroup(final String group) {
+        return new Project(
+                this.name,
+                this.path,
+                group,
+                this.githubHost,
+                this.githubUser,
+                this.worktreeTemplate,
+                this.worktreeCommand,
+                this.startupCommands,
+                this.sessionIds,
+                this.agentContextPath,
+                this.agentContextText);
+    }
+
     public Project withNewSession(final SessionId sessionId) {
         final var newSessions = new ArrayList<SessionId>(this.sessionIds);
         newSessions.add(sessionId);

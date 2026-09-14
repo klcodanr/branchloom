@@ -41,6 +41,21 @@ class CoreLogicTest {
     private static final String MERGEABLE = "MERGEABLE";
 
     @Test
+    void projectCanBeAssignedToAGroupWithoutChangingItsConfiguration() {
+        final Project project = project("Demo", DEMO_PATH);
+
+        final Project grouped = project.withGroup("Work");
+
+        assertEquals("Work", grouped.group(), "assigned group should be retained");
+        assertEquals(project.name(), grouped.name(), "group assignment should preserve the name");
+        assertEquals(project.path(), grouped.path(), "group assignment should preserve the path");
+        assertEquals(
+                project.startupCommands(),
+                grouped.startupCommands(),
+                "group assignment should preserve project configuration");
+    }
+
+    @Test
     void branchSlugsNormalizeInputAndHaveFallbacks() {
         assertEquals("branch", GitUtils.toBranchSlug(null), "null should use fallback");
         assertEquals("branch", GitUtils.toBranchSlug("  "), "blank should use fallback");
