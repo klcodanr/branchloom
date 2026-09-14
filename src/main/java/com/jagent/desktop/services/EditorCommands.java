@@ -21,9 +21,6 @@ public final class EditorCommands {
         if ("code".equals(name) || "cursor".equals(name)) {
             return executable + " --goto " + path + ":" + line + ":" + column;
         }
-        if ("nvim".equals(name) || "vim".equals(name)) {
-            return executable + " +" + Math.max(1, line) + " " + path;
-        }
         return executable + " " + path;
     }
 }

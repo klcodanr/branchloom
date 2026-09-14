@@ -26,14 +26,6 @@ class EditorCommandsTest {
     }
 
     @Test
-    void buildsVimCommandWithLineAndClampsMissingLine() {
-        assertEquals(
-                "nvim +1 " + PlatformCommands.shellQuote(FILE.toString()),
-                EditorCommands.openFile(new Tool("Neovim", "nvim ."), FILE, 0, 0),
-                "Neovim should receive a valid line argument");
-    }
-
-    @Test
     void buildsFallbackCommandForOtherEditors() {
         assertEquals(
                 "zed " + PlatformCommands.shellQuote(FILE.toString()),
