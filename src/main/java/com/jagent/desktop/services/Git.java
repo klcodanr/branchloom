@@ -48,13 +48,19 @@ public final class Git {
     public static WorktreeStatus worktreeStatus(
             final Path worktree, final boolean includeSourceBranch)
             throws IOException, InterruptedException {
+        return worktreeStatus(worktree, includeSourceBranch, null);
+    }
+
+    public static WorktreeStatus worktreeStatus(
+            final Path worktree, final boolean includeSourceBranch, final String source)
+            throws IOException, InterruptedException {
         final String output = run(worktree, "git status --porcelain=v1 -z --untracked-files=all");
         final WorktreeStatus local = GitParser.parseWorktreeStatus(output);
         if (!includeSourceBranch) {
             return local;
         }
-        final String source = sourceBranch(worktree);
-        if (source.isBlank()) {
+        final String comparisonBase = source == null ? sourceBranch(worktree) : source;
+        if (comparisonBase.isBlank()) {
             return local;
         }
         final Map<String, String> files = new java.util.LinkedHashMap<>();
@@ -67,7 +73,7 @@ public final class Git {
                                 "--name-status",
                                 "-z",
                                 "--no-renames",
-                                source + "...HEAD")));
+                                comparisonBase + "...HEAD")));
         files.putAll(local.files());
         final int additions =
                 (int)

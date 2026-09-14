@@ -132,6 +132,8 @@ class GitTest {
 
         final Git.WorktreeStatus local = Git.worktreeStatus(directory, false);
         final Git.WorktreeStatus includingSource = Git.worktreeStatus(directory, true);
+        final Git.WorktreeStatus usingExplicitSource =
+                Git.worktreeStatus(directory, true, "origin/master");
 
         assertFalse(local.files().containsKey(FEATURE_FILE), "local status should exclude commits");
         assertTrue(
@@ -140,6 +142,9 @@ class GitTest {
         assertTrue(
                 includingSource.files().containsKey(TRACKED_FILE),
                 "source comparison should retain local worktree changes");
+        assertTrue(
+                usingExplicitSource.files().containsKey(FEATURE_FILE),
+                "explicit comparison source should include committed branch changes");
     }
 
     @Test

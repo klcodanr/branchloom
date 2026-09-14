@@ -1,9 +1,11 @@
 package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.models.Project;
 import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.EditorCommands;
 import com.jagent.desktop.services.Git;
+import com.jagent.desktop.services.GitHubPullRequest;
 import com.jagent.desktop.services.WorkspaceFiles;
 import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.actions.OpenDirectoryAction;
@@ -153,6 +155,9 @@ public final class WorkspaceTreePanel extends JPanel {
 
     private void refreshStatus() {
         final boolean includeSourceBranch = compareSourceBranch;
+        final var projectId = actionContext.appState().currentProjectId();
+        final Project project =
+                projectId == null ? null : actionContext.appState().projects().get(projectId);
         refreshButton.setSelected(false);
         refreshButton.setEnabled(false);
         statusPanel.showRefreshing();
@@ -161,7 +166,20 @@ public final class WorkspaceTreePanel extends JPanel {
                         "git-status",
                         () -> {
                             try {
-                                return Git.worktreeStatus(workspace, includeSourceBranch);
+                                if (!includeSourceBranch || project == null) {
+                                    return Git.worktreeStatus(workspace, includeSourceBranch);
+                                }
+                                try {
+                                    final String baseBranch =
+                                            GitHubPullRequest.baseBranch(project, workspace).trim();
+                                    if (!baseBranch.isBlank()) {
+                                        return Git.worktreeStatus(
+                                                workspace, true, "origin/" + baseBranch);
+                                    }
+                                } catch (IOException ignored) {
+                                    // Fall back to the repository's configured comparison source.
+                                }
+                                return Git.worktreeStatus(workspace, true);
                             } catch (IOException failure) {
                                 throw new CompletionException(failure);
                             } catch (InterruptedException failure) {
