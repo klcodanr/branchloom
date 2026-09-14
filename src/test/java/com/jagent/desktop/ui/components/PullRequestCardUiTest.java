@@ -2,6 +2,7 @@ package com.jagent.desktop.ui.components;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.ActionContext;
@@ -22,9 +23,11 @@ import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
 class PullRequestCardUiTest {
+    private static final String PASSING = "PASSING";
+
     @Test
     void rendersPullRequestIdentityMetadataAndChecks() {
-        final PullRequest request = request("APPROVED", "MERGEABLE", false, "PASSING");
+        final PullRequest request = request("APPROVED", "MERGEABLE", false, PASSING);
         final PullRequestCard card =
                 GuiActionRunner.execute(() -> new PullRequestCard(context(), request));
 
@@ -47,7 +50,7 @@ class PullRequestCardUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestCard(
-                                        context(), request("UNKNOWN", "DIRTY", false, "PASSING")));
+                                        context(), request("UNKNOWN", "DIRTY", false, PASSING)));
 
         final JLabel metadata =
                 SwingTestSupport.find(
@@ -56,6 +59,45 @@ class PullRequestCardUiTest {
                         component -> component.getText().contains("Cannot merge"));
 
         assertNotNull(metadata, "conflicting pull requests should show that they cannot merge");
+    }
+
+    @Test
+    void rendersOpenedAndUpdatedIndicators() {
+        final PullRequestCard card =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestCard(
+                                        context(),
+                                        requestWithTimes(
+                                                "2026-09-14T11:58:00Z", "2026-09-14T11:00:00Z")));
+
+        assertNull(
+                SwingTestSupport.find(
+                        card, JLabel.class, component -> component.getText().startsWith("Opened ")),
+                "compact timestamp should omit the opened label");
+        assertNull(
+                SwingTestSupport.find(
+                        card,
+                        JLabel.class,
+                        component -> component.getText().startsWith("Updated ")),
+                "compact timestamp should omit the updated label");
+
+        assertNotNull(
+                SwingTestSupport.find(
+                        card,
+                        JLabel.class,
+                        component ->
+                                component.getToolTipText() != null
+                                        && component.getToolTipText().startsWith("Opened ")),
+                "opened timestamp tooltip should include the full label");
+        assertNotNull(
+                SwingTestSupport.find(
+                        card,
+                        JLabel.class,
+                        component ->
+                                component.getToolTipText() != null
+                                        && component.getToolTipText().startsWith("Updated ")),
+                "updated timestamp tooltip should include the full label");
     }
 
     @Test
@@ -80,7 +122,7 @@ class PullRequestCardUiTest {
     @Test
     void authoredPullRequestShowsContextSensitiveLifecycleActions() {
         final ProjectId projectId = ProjectId.create();
-        final PullRequest request = request(projectId, "APPROVED", "MERGEABLE", false, "PASSING");
+        final PullRequest request = request(projectId, "APPROVED", "MERGEABLE", false, PASSING);
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
@@ -130,6 +172,26 @@ class PullRequestCardUiTest {
     private static PullRequest request(
             final String review, final String mergeable, final boolean draft, final String checks) {
         return request(null, review, mergeable, draft, checks);
+    }
+
+    private static PullRequest requestWithTimes(final String createdAt, final String updatedAt) {
+        return new PullRequest(
+                null,
+                12,
+                "Fix login",
+                "Description",
+                "Comments",
+                "https://example.test/12",
+                createdAt,
+                updatedAt,
+                "APPROVED",
+                "MERGEABLE",
+                false,
+                "author",
+                "login-fix",
+                2,
+                3,
+                PASSING);
     }
 
     private static PullRequest request(

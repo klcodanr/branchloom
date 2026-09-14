@@ -119,6 +119,14 @@ public final class UiIcons {
         return icon("refresh-cw");
     }
 
+    public static Icon pullRequestCreate() {
+        return icon("pull-request-create");
+    }
+
+    public static Icon rotateCwClock() {
+        return icon("rotate-cw-clock");
+    }
+
     public static Icon chevronUp() {
         return icon("chevron-up");
     }
