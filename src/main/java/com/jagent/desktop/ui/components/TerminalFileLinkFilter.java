@@ -51,10 +51,20 @@ final class TerminalFileLinkFilter implements HyperlinkFilter {
         if (!location.matches()) {
             return null;
         }
+        if (!looksLikePath(location.group(1))) {
+            return null;
+        }
         final int line = number(location.group(2));
         final int column = number(location.group(3));
         final Path path = resolve(location.group(1));
         return Files.isRegularFile(path) ? new TerminalFileLink(path, line, column) : null;
+    }
+
+    private static boolean looksLikePath(final String value) {
+        return value.contains("/")
+                || value.contains("\\")
+                || value.startsWith(".")
+                || value.matches(".*\\.[^./\\\\]+$");
     }
 
     private Path resolve(final String value) {
