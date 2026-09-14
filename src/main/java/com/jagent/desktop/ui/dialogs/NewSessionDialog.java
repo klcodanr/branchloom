@@ -8,9 +8,11 @@ import com.jagent.desktop.ui.components.SearchableComboBox;
 import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
-import java.awt.ContainerOrderFocusTraversalPolicy;
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.FocusTraversalPolicy;
 import java.io.IOException;
 import java.util.List;
 import java.util.function.Consumer;
@@ -22,6 +24,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 
 public final class NewSessionDialog extends JDialog {
     private final transient AppState appState;
@@ -49,7 +52,6 @@ public final class NewSessionDialog extends JDialog {
             final List<Git.Branch> branches,
             final Consumer<Request> onValid) {
         super(actionContext.window(), "New agent session", ModalityType.APPLICATION_MODAL);
-        setFocusTraversalPolicy(new ContainerOrderFocusTraversalPolicy());
         UiFactory.configureDialogCloseOnEscape(this);
 
         this.appState = actionContext.appState();
@@ -91,6 +93,57 @@ public final class NewSessionDialog extends JDialog {
         cancel.addActionListener(event -> dispose());
         ok.addActionListener(event -> validateAndCheckBranch());
         getRootPane().setDefaultButton(ok);
+        setFocusTraversalPolicy(
+                new FocusTraversalPolicy() {
+                    private final List<Component> order =
+                            List.of(name, agent, baseBranch, prompt, cancel, ok);
+
+                    @Override
+                    public Component getComponentAfter(
+                            final Container container, final Component component) {
+                        return adjacent(component, 1);
+                    }
+
+                    @Override
+                    public Component getComponentBefore(
+                            final Container container, final Component component) {
+                        return adjacent(component, -1);
+                    }
+
+                    @Override
+                    public Component getFirstComponent(final Container container) {
+                        return order.getFirst();
+                    }
+
+                    @Override
+                    public Component getLastComponent(final Container container) {
+                        return order.getLast();
+                    }
+
+                    @Override
+                    public Component getDefaultComponent(final Container container) {
+                        return order.getFirst();
+                    }
+
+                    private Component adjacent(final Component component, final int direction) {
+                        final int index = indexOf(component);
+                        if (index < 0) {
+                            return direction > 0 ? order.getFirst() : order.getLast();
+                        }
+                        return order.get(Math.floorMod(index + direction, order.size()));
+                    }
+
+                    private int indexOf(final Component component) {
+                        for (int index = 0; index < order.size(); index++) {
+                            if (order.get(index).equals(component)
+                                    || SwingUtilities.isDescendingFrom(
+                                            component, order.get(index))) {
+                                return index;
+                            }
+                        }
+                        return -1;
+                    }
+                });
         pack();
         setLocationRelativeTo(actionContext.window());
     }
