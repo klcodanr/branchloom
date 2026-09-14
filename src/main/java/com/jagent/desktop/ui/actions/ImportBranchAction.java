@@ -13,6 +13,7 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.Template;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.ui.components.SearchableList;
 import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import com.jagent.desktop.ui.utils.GitUtils;
 import com.jagent.desktop.ui.utils.SessionNames;
@@ -28,11 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.JList;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 
 /** Starts importing a branch into the selected project. */
@@ -114,13 +111,11 @@ public class ImportBranchAction extends BaseAction {
                                 return;
                             }
 
-                            final JList<BranchChoice> branch =
-                                    new JList<>(choices.toArray(new BranchChoice[0]));
-                            branch.setName("import-branches");
-                            branch.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+                            final SearchableList<BranchChoice> branch =
+                                    new SearchableList<>(
+                                            choices, "import-branches", "Search branches");
                             branch.setVisibleRowCount(Math.min(12, Math.max(4, choices.size())));
-                            final JPanel branchForm =
-                                    form("Existing branches", new JScrollPane(branch));
+                            final var branchForm = form("Existing branches", branch);
                             if (JOptionPane.showConfirmDialog(
                                             actionContext.window(),
                                             branchForm,
@@ -130,7 +125,7 @@ public class ImportBranchAction extends BaseAction {
                                 return;
                             }
 
-                            final List<BranchChoice> selected = branch.getSelectedValuesList();
+                            final List<BranchChoice> selected = branch.selectedValues();
                             if (selected.isEmpty()) {
                                 return;
                             }

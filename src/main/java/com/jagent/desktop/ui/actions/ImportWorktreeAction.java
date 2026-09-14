@@ -11,6 +11,7 @@ import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.ui.components.SearchableList;
 import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import com.jagent.desktop.ui.utils.GitUtils;
 import com.jagent.desktop.ui.utils.SessionNames;
@@ -20,11 +21,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.JList;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 
 /** Starts importing a worktree into the selected project. */
@@ -85,17 +82,16 @@ public final class ImportWorktreeAction extends BaseAction {
             return;
         }
 
-        final JList<String> worktree = new JList<>(worktrees.toArray(new String[0]));
-        worktree.setName("import-worktrees");
-        worktree.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        final SearchableList<String> worktree =
+                new SearchableList<>(worktrees, "import-worktrees", "Search worktrees");
         worktree.setVisibleRowCount(Math.min(12, Math.max(4, worktrees.size())));
-        final JPanel worktreeForm = form("Existing worktrees", new JScrollPane(worktree));
+        final var worktreeForm = form("Existing worktrees", worktree);
         if (JOptionPane.showConfirmDialog(
                         actionContext.window(), worktreeForm, TITLE, JOptionPane.OK_CANCEL_OPTION)
                 != JOptionPane.OK_OPTION) {
             return;
         }
-        final List<String> selected = worktree.getSelectedValuesList();
+        final List<String> selected = worktree.selectedValues();
         if (selected.isEmpty()) {
             return;
         }
