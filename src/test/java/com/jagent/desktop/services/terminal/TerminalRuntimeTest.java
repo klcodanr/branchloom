@@ -65,11 +65,17 @@ class TerminalRuntimeTest {
         runtime.start(ignored -> {}, failure::set);
 
         assertTrue(attached.await(5, java.util.concurrent.TimeUnit.SECONDS), "PTY should attach");
+        runtime.submitCommand();
         final char[] buffer = new char[32];
-        final int count = connector.get().read(buffer, 0, buffer.length);
+        final StringBuilder output = new StringBuilder();
+        int count;
+        do {
+            count = connector.get().read(buffer, 0, buffer.length);
+            output.append(buffer, 0, count);
+        } while (!output.toString().contains("ready"));
         connector.get().resize(new TermSize(100, 30));
 
-        assertEquals("ready", new String(buffer, 0, count), "PTY output should be readable");
+        assertTrue(output.toString().contains("ready"), "PTY output should be readable");
         assertEquals(TerminalState.WORKING, states.get(), "output should mark terminal working");
         assertNull(failure.get(), "starting a valid command should not fail");
         connector.get().close();
@@ -112,18 +118,45 @@ class TerminalRuntimeTest {
     }
 
     @Test
-    void reportsSuccessfulAndFailedProcessExit() throws InterruptedException {
-        final var successful = new TerminalRuntime("true", TEMP_DIRECTORY, HISTORY_FILE);
-        successful.start(ignored -> {}, exception -> {});
-        AsyncTestSupport.await(
-                () -> successful.state() == TerminalState.EXITED, "successful process should exit");
+    void keepsInteractiveShellAfterCommandsComplete() throws IOException, InterruptedException {
+        final var successful = new TerminalRuntime("printf done", TEMP_DIRECTORY, HISTORY_FILE);
+        final var successfulAttached = new CountDownLatch(1);
+        final var successfulConnector = new AtomicReference<TtyConnector>();
+        successful.start(
+                connector -> {
+                    successfulConnector.set(connector);
+                    successfulAttached.countDown();
+                },
+                exception -> {});
+        assertTrue(
+                successfulAttached.await(5, java.util.concurrent.TimeUnit.SECONDS),
+                "successful terminal should attach");
+        successful.submitCommand();
+        successfulConnector.get().read(new char[32], 0, 32);
 
         final var failed = new TerminalRuntime("false", TEMP_DIRECTORY, HISTORY_FILE);
-        failed.start(ignored -> {}, exception -> {});
-        AsyncTestSupport.await(
-                () -> failed.state() == TerminalState.FAILED, "failed process should exit");
-        assertEquals(TerminalState.EXITED, successful.state(), "successful process should exit");
-        assertEquals(TerminalState.FAILED, failed.state(), "failed process should fail");
+        final var failedAttached = new CountDownLatch(1);
+        final var failedConnector = new AtomicReference<TtyConnector>();
+        failed.start(
+                connector -> {
+                    failedConnector.set(connector);
+                    failedAttached.countDown();
+                },
+                exception -> {});
+        assertTrue(
+                failedAttached.await(5, java.util.concurrent.TimeUnit.SECONDS),
+                "failed terminal should attach");
+        failed.submitCommand();
+        failedConnector.get().read(new char[32], 0, 32);
+
+        assertTrue(
+                successful.process().isAlive(),
+                "successful command should leave shell alive after completion");
+        assertTrue(
+                failed.process().isAlive(),
+                "failed command should leave shell alive after completion");
+        successful.stop();
+        failed.stop();
     }
 
     @Test

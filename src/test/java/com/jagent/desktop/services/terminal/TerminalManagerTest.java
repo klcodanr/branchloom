@@ -8,6 +8,7 @@ import com.jagent.desktop.test.AsyncTestSupport;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -61,6 +62,7 @@ class TerminalManagerTest {
 
         AsyncTestSupport.await(
                 () -> runtime.process() != null, "runtime should expose its started process");
+        runtime.submitCommand();
 
         assertTrue(runtime.process() != null, "runtime should expose its started process");
         assertEquals(1, manager.activeProcesses().size(), "active process should be reported");
@@ -73,16 +75,18 @@ class TerminalManagerTest {
     }
 
     @Test
-    void doesNotReportExitedProcessAsActive() throws InterruptedException {
+    void keepsShellActiveAfterCommandExit() throws IOException, InterruptedException {
         final TerminalManager manager = TerminalManager.get();
         final TerminalRuntime runtime = manager.create(TRUE_COMMAND, TEMP_DIRECTORY, RESOURCE);
-        runtime.start(ignored -> {}, exception -> {});
+        final var connector = new AtomicReference<com.jediterm.terminal.TtyConnector>();
+        runtime.start(connector::set, exception -> {});
 
-        AsyncTestSupport.await(
-                () -> runtime.process() != null && !runtime.process().isAlive(),
-                "runtime process should exit");
+        AsyncTestSupport.await(() -> runtime.process() != null, "runtime process should start");
+        runtime.submitCommand();
+        final char[] buffer = new char[32];
+        connector.get().read(buffer, 0, buffer.length);
 
-        assertTrue(manager.activeProcesses().isEmpty(), "exited process should not be reported");
+        assertEquals(1, manager.activeProcesses().size(), "persistent shell should remain active");
         manager.dispose(runtime, false);
     }
 

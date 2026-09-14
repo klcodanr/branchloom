@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 class PlatformCommandsTest {
@@ -15,8 +14,6 @@ class PlatformCommandsTest {
 
     @Test
     void buildsShellAndInteractiveTerminalCommands() {
-        final String projectPath =
-                Path.of(System.getProperty("java.io.tmpdir"), "project").toString();
         assertArrayEquals(
                 new String[] {PlatformCommands.userShell(), "-c", "printf test"},
                 PlatformCommands.shell("printf test"),
@@ -25,30 +22,10 @@ class PlatformCommandsTest {
                 new String[] {
                     PlatformCommands.userShell(),
                     "-ilc",
-                    "cd '" + projectPath + "' && exec " + PlatformCommands.userShell() + " -il"
+                    "exec " + PlatformCommands.userShell() + " -il"
                 },
-                PlatformCommands.terminal(PlatformCommands.userShell(), Path.of(projectPath)),
-                "interactive command should change to the project path");
-        assertArrayEquals(
-                new String[] {
-                    PlatformCommands.userShell(), "-ilc", "cd '" + projectPath + "' && git status"
-                },
-                PlatformCommands.terminal("git status", Path.of(projectPath)),
-                "terminal command should preserve the working directory");
-    }
-
-    @Test
-    void quotesDirectoryWhenBuildingTerminalCommand() {
-        final Path directory = Path.of(System.getProperty("java.io.tmpdir"), "project's workspace");
-
-        assertArrayEquals(
-                new String[] {
-                    PlatformCommands.userShell(),
-                    "-ilc",
-                    "cd '" + directory.toString().replace("'", "'\\''") + "' && git status"
-                },
-                PlatformCommands.terminal("git status", directory),
-                "terminal commands should quote apostrophes in directories");
+                PlatformCommands.terminal(),
+                "terminal should use the configured interactive shell");
     }
 
     @Test

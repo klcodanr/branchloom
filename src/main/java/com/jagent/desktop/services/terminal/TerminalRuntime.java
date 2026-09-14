@@ -34,6 +34,8 @@ public class TerminalRuntime {
     private volatile long lastOutputAt;
     protected volatile CompletableFuture<Void> launchTask;
     protected volatile Thread launchThread;
+    private volatile boolean commandPending;
+    private volatile boolean shellReady;
 
     public TerminalRuntime(final String command, final Path directory, final String historyFile) {
         this.command = command;
@@ -154,6 +156,19 @@ public class TerminalRuntime {
         }
     }
 
+    public void submitCommand() {
+        final PtyProcess runningProcess = process;
+        if (runningProcess != null
+                && runningProcess.isAlive()
+                && !command.equals(PlatformCommands.userShell())) {
+            if (shellReady) {
+                writeCommand(runningProcess);
+            } else {
+                commandPending = true;
+            }
+        }
+    }
+
     private PtyProcess launchProcess() throws IOException {
         final Map<String, String> environment = new HashMap<>(System.getenv());
         environment.put("TERM", "xterm-256color");
@@ -162,7 +177,7 @@ public class TerminalRuntime {
         environment.put("HISTFILE", historyFile);
         environment.put("HISTSIZE", "10000");
         environment.put("SAVEHIST", "10000");
-        return new PtyProcessBuilder(PlatformCommands.terminal(command, directory))
+        return new PtyProcessBuilder(PlatformCommands.terminal())
                 .setDirectory(directory.toString())
                 .setEnvironment(environment)
                 .setConsole(false)
@@ -189,6 +204,17 @@ public class TerminalRuntime {
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private void writeCommand(final PtyProcess terminalProcess) {
+        try {
+            terminalProcess
+                    .getOutputStream()
+                    .write((command + "\r\n").getBytes(StandardCharsets.UTF_8));
+            terminalProcess.getOutputStream().flush();
+        } catch (IOException exception) {
+            LOG.log(Level.WARNING, "Could not submit terminal command: " + command, exception);
         }
     }
 
@@ -229,10 +255,19 @@ public class TerminalRuntime {
                 throws IOException {
             final int count = super.read(buffer, offset, length);
             if (count > 0) {
+                shellReady = true;
+                submitPendingCommand();
                 lastOutputAt = System.currentTimeMillis();
                 activity.accept(TerminalState.WORKING);
             }
             return count;
+        }
+
+        private void submitPendingCommand() {
+            if (commandPending) {
+                commandPending = false;
+                writeCommand(process);
+            }
         }
 
         @Override

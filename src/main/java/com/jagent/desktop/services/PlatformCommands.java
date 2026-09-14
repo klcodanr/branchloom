@@ -26,21 +26,12 @@ public final class PlatformCommands {
                 : new String[] {userShell(), "-c", command};
     }
 
-    public static String[] terminal(final String command, final Path directory) {
+    public static String[] terminal() {
         if (isWindows()) {
-            return new String[] {userShell(), "/d", "/s", "/c", command};
+            return new String[] {userShell(), "/d"};
         }
         final String shell = userShell();
-        if (command.equals(shell)) {
-            return new String[] {
-                shell,
-                "-ilc",
-                "cd " + shellQuote(directory.toString()) + " && exec " + shell + " -il"
-            };
-        }
-        return new String[] {
-            shell, "-ilc", "cd " + shellQuote(directory.toString()) + " && " + command
-        };
+        return new String[] {shell, "-ilc", "exec " + shell + " -il"};
     }
 
     public static String userShell() {
