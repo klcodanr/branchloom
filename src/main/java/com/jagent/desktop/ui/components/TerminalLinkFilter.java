@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 /** Detects web URLs in terminal output and delegates their navigation. */
 final class TerminalLinkFilter implements HyperlinkFilter {
     private static final Pattern URL_PATTERN =
-            Pattern.compile("(?i)\\bhttps?://[^\\s<>\\[\\]{}\"']+");
+            Pattern.compile("(?i)\\bhttps?://(?:[^\\s<>\\[\\]{}\"']|\\R)+");
     private final Consumer<String> openUrl;
 
     protected TerminalLinkFilter(final Consumer<String> openUrl) {
@@ -24,7 +24,7 @@ final class TerminalLinkFilter implements HyperlinkFilter {
         final Matcher matcher = URL_PATTERN.matcher(line);
         final var links = new ArrayList<LinkResultItem>();
         while (matcher.find()) {
-            final String url = trimTrailingPunctuation(matcher.group());
+            final String url = trimTrailingPunctuation(matcher.group()).replaceAll("\\R", "");
             if (!url.isEmpty()) {
                 links.add(
                         new LinkResultItem(
