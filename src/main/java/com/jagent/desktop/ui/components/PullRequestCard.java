@@ -11,8 +11,12 @@ import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.actions.ImportBranchAction;
 import com.jagent.desktop.ui.dialogs.ReviewDialog;
+import com.jagent.desktop.ui.utils.RelativeTime;
 import java.awt.Dimension;
 import java.io.IOException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.util.Locale;
 import java.util.concurrent.CompletionException;
 import java.util.logging.Logger;
 import javax.swing.BorderFactory;
@@ -88,7 +92,40 @@ public final class PullRequestCard extends JPanel {
         statusRow.add(metadata);
         statusRow.setComponentPopupMenu(contextMenu);
         add(statusRow);
+        add(timestamps(request, contextMenu));
         setComponentPopupMenu(contextMenu);
+    }
+
+    private static JPanel timestamps(final PullRequest request, final JPopupMenu contextMenu) {
+        final JPanel row = new JPanel();
+        row.setOpaque(false);
+        row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
+        row.setAlignmentX(LEFT_ALIGNMENT);
+        addTimestamp(row, UiIcons.pullRequestCreate(), "Opened", request.createdAt(), contextMenu);
+        row.add(Box.createHorizontalStrut(UiConstants.SPACING_SM));
+        addTimestamp(row, UiIcons.rotateCwClock(), "Updated", request.updatedAt(), contextMenu);
+        return row;
+    }
+
+    private static void addTimestamp(
+            final JPanel row,
+            final javax.swing.Icon icon,
+            final String label,
+            final String timestamp,
+            final JPopupMenu contextMenu) {
+        final String offset = RelativeTime.offsetTime(timestamp, Instant.now());
+        final JLabel value = new JLabel(offset, icon, JLabel.LEFT);
+        value.setFont(Theme.font(Theme.FontSize.XS));
+        value.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+        final String description =
+                "unknown".equals(offset)
+                        ? label
+                        : label + ("now".equals(offset) ? " just now" : " " + offset + " ago");
+        final String localDateTime =
+                RelativeTime.localDateTime(timestamp, ZoneId.systemDefault(), Locale.getDefault());
+        value.setToolTipText(timestamp == null ? description : description + "\n" + localDateTime);
+        value.setComponentPopupMenu(contextMenu);
+        row.add(value);
     }
 
     private JPopupMenu menu(final PullRequest request) {
