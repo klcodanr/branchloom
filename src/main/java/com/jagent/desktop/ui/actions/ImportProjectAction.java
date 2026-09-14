@@ -21,9 +21,15 @@ import javax.swing.SwingUtilities;
 public final class ImportProjectAction extends BaseAction {
     private static final String TITLE = "Clone remote project";
     private static final Logger LOG = Logger.getLogger(ImportProjectAction.class.getName());
+    private final String targetGroup;
 
     public ImportProjectAction(final ActionContext actionContext) {
+        this(actionContext, null);
+    }
+
+    public ImportProjectAction(final ActionContext actionContext, final String targetGroup) {
         super(actionContext);
+        this.targetGroup = targetGroup;
     }
 
     @Override
@@ -88,14 +94,15 @@ public final class ImportProjectAction extends BaseAction {
                                 showError("Could not clone the repository:\n" + message(cause));
                                 return;
                             }
+                            final Project project =
+                                    new Project(projectName, destinationPath.toString(), null);
                             final var projectId =
                                     actionContext
                                             .appState()
                                             .addProject(
-                                                    new Project(
-                                                            projectName,
-                                                            destinationPath.toString(),
-                                                            null));
+                                                    targetGroup == null
+                                                            ? project
+                                                            : project.withGroup(targetGroup));
                             actionContext
                                     .viewCoordinator()
                                     .updateView(ViewId.PROJECT, ViewState.project(projectId));

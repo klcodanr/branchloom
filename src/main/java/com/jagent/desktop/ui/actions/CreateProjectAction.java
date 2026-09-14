@@ -30,9 +30,15 @@ public class CreateProjectAction extends BaseAction {
 
     private static final Logger LOG = Logger.getLogger(CreateProjectAction.class.getName());
     private static final String ADD_PROJECT_TITLE = "Add local project";
+    private final String targetGroup;
 
     public CreateProjectAction(final ActionContext actionContext) {
+        this(actionContext, null);
+    }
+
+    public CreateProjectAction(final ActionContext actionContext, final String targetGroup) {
         super(actionContext);
+        this.targetGroup = targetGroup;
     }
 
     @Override
@@ -151,8 +157,9 @@ public class CreateProjectAction extends BaseAction {
         }
         final GitHub.Auth auth =
                 githubAuth.getSelectedItem() instanceof GitHub.Auth selected ? selected : null;
+        final Project project = new Project(projectName, projectPath.toString(), auth);
         final ProjectId projectId =
-                appState.addProject(new Project(projectName, projectPath.toString(), auth));
+                appState.addProject(targetGroup == null ? project : project.withGroup(targetGroup));
         actionContext.viewCoordinator().updateView(ViewId.PROJECT, ViewState.project(projectId));
     }
 }

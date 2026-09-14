@@ -422,6 +422,16 @@ public final class ProjectTreePanel extends JPanel {
 
     private void showGroupMenu(final DefaultMutableTreeNode groupNode, final Point point) {
         final JPopupMenu menu = new JPopupMenu();
+        final String group = (String) groupNode.getUserObject();
+        final JMenuItem addLocal = new JMenuItem("Add local project to " + group);
+        addLocal.addActionListener(
+                event -> new CreateProjectAction(actionContext, group).execute());
+        menu.add(addLocal);
+        final JMenuItem cloneRemote = new JMenuItem("Clone remote project to " + group);
+        cloneRemote.addActionListener(
+                event -> new ImportProjectAction(actionContext, group).execute());
+        menu.add(cloneRemote);
+        menu.addSeparator();
         final JMenuItem moveUp = new JMenuItem("Move up");
         moveUp.setEnabled(groupIndex(groupNode) > 0);
         moveUp.addActionListener(event -> moveGroup(groupNode, groupIndex(groupNode) - 1));
