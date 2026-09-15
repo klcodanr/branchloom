@@ -53,7 +53,7 @@ public final class SessionCreationService {
 
         final Session session = new Session(projectId, name, agent.name, prompt, worktreePath);
         try {
-            AgentContext.write(project, session);
+            AgentContext.write(project, session, state.appSettings().agentContextPath());
         } catch (IOException exception) {
             LOG.log(Level.WARNING, "Could not write agent context", exception);
         }

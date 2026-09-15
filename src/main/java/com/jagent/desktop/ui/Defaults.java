@@ -32,6 +32,7 @@ public final class Defaults {
                 "System",
                 List.of(),
                 DEFAULT_WORKTREE_TEMPLATE,
+                "",
                 false,
                 AgentDetection.headlessCommand(),
                 DEFAULT_REVIEW_PLAN_PROMPT);

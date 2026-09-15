@@ -154,7 +154,11 @@ class NewSessionFlowIntegrationTest {
                         defaults.reviewPrompt(),
                         defaults.theme(),
                         defaults.tools(),
-                        defaults.worktreeTemplate()),
+                        defaults.worktreeTemplate(),
+                        defaults.agentContextPath(),
+                        defaults.reviewPlanEnabled(),
+                        defaults.reviewPlanCommand(),
+                        defaults.reviewPlanPrompt()),
                 Map.of(),
                 Map.of(),
                 Map.of());

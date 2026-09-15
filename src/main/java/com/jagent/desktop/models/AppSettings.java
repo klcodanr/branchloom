@@ -9,6 +9,7 @@ public record AppSettings(
         String theme,
         List<Tool> tools,
         String worktreeTemplate,
+        String agentContextPath,
         boolean reviewPlanEnabled,
         String reviewPlanCommand,
         String reviewPlanPrompt) {
@@ -33,9 +34,33 @@ public record AppSettings(
                 theme,
                 tools,
                 worktreeTemplate,
+                "",
                 false,
                 "",
                 DEFAULT_REVIEW_PLAN_PROMPT);
+    }
+
+    public AppSettings(
+            final List<Agent> agents,
+            final List<String> groupOrder,
+            final String reviewPrompt,
+            final String theme,
+            final List<Tool> tools,
+            final String worktreeTemplate,
+            final boolean reviewPlanEnabled,
+            final String reviewPlanCommand,
+            final String reviewPlanPrompt) {
+        this(
+                agents,
+                groupOrder,
+                reviewPrompt,
+                theme,
+                tools,
+                worktreeTemplate,
+                "",
+                reviewPlanEnabled,
+                reviewPlanCommand,
+                reviewPlanPrompt);
     }
 
     public AppSettings {
@@ -46,6 +71,7 @@ public record AppSettings(
                 worktreeTemplate == null || worktreeTemplate.isBlank()
                         ? DEFAULT_WORKTREE_TEMPLATE
                         : worktreeTemplate;
+        agentContextPath = agentContextPath == null ? "" : agentContextPath.trim();
         reviewPlanCommand = reviewPlanCommand == null ? "" : reviewPlanCommand.trim();
         reviewPlanPrompt =
                 reviewPlanPrompt == null || reviewPlanPrompt.isBlank()
