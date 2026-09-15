@@ -50,7 +50,7 @@ public final class MyPullRequestsView extends JPanel implements View {
 
     private List<PullRequest> pullRequests() {
         return actionContext.appState().projects().keySet().stream()
-                .flatMap(projectId -> pullRequestCache.refresh(projectId).authored().stream())
+                .flatMap(projectId -> pullRequestCache.get(projectId).authored().stream())
                 .toList();
     }
 }
