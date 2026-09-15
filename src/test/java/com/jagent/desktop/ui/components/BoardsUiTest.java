@@ -11,6 +11,7 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.test.SwingTestSupport;
 import com.jagent.desktop.ui.Defaults;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -88,12 +89,15 @@ class BoardsUiTest {
 
         final var cardContainer = (JPanel) cards.getComponent(0);
         SwingTestSupport.await(
-                () -> cardContainer.getComponentCount() == 3,
-                "all project cards should be rendered");
+                () ->
+                        GuiActionRunner.execute(() -> projectCardNames(cardContainer))
+                                .equals(java.util.List.of(ALPHA_LOWER, "Beta", "Zulu")),
+                "project cards should be rendered in alphabetical order");
 
-        assertEquals(ALPHA_LOWER, projectCardName(cardContainer, 0), "first card should be alpha");
-        assertEquals("Beta", projectCardName(cardContainer, 1), "second card should be Beta");
-        assertEquals("Zulu", projectCardName(cardContainer, 2), "third card should be Zulu");
+        assertEquals(
+                java.util.List.of(ALPHA_LOWER, "Beta", "Zulu"),
+                GuiActionRunner.execute(() -> projectCardNames(cardContainer)),
+                "project cards should render alphabetically");
     }
 
     @Test
@@ -107,17 +111,15 @@ class BoardsUiTest {
 
         final var cardContainer = (JPanel) cards.getComponent(0);
         SwingTestSupport.await(
-                () -> cardContainer.getComponentCount() == 2,
-                "all project cards should be rendered");
+                () ->
+                        GuiActionRunner.execute(() -> projectCardNames(cardContainer))
+                                .equals(java.util.List.of(ALPHA_UPPER, ALPHA_LOWER)),
+                "project cards should respect case-sensitive tie ordering");
 
         assertEquals(
-                ALPHA_UPPER,
-                projectCardName(cardContainer, 0),
+                java.util.List.of(ALPHA_UPPER, ALPHA_LOWER),
+                GuiActionRunner.execute(() -> projectCardNames(cardContainer)),
                 "uppercase variant should sort first when names differ only by case");
-        assertEquals(
-                ALPHA_LOWER,
-                projectCardName(cardContainer, 1),
-                "lowercase variant should sort second when names differ only by case");
     }
 
     @Test
@@ -391,8 +393,16 @@ class BoardsUiTest {
         return "";
     }
 
-    private static String projectCardName(final JPanel cardContainer, final int cardIndex) {
-        final var card = (JPanel) cardContainer.getComponent(cardIndex);
-        return ((javax.swing.AbstractButton) card.getComponent(0)).getText();
+    private static java.util.List<String> projectCardNames(final JPanel cardContainer) {
+        final java.util.List<String> names = new ArrayList<>();
+        for (final java.awt.Component component : cardContainer.getComponents()) {
+            if (component instanceof JPanel card
+                    && card.getComponentCount() > 0
+                    && card.getComponent(0) instanceof javax.swing.AbstractButton button
+                    && button.getText() != null) {
+                names.add(button.getText());
+            }
+        }
+        return names;
     }
 }
