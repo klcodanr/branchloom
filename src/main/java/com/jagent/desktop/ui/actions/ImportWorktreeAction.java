@@ -27,6 +27,7 @@ import javax.swing.SwingUtilities;
 /** Starts importing a worktree into the selected project. */
 public final class ImportWorktreeAction extends BaseAction {
     private static final String TITLE = "Import worktree";
+    private static final String EMPTY_MESSAGE = "No worktrees are available to import.";
     private static final Logger LOG = Logger.getLogger(ImportWorktreeAction.class.getName());
     private final Git git = new Git();
 
@@ -78,7 +79,8 @@ public final class ImportWorktreeAction extends BaseAction {
         final var state = this.actionContext.appState();
         final List<String> worktrees = availableWorktrees(project, state, paths);
         if (worktrees.isEmpty()) {
-            LOG.severe("Import worktree: No linked worktrees found.");
+            JOptionPane.showMessageDialog(
+                    actionContext.window(), EMPTY_MESSAGE, TITLE, JOptionPane.INFORMATION_MESSAGE);
             return;
         }
 
