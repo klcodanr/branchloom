@@ -10,10 +10,6 @@ import java.nio.file.Path;
 public final class AgentContext {
     private AgentContext() {}
 
-    public static void write(final Project project, final Session session) throws IOException {
-        write(project, session, "");
-    }
-
     public static void write(
             final Project project, final Session session, final String globalContextPath)
             throws IOException {
@@ -59,10 +55,6 @@ public final class AgentContext {
         return content.toString();
     }
 
-    public static String read(final Project project, final Session session) throws IOException {
-        return read(project, session, "");
-    }
-
     public static String read(
             final Project project, final Session session, final String globalContextPath)
             throws IOException {
@@ -74,11 +66,6 @@ public final class AgentContext {
             return generatedContent(project, session);
         }
         return Files.readString(target);
-    }
-
-    public static void save(final Project project, final Session session, final String content)
-            throws IOException {
-        save(project, session, "", content);
     }
 
     public static void save(
@@ -96,10 +83,6 @@ public final class AgentContext {
             Files.createDirectories(parent);
         }
         Files.writeString(target, content);
-    }
-
-    public static Path path(final Project project, final Session session) {
-        return path(project, session, "");
     }
 
     public static Path path(

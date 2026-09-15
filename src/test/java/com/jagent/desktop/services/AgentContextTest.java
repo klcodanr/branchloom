@@ -38,7 +38,7 @@ class AgentContextTest {
         final Session session =
                 new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
-        AgentContext.write(project, session);
+        AgentContext.write(project, session, "");
 
         final Path context = worktree.resolve(CONTEXT_PATH);
         final String content = Files.readString(context);
@@ -69,7 +69,7 @@ class AgentContextTest {
         final Session session =
                 new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
-        AgentContext.write(project, session);
+        AgentContext.write(project, session, "");
 
         assertFalse(
                 Files.exists(worktree.resolve(CONTEXT_PATH)),
@@ -97,7 +97,7 @@ class AgentContextTest {
         final Path context = worktree.resolve(".cursor-notes");
         Files.writeString(context, "old agent start content");
 
-        AgentContext.write(project, session);
+        AgentContext.write(project, session, "");
 
         final String content = Files.readString(context);
         assertTrue(content.contains("# Agent context"), "context should be written");
@@ -128,7 +128,7 @@ class AgentContextTest {
         final Session session =
                 new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
-        final String content = AgentContext.read(project, session);
+        final String content = AgentContext.read(project, session, "");
 
         assertTrue(content.contains("# Agent context"), "context should include heading");
         assertFalse(
@@ -154,7 +154,7 @@ class AgentContextTest {
         final Session session =
                 new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
-        AgentContext.save(project, session, "session notes");
+        AgentContext.save(project, session, "", "session notes");
 
         assertEquals(
                 "session notes",
@@ -169,7 +169,8 @@ class AgentContextTest {
         final Session session =
                 new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
-        assertEquals("", AgentContext.read(project, session), "blank paths should read as blank");
+        assertEquals(
+                "", AgentContext.read(project, session, ""), "blank paths should read as blank");
     }
 
     @Test
