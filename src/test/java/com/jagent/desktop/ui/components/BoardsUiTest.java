@@ -23,6 +23,8 @@ import org.junit.jupiter.api.Test;
 class BoardsUiTest {
     private static final String DEMO = "Demo";
     private static final String PROJECT_PATH = "/tmp/demo";
+    private static final String ALPHA_LOWER = "alpha";
+    private static final String ALPHA_UPPER = "Alpha";
 
     @Test
     void emptyPullRequestBoardShowsItsEmptyColumnsAndAcceptsFilters() {
@@ -72,6 +74,50 @@ class BoardsUiTest {
                 ((JPanel) card.getComponent(7)).getComponentCount(),
                 "card actions should render");
         assertTrue(cards.isVisible(), "populated cards should remain visible");
+    }
+
+    @Test
+    void projectCardsRenderInAlphabeticalOrder() throws InterruptedException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        state.addProject(new Project("Zulu", "/tmp/zulu", null));
+        state.addProject(new Project(ALPHA_LOWER, "/tmp/alpha", null));
+        state.addProject(new Project("Beta", "/tmp/beta", null));
+        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+
+        final var cards = GuiActionRunner.execute(() -> new ProjectCards(context));
+
+        final var cardContainer = (JPanel) cards.getComponent(0);
+        SwingTestSupport.await(
+                () -> cardContainer.getComponentCount() == 3,
+                "all project cards should be rendered");
+
+        assertEquals(ALPHA_LOWER, projectCardName(cardContainer, 0), "first card should be alpha");
+        assertEquals("Beta", projectCardName(cardContainer, 1), "second card should be Beta");
+        assertEquals("Zulu", projectCardName(cardContainer, 2), "third card should be Zulu");
+    }
+
+    @Test
+    void projectCardsSortCaseInsensitiveTiesByExactName() throws InterruptedException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        state.addProject(new Project(ALPHA_LOWER, "/tmp/alpha-lower", null));
+        state.addProject(new Project(ALPHA_UPPER, "/tmp/alpha-upper", null));
+        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+
+        final var cards = GuiActionRunner.execute(() -> new ProjectCards(context));
+
+        final var cardContainer = (JPanel) cards.getComponent(0);
+        SwingTestSupport.await(
+                () -> cardContainer.getComponentCount() == 2,
+                "all project cards should be rendered");
+
+        assertEquals(
+                ALPHA_UPPER,
+                projectCardName(cardContainer, 0),
+                "uppercase variant should sort first when names differ only by case");
+        assertEquals(
+                ALPHA_LOWER,
+                projectCardName(cardContainer, 1),
+                "lowercase variant should sort second when names differ only by case");
     }
 
     @Test
@@ -343,5 +389,10 @@ class BoardsUiTest {
             return text.toString();
         }
         return "";
+    }
+
+    private static String projectCardName(final JPanel cardContainer, final int cardIndex) {
+        final var card = (JPanel) cardContainer.getComponent(cardIndex);
+        return ((javax.swing.AbstractButton) card.getComponent(0)).getText();
     }
 }
