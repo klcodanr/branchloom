@@ -7,6 +7,7 @@ import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.ui.Defaults;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -90,6 +91,13 @@ final class ProjectTreeSynchronizer {
             grouped.computeIfAbsent(groupName(project.getValue()), ignored -> new ArrayList<>())
                     .add(project);
         }
+        grouped.values()
+                .forEach(
+                        group ->
+                                group.sort(
+                                        Comparator.comparing(
+                                                entry -> entry.getValue().name(),
+                                                String.CASE_INSENSITIVE_ORDER)));
         return grouped;
     }
 

@@ -79,7 +79,17 @@ public final class ProjectCards extends JPanel {
 
     private void renderCards() {
         cards.removeAll();
-        for (final Entry<ProjectId, Project> project : appState.projects().entrySet()) {
+        final var projects =
+                appState.projects().entrySet().stream()
+                        .sorted(
+                                Comparator.comparing(
+                                                (Entry<ProjectId, Project> entry) ->
+                                                        entry.getValue().name(),
+                                                String.CASE_INSENSITIVE_ORDER)
+                                        .thenComparing(entry -> entry.getValue().name())
+                                        .thenComparing(entry -> entry.getKey().value()))
+                        .toList();
+        for (final Entry<ProjectId, Project> project : projects) {
             final ProjectId projectId = project.getKey();
             final Project projectDefinition = project.getValue();
             final JPanel card = new JPanel();

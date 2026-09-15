@@ -363,6 +363,30 @@ class ProjectTreePanelUiTest {
     }
 
     @Test
+    void sortsProjectsAlphabeticallyWithinEachGroup() {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        state.addProject(project("Zulu", "/tmp/zulu", GROUP));
+        state.addProject(project("alpha", "/tmp/alpha", GROUP));
+        state.addProject(project("Beta", "/tmp/beta", GROUP));
+        final var panel =
+                GuiActionRunner.execute(
+                        () -> {
+                            final var created =
+                                    new ProjectTreePanel(
+                                            new ActionContext(
+                                                    new ViewCoordinator(state), state, null));
+                            created.refresh(null, null);
+                            return created;
+                        });
+
+        final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
+        final var group = (DefaultMutableTreeNode) root.getChildAt(2);
+        assertEquals("alpha", projectName(group.getChildAt(0)), "first project should be alpha");
+        assertEquals("Beta", projectName(group.getChildAt(1)), "second project should be Beta");
+        assertEquals("Zulu", projectName(group.getChildAt(2)), "third project should be Zulu");
+    }
+
+    @Test
     void refreshPreservesMultipleExpandedProjects() throws java.io.InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var firstProjectId = state.addProject(project("First", "/tmp/first", GROUP));
@@ -611,5 +635,12 @@ class ProjectTreePanelUiTest {
 
     private static Project project(final String name, final String path, final String group) {
         return new Project(name, path, group, null, null, null, null, List.of(), List.of());
+    }
+
+    private static String projectName(final Object node) {
+        return ((Project)
+                        ((Map.Entry<?, ?>) ((DefaultMutableTreeNode) node).getUserObject())
+                                .getValue())
+                .name();
     }
 }
