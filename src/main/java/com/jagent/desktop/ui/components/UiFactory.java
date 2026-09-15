@@ -182,7 +182,6 @@ public final class UiFactory {
     public static JButton button(final String text) {
         final JButton button = new JButton(text);
         button.getAccessibleContext().setAccessibleName(text);
-        button.setBorderPainted(false);
         configureButtonEnter(button);
         return button;
     }
