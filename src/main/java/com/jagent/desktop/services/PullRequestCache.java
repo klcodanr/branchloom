@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -18,13 +17,14 @@ public final class PullRequestCache {
     private static PullRequestCache instance;
     private final AppState appState;
     private final Map<ProjectId, CacheEntry> map = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService cleaner =
+    private final ScheduledExecutorService loader =
             Executors.newSingleThreadScheduledExecutor(
                     r -> {
-                        final Thread t = new Thread(r, "cache-cleaner");
+                        final Thread t = new Thread(r, "pull-request-cache-loader");
                         t.setDaemon(true);
                         return t;
                     });
+    private final java.util.Set<ProjectId> refreshInFlight = ConcurrentHashMap.newKeySet();
 
     // @SuppressFBWarnings("EI_EXPOSE_REP")
     public static PullRequestCache get(final AppState appState) {
@@ -38,7 +38,6 @@ public final class PullRequestCache {
 
     private PullRequestCache(final AppState appState) {
         this.appState = appState;
-        this.cleaner.scheduleAtFixedRate(this::clearExpired, 0, 60_000, TimeUnit.MILLISECONDS);
     }
 
     private ProjectPullRequests load(final ProjectId projectId)
@@ -67,14 +66,12 @@ public final class PullRequestCache {
     }
 
     private void put(final ProjectId projectId, final ProjectPullRequests projectPullRequests) {
-        final long expiryTime = System.currentTimeMillis() + 30_000;
-        map.put(projectId, new CacheEntry(projectPullRequests, expiryTime));
+        map.put(projectId, new CacheEntry(projectPullRequests));
     }
 
     public ProjectPullRequests get(final ProjectId projectId) {
         final CacheEntry entry = map.get(projectId);
-        if (entry == null || entry.isExpired()) {
-            map.remove(projectId);
+        if (entry == null) {
             try {
                 return load(projectId);
             } catch (IOException | InterruptedException e) {
@@ -82,30 +79,36 @@ public final class PullRequestCache {
                 return new ProjectPullRequests(List.of(), List.of());
             }
         }
+        requestRefresh(projectId);
         return entry.projectPullRequests;
     }
 
     public ProjectPullRequests getCached(final ProjectId projectId) {
         final CacheEntry entry = map.get(projectId);
-        return entry == null || entry.isExpired()
+        return entry == null
                 ? new ProjectPullRequests(List.of(), List.of())
                 : entry.projectPullRequests;
     }
 
     public boolean hasCached(final ProjectId projectId) {
-        final CacheEntry entry = map.get(projectId);
-        return entry != null && !entry.isExpired();
+        return map.containsKey(projectId);
     }
 
-    private void clearExpired() {
-        map.entrySet().removeIf(entry -> entry.getValue().isExpired());
-    }
-
-    private record CacheEntry(ProjectPullRequests projectPullRequests, long expiryTime) {
-        private boolean isExpired() {
-            return System.currentTimeMillis() > expiryTime;
+    private void requestRefresh(final ProjectId projectId) {
+        if (!refreshInFlight.add(projectId)) {
+            return;
         }
+        loader.execute(
+                () -> {
+                    try {
+                        refresh(projectId);
+                    } finally {
+                        refreshInFlight.remove(projectId);
+                    }
+                });
     }
+
+    private record CacheEntry(ProjectPullRequests projectPullRequests) {}
 
     public ProjectPullRequests refresh(final ProjectId projectId) {
         try {
