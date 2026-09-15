@@ -3,6 +3,7 @@ package com.jagent.desktop.ui.components;
 import com.jagent.desktop.api.Action;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
+import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.Tool;
 import com.jagent.desktop.ui.actions.CopyBranchAction;
@@ -31,6 +32,7 @@ public final class SessionActions {
 
     public static void populate(
             final Container menu, final ActionContext actionContext, final SessionId sessionId) {
+        selectSession(actionContext, sessionId);
         menu.add(
                 sessionActionItem(
                         actionContext,
@@ -103,9 +105,18 @@ public final class SessionActions {
         item.setEnabled(action.enabled());
         item.addActionListener(
                 event -> {
-                    actionContext.appState().updateCurrentSession(sessionId);
+                    selectSession(actionContext, sessionId);
                     action.execute();
                 });
         return item;
+    }
+
+    private static void selectSession(
+            final ActionContext actionContext, final SessionId sessionId) {
+        final Session session = actionContext.appState().sessions().get(sessionId);
+        if (session != null) {
+            actionContext.appState().updateCurrentProject(session.projectId());
+        }
+        actionContext.appState().updateCurrentSession(sessionId);
     }
 }
