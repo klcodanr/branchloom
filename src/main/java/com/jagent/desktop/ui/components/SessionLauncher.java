@@ -3,6 +3,8 @@ package com.jagent.desktop.ui.components;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
+import com.jagent.desktop.models.Terminal;
+import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.BackgroundJobs.Handle;
 import com.jagent.desktop.services.CommandRunner;
 import com.jagent.desktop.services.SessionCreationService.CreatedSession;
@@ -15,15 +17,23 @@ import javax.swing.SwingUtilities;
 /** Opens a newly created session and runs its configured setup commands. */
 public final class SessionLauncher {
     private final ActionContext actionContext;
+    private final TerminalPanelFactory terminalPanelFactory;
 
     public SessionLauncher(final ActionContext actionContext) {
+        this(actionContext, TerminalPanel::retained);
+    }
+
+    /* package */ SessionLauncher(
+            final ActionContext actionContext, final TerminalPanelFactory terminalPanelFactory) {
         this.actionContext = actionContext;
+        this.terminalPanelFactory =
+                terminalPanelFactory == null ? TerminalPanel::retained : terminalPanelFactory;
     }
 
     public void launch(final Project project, final CreatedSession created) {
         final var terminal = actionContext.appState().terminals().get(created.terminalId());
         final TerminalPanel terminalPanel =
-                TerminalPanel.retained(
+                terminalPanelFactory.create(
                         created.terminalId(),
                         terminal,
                         Path.of(created.worktreePath()).toAbsolutePath().normalize(),
@@ -122,5 +132,11 @@ public final class SessionLauncher {
                         terminalPanel.start();
                     }
                 });
+    }
+
+    /* package */ @FunctionalInterface
+    interface TerminalPanelFactory {
+        TerminalPanel create(
+                TerminalId id, Terminal definition, Path directory, String resourceName);
     }
 }

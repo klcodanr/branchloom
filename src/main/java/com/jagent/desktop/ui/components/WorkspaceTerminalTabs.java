@@ -4,8 +4,10 @@ import com.jagent.desktop.models.TerminalId;
 import java.awt.Component;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
@@ -18,6 +20,7 @@ public final class WorkspaceTerminalTabs {
     private final BiConsumer<TerminalPanel, TerminalId> closed;
     private final BiConsumer<TerminalPanel, String> renamed;
     private final Map<TerminalPanel, TerminalId> ids = new IdentityHashMap<>();
+    private final Set<TerminalPanel> started = Collections.newSetFromMap(new IdentityHashMap<>());
 
     public WorkspaceTerminalTabs(
             final JTabbedPane tabs,
@@ -38,6 +41,7 @@ public final class WorkspaceTerminalTabs {
                         showContextMenu(event);
                     }
                 });
+        tabs.addChangeListener(ignored -> startSelected());
     }
 
     public Map<TerminalPanel, TerminalId> ids() {
@@ -59,8 +63,8 @@ public final class WorkspaceTerminalTabs {
                 "JTabbedPane.tabCloseCallback", (java.util.function.IntConsumer) this::close);
         if (selected) {
             tabs.setSelectedComponent(terminal);
+            start(terminal);
         }
-        terminal.start();
     }
 
     public void detach() {
@@ -68,6 +72,7 @@ public final class WorkspaceTerminalTabs {
             terminal.putClientProperty("JTabbedPane.tabCloseCallback", null);
         }
         ids.clear();
+        started.clear();
     }
 
     public void closeActive() {
@@ -122,9 +127,25 @@ public final class WorkspaceTerminalTabs {
         }
         final TerminalId terminalId = ids.get(terminal);
         tabs.removeTabAt(index);
+        started.remove(terminal);
         terminal.dispose();
         closed.accept(terminal, terminalId);
         ids.remove(terminal);
+    }
+
+    private void startSelected() {
+        final int index = tabs.getSelectedIndex();
+        if (index < 0 || !(tabs.getComponentAt(index) instanceof TerminalPanel terminal)) {
+            return;
+        }
+        start(terminal);
+    }
+
+    private void start(final TerminalPanel terminal) {
+        if (!started.add(terminal)) {
+            return;
+        }
+        terminal.start();
     }
 
     private void showContextMenu(final MouseEvent event) {

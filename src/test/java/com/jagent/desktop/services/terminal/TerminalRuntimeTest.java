@@ -10,6 +10,7 @@ import com.jediterm.terminal.TtyConnector;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
@@ -19,7 +20,9 @@ class TerminalRuntimeTest {
 
     @Test
     void exposesConfigurationAndNotifiesInitialState() {
-        final var runtime = new TerminalRuntime("sh", TEMP_DIRECTORY, HISTORY_FILE);
+        final var runtime =
+                new StubTerminalRuntime(
+                        "sh", TEMP_DIRECTORY, HISTORY_FILE, new FakePtyProcess(101));
         final var notified = new AtomicReference<TerminalState>();
 
         runtime.onStateChanged(notified::set);
@@ -34,7 +37,9 @@ class TerminalRuntimeTest {
 
     @Test
     void disposedRuntimeRejectsStartAndCanBeStoppedRepeatedly() {
-        final var runtime = new TerminalRuntime("sh", TEMP_DIRECTORY, HISTORY_FILE);
+        final var runtime =
+                new StubTerminalRuntime(
+                        "sh", TEMP_DIRECTORY, HISTORY_FILE, new FakePtyProcess(102));
         final var failure = new AtomicReference<Exception>();
         runtime.stop();
 
@@ -48,8 +53,11 @@ class TerminalRuntimeTest {
     @Test
     void startsProcessReadsOutputAndIgnoresDuplicateStart()
             throws IOException, InterruptedException {
+        final FakePtyProcess process = new FakePtyProcess(103);
+        process.emit("ready");
         final var runtime =
-                new TerminalRuntime("printf ready; sleep 1", TEMP_DIRECTORY, HISTORY_FILE);
+                new StubTerminalRuntime(
+                        "printf ready; sleep 1", TEMP_DIRECTORY, HISTORY_FILE, process);
         final var attached = new CountDownLatch(1);
         final var connector = new AtomicReference<TtyConnector>();
         final var failure = new AtomicReference<Exception>();
@@ -64,27 +72,36 @@ class TerminalRuntimeTest {
                 failure::set);
         runtime.start(ignored -> {}, failure::set);
 
-        assertTrue(attached.await(5, java.util.concurrent.TimeUnit.SECONDS), "PTY should attach");
+        assertTrue(attached.await(2, TimeUnit.SECONDS), "PTY should attach");
         runtime.submitCommand();
         final char[] buffer = new char[32];
         final StringBuilder output = new StringBuilder();
         int count;
         do {
             count = connector.get().read(buffer, 0, buffer.length);
-            output.append(buffer, 0, count);
-        } while (!output.toString().contains("ready"));
+            if (count > 0) {
+                output.append(buffer, 0, count);
+            }
+        } while (count > 0 && !output.toString().contains("ready"));
         connector.get().resize(new TermSize(100, 30));
 
         assertTrue(output.toString().contains("ready"), "PTY output should be readable");
         assertEquals(TerminalState.WORKING, states.get(), "output should mark terminal working");
         assertNull(failure.get(), "starting a valid command should not fail");
+        assertEquals("printf ready; sleep 1\r\n", process.submittedInput(), "command submitted");
         connector.get().close();
         runtime.stop();
     }
 
     @Test
     void reportsLaunchFailureAndStopsRunningProcess() throws InterruptedException {
-        final var failed = new TerminalRuntime("true", null, HISTORY_FILE);
+        final var failed =
+                new StubTerminalRuntime(
+                        "true",
+                        TEMP_DIRECTORY,
+                        HISTORY_FILE,
+                        new FakePtyProcess(104),
+                        new IOException("boom"));
         final var failure = new AtomicReference<Exception>();
         failed.start(ignored -> {}, failure::set);
 
@@ -92,20 +109,25 @@ class TerminalRuntimeTest {
                 () -> failed.state() == TerminalState.FAILED, "runtime should reach failed state");
         AsyncTestSupport.await(() -> failure.get() != null, "runtime should report launch failure");
         assertEquals(TerminalState.FAILED, failed.state(), "failed process should fail");
-        assertTrue(failure.get() != null, "invalid directory should report launch failure");
+        assertTrue(failure.get() != null, "launch failure should be reported");
 
-        final var running = new TerminalRuntime("sleep 10", TEMP_DIRECTORY, HISTORY_FILE);
+        final FakePtyProcess runningProcess = new FakePtyProcess(105);
+        final var running =
+                new StubTerminalRuntime("sleep 10", TEMP_DIRECTORY, HISTORY_FILE, runningProcess);
         final var attached = new CountDownLatch(1);
         running.start(ignored -> attached.countDown(), failure::set);
-        assertTrue(attached.await(5, java.util.concurrent.TimeUnit.SECONDS), "PTY should attach");
+        assertTrue(attached.await(2, TimeUnit.SECONDS), "PTY should attach");
         running.stop();
 
         assertEquals(TerminalState.STOPPED, running.state(), "stop should update state");
+        assertTrue(!runningProcess.isAlive(), "stop should terminate the running process");
     }
 
     @Test
     void nullStateListenerIsSafeAndEnumLabelsAreExposed() {
-        final var runtime = new TerminalRuntime("true", TEMP_DIRECTORY, HISTORY_FILE);
+        final var runtime =
+                new StubTerminalRuntime(
+                        "true", TEMP_DIRECTORY, HISTORY_FILE, new FakePtyProcess(106));
 
         runtime.onStateChanged(null);
 
@@ -119,7 +141,11 @@ class TerminalRuntimeTest {
 
     @Test
     void keepsInteractiveShellAfterCommandsComplete() throws IOException, InterruptedException {
-        final var successful = new TerminalRuntime("printf done", TEMP_DIRECTORY, HISTORY_FILE);
+        final FakePtyProcess successfulProcess = new FakePtyProcess(107);
+        successfulProcess.emit("done");
+        final var successful =
+                new StubTerminalRuntime(
+                        "printf done", TEMP_DIRECTORY, HISTORY_FILE, successfulProcess);
         final var successfulAttached = new CountDownLatch(1);
         final var successfulConnector = new AtomicReference<TtyConnector>();
         successful.start(
@@ -128,13 +154,14 @@ class TerminalRuntimeTest {
                     successfulAttached.countDown();
                 },
                 exception -> {});
-        assertTrue(
-                successfulAttached.await(5, java.util.concurrent.TimeUnit.SECONDS),
-                "successful terminal should attach");
+        assertTrue(successfulAttached.await(2, TimeUnit.SECONDS), "terminal should attach");
         successful.submitCommand();
         successfulConnector.get().read(new char[32], 0, 32);
 
-        final var failed = new TerminalRuntime("false", TEMP_DIRECTORY, HISTORY_FILE);
+        final FakePtyProcess failedProcess = new FakePtyProcess(108);
+        failedProcess.emit("failed");
+        final var failed =
+                new StubTerminalRuntime("false", TEMP_DIRECTORY, HISTORY_FILE, failedProcess);
         final var failedAttached = new CountDownLatch(1);
         final var failedConnector = new AtomicReference<TtyConnector>();
         failed.start(
@@ -143,31 +170,26 @@ class TerminalRuntimeTest {
                     failedAttached.countDown();
                 },
                 exception -> {});
-        assertTrue(
-                failedAttached.await(5, java.util.concurrent.TimeUnit.SECONDS),
-                "failed terminal should attach");
+        assertTrue(failedAttached.await(2, TimeUnit.SECONDS), "terminal should attach");
         failed.submitCommand();
         failedConnector.get().read(new char[32], 0, 32);
 
-        assertTrue(
-                successful.process().isAlive(),
-                "successful command should leave shell alive after completion");
-        assertTrue(
-                failed.process().isAlive(),
-                "failed command should leave shell alive after completion");
+        assertTrue(successful.process().isAlive(), "successful command should keep shell alive");
+        assertTrue(failed.process().isAlive(), "failing command should keep shell alive");
         successful.stop();
         failed.stop();
     }
 
     @Test
     void marksQuietRunningProcessIdle() throws InterruptedException {
-        final var runtime = new TerminalRuntime("sleep 10", TEMP_DIRECTORY, HISTORY_FILE);
+        final var runtime =
+                new StubTerminalRuntime(
+                        "sleep 10", TEMP_DIRECTORY, HISTORY_FILE, new FakePtyProcess(109));
         final var attached = new CountDownLatch(1);
         try {
             runtime.start(ignored -> attached.countDown(), ignored -> {});
 
-            assertTrue(
-                    attached.await(5, java.util.concurrent.TimeUnit.SECONDS), "PTY should attach");
+            assertTrue(attached.await(2, TimeUnit.SECONDS), "PTY should attach");
             AsyncTestSupport.await(
                     () -> runtime.state() == TerminalState.IDLE,
                     "quiet terminal should become idle");

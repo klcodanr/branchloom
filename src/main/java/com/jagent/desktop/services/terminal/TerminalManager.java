@@ -17,6 +17,7 @@ public final class TerminalManager {
     private static final TerminalManager INSTANCE = new TerminalManager();
     private final ConcurrentMap<TerminalId, TerminalRuntime> retained = new ConcurrentHashMap<>();
     private final ConcurrentMap<TerminalRuntime, String> resources = new ConcurrentHashMap<>();
+    private volatile RuntimeFactory runtimeFactory = TerminalRuntime::new;
 
     private TerminalManager() {}
 
@@ -40,7 +41,7 @@ public final class TerminalManager {
             final String command, final Path directory, final String resourceName) {
         try {
             final TerminalRuntime runtime =
-                    new TerminalRuntime(command, directory, TerminalHistory.createPath());
+                    runtimeFactory.create(command, directory, TerminalHistory.createPath());
             resources.put(runtime, resourceName);
             return runtime;
         } catch (IOException exception) {
@@ -100,5 +101,18 @@ public final class TerminalManager {
                                 new TerminalResources.ProcessTarget(
                                         entry.getValue(), entry.getKey().process().pid()))
                 .toList();
+    }
+
+    /* package */ void setRuntimeFactory(final RuntimeFactory factory) {
+        runtimeFactory = factory == null ? TerminalRuntime::new : factory;
+    }
+
+    /* package */ void resetRuntimeFactory() {
+        runtimeFactory = TerminalRuntime::new;
+    }
+
+    /* package */ @FunctionalInterface
+    interface RuntimeFactory {
+        TerminalRuntime create(String command, Path directory, String historyFile);
     }
 }
