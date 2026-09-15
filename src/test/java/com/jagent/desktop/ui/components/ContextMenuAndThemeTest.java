@@ -22,13 +22,15 @@ import org.junit.jupiter.api.Test;
 
 class ContextMenuAndThemeTest {
     private static final String VALUE_MESSAGE = "theme value should be available";
+    private static final String AGENT_NAME = "Agent";
+    private static final String AGENT_COMMAND = "agent";
 
     @Test
     void projectAndSessionMenusIncludeConfiguredToolsAndAgents()
             throws java.io.InvalidObjectException {
         final AppSettings settings =
                 new AppSettings(
-                        List.of(new Agent("Agent", "agent", "agent")),
+                        List.of(new Agent(AGENT_NAME, AGENT_COMMAND, AGENT_COMMAND)),
                         List.of(),
                         "review",
                         "System",
@@ -79,6 +81,34 @@ class ContextMenuAndThemeTest {
         assertTrue(
                 findItem(menu, "Start agent session").isEnabled(),
                 "project action should be enabled for the target project");
+    }
+
+    @Test
+    void sessionMenuSelectsTargetProjectBeforeEvaluatingActionState()
+            throws java.io.InvalidObjectException {
+        final AppSettings settings =
+                new AppSettings(
+                        List.of(new Agent(AGENT_NAME, AGENT_COMMAND, AGENT_COMMAND)),
+                        List.of(),
+                        "review",
+                        "System",
+                        List.of(),
+                        Defaults.DEFAULT_WORKTREE_TEMPLATE);
+        final AppState state = new AppState(settings, Map.of(), Map.of(), Map.of());
+        final var projectId = state.addProject(new Project("Demo", "/tmp", null));
+        final var sessionId =
+                state.addSession(projectId, new Session(projectId, "Feature", null, null, null));
+        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+
+        final var menu = GuiActionRunner.execute(() -> SessionActions.menu(context, sessionId));
+
+        assertEquals(projectId, state.currentProjectId(), "menu should select the session project");
+        final javax.swing.JMenu agentsMenu = findMenu(menu, "Agents");
+        assertNotNull(agentsMenu, "session agents menu should exist");
+        assertNotNull(agentsMenu.getItem(0), "configured agent action should exist");
+        assertTrue(
+                agentsMenu.getItem(0).isEnabled(),
+                "session agent action should be enabled for the target project");
     }
 
     @Test
