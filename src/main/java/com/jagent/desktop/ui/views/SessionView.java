@@ -88,7 +88,11 @@ public final class SessionView extends AbstractWorkspaceView {
     private void addSummary() {
         summary =
                 new SessionSummary(
-                        project, session, () -> new RemoveSessionAction(actionContext).execute());
+                        project,
+                        session,
+                        actionContext.appState().appSettings().agentContextPath(),
+                        actionContext.appState().appSettings().tools(),
+                        () -> new RemoveSessionAction(actionContext).execute());
         final JScrollPane summaryScroll = new JScrollPane(summary);
         summaryScroll.setBorder(null);
         summaryScroll.getVerticalScrollBar().setUnitIncrement(14);

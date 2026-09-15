@@ -77,6 +77,10 @@ public final class GlobalSettingsView implements View {
         final AppSettings settings = state.appSettings();
         final JTextField work = new JTextField(settings.worktreeTemplate(), 45);
         work.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
+        final JTextField contextPath = new JTextField(settings.agentContextPath(), 45);
+        contextPath.setToolTipText(
+                "Default agent context file path. Blank keeps context generation disabled unless a"
+                        + " project overrides it.");
         final JComboBox<Theme.FlatLafTheme> theme = new JComboBox<>(Theme.FlatLafTheme.values());
         theme.setSelectedItem(Theme.FlatLafTheme.from(settings.theme()));
         final JPanel general = new JPanel(new BorderLayout());
@@ -91,6 +95,8 @@ public final class GlobalSettingsView implements View {
         generalForm.setOpaque(false);
         generalForm.setLayout(new BoxLayout(generalForm, BoxLayout.Y_AXIS));
         generalForm.add(SettingsPanel.labeledField("Default worktree path", work));
+        generalForm.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
+        generalForm.add(SettingsPanel.labeledField("Default agent context file path", contextPath));
         generalForm.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
         generalForm.add(SettingsPanel.labeledField("Appearance", theme));
         general.add(generalForm, BorderLayout.NORTH);
@@ -147,6 +153,7 @@ public final class GlobalSettingsView implements View {
                                     selectedTheme.toString(),
                                     configuredTools(toolNames, toolCommands),
                                     work.getText().trim(),
+                                    contextPath.getText().trim(),
                                     settings.reviewPlanEnabled(),
                                     settings.reviewPlanCommand(),
                                     reviewPlanPrompt.getText().trim()));

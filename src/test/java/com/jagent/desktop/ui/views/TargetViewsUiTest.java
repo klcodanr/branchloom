@@ -50,7 +50,11 @@ class TargetViewsUiTest {
                         "Review {title}",
                         "System",
                         List.of(new Tool("Editor", "editor .")),
-                        "{projectPath}/worktree");
+                        "{projectPath}/worktree",
+                        ".branchloom/context.md",
+                        false,
+                        "",
+                        Defaults.DEFAULT_REVIEW_PLAN_PROMPT);
         final AppState state = new AppState(settings, Map.of(), Map.of(), Map.of());
         final var coordinator = new ViewCoordinator(state);
         final var view = new GlobalSettingsView(new ActionContext(coordinator, state, null));
@@ -77,6 +81,10 @@ class TargetViewsUiTest {
         assertEquals(
                 "{projectPath}/worktree",
                 state.appSettings().worktreeTemplate(),
+                ASSERTION_MESSAGE);
+        assertEquals(
+                ".branchloom/context.md",
+                state.appSettings().agentContextPath(),
                 ASSERTION_MESSAGE);
         assertEquals(1, state.appSettings().agents().size(), ASSERTION_MESSAGE);
         assertEquals(1, state.appSettings().tools().size(), ASSERTION_MESSAGE);

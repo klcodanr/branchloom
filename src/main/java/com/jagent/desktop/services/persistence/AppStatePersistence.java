@@ -75,6 +75,7 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
                 defaults.theme(),
                 EditorDetection.detect(),
                 defaults.worktreeTemplate(),
+                defaults.agentContextPath(),
                 defaults.reviewPlanEnabled(),
                 defaults.reviewPlanCommand(),
                 defaults.reviewPlanPrompt());

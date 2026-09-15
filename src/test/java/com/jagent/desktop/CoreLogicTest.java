@@ -274,6 +274,7 @@ class CoreLogicTest {
         assertTrue(defaults.agents().isEmpty(), "null agents should default to empty");
         assertTrue(defaults.groupOrder().isEmpty(), "null groups should default to empty");
         assertTrue(defaults.tools().isEmpty(), "null tools should default to empty");
+        assertEquals("", defaults.agentContextPath(), "context path should default to blank");
         assertEquals(
                 Defaults.DEFAULT_WORKTREE_TEMPLATE, defaults.worktreeTemplate(), VALUE_MESSAGE);
         assertEquals(
@@ -281,6 +282,21 @@ class CoreLogicTest {
                 new AppSettings(List.of(), List.of(), "review", "Dark", List.of(), "  ")
                         .worktreeTemplate(),
                 VALUE_MESSAGE);
+        assertEquals(
+                "global/context.md",
+                new AppSettings(
+                                List.of(),
+                                List.of(),
+                                "review",
+                                "Dark",
+                                List.of(),
+                                "custom",
+                                " global/context.md ",
+                                false,
+                                "",
+                                Defaults.DEFAULT_REVIEW_PLAN_PROMPT)
+                        .agentContextPath(),
+                "context path should be trimmed");
         assertEquals(
                 "custom",
                 new AppSettings(List.of(), List.of(), "review", "Dark", List.of(), "custom")

@@ -50,6 +50,10 @@ class AppStatePersistenceTest {
                 defaults.worktreeTemplate(),
                 loaded.appSettings().worktreeTemplate(),
                 "default worktree template should load");
+        assertEquals(
+                defaults.agentContextPath(),
+                loaded.appSettings().agentContextPath(),
+                "default context path should load");
     }
 
     @Test
@@ -70,7 +74,11 @@ class AppStatePersistenceTest {
                         "review",
                         THEME,
                         Defaults.appSettings().tools(),
-                        "custom/{sessionSlug}"));
+                        "custom/{sessionSlug}",
+                        ".branchloom/context.md",
+                        false,
+                        "",
+                        Defaults.DEFAULT_REVIEW_PLAN_PROMPT));
 
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
             persistence.persist();
@@ -102,6 +110,10 @@ class AppStatePersistenceTest {
                 AGENT_COMMAND,
                 loaded.appSettings().agents().getFirst().openCommand,
                 "agent open command should load");
+        assertEquals(
+                ".branchloom/context.md",
+                loaded.appSettings().agentContextPath(),
+                "context path should load");
     }
 
     @Test
@@ -148,7 +160,11 @@ class AppStatePersistenceTest {
                         "review",
                         THEME,
                         Defaults.appSettings().tools(),
-                        "custom/{sessionSlug}"));
+                        "custom/{sessionSlug}",
+                        ".branchloom/context.md",
+                        false,
+                        "",
+                        Defaults.DEFAULT_REVIEW_PLAN_PROMPT));
 
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
             persistence.persist();
