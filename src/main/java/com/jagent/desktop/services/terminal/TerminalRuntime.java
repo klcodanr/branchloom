@@ -169,7 +169,7 @@ public class TerminalRuntime {
         }
     }
 
-    private PtyProcess launchProcess() throws IOException {
+    protected PtyProcess launchProcess() throws IOException {
         final Map<String, String> environment = new HashMap<>(System.getenv());
         environment.put("TERM", "xterm-256color");
         environment.put("COLORTERM", "truecolor");

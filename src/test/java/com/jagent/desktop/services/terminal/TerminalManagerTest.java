@@ -8,7 +8,9 @@ import com.jagent.desktop.test.AsyncTestSupport;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -16,6 +18,13 @@ class TerminalManagerTest {
     private static final Path TEMP_DIRECTORY = Path.of(System.getProperty("java.io.tmpdir"));
     private static final String TRUE_COMMAND = "true";
     private static final String RESOURCE = "resource";
+
+    @AfterEach
+    void resetSingleton() {
+        final TerminalManager manager = TerminalManager.get();
+        manager.disposeAll();
+        manager.resetRuntimeFactory();
+    }
 
     @Test
     void createsRetainsReportsAndDisposesRuntimes() {
@@ -46,8 +55,11 @@ class TerminalManagerTest {
     void disposingUnknownRuntimeIsHarmless() {
         final TerminalManager manager = TerminalManager.get();
         final var runtime =
-                new TerminalRuntime(
-                        TRUE_COMMAND, TEMP_DIRECTORY, TEMP_DIRECTORY.resolve("history").toString());
+                new StubTerminalRuntime(
+                        TRUE_COMMAND,
+                        TEMP_DIRECTORY,
+                        TEMP_DIRECTORY.resolve("history").toString(),
+                        new FakePtyProcess(300));
 
         manager.dispose(runtime, false);
 
@@ -57,6 +69,14 @@ class TerminalManagerTest {
     @Test
     void reportsActiveProcessAndCanDisposeWithoutDeletingHistory() throws InterruptedException {
         final TerminalManager manager = TerminalManager.get();
+        final AtomicLong pid = new AtomicLong(400);
+        manager.setRuntimeFactory(
+                (command, directory, historyFile) ->
+                        new StubTerminalRuntime(
+                                command,
+                                directory,
+                                historyFile,
+                                new FakePtyProcess(pid.incrementAndGet())));
         final TerminalRuntime runtime = manager.create("sleep 1", TEMP_DIRECTORY, RESOURCE);
         runtime.start(ignored -> {}, exception -> {});
 
@@ -77,11 +97,21 @@ class TerminalManagerTest {
     @Test
     void keepsShellActiveAfterCommandExit() throws IOException, InterruptedException {
         final TerminalManager manager = TerminalManager.get();
+        final AtomicLong pid = new AtomicLong(500);
+        final AtomicReference<FakePtyProcess> createdProcess = new AtomicReference<>();
+        manager.setRuntimeFactory(
+                (command, directory, historyFile) -> {
+                    final FakePtyProcess process = new FakePtyProcess(pid.incrementAndGet());
+                    createdProcess.set(process);
+                    return new StubTerminalRuntime(command, directory, historyFile, process);
+                });
         final TerminalRuntime runtime = manager.create(TRUE_COMMAND, TEMP_DIRECTORY, RESOURCE);
+        createdProcess.get().emit("ready");
         final var connector = new AtomicReference<com.jediterm.terminal.TtyConnector>();
         runtime.start(connector::set, exception -> {});
 
         AsyncTestSupport.await(() -> runtime.process() != null, "runtime process should start");
+        AsyncTestSupport.await(() -> connector.get() != null, "runtime connector should attach");
         runtime.submitCommand();
         final char[] buffer = new char[32];
         connector.get().read(buffer, 0, buffer.length);
@@ -96,7 +126,7 @@ class TerminalManagerTest {
         final Path history = directory.resolve("terminal.history");
         Files.writeString(history, "history");
         final TerminalRuntime runtime =
-                new TerminalRuntime(TRUE_COMMAND, TEMP_DIRECTORY, history.toString());
+                new StubTerminalRuntime(TRUE_COMMAND, TEMP_DIRECTORY, history.toString(), null);
 
         TerminalManager.get().dispose(runtime, true);
 
