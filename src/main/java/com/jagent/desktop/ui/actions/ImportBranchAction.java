@@ -35,6 +35,7 @@ import javax.swing.SwingUtilities;
 /** Starts importing a branch into the selected project. */
 public class ImportBranchAction extends BaseAction {
     private static final String TITLE = "Import branch";
+    private static final String EMPTY_MESSAGE = "No branches are available to import.";
     private static final Logger LOG = Logger.getLogger(ImportBranchAction.class.getName());
 
     protected record BranchChoice(String displayName, String ref, boolean remote) {
@@ -107,7 +108,11 @@ public class ImportBranchAction extends BaseAction {
                                             .sorted(Comparator.comparing(BranchChoice::displayName))
                                             .toList();
                             if (choices.isEmpty()) {
-                                LOG.severe("Import branch: No branches found.");
+                                JOptionPane.showMessageDialog(
+                                        actionContext.window(),
+                                        EMPTY_MESSAGE,
+                                        TITLE,
+                                        JOptionPane.INFORMATION_MESSAGE);
                                 return;
                             }
 
