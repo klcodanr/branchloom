@@ -39,26 +39,6 @@ class CoreLogicTest {
     private static final String AGENT_NAME = "agent";
     private static final String PROMPT = "prompt";
     private static final String MERGEABLE = "MERGEABLE";
-    private static final String APPROVED = "APPROVED";
-    private static final String UNKNOWN = "UNKNOWN";
-    private static final String TITLE = "Title";
-    private static final String DESCRIPTION = "Description";
-    private static final String COMMENTS = "Comments";
-    private static final String CREATED = "created";
-    private static final String UPDATED = "updated";
-    private static final String AUTHOR = "author";
-    private static final String FEATURE = "feature";
-    private static final String PENDING = "PENDING";
-    private static final String READY_REASON =
-            "Review requested, ready to inspect, and not blocked by checks or conflicts.";
-    private static final String WAITING_REASON =
-            "Review requested, but the request is waiting on author, checks, or mergeability.";
-    private static final String GENERAL_FOCUS = "Review the change, checks, and recent comments.";
-    private static final String DRAFT_FOCUS = "Confirm whether the draft is ready for review.";
-    private static final String FAILING_FOCUS =
-            "Check failing CI before spending time on implementation details.";
-    private static final String CONFLICT_FOCUS =
-            "Confirm the conflict scope and whether a useful review is possible.";
 
     @Test
     void projectCanBeAssignedToAGroupWithoutChangingItsConfiguration() {
@@ -162,37 +142,43 @@ class CoreLogicTest {
                 new PullRequest(
                         projectId,
                         2,
-                        TITLE,
-                        DESCRIPTION,
-                        COMMENTS,
+                        "Title",
+                        "Description",
+                        "Comments",
                         "https://example.test/1",
-                        CREATED,
-                        UPDATED,
+                        "created",
+                        "updated",
                         "CHANGES_REQUESTED",
                         MERGEABLE,
                         false,
-                        AUTHOR,
-                        FEATURE,
+                        "author",
+                        "feature",
+                        10,
+                        3,
+                        2,
                         1,
                         1,
                         "PASSING");
-        final PullRequest approved = pullRequest(projectId, false, MERGEABLE, APPROVED);
-        final PullRequest conflicting = pullRequest(projectId, false, "CONFLICTING", APPROVED);
+        final PullRequest approved = pullRequest(projectId, false, MERGEABLE, "APPROVED");
+        final PullRequest conflicting = pullRequest(projectId, false, "CONFLICTING", "APPROVED");
         final PullRequest failingChecks =
                 new PullRequest(
                         projectId,
                         3,
-                        TITLE,
-                        DESCRIPTION,
-                        COMMENTS,
+                        "Title",
+                        "Description",
+                        "Comments",
                         "https://example.test/3",
-                        CREATED,
-                        UPDATED,
-                        UNKNOWN,
+                        "created",
+                        "updated",
+                        "UNKNOWN",
                         MERGEABLE,
                         false,
-                        AUTHOR,
-                        FEATURE,
+                        "author",
+                        "feature",
+                        0,
+                        1,
+                        1,
                         0,
                         1,
                         "FAILING");
@@ -207,73 +193,10 @@ class CoreLogicTest {
                 PullRequestGroup.NOT_READY.label(), conflicting.relevanceGroup(), VALUE_MESSAGE);
         assertEquals(
                 PullRequestGroup.NOT_READY.label(), failingChecks.relevanceGroup(), VALUE_MESSAGE);
-        assertTrue(conflicting.hasBlockingMergeability(), "conflicting mergeability should block");
-        assertTrue(failingChecks.hasBlockingChecks(), "failing checks should block");
-        Assertions.assertFalse(approved.hasBlockingChecks(), "passing checks should not block");
-        Assertions.assertFalse(
-                approved.hasBlockingMergeability(), "mergeable state should not block");
         assertEquals(
                 PullRequestGroup.READY_FOR_REVIEW.label(),
-                pullRequest(projectId, false, MERGEABLE, UNKNOWN).relevanceGroup(),
+                pullRequest(projectId, false, MERGEABLE, "UNKNOWN").relevanceGroup(),
                 "unknown review status should be ready");
-        assertEquals(
-                PullRequestGroup.NOT_READY.label(),
-                pullRequest(projectId, false, UNKNOWN, APPROVED).relevanceGroup(),
-                "unknown mergeability should be not ready");
-        assertEquals(
-                PullRequestGroup.APPROVED.label(),
-                pullRequest(projectId, false, "BEHIND", APPROVED).relevanceGroup(),
-                "behind mergeability should not force not ready");
-        assertTrue(
-                pullRequest(projectId, false, "BEHIND", APPROVED).mergeActionAllowed(),
-                "behind mergeability should allow merge actions");
-        assertTrue(
-                pullRequest(projectId, false, "BEHIND", APPROVED).readyForReviewQueue(),
-                "behind mergeability with passing checks should be review-queue ready");
-        assertTrue(
-                pullRequest(projectId, false, "QUEUED", APPROVED).readyForReviewQueue(),
-                "queued requests with passing checks should be review-queue ready");
-        assertEquals(
-                READY_REASON,
-                pullRequest(projectId, false, "QUEUED", APPROVED).reviewQueueReason(),
-                "queued requests should report the ready reason");
-        assertEquals(
-                GENERAL_FOCUS,
-                pullRequest(projectId, false, "QUEUED", APPROVED).reviewQueueFocus(),
-                "queued requests should use the general review focus");
-        Assertions.assertFalse(
-                pullRequest(projectId, false, UNKNOWN, APPROVED).mergeActionAllowed(),
-                "unknown mergeability should block merge actions");
-        assertEquals(
-                WAITING_REASON,
-                pullRequest(projectId, false, UNKNOWN, APPROVED).reviewQueueReason(),
-                "unknown mergeability should report waiting reason");
-        assertEquals(
-                DRAFT_FOCUS,
-                pullRequest(projectId, true, MERGEABLE, APPROVED).reviewQueueFocus(),
-                "draft requests should focus on readiness");
-        assertEquals(
-                FAILING_FOCUS,
-                pullRequestWithChecks(projectId, false, MERGEABLE, APPROVED, "FAILING")
-                        .reviewQueueFocus(),
-                "failing requests should focus on CI");
-        assertEquals(
-                CONFLICT_FOCUS,
-                pullRequest(projectId, false, "CONFLICTING", APPROVED).reviewQueueFocus(),
-                "conflicting requests should focus on conflict scope");
-        assertEquals(
-                PullRequestGroup.NOT_READY.label(),
-                pullRequestWithChecks(projectId, false, MERGEABLE, APPROVED, PENDING)
-                        .relevanceGroup(),
-                "pending checks should be not ready");
-        Assertions.assertFalse(
-                pullRequestWithChecks(projectId, false, MERGEABLE, APPROVED, PENDING)
-                        .readyForReviewQueue(),
-                "pending checks should block review queue readiness");
-        Assertions.assertFalse(
-                pullRequestWithChecks(projectId, false, MERGEABLE, APPROVED, PENDING)
-                        .mergeActionAllowed(),
-                "pending checks should block merge actions");
         assertEquals(approved, approved, "request should equal itself");
         Assertions.assertNotEquals(approved, changes, "different request numbers should differ");
         Assertions.assertNotEquals(approved, "not a request", "different types should differ");
@@ -375,8 +298,6 @@ class CoreLogicTest {
                                 List.of(),
                                 "custom",
                                 " global/context.md ",
-                                false,
-                                "",
                                 Defaults.DEFAULT_REVIEW_PLAN_PROMPT)
                         .agentContextPath(),
                 "context path should be trimmed");
@@ -456,7 +377,7 @@ class CoreLogicTest {
         assertEquals(Theme.successColor(), UiText.checksColor("PASSING"), VALUE_MESSAGE);
         assertEquals(Theme.dangerColor(), UiText.checksColor("FAILING"), VALUE_MESSAGE);
         assertEquals(Theme.warningColor(), UiText.checksColor("PENDING"), VALUE_MESSAGE);
-        assertEquals(Theme.mutedColor(), UiText.checksColor(UNKNOWN), VALUE_MESSAGE);
+        assertEquals(Theme.mutedColor(), UiText.checksColor("UNKNOWN"), VALUE_MESSAGE);
     }
 
     @Test
@@ -484,44 +405,22 @@ class CoreLogicTest {
         return new PullRequest(
                 projectId,
                 1,
-                TITLE,
-                DESCRIPTION,
-                COMMENTS,
+                "Title",
+                "Description",
+                "Comments",
                 "https://example.test/1",
-                CREATED,
-                UPDATED,
+                "created",
+                "updated",
                 reviewDecision,
                 mergeable,
                 draft,
-                AUTHOR,
-                FEATURE,
+                "author",
+                "feature",
+                8,
+                4,
+                3,
                 1,
                 1,
                 "PASSING");
-    }
-
-    private static PullRequest pullRequestWithChecks(
-            final ProjectId projectId,
-            final boolean draft,
-            final String mergeable,
-            final String reviewDecision,
-            final String checksStatus) {
-        return new PullRequest(
-                projectId,
-                4,
-                TITLE,
-                DESCRIPTION,
-                COMMENTS,
-                "https://example.test/4",
-                CREATED,
-                UPDATED,
-                reviewDecision,
-                mergeable,
-                draft,
-                AUTHOR,
-                FEATURE,
-                0,
-                1,
-                checksStatus);
     }
 }

@@ -93,6 +93,9 @@ class PresentationHelpersTest {
                         false,
                         "",
                         "",
+                        4,
+                        1,
+                        1,
                         2,
                         3,
                         "PASSING");
@@ -111,8 +114,8 @@ class PresentationHelpersTest {
                         + "'>Draft  ·  Review pending  ·  Mergeability unknown  ·  0/0 checks Unknown</font></html>",
                 GitFormatter.detailsHtml(
                         new PullRequest(
-                                null, 12, "Fix", "", "", "", "", "", "", "", true, "", "", 0, 0,
-                                UNKNOWN)),
+                                null, 12, "Fix", "", "", "", "", "", "", "", true, "", "", 0, 0, 0,
+                                0, 0, UNKNOWN)),
                 "draft details should show pending review and unknown states");
     }
 
@@ -136,6 +139,9 @@ class PresentationHelpersTest {
                                 false,
                                 "",
                                 "",
+                                2,
+                                1,
+                                1,
                                 1,
                                 2,
                                 "FAILING"));
@@ -180,7 +186,8 @@ class PresentationHelpersTest {
         Theme.applySwingDefaults();
         final PullRequest request =
                 new PullRequest(
-                        null, 1, "", "", "", "", "", "", "", CLEAN, false, "", "", 1, 2, "FAILING");
+                        null, 1, "", "", "", "", "", "", "", CLEAN, false, "", "", 2, 1, 1, 1, 2,
+                        "FAILING");
 
         assertEquals(
                 "PR: <font color='"

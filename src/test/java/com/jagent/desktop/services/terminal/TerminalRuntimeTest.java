@@ -74,6 +74,10 @@ class TerminalRuntimeTest {
 
         assertTrue(attached.await(2, TimeUnit.SECONDS), "PTY should attach");
         runtime.submitCommand();
+        assertEquals(
+                "printf ready; sleep 1\r\n",
+                process.submittedInput(),
+                "command should submit immediately after attach");
         final char[] buffer = new char[32];
         final StringBuilder output = new StringBuilder();
         int count;

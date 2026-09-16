@@ -99,7 +99,7 @@ class GitHubTest {
                         + "  auth) printf 'github.example\\talice\\n' ;;\n"
                         + "  pr) if [ \"$4\" = \"baseRefName\" ]; then printf 'master\\n'; else printf '42\\tTitle\\tOPEN\\tAPPROVED\\tMERGEABLE\\t"
                         + "https://github.com/adobe/branchloom/pull/42\\tfalse\\t2\\t3\\tPASSING\\n'; fi ;;\n"
-                        + "  api) printf '42\\tTitle\\tbody\\tcomment\\turl\\tcreated\\tupdated\\tAPPROVED\\tMERGEABLE\\tfalse\\tauthor\\tfeature\\t2\\t3\\tPASSING\\n' ;;\n"
+                        + "  api) printf '42\\tTitle\\tbody\\tcomment\\turl\\tcreated\\tupdated\\tAPPROVED\\tMERGEABLE\\tfalse\\tauthor\\tfeature\\t15\\t6\\t4\\t2\\t3\\tPASSING\\n' ;;\n"
                         + "  *) exit 1 ;;\n"
                         + "esac\n",
                 StandardCharsets.UTF_8);

@@ -37,8 +37,6 @@ class ContextMenuAndThemeTest {
                         List.of(new Tool("Editor", "editor .")),
                         Defaults.DEFAULT_WORKTREE_TEMPLATE,
                         "",
-                        false,
-                        "",
                         Defaults.DEFAULT_REVIEW_PLAN_PROMPT);
         final AppState state = new AppState(settings, Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(new Project("Demo", "/tmp", null));

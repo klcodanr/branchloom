@@ -2,6 +2,7 @@ package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
+import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
@@ -168,7 +169,8 @@ public final class TerminalPanel extends JPanel {
                 () -> {
                     terminal.setTtyConnector(connector);
                     terminal.start();
-                    runtime.submitCommand();
+                    BackgroundTasks.submit(
+                            "Terminals", "agent-terminal-submit-command", runtime::submitCommand);
                 });
     }
 

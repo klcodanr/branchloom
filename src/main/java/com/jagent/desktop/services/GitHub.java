@@ -17,13 +17,17 @@ public final class GitHub {
     private static final Logger LOG = Logger.getLogger(GitHub.class.getName());
     private static final int PR_PAGE_SIZE = 25;
     private static final int ISSUE_PAGE_SIZE = 50;
+    private static final int RECENT_COMMENT_LIMIT = 5;
     private static final String TSV_SEPARATOR = "\\t";
     private static final String PR_QUERY =
             "query($search:String!, $endCursor:String, $pageSize:Int!) {"
                     + " search(query:$search, type:ISSUE, first:$pageSize, after:$endCursor) {"
                     + " nodes { ... on PullRequest { number title bodyText url createdAt updatedAt isDraft"
-                    + " reviewDecision mergeable mergeStateStatus isInMergeQueue author { login } headRefName"
-                    + " comments(last:3) { nodes { bodyText author { login } } }"
+                    + " reviewDecision mergeable mergeStateStatus author { login } headRefName"
+                    + " additions deletions changedFiles"
+                    + " comments(last:"
+                    + RECENT_COMMENT_LIMIT
+                    + ") { nodes { bodyText author { login } } }"
                     + " statusCheckRollup { contexts(first:100) { nodes {"
                     + " ... on CheckRun { conclusion status }"
                     + " ... on StatusContext { state }"
@@ -37,7 +41,7 @@ public final class GitHub {
     private static final String ISSUE_JQ =
             ".data.search.nodes[] | [.number, .title, (.bodyText // \"\" | gsub(\"[\\\\t\\\\r\\\\n]+\"; \" \") ), .url] | @tsv";
     private static final String PR_JQ =
-            ".data.search.nodes[] | [.number, .title, (.bodyText // \"\"), ([.comments.nodes[]? | ((.author.login // \"unknown\") + \": \" + (.bodyText // \"\") | gsub(\"[\\\\t\\\\r\\\\n]+\"; \" \") )] | join(\" | \") ), .url, .createdAt, .updatedAt, .reviewDecision, (if .isInMergeQueue == true then \"QUEUED\" elif .mergeStateStatus != null and .mergeStateStatus != \"UNKNOWN\" then .mergeStateStatus else .mergeable end), .isDraft, .author.login, .headRefName, ([.statusCheckRollup.contexts.nodes[]? | select((.conclusion // .state) == \"SUCCESS\" or (.conclusion // .state) == \"SKIPPED\" or (.conclusion // .state) == \"NEUTRAL\")] | length), (.statusCheckRollup.contexts.nodes | length), (if any(.statusCheckRollup.contexts.nodes[]?; (.conclusion // .state) == \"FAILURE\" or (.conclusion // .state) == \"ERROR\") then \"FAILING\" elif any(.statusCheckRollup.contexts.nodes[]?; (.status // \"\") != \"COMPLETED\" and (.state // \"\") != \"SUCCESS\" and (.state // \"\") != \"FAILURE\") then \"PENDING\" elif (.statusCheckRollup.contexts.nodes | length) == 0 then \"UNKNOWN\" else \"PASSING\" end)] | @tsv";
+            ".data.search.nodes[] | [.number, .title, (.bodyText // \"\"), ([.comments.nodes[]? | ((.author.login // \"unknown\") + \": \" + (.bodyText // \"\") | gsub(\"[\\\\t\\\\r\\\\n]+\"; \" \") )] | join(\" | \") ), .url, .createdAt, .updatedAt, .reviewDecision, (if .mergeStateStatus != null and .mergeStateStatus != \"UNKNOWN\" then .mergeStateStatus else .mergeable end), .isDraft, .author.login, .headRefName, .additions, .deletions, .changedFiles, ([.statusCheckRollup.contexts.nodes[]? | select((.conclusion // .state) == \"SUCCESS\" or (.conclusion // .state) == \"SKIPPED\" or (.conclusion // .state) == \"NEUTRAL\")] | length), (.statusCheckRollup.contexts.nodes | length), (if any(.statusCheckRollup.contexts.nodes[]?; (.conclusion // .state) == \"FAILURE\" or (.conclusion // .state) == \"ERROR\") then \"FAILING\" elif any(.statusCheckRollup.contexts.nodes[]?; (.status // \"\") != \"COMPLETED\" and (.state // \"\") != \"SUCCESS\" and (.state // \"\") != \"FAILURE\") then \"PENDING\" elif (.statusCheckRollup.contexts.nodes | length) == 0 then \"UNKNOWN\" else \"PASSING\" end)] | @tsv";
 
     public record Auth(String host, String user) {
         @Override
@@ -162,7 +166,7 @@ public final class GitHub {
         final String command =
                 Git.githubCommand(
                         project,
-                        "gh pr view --json number,title,state,url,reviewDecision,mergeable,mergeStateStatus,isInMergeQueue,isDraft,statusCheckRollup --jq '[.number, .title, .state, .reviewDecision, (if .isInMergeQueue == true then \"QUEUED\" elif .mergeStateStatus != null and .mergeStateStatus != \"UNKNOWN\" then .mergeStateStatus else .mergeable end), .url, .isDraft, ([.statusCheckRollup[]? | select((.conclusion // .state) == \"SUCCESS\" or (.conclusion // .state) == \"SKIPPED\" or (.conclusion // .state) == \"NEUTRAL\")] | length), (.statusCheckRollup | length), (if any(.statusCheckRollup[]?; (.conclusion // .state) == \"FAILURE\" or (.conclusion // .state) == \"ERROR\") then \"FAILING\" elif any(.statusCheckRollup[]?; (.status // \"\") != \"COMPLETED\" and (.state // \"\") != \"SUCCESS\" and (.state // \"\") != \"FAILURE\") then \"PENDING\" elif (.statusCheckRollup | length) == 0 then \"UNKNOWN\" else \"PASSING\" end)] | @tsv'");
+                        "gh pr view --json number,title,state,url,reviewDecision,mergeable,mergeStateStatus,isDraft,statusCheckRollup --jq '[.number, .title, .state, .reviewDecision, (if .mergeStateStatus != null and .mergeStateStatus != \"UNKNOWN\" then .mergeStateStatus else .mergeable end), .url, .isDraft, ([.statusCheckRollup[]? | select((.conclusion // .state) == \"SUCCESS\" or (.conclusion // .state) == \"SKIPPED\" or (.conclusion // .state) == \"NEUTRAL\")] | length), (.statusCheckRollup | length), (if any(.statusCheckRollup[]?; (.conclusion // .state) == \"FAILURE\" or (.conclusion // .state) == \"ERROR\") then \"FAILING\" elif any(.statusCheckRollup[]?; (.status // \"\") != \"COMPLETED\" and (.state // \"\") != \"SUCCESS\" and (.state // \"\") != \"FAILURE\") then \"PENDING\" elif (.statusCheckRollup | length) == 0 then \"UNKNOWN\" else \"PASSING\" end)] | @tsv'");
         final ProcessBuilder builder =
                 PlatformCommands.prepare(new ProcessBuilder(PlatformCommands.shell(command)))
                         .directory(worktree.toFile())
@@ -308,6 +312,9 @@ public final class GitHub {
                                 row.draft(),
                                 row.author(),
                                 row.headBranch(),
+                                row.additions(),
+                                row.deletions(),
+                                row.changedFiles(),
                                 row.checksPassed(),
                                 row.checksTotal(),
                                 row.checksStatus()));
@@ -332,7 +339,7 @@ public final class GitHub {
 
     private static PullRequestRow parse(final String line) {
         final String[] values = line.split(TSV_SEPARATOR, -1);
-        if (values.length < 15) {
+        if (values.length < 18) {
             return null;
         }
         return new PullRequestRow(
@@ -350,7 +357,10 @@ public final class GitHub {
                 values[11],
                 Integer.parseInt(values[12]),
                 Integer.parseInt(values[13]),
-                values[14]);
+                Integer.parseInt(values[14]),
+                Integer.parseInt(values[15]),
+                Integer.parseInt(values[16]),
+                values[17]);
     }
 
     private record PullRequestRow(
@@ -366,6 +376,9 @@ public final class GitHub {
             boolean draft,
             String author,
             String headBranch,
+            int additions,
+            int deletions,
+            int changedFiles,
             int checksPassed,
             int checksTotal,
             String checksStatus) {}

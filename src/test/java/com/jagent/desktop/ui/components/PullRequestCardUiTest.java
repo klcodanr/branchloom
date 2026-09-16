@@ -207,6 +207,9 @@ class PullRequestCardUiTest {
                 false,
                 "author",
                 "login-fix",
+                9,
+                3,
+                2,
                 2,
                 3,
                 PASSING);
@@ -232,6 +235,9 @@ class PullRequestCardUiTest {
                 draft,
                 "author",
                 "login-fix",
+                9,
+                3,
+                2,
                 2,
                 3,
                 checks);

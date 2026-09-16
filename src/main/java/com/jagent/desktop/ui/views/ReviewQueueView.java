@@ -4,10 +4,7 @@ import com.jagent.desktop.api.View;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
-import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.PullRequest;
-import com.jagent.desktop.services.BackgroundTasks;
-import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.PullRequestCache;
 import com.jagent.desktop.services.ReviewPlanAgent;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
@@ -16,19 +13,14 @@ import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
 import java.nio.file.Path;
 import java.util.List;
-import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.ScrollPaneConstants;
-import javax.swing.SwingUtilities;
 
 /** Review requests with a browsable queue and deterministic review plan. */
 public final class ReviewQueueView extends JPanel implements View {
@@ -36,6 +28,7 @@ public final class ReviewQueueView extends JPanel implements View {
     private final transient PullRequestCache pullRequestCache;
     private final PullRequestsBoard board;
     private final JTabbedPane tabs = new JTabbedPane();
+    private final JPanel reviewPlanContent = new JPanel(new BorderLayout());
 
     public ReviewQueueView(final ActionContext actionContext) {
         super(new BorderLayout());
@@ -76,33 +69,21 @@ public final class ReviewQueueView extends JPanel implements View {
                 .toList();
     }
 
+    private List<PullRequest> cachedReviewRequests() {
+        return actionContext.appState().projects().keySet().stream()
+                .flatMap(projectId -> pullRequestCache.getCached(projectId).review().stream())
+                .toList();
+    }
+
     private JPanel reviewPlan() {
         final JPanel panel = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
         panel.setBorder(UiFactory.sectionBorder());
-        final JPanel content = new JPanel(new BorderLayout());
-        content.setOpaque(false);
-        content.add(UiFactory.loading("Loading pull requests..."), BorderLayout.CENTER);
-        final JScrollPane scroll = new JScrollPane(content);
+        reviewPlanContent.setOpaque(false);
+        final JScrollPane scroll = new JScrollPane(reviewPlanContent);
         scroll.setBorder(null);
         scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         panel.add(scroll, BorderLayout.CENTER);
-        BackgroundTasks.submit("Pull Requests", "review-plan-load", this::reviewRequests)
-                .thenAcceptAsync(
-                        requests -> loadPlan(content, requests), SwingUtilities::invokeLater)
-                .exceptionally(
-                        error -> {
-                            SwingUtilities.invokeLater(
-                                    () -> {
-                                        content.removeAll();
-                                        content.add(
-                                                UiFactory.label(
-                                                        "Unable to load review requests.",
-                                                        Theme.FontSize.MD));
-                                        content.revalidate();
-                                        content.repaint();
-                                    });
-                            return null;
-                        });
+        loadPlan(reviewPlanContent, cachedReviewRequests());
         return panel;
     }
 
@@ -127,17 +108,20 @@ public final class ReviewQueueView extends JPanel implements View {
         launcher.setOpaque(false);
         final JComboBox<Agent> selector = new JComboBox<>(agents.toArray(Agent[]::new));
         final JButton start = UiFactory.button("Start review plan");
-        start.setEnabled(selector.getItemCount() > 0 && !requests.isEmpty());
+        start.setEnabled(canStartAgent(selector));
+        selector.addActionListener(event -> start.setEnabled(canStartAgent(selector)));
         start.addActionListener(
                 event -> {
                     final Agent selected = (Agent) selector.getSelectedItem();
-                    if (selected == null || selected.newSessionCommand.isBlank()) {
+                    if (!hasCommand(selected)) {
                         return;
                     }
+                    final String command =
+                            ReviewPlanAgent.command(
+                                    selected.newSessionCommand, reviewPrompt, requests);
                     final TerminalPanel terminal =
                             new TerminalPanel(
-                                    ReviewPlanAgent.command(
-                                            selected.newSessionCommand, reviewPrompt, requests),
+                                    command,
                                     Path.of(System.getProperty("user.home")),
                                     "review-plan-agent");
                     plan.removeAll();
@@ -152,82 +136,52 @@ public final class ReviewQueueView extends JPanel implements View {
         return launcher;
     }
 
+    private static boolean canStartAgent(final JComboBox<Agent> selector) {
+        return selector.getItemCount() > 0 && hasCommand((Agent) selector.getSelectedItem());
+    }
+
+    private static boolean hasCommand(final Agent selected) {
+        return selected != null
+                && selected.newSessionCommand != null
+                && !selected.newSessionCommand.isBlank();
+    }
+
     private void populatePlan(final JPanel items, final List<PullRequest> requests) {
         items.removeAll();
-        final List<PullRequest> plannedRequests = requests;
-        if (plannedRequests.isEmpty()) {
-            items.add(
-                    UiFactory.empty(
-                            "No review requests",
-                            "Pull requests requiring your review will appear here."));
-        }
-        for (int index = 0; index < plannedRequests.size(); index++) {
-            final PullRequest request = plannedRequests.get(index);
-            final Project project = actionContext.appState().projects().get(request.projectId());
-            final JPanel row = new JPanel(new BorderLayout(UiConstants.COMPONENT_GAP, 0));
-            row.setOpaque(false);
-            final JPanel details = new JPanel(new GridBagLayout());
-            details.setOpaque(false);
-            final GridBagConstraints titleConstraints = new GridBagConstraints();
-            titleConstraints.gridx = 0;
-            titleConstraints.gridy = 0;
-            titleConstraints.gridwidth = 2;
-            titleConstraints.weightx = 1;
-            titleConstraints.fill = GridBagConstraints.HORIZONTAL;
-            titleConstraints.anchor = GridBagConstraints.NORTHWEST;
-            titleConstraints.insets = new Insets(0, 0, UiConstants.SPACING_XS, 0);
-            final JButton title =
-                    UiFactory.link(
-                            (index + 1)
-                                    + ". "
-                                    + (project == null ? "Project" : project.name())
-                                    + " #"
-                                    + request.number()
-                                    + " - "
-                                    + request.title(),
-                            () -> PlatformCommands.openUrl(request.url()));
-            details.add(title, titleConstraints);
-            final GridBagConstraints labelConstraints = new GridBagConstraints();
-            labelConstraints.gridx = 0;
-            labelConstraints.anchor = GridBagConstraints.NORTHWEST;
-            labelConstraints.insets =
-                    new Insets(0, 0, UiConstants.SPACING_XS, UiConstants.COMPONENT_GAP);
-            final GridBagConstraints valueConstraints = new GridBagConstraints();
-            valueConstraints.gridx = 1;
-            valueConstraints.weightx = 1;
-            valueConstraints.fill = GridBagConstraints.HORIZONTAL;
-            valueConstraints.anchor = GridBagConstraints.NORTHWEST;
-            valueConstraints.insets = new Insets(0, 0, UiConstants.SPACING_XS, 0);
-            details.add(UiFactory.label("Why:", Theme.FontSize.SM), labelConstraints);
-            details.add(
-                    UiFactory.selectableText(reasonFor(request), Theme.FontSize.SM),
-                    valueConstraints);
-            labelConstraints.gridy = 1;
-            valueConstraints.gridy = 1;
-            details.add(UiFactory.label("Focus:", Theme.FontSize.SM), labelConstraints);
-            details.add(
-                    UiFactory.selectableText(focusFor(request), Theme.FontSize.SM),
-                    valueConstraints);
-            row.add(details, BorderLayout.CENTER);
-            items.add(row);
-            items.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
-        }
+        final String detail =
+                requests.isEmpty()
+                        ? "Start review plan to have your configured agent rank urgency and identify low-hanging fruit."
+                        : requests.size()
+                                + " review requests available. Start review plan to have your configured agent rank urgency and identify low-hanging fruit.";
+        items.add(UiFactory.empty("Review plan", detail));
         items.revalidate();
         items.repaint();
     }
 
-    protected static int bucketFor(final PullRequest request) {
-        if (request.readyForReviewQueue()) {
-            return 0;
+    protected static String contextFor(final PullRequest request) {
+        return "Change size: +"
+                + request.additions()
+                + " / -"
+                + request.deletions()
+                + " across "
+                + request.changedFiles()
+                + " files"
+                + "  ·  Checks: "
+                + request.checksPassed()
+                + "/"
+                + request.checksTotal()
+                + " "
+                + request.checksStatus()
+                + "  ·  Mergeability: "
+                + request.mergeable()
+                + "  ·  Draft: "
+                + request.draft();
+    }
+
+    protected static String commentSummaryFor(final PullRequest request) {
+        if (request.commentSummary().isBlank()) {
+            return "No recent comments captured.";
         }
-        return 1;
-    }
-
-    protected static String reasonFor(final PullRequest request) {
-        return request.reviewQueueReason();
-    }
-
-    protected static String focusFor(final PullRequest request) {
-        return request.reviewQueueFocus();
+        return request.commentSummary();
     }
 }

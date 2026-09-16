@@ -57,6 +57,9 @@ class DialogLogicTest {
                         false,
                         "author",
                         "branch",
+                        7,
+                        1,
+                        1,
                         1,
                         1,
                         "PASSING");
