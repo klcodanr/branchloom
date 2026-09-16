@@ -23,11 +23,12 @@ import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
 class PullRequestCardUiTest {
+    private static final String APPROVED = "APPROVED";
     private static final String PASSING = "PASSING";
 
     @Test
     void rendersPullRequestIdentityMetadataAndChecks() {
-        final PullRequest request = request("APPROVED", "MERGEABLE", false, PASSING);
+        final PullRequest request = request(APPROVED, "MERGEABLE", false, PASSING);
         final PullRequestCard card =
                 GuiActionRunner.execute(() -> new PullRequestCard(context(), request));
 
@@ -59,6 +60,23 @@ class PullRequestCardUiTest {
                         component -> component.getText().contains("Cannot merge"));
 
         assertNotNull(metadata, "conflicting pull requests should show that they cannot merge");
+    }
+
+    @Test
+    void rendersMergeQueueState() {
+        final PullRequestCard card =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestCard(
+                                        context(), request(APPROVED, "QUEUED", false, PASSING)));
+
+        final JLabel metadata =
+                SwingTestSupport.find(
+                        card,
+                        JLabel.class,
+                        component -> component.getText().contains("In merge queue"));
+
+        assertNotNull(metadata, "queued pull requests should show merge queue status");
     }
 
     @Test
@@ -122,7 +140,7 @@ class PullRequestCardUiTest {
     @Test
     void authoredPullRequestShowsContextSensitiveLifecycleActions() {
         final ProjectId projectId = ProjectId.create();
-        final PullRequest request = request(projectId, "APPROVED", "MERGEABLE", false, PASSING);
+        final PullRequest request = request(projectId, APPROVED, "MERGEABLE", false, PASSING);
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
@@ -184,7 +202,7 @@ class PullRequestCardUiTest {
                 "https://example.test/12",
                 createdAt,
                 updatedAt,
-                "APPROVED",
+                APPROVED,
                 "MERGEABLE",
                 false,
                 "author",
