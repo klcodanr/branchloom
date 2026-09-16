@@ -401,7 +401,8 @@ public final class SessionSummary extends JPanel {
     }
 
     private void updatePullRequestDot(final GitHub.PullRequestDetails details) {
-        final Color color = UiText.checksColor(details.checksStatus());
+        final Color color =
+                UiText.pullRequestIndicatorColor(details.mergeState(), details.checksStatus());
         pullRequestStatusDot.update(color, null);
         pullRequestDetails.revalidate();
         pullRequestDetails.repaint();

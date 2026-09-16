@@ -217,31 +217,17 @@ public final class ReviewQueueView extends JPanel implements View {
     }
 
     protected static int bucketFor(final PullRequest request) {
-        if (!request.draft()
-                && "MERGEABLE".equals(request.mergeable())
-                && !"FAILING".equals(request.checksStatus())) {
+        if (request.readyForReviewQueue()) {
             return 0;
         }
         return 1;
     }
 
     protected static String reasonFor(final PullRequest request) {
-        if (bucketFor(request) == 0) {
-            return "Review requested, ready to inspect, and not blocked by checks or conflicts.";
-        }
-        return "Review requested, but the request is waiting on author, checks, or mergeability.";
+        return request.reviewQueueReason();
     }
 
     protected static String focusFor(final PullRequest request) {
-        if (request.draft()) {
-            return "Confirm whether the draft is ready for review.";
-        }
-        if ("FAILING".equals(request.checksStatus())) {
-            return "Check failing CI before spending time on implementation details.";
-        }
-        if ("CONFLICTING".equals(request.mergeable())) {
-            return "Confirm the conflict scope and whether a useful review is possible.";
-        }
-        return "Review the change, checks, and recent comments.";
+        return request.reviewQueueFocus();
     }
 }

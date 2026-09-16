@@ -7,12 +7,25 @@ import com.jagent.desktop.models.PullRequest;
 import org.junit.jupiter.api.Test;
 
 class ReviewQueueViewTest {
+    private static final String MERGEABLE = "MERGEABLE";
+    private static final String PASSING = "PASSING";
+
     @Test
     void readyRequestsAreFirstAndReceiveGeneralFocus() {
-        final PullRequest request = request(false, "MERGEABLE", "PASSING");
+        final PullRequest request = request(false, MERGEABLE, PASSING);
+        final PullRequest queued = request(false, "QUEUED", PASSING);
+        final PullRequest behind = request(false, "BEHIND", PASSING);
 
         assertEquals(
                 0, ReviewQueueView.bucketFor(request), "ready requests belong in the first bucket");
+        assertEquals(
+                0,
+                ReviewQueueView.bucketFor(queued),
+                "queued requests with passing checks belong in the first bucket");
+        assertEquals(
+                0,
+                ReviewQueueView.bucketFor(behind),
+                "behind requests with passing checks stay in the first bucket");
         assertEquals(
                 "Review requested, ready to inspect, and not blocked by checks or conflicts.",
                 ReviewQueueView.reasonFor(request),
@@ -25,7 +38,7 @@ class ReviewQueueViewTest {
 
     @Test
     void draftRequestsExplainTheirReadinessState() {
-        final PullRequest request = request(true, "MERGEABLE", "PASSING");
+        final PullRequest request = request(true, MERGEABLE, PASSING);
 
         assertEquals(
                 1,
@@ -43,8 +56,9 @@ class ReviewQueueViewTest {
 
     @Test
     void failingAndConflictingRequestsPrioritizeTheSpecificBlocker() {
-        final PullRequest failing = request(false, "MERGEABLE", "FAILING");
-        final PullRequest conflicting = request(false, "CONFLICTING", "PASSING");
+        final PullRequest failing = request(false, MERGEABLE, "FAILING");
+        final PullRequest conflicting = request(false, "CONFLICTING", PASSING);
+        final PullRequest pendingChecks = request(false, MERGEABLE, "PENDING");
 
         assertEquals(1, ReviewQueueView.bucketFor(failing), "failing requests should be blocked");
         assertEquals(
@@ -55,6 +69,10 @@ class ReviewQueueViewTest {
                 1,
                 ReviewQueueView.bucketFor(conflicting),
                 "conflicting requests should be blocked");
+        assertEquals(
+                1,
+                ReviewQueueView.bucketFor(pendingChecks),
+                "pending-check requests should be blocked");
         assertEquals(
                 "Confirm the conflict scope and whether a useful review is possible.",
                 ReviewQueueView.focusFor(conflicting),
