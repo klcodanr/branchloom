@@ -35,7 +35,7 @@ public record PullRequest(
     }
 
     public String relevanceGroup() {
-        if (draft || hasBlockingMergeability() || hasBlockingChecks()) {
+        if (draft || hasBlockingChecks() || hasBlockingMergeabilityForBoardGrouping()) {
             return PullRequestGroup.NOT_READY.label();
         }
         return switch (reviewDecision) {

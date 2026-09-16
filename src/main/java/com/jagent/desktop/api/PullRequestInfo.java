@@ -62,6 +62,13 @@ public interface PullRequestInfo {
         };
     }
 
+    default boolean hasBlockingMergeabilityForBoardGrouping() {
+        return switch (mergeState()) {
+            case MERGE_CONFLICTING, MERGE_DIRTY, MERGE_UNKNOWN, MERGE_UNSTABLE -> true;
+            default -> false;
+        };
+    }
+
     default boolean readyForReviewQueue() {
         return !draft()
                 && CHECKS_PASSING.equals(checksStatus())

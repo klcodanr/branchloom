@@ -39,6 +39,7 @@ class CoreLogicTest {
     private static final String AGENT_NAME = "agent";
     private static final String PROMPT = "prompt";
     private static final String MERGEABLE = "MERGEABLE";
+    private static final String UNKNOWN = "UNKNOWN";
 
     @Test
     void projectCanBeAssignedToAGroupWithoutChangingItsConfiguration() {
@@ -171,7 +172,7 @@ class CoreLogicTest {
                         "https://example.test/3",
                         "created",
                         "updated",
-                        "UNKNOWN",
+                        UNKNOWN,
                         MERGEABLE,
                         false,
                         "author",
@@ -195,12 +196,23 @@ class CoreLogicTest {
                 PullRequestGroup.NOT_READY.label(), failingChecks.relevanceGroup(), VALUE_MESSAGE);
         assertEquals(
                 PullRequestGroup.READY_FOR_REVIEW.label(),
-                pullRequest(projectId, false, MERGEABLE, "UNKNOWN").relevanceGroup(),
+                pullRequest(projectId, false, MERGEABLE, UNKNOWN).relevanceGroup(),
                 "unknown review status should be ready");
         assertEquals(approved, approved, "request should equal itself");
         Assertions.assertNotEquals(approved, changes, "different request numbers should differ");
         Assertions.assertNotEquals(approved, "not a request", "different types should differ");
         assertEquals(4, PullRequestGroup.ordered().size(), "all groups should be ordered");
+    }
+
+    @Test
+    void blockedMergeStateRemainsReadyForReviewWhenDraftAndChecksAreNotBlocking() {
+        final ProjectId projectId = ProjectId.create();
+        final PullRequest blocked = pullRequest(projectId, false, "BLOCKED", UNKNOWN);
+
+        assertEquals(
+                PullRequestGroup.READY_FOR_REVIEW.label(),
+                blocked.relevanceGroup(),
+                "blocked merge state from review policy should remain ready for review");
     }
 
     @Test
