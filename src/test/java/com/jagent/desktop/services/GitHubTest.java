@@ -129,6 +129,7 @@ class GitHubTest {
             final GitHub.PullRequestDetails current =
                     GitHub.loadCurrent(project(directory), directory);
             assertEquals(42, current.number(), "current pull request should parse");
+            assertEquals("MERGEABLE", current.mergeState(), "merge state should parse");
             assertEquals("PASSING", current.checksStatus(), "checks status should parse");
             assertEquals(
                     "master",

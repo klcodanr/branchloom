@@ -233,12 +233,7 @@ public final class PullRequestCard extends JPanel {
     }
 
     private static boolean mergeable(final PullRequest request) {
-        return !request.draft()
-                && !"CONFLICTING".equals(request.mergeable())
-                && !"DIRTY".equals(request.mergeable())
-                && !"BLOCKED".equals(request.mergeable())
-                && !"FAILING".equals(request.checksStatus())
-                && !"PENDING".equals(request.checksStatus());
+        return request.mergeActionAllowed();
     }
 
     private static String rootMessage(final Throwable failure) {
