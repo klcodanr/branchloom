@@ -11,10 +11,13 @@ import com.jagent.desktop.services.terminal.TerminalRuntime;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.test.SwingTestSupport;
 import com.jediterm.terminal.TtyConnector;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
@@ -139,6 +142,46 @@ class TerminalPanelUiTest {
         withAllArguments.dispose();
 
         assertEquals(1, commandOnly.getComponentCount(), "convenience panel should be initialized");
+    }
+
+    @Test
+    void treatsControlOrShiftEnterAsLiteralNewlineShortcut() {
+        final JPanel source = new JPanel();
+
+        final KeyEvent controlEnter =
+                new KeyEvent(
+                        source,
+                        KeyEvent.KEY_PRESSED,
+                        System.currentTimeMillis(),
+                        InputEvent.CTRL_DOWN_MASK,
+                        KeyEvent.VK_ENTER,
+                        '\n');
+        final KeyEvent shiftEnter =
+                new KeyEvent(
+                        source,
+                        KeyEvent.KEY_PRESSED,
+                        System.currentTimeMillis(),
+                        InputEvent.SHIFT_DOWN_MASK,
+                        KeyEvent.VK_ENTER,
+                        '\n');
+        final KeyEvent plainEnter =
+                new KeyEvent(
+                        source,
+                        KeyEvent.KEY_PRESSED,
+                        System.currentTimeMillis(),
+                        0,
+                        KeyEvent.VK_ENTER,
+                        '\n');
+
+        assertTrue(
+                TerminalPanel.isLiteralNewlineShortcut(controlEnter),
+                "control+enter should insert a literal newline");
+        assertTrue(
+                TerminalPanel.isLiteralNewlineShortcut(shiftEnter),
+                "shift+enter should insert a literal newline");
+        assertTrue(
+                !TerminalPanel.isLiteralNewlineShortcut(plainEnter),
+                "plain enter should keep default terminal behavior");
     }
 
     private static void waitForState(final TerminalPanel panel, final TerminalState expected)

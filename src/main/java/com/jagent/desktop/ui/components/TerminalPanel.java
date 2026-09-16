@@ -277,8 +277,7 @@ public final class TerminalPanel extends JPanel {
                                             starter.sendBytes(new byte[] {0x03}, true);
                                             event.consume();
                                         }
-                                    } else if (event.getKeyCode() == KeyEvent.VK_ENTER
-                                            && event.isControlDown()) {
+                                    } else if (isLiteralNewlineShortcut(event)) {
                                         final var starter = getTerminalStarter();
                                         if (starter != null) {
                                             starter.sendBytes(new byte[] {0x0A}, true);
@@ -303,6 +302,11 @@ public final class TerminalPanel extends JPanel {
                 final TerminalTextBuffer textBuffer) {
             return new AppTerminalPanel(settings, textBuffer, styleState);
         }
+    }
+
+    protected static boolean isLiteralNewlineShortcut(final KeyEvent event) {
+        return event.getKeyCode() == KeyEvent.VK_ENTER
+                && (event.isControlDown() || event.isShiftDown());
     }
 
     private static final class AppTerminalPanel extends com.jediterm.terminal.ui.TerminalPanel {
