@@ -10,15 +10,14 @@ public record AppSettings(
         List<Tool> tools,
         String worktreeTemplate,
         String agentContextPath,
-        boolean reviewPlanEnabled,
-        String reviewPlanCommand,
         String reviewPlanPrompt) {
     private static final String DEFAULT_WORKTREE_TEMPLATE =
             "{projectPath}/../{projectName}-{sessionSlug}";
     public static final String DEFAULT_REVIEW_PLAN_PROMPT =
-            "Prioritize the review requests below. For each pull request, explain why it belongs "
-                    + "in that position, what to focus on, and any blockers. Return a concise "
-                    + "review plan with the pull request number and project name.";
+            "Prioritize the supplied pull requests for review urgency using the provided fields "
+                    + "(change size, checks, mergeability, draft state, recency, and comments). "
+                    + "For each selected pull request, provide a short change description, an "
+                    + "urgency rationale, review focus, and blockers (or NONE).";
 
     public AppSettings(
             final List<Agent> agents,
@@ -35,32 +34,7 @@ public record AppSettings(
                 tools,
                 worktreeTemplate,
                 "",
-                false,
-                "",
                 DEFAULT_REVIEW_PLAN_PROMPT);
-    }
-
-    public AppSettings(
-            final List<Agent> agents,
-            final List<String> groupOrder,
-            final String reviewPrompt,
-            final String theme,
-            final List<Tool> tools,
-            final String worktreeTemplate,
-            final boolean reviewPlanEnabled,
-            final String reviewPlanCommand,
-            final String reviewPlanPrompt) {
-        this(
-                agents,
-                groupOrder,
-                reviewPrompt,
-                theme,
-                tools,
-                worktreeTemplate,
-                "",
-                reviewPlanEnabled,
-                reviewPlanCommand,
-                reviewPlanPrompt);
     }
 
     public AppSettings {
@@ -72,7 +46,6 @@ public record AppSettings(
                         ? DEFAULT_WORKTREE_TEMPLATE
                         : worktreeTemplate;
         agentContextPath = agentContextPath == null ? "" : agentContextPath.trim();
-        reviewPlanCommand = reviewPlanCommand == null ? "" : reviewPlanCommand.trim();
         reviewPlanPrompt =
                 reviewPlanPrompt == null || reviewPlanPrompt.isBlank()
                         ? DEFAULT_REVIEW_PLAN_PROMPT

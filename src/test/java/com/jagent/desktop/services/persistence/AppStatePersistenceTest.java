@@ -28,6 +28,7 @@ class AppStatePersistenceTest {
     private static final String INVALID_JSON = "not json";
     private static final String PROJECT_NAME = "Demo";
     private static final String THEME = "Dark";
+    private static final String CONTEXT_PATH = ".branchloom/context.md";
 
     @Test
     void missingFilesLoadDefaultSettingsAndEmptyState(@TempDir final Path directory) {
@@ -75,9 +76,7 @@ class AppStatePersistenceTest {
                         THEME,
                         Defaults.appSettings().tools(),
                         "custom/{sessionSlug}",
-                        ".branchloom/context.md",
-                        false,
-                        "",
+                        CONTEXT_PATH,
                         Defaults.DEFAULT_REVIEW_PLAN_PROMPT));
 
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
@@ -111,9 +110,7 @@ class AppStatePersistenceTest {
                 loaded.appSettings().agents().getFirst().openCommand,
                 "agent open command should load");
         assertEquals(
-                ".branchloom/context.md",
-                loaded.appSettings().agentContextPath(),
-                "context path should load");
+                CONTEXT_PATH, loaded.appSettings().agentContextPath(), "context path should load");
     }
 
     @Test
@@ -161,9 +158,7 @@ class AppStatePersistenceTest {
                         THEME,
                         Defaults.appSettings().tools(),
                         "custom/{sessionSlug}",
-                        ".branchloom/context.md",
-                        false,
-                        "",
+                        CONTEXT_PATH,
                         Defaults.DEFAULT_REVIEW_PLAN_PROMPT));
 
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
@@ -191,6 +186,40 @@ class AppStatePersistenceTest {
                 Defaults.appSettings().worktreeTemplate(),
                 loaded.appSettings().worktreeTemplate(),
                 "invalid settings should use the default worktree template");
+    }
+
+    @Test
+    void legacySettingsFieldsAreIgnored(@TempDir final Path directory) throws IOException {
+        final String legacySettingsJson =
+                """
+                {
+                  "agents": [{"name":"Demo Agent","newSessionCommand":"agent {prompt}","openCommand":"agent"}],
+                  "groupOrder": ["Approved"],
+                  "reviewPrompt": "review",
+                  "theme": "Dark",
+                  "tools": [],
+                  "worktreeTemplate": "custom/{sessionSlug}",
+                  "agentContextPath": ".branchloom/context.md",
+                  "reviewPlanEnabled": true,
+                  "reviewPlanCommand": "legacy-command",
+                  "reviewPlanPrompt": "plan"
+                }
+                """;
+        Files.writeString(directory.resolve(SETTINGS_FILE), legacySettingsJson);
+
+        final AppState loaded = AppStatePersistence.load(directory);
+
+        assertEquals("Dark", loaded.appSettings().theme(), "theme should be read from settings");
+        assertEquals(
+                "custom/{sessionSlug}",
+                loaded.appSettings().worktreeTemplate(),
+                "worktree template should be read from settings");
+        assertEquals(
+                CONTEXT_PATH,
+                loaded.appSettings().agentContextPath(),
+                "context path should be read from settings");
+        assertEquals("plan", loaded.appSettings().reviewPlanPrompt(), "plan prompt should load");
+        assertEquals(1, loaded.appSettings().agents().size(), "agent should load from settings");
     }
 
     @Test

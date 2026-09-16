@@ -1,7 +1,6 @@
 package com.jagent.desktop.ui;
 
 import com.jagent.desktop.models.AppSettings;
-import com.jagent.desktop.services.AgentDetection;
 import java.util.List;
 
 public final class Defaults {
@@ -33,8 +32,6 @@ public final class Defaults {
                 List.of(),
                 DEFAULT_WORKTREE_TEMPLATE,
                 "",
-                false,
-                AgentDetection.headlessCommand(),
                 DEFAULT_REVIEW_PLAN_PROMPT);
     }
 }

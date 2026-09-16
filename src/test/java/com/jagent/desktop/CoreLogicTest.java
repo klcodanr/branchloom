@@ -153,6 +153,9 @@ class CoreLogicTest {
                         false,
                         "author",
                         "feature",
+                        10,
+                        3,
+                        2,
                         1,
                         1,
                         "PASSING");
@@ -173,6 +176,9 @@ class CoreLogicTest {
                         false,
                         "author",
                         "feature",
+                        0,
+                        1,
+                        1,
                         0,
                         1,
                         "FAILING");
@@ -292,8 +298,6 @@ class CoreLogicTest {
                                 List.of(),
                                 "custom",
                                 " global/context.md ",
-                                false,
-                                "",
                                 Defaults.DEFAULT_REVIEW_PLAN_PROMPT)
                         .agentContextPath(),
                 "context path should be trimmed");
@@ -412,6 +416,9 @@ class CoreLogicTest {
                 draft,
                 "author",
                 "feature",
+                8,
+                4,
+                3,
                 1,
                 1,
                 "PASSING");

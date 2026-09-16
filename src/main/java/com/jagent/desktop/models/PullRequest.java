@@ -17,10 +17,17 @@ public record PullRequest(
         boolean draft,
         String author,
         String headBranch,
+        int additions,
+        int deletions,
+        int changedFiles,
         int checksPassed,
         int checksTotal,
         String checksStatus)
         implements PullRequestInfo {
+
+    public int totalChanges() {
+        return additions + deletions;
+    }
 
     @Override
     public String mergeState() {

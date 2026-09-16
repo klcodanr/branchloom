@@ -20,6 +20,7 @@ import java.util.logging.Logger;
 /** Owns one terminal process and its lifecycle monitors. */
 public class TerminalRuntime {
     private static final long QUIET_PERIOD_MILLIS = 4000;
+    private static final String SINCE_START_REQUEST_MS = ", sinceStartRequestMs=";
     private static final Logger LOG = Logger.getLogger(TerminalRuntime.class.getName());
     private final String command;
     private final Path directory;
@@ -32,10 +33,9 @@ public class TerminalRuntime {
     protected volatile boolean disposed;
     protected volatile boolean started;
     private volatile long lastOutputAt;
+    private volatile long startRequestedAtNanos;
     protected volatile CompletableFuture<Void> launchTask;
     protected volatile Thread launchThread;
-    private volatile boolean commandPending;
-    private volatile boolean shellReady;
 
     public TerminalRuntime(final String command, final Path directory, final String historyFile) {
         this.command = command;
@@ -56,6 +56,7 @@ public class TerminalRuntime {
                 return;
             }
             started = true;
+            startRequestedAtNanos = System.nanoTime();
             setState(TerminalState.STARTING);
             launchTask =
                     BackgroundTasks.submit(
@@ -127,8 +128,19 @@ public class TerminalRuntime {
     private void startProcess(
             final Consumer<TtyConnector> attach, final Consumer<Exception> failed) {
         launchThread = Thread.currentThread();
+        final long launchStartedAtNanos = System.nanoTime();
         try {
             final PtyProcess startedProcess = launchProcess();
+            LOG.info(
+                    () ->
+                            "Terminal process started: dir="
+                                    + directory
+                                    + ", cmdLength="
+                                    + command.length()
+                                    + ", launchMs="
+                                    + (System.nanoTime() - launchStartedAtNanos) / 1_000_000
+                                    + SINCE_START_REQUEST_MS
+                                    + (System.nanoTime() - startRequestedAtNanos) / 1_000_000);
             synchronized (lifecycleLock) {
                 if (disposed || Thread.currentThread().isInterrupted()) {
                     startedProcess.destroy();
@@ -138,7 +150,18 @@ public class TerminalRuntime {
                 lastOutputAt = System.currentTimeMillis();
                 final TtyConnector tty = new Pty4jTtyConnector(startedProcess, this::setState);
                 connector = tty;
+                final long attachStartedAtNanos = System.nanoTime();
                 attach.accept(tty);
+                LOG.info(
+                        () ->
+                                "Terminal connector attached: dir="
+                                        + directory
+                                        + ", cmdLength="
+                                        + command.length()
+                                        + ", attachMs="
+                                        + (System.nanoTime() - attachStartedAtNanos) / 1_000_000
+                                        + SINCE_START_REQUEST_MS
+                                        + (System.nanoTime() - startRequestedAtNanos) / 1_000_000);
             }
             BackgroundTasks.submit(
                     "Terminals", "agent-terminal-monitor", () -> monitorExit(startedProcess));
@@ -157,15 +180,20 @@ public class TerminalRuntime {
     }
 
     public void submitCommand() {
+        final long submitStartedAtNanos = System.nanoTime();
         final PtyProcess runningProcess = process;
         if (runningProcess != null
                 && runningProcess.isAlive()
                 && !command.equals(PlatformCommands.userShell())) {
-            if (shellReady) {
-                writeCommand(runningProcess);
-            } else {
-                commandPending = true;
-            }
+            writeCommand(runningProcess);
+            LOG.info(
+                    () ->
+                            "Terminal command submitted: cmd="
+                                    + command.length()
+                                    + ", submitMs="
+                                    + (System.nanoTime() - submitStartedAtNanos) / 1_000_000
+                                    + SINCE_START_REQUEST_MS
+                                    + (System.nanoTime() - startRequestedAtNanos) / 1_000_000);
         }
     }
 
@@ -255,19 +283,10 @@ public class TerminalRuntime {
                 throws IOException {
             final int count = super.read(buffer, offset, length);
             if (count > 0) {
-                shellReady = true;
-                submitPendingCommand();
                 lastOutputAt = System.currentTimeMillis();
                 activity.accept(TerminalState.WORKING);
             }
             return count;
-        }
-
-        private void submitPendingCommand() {
-            if (commandPending) {
-                commandPending = false;
-                writeCommand(process);
-            }
         }
 
         @Override

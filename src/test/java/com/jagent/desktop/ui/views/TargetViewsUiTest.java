@@ -52,8 +52,6 @@ class TargetViewsUiTest {
                         List.of(new Tool("Editor", "editor .")),
                         "{projectPath}/worktree",
                         ".branchloom/context.md",
-                        false,
-                        "",
                         Defaults.DEFAULT_REVIEW_PLAN_PROMPT);
         final AppState state = new AppState(settings, Map.of(), Map.of(), Map.of());
         final var coordinator = new ViewCoordinator(state);
@@ -503,7 +501,7 @@ class TargetViewsUiTest {
         final var request =
                 new PullRequest(
                         projectId, 1, "Title", "", "", "url", "", "", "", "", false, "", "", 0, 0,
-                        "");
+                        0, 0, 0, "");
         final var view =
                 GuiActionRunner.execute(
                         () ->

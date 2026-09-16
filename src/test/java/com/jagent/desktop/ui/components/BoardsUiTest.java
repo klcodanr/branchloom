@@ -143,6 +143,9 @@ class BoardsUiTest {
                         false,
                         "author",
                         "login-fix",
+                        12,
+                        4,
+                        2,
                         2,
                         2,
                         "PASSING");
@@ -252,6 +255,9 @@ class BoardsUiTest {
                         false,
                         "author",
                         "feature",
+                        6,
+                        2,
+                        1,
                         1,
                         1,
                         "PASSING");
@@ -368,6 +374,9 @@ class BoardsUiTest {
                 false,
                 author,
                 branch,
+                10,
+                2,
+                2,
                 1,
                 1,
                 "PASSING");

@@ -154,8 +154,6 @@ public final class GlobalSettingsView implements View {
                                     configuredTools(toolNames, toolCommands),
                                     work.getText().trim(),
                                     contextPath.getText().trim(),
-                                    settings.reviewPlanEnabled(),
-                                    settings.reviewPlanCommand(),
                                     reviewPlanPrompt.getText().trim()));
                     viewCoordinator.updateView(ViewId.HOME, null);
                     Theme.apply(selectedTheme);

@@ -16,6 +16,12 @@ class ReviewPlanAgentTest {
         assertTrue(command.startsWith("review-agent '"), "command should include a quoted prompt");
         assertTrue(command.contains("prioritize security"), "user instructions should be included");
         assertTrue(command.contains("Review requests:"), "request section should be included");
+        assertTrue(
+                command.contains("Change: <short change description>"),
+                "output change description should be required");
+        assertTrue(
+                command.contains("Why now: <urgency rationale>"),
+                "output urgency rationale should be required");
     }
 
     @Test
@@ -35,6 +41,9 @@ class ReviewPlanAgentTest {
                         false,
                         "alice",
                         "feature/escaping",
+                        24,
+                        8,
+                        5,
                         3,
                         3,
                         "PASSING");
@@ -50,6 +59,17 @@ class ReviewPlanAgentTest {
         assertTrue(command.contains("Title: Improve escaping"), "title should be included");
         assertTrue(command.contains("URL: https://example.test/pull/42"), "URL should be included");
         assertTrue(command.contains("Draft: false"), "draft state should be included");
+        assertTrue(command.contains("Additions: +24"), "additions should be included");
+        assertTrue(command.contains("Deletions: -8"), "deletions should be included");
+        assertTrue(command.contains("Changed files: 5"), "changed file count should be included");
+        assertTrue(command.contains("Total changes: 32"), "total changes should be included");
+        assertTrue(
+                command.contains("Recent comments (last 5): comments"),
+                "recent comments should be included");
+        assertTrue(
+                command.contains("<rank>. <url>"),
+                "output should start each PR block with ranked URL");
+        assertTrue(command.contains("Blockers: <blockers or NONE>"), "blockers line should exist");
         assertTrue(command.contains("Checks: PASSING"), "check state should be included");
         assertTrue(command.contains("Mergeability: MERGEABLE"), "mergeability should be included");
         assertTrue(!command.endsWith(" {prompt}"), "placeholder should not remain");

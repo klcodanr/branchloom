@@ -8,67 +8,82 @@ import org.junit.jupiter.api.Test;
 
 class ReviewQueueViewTest {
     @Test
-    void readyRequestsAreFirstAndReceiveGeneralFocus() {
-        final PullRequest request = request(false, "MERGEABLE", "PASSING");
+    void contextIncludesDiffChecksMergeabilityAndDraftState() {
+        final PullRequest request = request(false, "MERGEABLE", "PASSING", 24, 8, 5, 3, 4);
 
         assertEquals(
-                0, ReviewQueueView.bucketFor(request), "ready requests belong in the first bucket");
-        assertEquals(
-                "Review requested, ready to inspect, and not blocked by checks or conflicts.",
-                ReviewQueueView.reasonFor(request),
-                "ready requests should explain that they are unblocked");
-        assertEquals(
-                "Review the change, checks, and recent comments.",
-                ReviewQueueView.focusFor(request),
-                "ready requests should receive general review focus");
+                "Change size: +24 / -8 across 5 files  ·  Checks: 3/4 PASSING  ·  Mergeability: MERGEABLE  ·  Draft: false",
+                ReviewQueueView.contextFor(request),
+                "context should include rich pull request details for agent planning");
     }
 
     @Test
-    void draftRequestsExplainTheirReadinessState() {
-        final PullRequest request = request(true, "MERGEABLE", "PASSING");
+    void commentSummaryFallsBackWhenMissing() {
+        final PullRequest blank = request(false, "MERGEABLE", "PASSING", 10, 5, 1, 1, 1, "");
 
         assertEquals(
-                1,
-                ReviewQueueView.bucketFor(request),
-                "draft requests belong in the waiting bucket");
-        assertEquals(
-                "Review requested, but the request is waiting on author, checks, or mergeability.",
-                ReviewQueueView.reasonFor(request),
-                "draft requests should explain their waiting state");
-        assertEquals(
-                "Confirm whether the draft is ready for review.",
-                ReviewQueueView.focusFor(request),
-                "draft requests should focus on readiness");
+                "No recent comments captured.",
+                ReviewQueueView.commentSummaryFor(blank),
+                "blank comment summaries should use fallback text");
     }
 
     @Test
-    void failingAndConflictingRequestsPrioritizeTheSpecificBlocker() {
-        final PullRequest failing = request(false, "MERGEABLE", "FAILING");
-        final PullRequest conflicting = request(false, "CONFLICTING", "PASSING");
+    void commentSummaryReturnsRecentCommentsWhenPresent() {
+        final PullRequest withComments =
+                request(
+                        false,
+                        "MERGEABLE",
+                        "PASSING",
+                        10,
+                        5,
+                        1,
+                        1,
+                        1,
+                        "alice: can we trim this? | bob: fixed in latest push");
 
-        assertEquals(1, ReviewQueueView.bucketFor(failing), "failing requests should be blocked");
         assertEquals(
-                "Check failing CI before spending time on implementation details.",
-                ReviewQueueView.focusFor(failing),
-                "failing requests should focus on CI");
-        assertEquals(
-                1,
-                ReviewQueueView.bucketFor(conflicting),
-                "conflicting requests should be blocked");
-        assertEquals(
-                "Confirm the conflict scope and whether a useful review is possible.",
-                ReviewQueueView.focusFor(conflicting),
-                "conflicting requests should focus on conflict scope");
+                "alice: can we trim this? | bob: fixed in latest push",
+                ReviewQueueView.commentSummaryFor(withComments),
+                "captured comments should be returned unchanged");
     }
 
     private static PullRequest request(
-            final boolean draft, final String mergeable, final String checksStatus) {
+            final boolean draft,
+            final String mergeable,
+            final String checksStatus,
+            final int additions,
+            final int deletions,
+            final int changedFiles,
+            final int checksPassed,
+            final int checksTotal) {
+        return request(
+                draft,
+                mergeable,
+                checksStatus,
+                additions,
+                deletions,
+                changedFiles,
+                checksPassed,
+                checksTotal,
+                "Comments");
+    }
+
+    private static PullRequest request(
+            final boolean draft,
+            final String mergeable,
+            final String checksStatus,
+            final int additions,
+            final int deletions,
+            final int changedFiles,
+            final int checksPassed,
+            final int checksTotal,
+            final String comments) {
         return new PullRequest(
                 ProjectId.create(),
                 1,
                 "Title",
                 "Description",
-                "Comments",
+                comments,
                 "https://example.test/pull/1",
                 "created",
                 "updated",
@@ -77,8 +92,11 @@ class ReviewQueueViewTest {
                 draft,
                 "author",
                 "feature",
-                1,
-                1,
+                additions,
+                deletions,
+                changedFiles,
+                checksPassed,
+                checksTotal,
                 checksStatus);
     }
 }
