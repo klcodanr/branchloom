@@ -184,6 +184,37 @@ class TerminalPanelUiTest {
                 "plain enter should keep default terminal behavior");
     }
 
+    @Test
+    void forwardsApplicationTitleChangesToListener() {
+        final var title = new AtomicReference<String>();
+        final TerminalPanel panel =
+                GuiActionRunner.execute(
+                        () -> new TerminalPanel(new FakeTerminalRuntime(), ignored -> {}));
+
+        GuiActionRunner.execute(() -> panel.setTitleChanged(title::set));
+        GuiActionRunner.execute(() -> panel.applicationTitleChanged("  Build Output  "));
+        GuiActionRunner.execute(() -> {});
+
+        assertEquals("Build Output", title.get(), "title callback should receive trimmed title");
+        panel.dispose();
+    }
+
+    @Test
+    void ignoresBlankOrNullApplicationTitleChanges() {
+        final var title = new AtomicReference<String>("Original");
+        final TerminalPanel panel =
+                GuiActionRunner.execute(
+                        () -> new TerminalPanel(new FakeTerminalRuntime(), ignored -> {}));
+
+        GuiActionRunner.execute(() -> panel.setTitleChanged(title::set));
+        GuiActionRunner.execute(() -> panel.applicationTitleChanged("   "));
+        GuiActionRunner.execute(() -> panel.applicationTitleChanged(null));
+        GuiActionRunner.execute(() -> {});
+
+        assertEquals("Original", title.get(), "blank or null titles should be ignored");
+        panel.dispose();
+    }
+
     private static void waitForState(final TerminalPanel panel, final TerminalState expected)
             throws InterruptedException {
         SwingTestSupport.await(

@@ -4,6 +4,7 @@ import com.jagent.desktop.models.TerminalId;
 import java.awt.Component;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -16,9 +17,13 @@ import javax.swing.JTabbedPane;
 
 /** Owns the shared terminal tab lifecycle for workspace views. */
 public final class WorkspaceTerminalTabs {
+    private static final int MAX_TAB_TITLE_LENGTH = 64;
+    private static final String ELLIPSIS = "...";
     private final JTabbedPane tabs;
     private final BiConsumer<TerminalPanel, TerminalId> closed;
     private final BiConsumer<TerminalPanel, String> renamed;
+    private final Collection<TerminalPanel> titleSyncing =
+            Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<TerminalPanel, TerminalId> ids = new IdentityHashMap<>();
     private final Set<TerminalPanel> started = Collections.newSetFromMap(new IdentityHashMap<>());
 
@@ -57,6 +62,7 @@ public final class WorkspaceTerminalTabs {
             terminal.getParent().remove(terminal);
         }
         ids.put(terminal, terminalId);
+        installTitleSync(terminal);
         tabs.addTab(title, terminal);
         terminal.putClientProperty("JTabbedPane.tabClosable", true);
         terminal.putClientProperty(
@@ -70,9 +76,11 @@ public final class WorkspaceTerminalTabs {
     public void detach() {
         for (final TerminalPanel terminal : ids.keySet()) {
             terminal.putClientProperty("JTabbedPane.tabCloseCallback", null);
+            terminal.setTitleChanged(null);
         }
         ids.clear();
         started.clear();
+        titleSyncing.clear();
     }
 
     public void closeActive() {
@@ -97,7 +105,10 @@ public final class WorkspaceTerminalTabs {
         if (updated == null || updated.isBlank()) {
             return;
         }
-        final String title = updated.trim();
+        final String title = normalizeTitle(updated);
+        if (title == null) {
+            return;
+        }
         tabs.setTitleAt(index, title);
         renamed.accept(terminal, title);
     }
@@ -128,6 +139,8 @@ public final class WorkspaceTerminalTabs {
         final TerminalId terminalId = ids.get(terminal);
         tabs.removeTabAt(index);
         started.remove(terminal);
+        titleSyncing.remove(terminal);
+        terminal.setTitleChanged(null);
         terminal.dispose();
         closed.accept(terminal, terminalId);
         ids.remove(terminal);
@@ -146,6 +159,42 @@ public final class WorkspaceTerminalTabs {
             return;
         }
         terminal.start();
+    }
+
+    private void installTitleSync(final TerminalPanel terminal) {
+        if (!titleSyncing.add(terminal)) {
+            return;
+        }
+        terminal.setTitleChanged(updatedTitle -> updateTerminalTitle(terminal, updatedTitle));
+    }
+
+    private void updateTerminalTitle(final TerminalPanel terminal, final String updatedTitle) {
+        final String title = normalizeTitle(updatedTitle);
+        if (title == null) {
+            return;
+        }
+        for (int index = 0; index < tabs.getTabCount(); index++) {
+            if (tabs.getComponentAt(index) instanceof TerminalPanel existing
+                    && terminal.equals(existing)) {
+                tabs.setTitleAt(index, title);
+                renamed.accept(terminal, title);
+                return;
+            }
+        }
+    }
+
+    private static String normalizeTitle(final String value) {
+        if (value == null) {
+            return null;
+        }
+        final String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (trimmed.length() <= MAX_TAB_TITLE_LENGTH) {
+            return trimmed;
+        }
+        return trimmed.substring(0, MAX_TAB_TITLE_LENGTH - ELLIPSIS.length()) + ELLIPSIS;
     }
 
     private void showContextMenu(final MouseEvent event) {
