@@ -33,15 +33,12 @@ final class TopLevelViewFactory {
         return switch (view) {
             case HOME -> new HomeView(actionContext);
             case MY_PULL_REQUESTS -> new MyPullRequestsView(actionContext);
-            case REVIEW_QUEUE -> new ReviewQueueView(actionContext);
             default -> throw new IllegalStateException("Unexpected non-global view");
         };
     }
 
     private boolean isGlobalView(final ViewId view) {
-        return view == ViewId.HOME
-                || view == ViewId.MY_PULL_REQUESTS
-                || view == ViewId.REVIEW_QUEUE;
+        return view == ViewId.HOME || view == ViewId.MY_PULL_REQUESTS;
     }
 
     private ViewId resolveView(final ViewId view, final Project project, final Session session) {

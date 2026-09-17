@@ -2,6 +2,7 @@ package com.jagent.desktop.services;
 
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestFilter;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,7 @@ import java.util.logging.Logger;
 
 public final class PullRequestCache {
     private static final Logger LOG = Logger.getLogger(PullRequestCache.class.getName());
+    private static final String LOAD_FAILURE = "Failed to load pull requests";
     private static final Object INSTANCE_LOCK = new Object();
     private static PullRequestCache instance;
     private final AppState appState;
@@ -49,7 +51,7 @@ public final class PullRequestCache {
         }
         final ProjectPullRequests requests =
                 new ProjectPullRequests(
-                        GitHub.loadForProject(projectId, project),
+                        GitHub.loadForProject(projectId, project, "author:@me"),
                         GitHub.loadReviewRequestedForProject(projectId, project));
         put(projectId, requests);
         LOG.info(
@@ -75,7 +77,7 @@ public final class PullRequestCache {
             try {
                 return load(projectId);
             } catch (IOException | InterruptedException e) {
-                LOG.log(Level.SEVERE, "Failed to load pull requests", e);
+                LOG.log(Level.SEVERE, LOAD_FAILURE, e);
                 return new ProjectPullRequests(List.of(), List.of());
             }
         }
@@ -88,6 +90,47 @@ public final class PullRequestCache {
         return entry == null
                 ? new ProjectPullRequests(List.of(), List.of())
                 : entry.projectPullRequests;
+    }
+
+    public List<PullRequest> loadForFilter(final PullRequestFilter filter) {
+        return appState.projects().entrySet().stream()
+                .flatMap(
+                        entry -> {
+                            try {
+                                return GitHub.loadForProject(
+                                        entry.getKey(),
+                                        entry.getValue(),
+                                        filter == null ? "" : filter.query())
+                                        .stream();
+                            } catch (InterruptedException exception) {
+                                Thread.currentThread().interrupt();
+                                LOG.log(Level.SEVERE, LOAD_FAILURE, exception);
+                                return java.util.stream.Stream.<PullRequest>empty();
+                            } catch (IOException exception) {
+                                LOG.log(Level.SEVERE, LOAD_FAILURE, exception);
+                                return java.util.stream.Stream.<PullRequest>empty();
+                            }
+                        })
+                .distinct()
+                .toList();
+    }
+
+    public List<PullRequest> loadForProjectFilter(
+            final ProjectId projectId, final PullRequestFilter filter) {
+        final var project = appState.projects().get(projectId);
+        if (project == null) {
+            return List.of();
+        }
+        try {
+            return GitHub.loadForProject(projectId, project, filter == null ? "" : filter.query());
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            LOG.log(Level.SEVERE, LOAD_FAILURE, exception);
+            return List.of();
+        } catch (IOException exception) {
+            LOG.log(Level.SEVERE, LOAD_FAILURE, exception);
+            return List.of();
+        }
     }
 
     public boolean hasCached(final ProjectId projectId) {

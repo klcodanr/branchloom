@@ -59,9 +59,7 @@ final class ProjectTreeSynchronizer {
     }
 
     private void ensureGlobalNodes(final DefaultTreeModel model) {
-        final Object[] desired = {
-            ProjectTreePanel.MyPullRequestsNode.INSTANCE, ProjectTreePanel.ReviewQueueNode.INSTANCE
-        };
+        final Object[] desired = {ProjectTreePanel.MyPullRequestsNode.INSTANCE};
         for (int index = 0; index < desired.length; index++) {
             final DefaultMutableTreeNode node = globalNode(desired[index]);
             if (node == null) {
@@ -111,7 +109,7 @@ final class ProjectTreeSynchronizer {
                 model.insertNodeInto(group, root, root.getChildCount());
             }
         }
-        for (int index = root.getChildCount() - 1; index >= 2; index--) {
+        for (int index = root.getChildCount() - 1; index >= desiredNames.size() + 1; index--) {
             final DefaultMutableTreeNode group = (DefaultMutableTreeNode) root.getChildAt(index);
             if (group.getUserObject() instanceof String name && !desiredNames.contains(name)) {
                 model.removeNodeFromParent(group);
@@ -120,7 +118,7 @@ final class ProjectTreeSynchronizer {
         final List<String> names = new ArrayList<>(desiredNames);
         for (int index = 0; index < names.size(); index++) {
             final DefaultMutableTreeNode group = groups.get(names.get(index));
-            final int targetIndex = index + 2;
+            final int targetIndex = index + 1;
             if (root.getIndex(group) != targetIndex) {
                 model.removeNodeFromParent(group);
                 model.insertNodeInto(group, root, targetIndex);
@@ -138,7 +136,7 @@ final class ProjectTreeSynchronizer {
     private Map<String, DefaultMutableTreeNode> existingGroups() {
         final Map<String, DefaultMutableTreeNode> groups =
                 new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-        for (int index = 2; index < root.getChildCount(); index++) {
+        for (int index = 1; index < root.getChildCount(); index++) {
             final DefaultMutableTreeNode group = (DefaultMutableTreeNode) root.getChildAt(index);
             if (group.getUserObject() instanceof String name) {
                 groups.put(name, group);

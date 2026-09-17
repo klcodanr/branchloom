@@ -10,14 +10,19 @@ public record AppSettings(
         List<Tool> tools,
         String worktreeTemplate,
         String agentContextPath,
-        String reviewPlanPrompt) {
+        List<PullRequestFilter> pullRequestFilters) {
     private static final String DEFAULT_WORKTREE_TEMPLATE =
             "{projectPath}/../{projectName}-{sessionSlug}";
-    public static final String DEFAULT_REVIEW_PLAN_PROMPT =
-            "Prioritize the supplied pull requests for review urgency using the provided fields "
-                    + "(change size, checks, mergeability, draft state, recency, and comments). "
-                    + "For each selected pull request, provide a short change description, an "
-                    + "urgency rationale, review focus, and blockers (or NONE).";
+    private static final PullRequestFilter ACTIVE_FILTER =
+            new PullRequestFilter("Active", "(assignee:@me OR author:@me)");
+    private static final PullRequestFilter REVIEWABLE_FILTER =
+            new PullRequestFilter("Reviewable", "review-requested:@me -status:failure");
+    private static final PullRequestFilter MY_REVIEWS_FILTER =
+            new PullRequestFilter(
+                    "My Reviews",
+                    "reviewed-by:@me is:unmerged -author:adobe-renovate-prod[bot] -author:@me");
+    private static final PullRequestFilter FALLBACK_FILTER =
+            new PullRequestFilter("All Open PRs", "");
 
     public AppSettings(
             final List<Agent> agents,
@@ -34,7 +39,26 @@ public record AppSettings(
                 tools,
                 worktreeTemplate,
                 "",
-                DEFAULT_REVIEW_PLAN_PROMPT);
+                defaultPullRequestFilters());
+    }
+
+    public AppSettings(
+            final List<Agent> agents,
+            final List<String> groupOrder,
+            final String reviewPrompt,
+            final String theme,
+            final List<Tool> tools,
+            final String worktreeTemplate,
+            final String agentContextPath) {
+        this(
+                agents,
+                groupOrder,
+                reviewPrompt,
+                theme,
+                tools,
+                worktreeTemplate,
+                agentContextPath,
+                defaultPullRequestFilters());
     }
 
     public AppSettings {
@@ -46,9 +70,35 @@ public record AppSettings(
                         ? DEFAULT_WORKTREE_TEMPLATE
                         : worktreeTemplate;
         agentContextPath = agentContextPath == null ? "" : agentContextPath.trim();
-        reviewPlanPrompt =
-                reviewPlanPrompt == null || reviewPlanPrompt.isBlank()
-                        ? DEFAULT_REVIEW_PLAN_PROMPT
-                        : reviewPlanPrompt.trim();
+        pullRequestFilters = sanitizePullRequestFilters(pullRequestFilters);
+    }
+
+    public PullRequestFilter filterNamed(final String name) {
+        if (name == null || name.isBlank()) {
+            return pullRequestFilters.getFirst();
+        }
+        return pullRequestFilters.stream()
+                .filter(filter -> filter.name().equalsIgnoreCase(name.trim()))
+                .findFirst()
+                .orElseGet(pullRequestFilters::getFirst);
+    }
+
+    public static List<PullRequestFilter> defaultPullRequestFilters() {
+        return List.of(ACTIVE_FILTER, REVIEWABLE_FILTER, MY_REVIEWS_FILTER);
+    }
+
+    private static List<PullRequestFilter> sanitizePullRequestFilters(
+            final List<PullRequestFilter> filters) {
+        if (filters == null) {
+            return defaultPullRequestFilters();
+        }
+        final List<PullRequestFilter> configured =
+                filters.stream()
+                        .filter(filter -> filter != null && !filter.name().isBlank())
+                        .toList();
+        if (configured.isEmpty()) {
+            return List.of(FALLBACK_FILTER);
+        }
+        return List.copyOf(configured);
     }
 }

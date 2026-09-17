@@ -5,6 +5,7 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestFilter;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.Git;
@@ -15,22 +16,26 @@ import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
 import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.UiFactory;
+import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
 public final class ProjectView extends AbstractWorkspaceView {
+    private static final String DEFAULT_FILTER = "Active";
+    private static final String REVIEWABLE_FILTER = "Reviewable";
     private final transient Project project;
     private final transient ProjectId projectId;
     private final transient PullRequestCache pullRequestCache;
-    private final PullRequestsBoard authoredPullRequests;
-    private final PullRequestsBoard reviewPullRequests;
+    private final PullRequestsBoard pullRequests;
+    private final JComboBox<PullRequestFilter> filters;
     private final JPanel gitWarning = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
     private final JButton initializeGit = new JButton("Initialize Git");
     private int terminalNumber;
@@ -45,20 +50,43 @@ public final class ProjectView extends AbstractWorkspaceView {
                         .map(Map.Entry::getKey)
                         .findFirst()
                         .orElse(null);
-        this.authoredPullRequests =
+        this.filters =
+                new JComboBox<>(
+                        actionContext
+                                .appState()
+                                .appSettings()
+                                .pullRequestFilters()
+                                .toArray(PullRequestFilter[]::new));
+        this.filters.setSelectedItem(
+                actionContext.appState().appSettings().filterNamed(DEFAULT_FILTER));
+        final PullRequestFilter defaultFilter =
+                actionContext.appState().appSettings().filterNamed(DEFAULT_FILTER);
+        this.pullRequests =
                 new PullRequestsBoard(
                         actionContext,
-                        () ->
+                        defaultFilter.query(),
+                        query ->
                                 this.projectId == null
                                         ? List.of()
-                                        : pullRequestCache.get(this.projectId).authored());
-        this.reviewPullRequests =
-                new PullRequestsBoard(
-                        actionContext,
-                        () ->
-                                this.projectId == null
-                                        ? List.of()
-                                        : pullRequestCache.get(this.projectId).review());
+                                        : pullRequestCache.loadForProjectFilter(
+                                                this.projectId,
+                                                (PullRequestFilter) this.filters.getSelectedItem()
+                                                                == null
+                                                        ? new PullRequestFilter(
+                                                                DEFAULT_FILTER, query)
+                                                        : new PullRequestFilter(
+                                                                ((PullRequestFilter)
+                                                                                this.filters
+                                                                                        .getSelectedItem())
+                                                                        .name(),
+                                                                query)));
+        this.filters.addActionListener(
+                event -> {
+                    final PullRequestFilter selected =
+                            (PullRequestFilter) this.filters.getSelectedItem();
+                    this.pullRequests.setQuery(selected == null ? "" : selected.query());
+                    this.pullRequests.refresh();
+                });
         initializeWorkspace(project.name());
         final TerminalId selectedTerminal = actionContext.appState().currentTerminalId();
         actionContext.appState().terminals().entrySet().stream()
@@ -116,8 +144,14 @@ public final class ProjectView extends AbstractWorkspaceView {
 
     @Override
     protected void addDefaultTabs() {
-        tabs.addTab("My PRs", TabBody.wrap(authoredPullRequests));
-        tabs.addTab("Review requests", TabBody.wrap(reviewPullRequests));
+        final JPanel tab = new JPanel(new BorderLayout(0, 8));
+        final JPanel filterRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        filterRow.setOpaque(false);
+        filterRow.add(new JLabel("Filter"));
+        filterRow.add(filters);
+        tab.add(filterRow, BorderLayout.NORTH);
+        tab.add(TabBody.wrap(pullRequests), BorderLayout.CENTER);
+        tabs.addTab("Pull Requests", tab);
     }
 
     @Override
@@ -168,22 +202,19 @@ public final class ProjectView extends AbstractWorkspaceView {
 
     @Override
     public void refresh() {
-        authoredPullRequests.refresh();
-        reviewPullRequests.refresh();
+        pullRequests.refresh();
     }
 
     public void reviewPullRequest(final PullRequest request) {
-        final PullRequestCache.ProjectPullRequests requests =
-                pullRequestCache.getCached(this.projectId);
-        if (requests.authored().contains(request)) {
-            tabs.setSelectedIndex(0);
-        } else {
-            tabs.setSelectedIndex(1);
-        }
+        final PullRequestFilter reviewable =
+                actionContext.appState().appSettings().filterNamed(REVIEWABLE_FILTER);
+        filters.setSelectedItem(reviewable);
+        pullRequests.setQuery(reviewable.query());
+        tabs.setSelectedIndex(0);
     }
 
     public boolean focusPullRequestSearch() {
-        return authoredPullRequests.focusSearch() || reviewPullRequests.focusSearch();
+        return pullRequests.focusSearch();
     }
 
     /** Adds a project terminal; project summary and pull-request tabs are not terminal tabs. */

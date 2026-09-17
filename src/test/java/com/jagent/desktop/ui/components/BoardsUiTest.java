@@ -26,6 +26,13 @@ class BoardsUiTest {
     private static final String PROJECT_PATH = "/tmp/demo";
     private static final String ALPHA_LOWER = "alpha";
     private static final String ALPHA_UPPER = "Alpha";
+    private static final String DESCRIPTION = "Description";
+    private static final String COMMENTS = "Comments";
+    private static final String CREATED = "created";
+    private static final String UPDATED = "updated";
+    private static final String APPROVED = "APPROVED";
+    private static final String MERGEABLE = "MERGEABLE";
+    private static final String PASSING = "PASSING";
 
     @Test
     void emptyPullRequestBoardShowsItsEmptyColumnsAndAcceptsFilters() {
@@ -133,13 +140,13 @@ class BoardsUiTest {
                         null,
                         12,
                         "Fix login",
-                        "Description",
-                        "Comments",
+                        DESCRIPTION,
+                        COMMENTS,
                         "https://example.test/12",
-                        "created",
-                        "updated",
-                        "APPROVED",
-                        "MERGEABLE",
+                        CREATED,
+                        UPDATED,
+                        APPROVED,
+                        MERGEABLE,
                         false,
                         "author",
                         "login-fix",
@@ -148,7 +155,7 @@ class BoardsUiTest {
                         2,
                         2,
                         2,
-                        "PASSING");
+                        PASSING);
 
         final var board =
                 GuiActionRunner.execute(
@@ -166,18 +173,81 @@ class BoardsUiTest {
         GuiActionRunner.execute(() -> board.setFilter("login"));
         SwingTestSupport.await(
                 () ->
-                        board.getComponent(1) instanceof javax.swing.JScrollPane currentScroll
-                                && ((JPanel) currentScroll.getViewport().getView())
-                                                .getComponentCount()
-                                        == 4,
-                "filtered pull request board should render columns");
+                        board.getComponent(1) instanceof javax.swing.JSplitPane split
+                                && split.getLeftComponent() instanceof javax.swing.JScrollPane left
+                                && ((JPanel) left.getViewport().getView()).getComponentCount() >= 3,
+                "filtered pull request board should render list rows");
 
-        final var scroll = (javax.swing.JScrollPane) board.getComponent(1);
-        final var columns = (JPanel) scroll.getViewport().getView();
-        assertEquals(4, columns.getComponentCount(), "all PR columns should be rendered");
-        assertTrue(componentText(columns).contains("#12"), "loaded PR should be rendered");
-        assertTrue(componentText(columns).contains("Fix login"), "PR title should be rendered");
+        final var split = (javax.swing.JSplitPane) board.getComponent(1);
+        final var list =
+                (JPanel)
+                        ((javax.swing.JScrollPane) split.getLeftComponent())
+                                .getViewport()
+                                .getView();
+        final var summary =
+                (JPanel)
+                        ((javax.swing.JScrollPane) split.getRightComponent())
+                                .getViewport()
+                                .getView();
+        assertTrue(componentText(list).contains("Results  1"), "result count should be rendered");
+        assertTrue(componentText(list).contains("#12"), "loaded PR should be rendered");
+        assertTrue(componentText(list).contains("Fix login"), "PR title should be rendered");
+        assertTrue(componentText(summary).contains(DESCRIPTION), "summary should be rendered");
         assertTrue(board.isVisible(), "assertion condition should hold");
+    }
+
+    @Test
+    void pullRequestBoardKeepsSingleCardRowCompactHeight() throws InterruptedException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        state.addProject(new Project(DEMO, PROJECT_PATH, null));
+        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+        final var loaded = new CountDownLatch(1);
+        final var request =
+                new PullRequest(
+                        null,
+                        12,
+                        "Fix login",
+                        DESCRIPTION,
+                        COMMENTS,
+                        "https://example.test/12",
+                        CREATED,
+                        UPDATED,
+                        APPROVED,
+                        MERGEABLE,
+                        false,
+                        "author",
+                        "login-fix",
+                        12,
+                        4,
+                        2,
+                        2,
+                        2,
+                        PASSING);
+
+        final var board =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestsBoard(
+                                        context,
+                                        () -> {
+                                            loaded.countDown();
+                                            return java.util.List.of(request);
+                                        }));
+        assertTrue(loaded.await(5, TimeUnit.SECONDS), "pull request loading should complete");
+        awaitLoaded(board);
+
+        final javax.swing.JSplitPane split = (javax.swing.JSplitPane) board.getComponent(1);
+        final JPanel list =
+                (JPanel)
+                        ((javax.swing.JScrollPane) split.getLeftComponent())
+                                .getViewport()
+                                .getView();
+        final JPanel cardRow = (JPanel) list.getComponent(2);
+
+        assertEquals(
+                UiConstants.PR_CARD_HEIGHT + UiConstants.SPACING_XS,
+                cardRow.getMaximumSize().height,
+                "single-card row should keep compact max height");
     }
 
     @Test
@@ -245,13 +315,13 @@ class BoardsUiTest {
                         null,
                         12,
                         "Existing request",
-                        "Description",
-                        "Comments",
+                        DESCRIPTION,
+                        COMMENTS,
                         "https://example.test/12",
-                        "created",
-                        "updated",
-                        "APPROVED",
-                        "MERGEABLE",
+                        CREATED,
+                        UPDATED,
+                        APPROVED,
+                        MERGEABLE,
                         false,
                         "author",
                         "feature",
@@ -260,7 +330,7 @@ class BoardsUiTest {
                         1,
                         1,
                         1,
-                        "PASSING");
+                        PASSING);
         final var loads = new AtomicInteger();
         final var board =
                 GuiActionRunner.execute(
@@ -339,7 +409,7 @@ class BoardsUiTest {
         SwingTestSupport.await(
                 () ->
                         board.getComponentCount() > 1
-                                && board.getComponent(1) instanceof javax.swing.JScrollPane,
+                                && board.getComponent(1) instanceof javax.swing.JSplitPane,
                 "pull request board did not load");
     }
 
@@ -364,11 +434,11 @@ class BoardsUiTest {
                 null,
                 number,
                 title,
-                "Description",
-                "Comments",
+                DESCRIPTION,
+                COMMENTS,
                 "https://example.test/" + number,
-                "created",
-                "updated",
+                CREATED,
+                UPDATED,
                 review,
                 mergeable,
                 false,
@@ -379,7 +449,7 @@ class BoardsUiTest {
                 2,
                 1,
                 1,
-                "PASSING");
+                PASSING);
     }
 
     private static String componentText(final java.awt.Component component) {

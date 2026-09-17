@@ -4,24 +4,48 @@ import com.jagent.desktop.api.View;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestFilter;
 import com.jagent.desktop.services.PullRequestCache;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
 import java.awt.BorderLayout;
+import java.awt.FlowLayout;
 import java.util.List;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 /** Pull requests authored by the current user across all projects. */
 public final class MyPullRequestsView extends JPanel implements View {
-    private final transient ActionContext actionContext;
+    private static final String DEFAULT_FILTER = "Active";
     private final transient PullRequestCache pullRequestCache;
+    private final JComboBox<PullRequestFilter> filters;
     private final PullRequestsBoard board;
 
     public MyPullRequestsView(final ActionContext actionContext) {
         super(new BorderLayout());
-        this.actionContext = actionContext;
         this.pullRequestCache = PullRequestCache.get(actionContext.appState());
-        board = new PullRequestsBoard(actionContext, this::pullRequests);
+        filters =
+                new JComboBox<>(
+                        actionContext
+                                .appState()
+                                .appSettings()
+                                .pullRequestFilters()
+                                .toArray(PullRequestFilter[]::new));
+        final PullRequestFilter defaultFilter =
+                actionContext.appState().appSettings().filterNamed(DEFAULT_FILTER);
+        filters.setSelectedItem(defaultFilter);
+        board = new PullRequestsBoard(actionContext, defaultFilter.query(), this::pullRequests);
+        filters.addActionListener(
+                event -> {
+                    board.setQuery(selectedFilter().query());
+                    board.refresh();
+                });
+        final JPanel filterRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        filterRow.setOpaque(false);
+        filterRow.add(new JLabel("Filter"));
+        filterRow.add(filters);
+        add(filterRow, BorderLayout.NORTH);
         add(TabBody.wrap(board), BorderLayout.CENTER);
     }
 
@@ -32,7 +56,7 @@ public final class MyPullRequestsView extends JPanel implements View {
 
     @Override
     public String title() {
-        return "My Pull Requests";
+        return "Pull Requests";
     }
 
     @Override
@@ -48,9 +72,16 @@ public final class MyPullRequestsView extends JPanel implements View {
     @Override
     public void detach() {}
 
-    private List<PullRequest> pullRequests() {
-        return actionContext.appState().projects().keySet().stream()
-                .flatMap(projectId -> pullRequestCache.get(projectId).authored().stream())
-                .toList();
+    private List<PullRequest> pullRequests(final String query) {
+        return pullRequestCache.loadForFilter(
+                new PullRequestFilter(selectedFilter().name(), query));
+    }
+
+    private PullRequestFilter selectedFilter() {
+        final PullRequestFilter selected = (PullRequestFilter) filters.getSelectedItem();
+        if (selected != null) {
+            return selected;
+        }
+        return new PullRequestFilter(DEFAULT_FILTER, "");
     }
 }

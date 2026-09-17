@@ -19,8 +19,6 @@ public final class Defaults {
 
     public static final String DEFAULT_GROUP = "Default";
 
-    public static final String DEFAULT_REVIEW_PLAN_PROMPT = AppSettings.DEFAULT_REVIEW_PLAN_PROMPT;
-
     private Defaults() {}
 
     public static AppSettings appSettings() {
@@ -32,6 +30,6 @@ public final class Defaults {
                 List.of(),
                 DEFAULT_WORKTREE_TEMPLATE,
                 "",
-                DEFAULT_REVIEW_PLAN_PROMPT);
+                AppSettings.defaultPullRequestFilters());
     }
 }

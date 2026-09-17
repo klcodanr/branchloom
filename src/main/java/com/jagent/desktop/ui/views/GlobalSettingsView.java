@@ -5,6 +5,7 @@ import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.AppSettings;
+import com.jagent.desktop.models.PullRequestFilter;
 import com.jagent.desktop.models.Tool;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
@@ -105,18 +106,21 @@ public final class GlobalSettingsView implements View {
         final List<JTextField> openCommands = new ArrayList<>();
         final List<JTextField> toolNames = new ArrayList<>();
         final List<JTextField> toolCommands = new ArrayList<>();
+        final List<JTextField> filterNames = new ArrayList<>();
+        final List<JTextField> filterQueries = new ArrayList<>();
         final JTextArea reviewPrompt = new JTextArea(settings.reviewPrompt(), 10, 60);
         UiFactory.configureTextAreaTraversal(reviewPrompt);
         reviewPrompt.setToolTipText(REVIEW_VARIABLES_TOOLTIP);
-        final JTextArea reviewPlanPrompt = new JTextArea(settings.reviewPlanPrompt(), 8, 60);
-        UiFactory.configureTextAreaTraversal(reviewPlanPrompt);
         final JTabbedPane tabs = new JTabbedPane(JTabbedPane.TOP);
         tabs.putClientProperty("JTabbedPane.scrollButtonsPolicy", "asNeeded");
         tabs.addTab("General", general);
         tabs.addTab(
                 "Agents", agentEditor(settings.agents(), names, newSessionCommands, openCommands));
         tabs.addTab("Editors", toolEditor(settings.tools(), toolNames, toolCommands));
-        tabs.addTab("Review", reviewEditor(reviewPrompt, reviewPlanPrompt));
+        tabs.addTab(
+                "PR Filters",
+                filterEditor(settings.pullRequestFilters(), filterNames, filterQueries));
+        tabs.addTab("Review", reviewEditor(reviewPrompt));
         styleTabs(tabs);
         tabs.addChangeListener(
                 event -> viewCoordinator.updateSelectedTab(id(), tabs.getSelectedIndex()));
@@ -154,7 +158,7 @@ public final class GlobalSettingsView implements View {
                                     configuredTools(toolNames, toolCommands),
                                     work.getText().trim(),
                                     contextPath.getText().trim(),
-                                    reviewPlanPrompt.getText().trim()));
+                                    configuredPullRequestFilters(filterNames, filterQueries)));
                     viewCoordinator.updateView(ViewId.HOME, null);
                     Theme.apply(selectedTheme);
                 },
@@ -162,7 +166,7 @@ public final class GlobalSettingsView implements View {
                 dirty::get);
     }
 
-    private static JPanel reviewEditor(final JTextArea prompt, final JTextArea reviewPlanPrompt) {
+    private static JPanel reviewEditor(final JTextArea prompt) {
         final JPanel editor = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
         editor.setOpaque(false);
         editor.setBorder(
@@ -174,12 +178,46 @@ public final class GlobalSettingsView implements View {
         final JPanel fields = new JPanel();
         fields.setOpaque(false);
         fields.setLayout(new BoxLayout(fields, BoxLayout.Y_AXIS));
-        reviewPlanPrompt.setLineWrap(true);
-        reviewPlanPrompt.setWrapStyleWord(true);
         fields.add(SettingsPanel.labeledField("Pull request prompt", prompt));
-        fields.add(Box.createVerticalStrut(UiConstants.SECTION_PADDING));
-        fields.add(SettingsPanel.labeledField("Review plan prompt", reviewPlanPrompt));
         editor.add(fields, BorderLayout.CENTER);
+        return editor;
+    }
+
+    private static JPanel filterEditor(
+            final List<PullRequestFilter> filters,
+            final List<JTextField> names,
+            final List<JTextField> queries) {
+        final JPanel editor = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
+        editor.setOpaque(false);
+        editor.setBorder(
+                new EmptyBorder(
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING));
+        final JPanel intro = new JPanel(new BorderLayout());
+        intro.setOpaque(false);
+        intro.add(UiFactory.label("Pull request filters", Theme.FontSize.LG), BorderLayout.WEST);
+        intro.add(
+                UiFactory.label("Saved query filters for PR boards", Theme.FontSize.SM),
+                BorderLayout.EAST);
+        editor.add(intro, BorderLayout.NORTH);
+        final JPanel rows = new JPanel();
+        rows.setOpaque(false);
+        rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
+        for (final PullRequestFilter filter : filters) {
+            addPullRequestFilterRow(rows, names, queries, filter.name(), filter.query());
+        }
+        editor.add(configuredTable(rows, filterHeaders()), BorderLayout.CENTER);
+        final JButton add = UiFactory.button("+  Add filter");
+        add.setHorizontalAlignment(SwingConstants.LEFT);
+        add.addActionListener(
+                event -> {
+                    addPullRequestFilterRow(rows, names, queries, "", "");
+                    rows.revalidate();
+                    rows.repaint();
+                });
+        editor.add(add, BorderLayout.SOUTH);
         return editor;
     }
 
@@ -356,6 +394,23 @@ public final class GlobalSettingsView implements View {
         return header;
     }
 
+    private static JPanel filterHeaders() {
+        final JPanel header = new JPanel(new BorderLayout(UiConstants.CONTENT_PADDING, 0));
+        header.setOpaque(false);
+        header.setBorder(
+                new EmptyBorder(
+                        0,
+                        UiConstants.COMPONENT_GAP,
+                        UiConstants.SPACING_XS,
+                        UiConstants.COMPONENT_GAP));
+        final JLabel name = columnHeader("Name");
+        name.setPreferredSize(new JTextField(14).getPreferredSize());
+        header.add(name, BorderLayout.WEST);
+        header.add(columnHeader("Query"), BorderLayout.CENTER);
+        header.add(columnHeader(""), BorderLayout.EAST);
+        return header;
+    }
+
     private static JLabel columnHeader(final String text) {
         final JLabel header = UiFactory.label(text, Theme.FontSize.XS);
         header.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
@@ -420,6 +475,45 @@ public final class GlobalSettingsView implements View {
             }
         }
         return configured;
+    }
+
+    private static List<PullRequestFilter> configuredPullRequestFilters(
+            final List<JTextField> names, final List<JTextField> queries) {
+        final List<PullRequestFilter> configured = new ArrayList<>();
+        for (int i = 0; i < names.size(); i++) {
+            if (!names.get(i).getText().isBlank()) {
+                configured.add(
+                        new PullRequestFilter(
+                                names.get(i).getText().trim(), queries.get(i).getText().trim()));
+            }
+        }
+        return configured;
+    }
+
+    private static void addPullRequestFilterRow(
+            final JPanel rows,
+            final List<JTextField> names,
+            final List<JTextField> queries,
+            final String name,
+            final String query) {
+        final JTextField nameField = new JTextField(name, 14);
+        final JTextField queryField = new JTextField(query, 28);
+        final JPanel row = new JPanel(new BorderLayout(UiConstants.CONTENT_PADDING, 0));
+        configureRow(row);
+        row.add(nameField, BorderLayout.WEST);
+        row.add(queryField, BorderLayout.CENTER);
+        row.add(
+                removeButton(
+                        rows,
+                        row,
+                        () -> {
+                            names.remove(nameField);
+                            queries.remove(queryField);
+                        }),
+                BorderLayout.EAST);
+        names.add(nameField);
+        queries.add(queryField);
+        rows.add(row);
     }
 
     private static void addAgentRow(

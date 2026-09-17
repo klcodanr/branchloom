@@ -33,8 +33,19 @@ class GitHubTest {
 
         assertThrows(
                 IOException.class,
-                () -> GitHub.loadForProject(ProjectId.create(), project(directory)),
+                () -> GitHub.loadForProject(ProjectId.create(), project(directory), "author:@me"),
                 "a project without a GitHub remote should fail before invoking gh");
+    }
+
+    @Test
+    void loadingFilteredRequestsRequiresAGitHubRemote(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+
+        assertThrows(
+                IOException.class,
+                () -> GitHub.loadForProject(ProjectId.create(), project(directory), "author:@me"),
+                "filtered loading without a GitHub remote should fail before invoking gh");
     }
 
     @Test
@@ -120,7 +131,8 @@ class GitHubTest {
             assertEquals(1, GitHub.configuredAuths().size(), "configured auth should parse");
             assertEquals(
                     1,
-                    GitHub.loadForProject(ProjectId.create(), project(directory)).size(),
+                    GitHub.loadForProject(ProjectId.create(), project(directory), "author:@me")
+                            .size(),
                     "pull requests should parse");
             assertEquals(
                     1,
@@ -135,10 +147,11 @@ class GitHubTest {
                     "master",
                     GitHubPullRequest.baseBranch(project(directory), directory),
                     "current pull request base branch should parse");
-            GitHub.markReady(project(directory), 42);
-            GitHub.convertToDraft(project(directory), 42);
-            GitHub.close(project(directory), 42);
-            GitHub.merge(project(directory), 42);
+            GitHubPullRequest.markReady(project(directory), 42);
+            GitHubPullRequest.convertToDraft(project(directory), 42);
+            GitHubPullRequest.close(project(directory), 42);
+            GitHubPullRequest.merge(project(directory), 42);
+            GitHubPullRequest.approve(project(directory), 42);
         } finally {
             discoveredPath.set(previousPath);
         }

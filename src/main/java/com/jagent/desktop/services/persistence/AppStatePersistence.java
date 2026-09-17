@@ -76,7 +76,7 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
                 EditorDetection.detect(),
                 defaults.worktreeTemplate(),
                 defaults.agentContextPath(),
-                defaults.reviewPlanPrompt());
+                defaults.pullRequestFilters());
     }
 
     public void persist() {

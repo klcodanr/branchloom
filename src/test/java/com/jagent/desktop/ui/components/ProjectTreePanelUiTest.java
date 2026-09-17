@@ -52,7 +52,7 @@ class ProjectTreePanelUiTest {
                             return created;
                         });
 
-        GuiActionRunner.execute(() -> panel.tree().setSelectionRow(3));
+        GuiActionRunner.execute(() -> panel.tree().setSelectionRow(2));
 
         assertEquals(projectId, state.currentProjectId(), "selected tree project should be stored");
         assertEquals(
@@ -72,7 +72,7 @@ class ProjectTreePanelUiTest {
                                             new ActionContext(
                                                     new ViewCoordinator(state), state, null));
                             created.refresh(null, null);
-                            created.tree().setSelectionRow(3);
+                            created.tree().setSelectionRow(2);
                             return created;
                         });
 
@@ -103,7 +103,7 @@ class ProjectTreePanelUiTest {
         assertNotNull(action, "context menu action should exist");
         assertTrue(action.isEnabled(), "context menu action should be enabled");
         final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-        final var groupNode = (DefaultMutableTreeNode) root.getChildAt(2);
+        final var groupNode = (DefaultMutableTreeNode) root.getChildAt(1);
         final var projectNode = (DefaultMutableTreeNode) groupNode.getChildAt(0);
         final var sessionNode = (DefaultMutableTreeNode) projectNode.getChildAt(0);
 
@@ -114,7 +114,7 @@ class ProjectTreePanelUiTest {
                 });
         GuiActionRunner.execute(
                 () -> {
-                    panel.tree().setSelectionRow(2);
+                    panel.tree().setSelectionRow(1);
                     Assertions.assertThrows(
                             IllegalComponentStateException.class,
                             () -> action.actionPerformed(null));
@@ -136,7 +136,7 @@ class ProjectTreePanelUiTest {
     }
 
     @Test
-    void selectingReviewQueueClearsApplicationSelection() {
+    void selectingPullRequestsClearsApplicationSelection() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(new Project(DEMO, PROJECT_PATH, null));
         final var coordinator = new ViewCoordinator(state);
@@ -150,18 +150,18 @@ class ProjectTreePanelUiTest {
                             return created;
                         });
 
-        GuiActionRunner.execute(() -> panel.tree().setSelectionPath(panel.tree().getPathForRow(1)));
+        GuiActionRunner.execute(() -> panel.tree().setSelectionPath(panel.tree().getPathForRow(0)));
 
         assertNull(
                 state.currentProjectId(),
-                "review queue selection should clear the current project");
+                "pull requests selection should clear the current project");
         assertNull(
                 state.currentSessionId(),
-                "review queue selection should clear the current session");
+                "pull requests selection should clear the current session");
         assertEquals(
-                ViewId.REVIEW_QUEUE,
+                ViewId.MY_PULL_REQUESTS,
                 coordinator.currentViewId(),
-                "review queue selection should navigate");
+                "pull requests selection should navigate");
     }
 
     @Test
@@ -310,7 +310,7 @@ class ProjectTreePanelUiTest {
         final var root = (DefaultMutableTreeNode) tree.getModel().getRoot();
         final var projectNode =
                 (DefaultMutableTreeNode)
-                        ((DefaultMutableTreeNode) root.getChildAt(2)).getChildAt(0);
+                        ((DefaultMutableTreeNode) root.getChildAt(1)).getChildAt(0);
         Assertions.assertFalse(
                 tree.isExpanded(new TreePath(projectNode.getPath())),
                 "project should be collapsed before searching");
@@ -348,18 +348,16 @@ class ProjectTreePanelUiTest {
                         });
 
         final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-        assertEquals(5, root.getChildCount(), "global views and all groups should be rendered");
+        assertEquals(4, root.getChildCount(), "global views and all groups should be rendered");
         assertEquals(
-                "My Pull Requests", root.getChildAt(0).toString(), "authored PRs should be first");
+                "Pull Requests", root.getChildAt(0).toString(), "authored PRs should be first");
         assertEquals(
-                "Review Queue", root.getChildAt(1).toString(), "review queue should be second");
-        assertEquals(
-                "A-group", root.getChildAt(2).toString(), "groups should sort case-insensitively");
+                "A-group", root.getChildAt(1).toString(), "groups should sort case-insensitively");
         assertEquals(
                 Defaults.DEFAULT_GROUP,
-                root.getChildAt(3).toString(),
+                root.getChildAt(2).toString(),
                 "blank groups should use default");
-        assertEquals("z-group", root.getChildAt(4).toString(), "groups should sort alphabetically");
+        assertEquals("z-group", root.getChildAt(3).toString(), "groups should sort alphabetically");
     }
 
     @Test
@@ -380,7 +378,7 @@ class ProjectTreePanelUiTest {
                         });
 
         final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-        final var group = (DefaultMutableTreeNode) root.getChildAt(2);
+        final var group = (DefaultMutableTreeNode) root.getChildAt(1);
         assertEquals("alpha", projectName(group.getChildAt(0)), "first project should be alpha");
         assertEquals("Beta", projectName(group.getChildAt(1)), "second project should be Beta");
         assertEquals("Zulu", projectName(group.getChildAt(2)), "third project should be Zulu");
@@ -410,7 +408,7 @@ class ProjectTreePanelUiTest {
         GuiActionRunner.execute(
                 () -> {
                     final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-                    final var group = (DefaultMutableTreeNode) root.getChildAt(2);
+                    final var group = (DefaultMutableTreeNode) root.getChildAt(1);
                     final var firstProject = group.getChildAt(0);
                     final var secondProject = group.getChildAt(1);
                     panel.tree()
@@ -457,7 +455,7 @@ class ProjectTreePanelUiTest {
                 });
 
         final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-        final var group = (DefaultMutableTreeNode) root.getChildAt(2);
+        final var group = (DefaultMutableTreeNode) root.getChildAt(1);
         assertTrue(
                 panel.tree()
                         .isExpanded(
@@ -488,7 +486,7 @@ class ProjectTreePanelUiTest {
                         });
 
         final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-        assertEquals(2, root.getChildCount(), "global views should remain available");
+        assertEquals(1, root.getChildCount(), "global views should remain available");
         assertEquals(
                 null, panel.tree().getSelectionPath(), "refresh should not select a global view");
         assertEquals(
@@ -517,7 +515,7 @@ class ProjectTreePanelUiTest {
                         });
         final JTree tree = panel.tree();
         final var root = (DefaultMutableTreeNode) tree.getModel().getRoot();
-        final var group = (DefaultMutableTreeNode) root.getChildAt(2);
+        final var group = (DefaultMutableTreeNode) root.getChildAt(1);
         final var projectNode = (DefaultMutableTreeNode) group.getChildAt(0);
         final var rendered =
                 tree.getCellRenderer()
@@ -569,7 +567,7 @@ class ProjectTreePanelUiTest {
                             return created;
                         });
         final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-        final var group = (DefaultMutableTreeNode) root.getChildAt(2);
+        final var group = (DefaultMutableTreeNode) root.getChildAt(1);
         final var projectNode = (DefaultMutableTreeNode) group.getChildAt(0);
         final var sessionNode = (DefaultMutableTreeNode) projectNode.getChildAt(0);
 
@@ -614,14 +612,14 @@ class ProjectTreePanelUiTest {
         final var sessionNode =
                 (DefaultMutableTreeNode)
                         ((DefaultMutableTreeNode)
-                                        ((DefaultMutableTreeNode) root.getChildAt(2)).getChildAt(0))
+                                        ((DefaultMutableTreeNode) root.getChildAt(1)).getChildAt(0))
                                 .getChildAt(0);
         assertEquals(
                 SESSION_NAME,
                 ((Session) ((Map.Entry<?, ?>) sessionNode.getUserObject()).getValue()).name(),
                 "session name should be stored");
         assertEquals(
-                3, root.getChildCount(), "populated tree should contain global views and group");
+                2, root.getChildCount(), "populated tree should contain global views and group");
 
         GuiActionRunner.execute(
                 () -> panel.tree().setSelectionPath(new TreePath(sessionNode.getPath())));
