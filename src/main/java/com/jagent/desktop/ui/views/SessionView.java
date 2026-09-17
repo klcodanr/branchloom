@@ -4,6 +4,7 @@ import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
+import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.PlatformCommands;
@@ -23,6 +24,7 @@ import javax.swing.JScrollPane;
 
 public final class SessionView extends AbstractWorkspaceView {
 
+    private final transient SessionId sessionId;
     private final transient Project project;
     private final transient Session session;
     private SessionSummary summary;
@@ -32,9 +34,11 @@ public final class SessionView extends AbstractWorkspaceView {
     public SessionView(final ActionContext actionContext) {
         super(actionContext, ViewId.SESSION);
         final var state = actionContext.appState();
-        final var sessionId = state.currentSessionId();
+        final var selectedSessionId = state.currentSessionId();
+        this.sessionId = selectedSessionId;
         this.project = state.projects().get(state.currentProjectId());
-        final Session persistedSession = sessionId == null ? null : state.sessions().get(sessionId);
+        final Session persistedSession =
+                selectedSessionId == null ? null : state.sessions().get(selectedSessionId);
         this.session = persistedSession;
         validateSelection();
         restoreSession(actionContext, state);
@@ -53,8 +57,8 @@ public final class SessionView extends AbstractWorkspaceView {
     private void restoreSession(
             final ActionContext actionContext, final com.jagent.desktop.services.AppState state) {
         MissingWorktreeRecovery.check(actionContext, project, session);
-        final boolean hasSelectedTab = viewCoordinator.hasSelectedTab(id());
-        final int selectedTab = viewCoordinator.selectedTab(id());
+        final boolean hasSelectedTab = viewCoordinator.hasSelectedSessionTab(sessionId);
+        final int selectedTab = viewCoordinator.selectedSessionTab(sessionId);
         initializeWorkspace(session.name());
         restoreTerminals(state);
         restoreSelectedTabOrSummary(actionContext, hasSelectedTab, selectedTab);
@@ -138,6 +142,12 @@ public final class SessionView extends AbstractWorkspaceView {
 
     public void openSummary() {
         tabs.setSelectedIndex(tabs.indexOfTab("Summary"));
+    }
+
+    @Override
+    protected void updateSelectedTab(final int selectedIndex) {
+        viewCoordinator.updateSelectedSessionTab(sessionId, selectedIndex);
+        super.updateSelectedTab(selectedIndex);
     }
 
     @Override

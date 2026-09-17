@@ -214,13 +214,17 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
 
     protected final void updateCurrentTerminal() {
         final int selectedIndex = tabs.getSelectedIndex();
-        viewCoordinator.updateSelectedTab(id(), selectedIndex);
+        updateSelectedTab(selectedIndex);
         TerminalId currentTerminal = null;
         if (selectedIndex > 0
                 && tabs.getComponentAt(selectedIndex) instanceof TerminalPanel terminal) {
             currentTerminal = terminalIds.get(terminal);
         }
         actionContext.appState().updateCurrentTerminal(currentTerminal);
+    }
+
+    protected void updateSelectedTab(final int selectedIndex) {
+        viewCoordinator.updateSelectedTab(id(), selectedIndex);
     }
 
     protected final boolean selectTerminal(

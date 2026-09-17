@@ -1,13 +1,18 @@
 package com.jagent.desktop.services;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.ui.Defaults;
+import java.io.InvalidObjectException;
 import java.util.ArrayList;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -74,5 +79,66 @@ class ViewCoordinatorTest {
         assertEquals(
                 3, coordinator.selectedTab(ViewId.SETTINGS), "settings tab should be preserved");
         assertEquals(0, coordinator.selectedTab(ViewId.PROJECT), "unknown views should default");
+    }
+
+    @Test
+    void selectedTabIsPreservedPerSession() throws InvalidObjectException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var coordinator = new ViewCoordinator(state);
+        final ProjectId projectId = state.addProject(new Project("Project", "/tmp", null));
+        final SessionId firstSessionId =
+                state.addSession(projectId, new Session(projectId, "First", null, null, null));
+        final SessionId secondSessionId =
+                state.addSession(projectId, new Session(projectId, "Second", null, null, null));
+
+        coordinator.updateSelectedSessionTab(firstSessionId, 2);
+        coordinator.updateSelectedSessionTab(secondSessionId, 1);
+
+        assertEquals(
+                2,
+                coordinator.selectedSessionTab(firstSessionId),
+                "first session tab should be preserved");
+        assertEquals(
+                1,
+                coordinator.selectedSessionTab(secondSessionId),
+                "second session tab should be preserved");
+        assertEquals(
+                0,
+                coordinator.selectedSessionTab(SessionId.create()),
+                "unknown sessions should default");
+    }
+
+    @Test
+    void selectedSessionTabIsCleanedUpWhenSessionIsRemoved() throws InvalidObjectException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var coordinator = new ViewCoordinator(state);
+        final ProjectId projectId = state.addProject(new Project("Project", "/tmp", null));
+        final SessionId removedSessionId =
+                state.addSession(projectId, new Session(projectId, "Removed", null, null, null));
+        final SessionId remainingSessionId =
+                state.addSession(projectId, new Session(projectId, "Remaining", null, null, null));
+
+        coordinator.updateSelectedSessionTab(removedSessionId, 2);
+        coordinator.updateSelectedSessionTab(remainingSessionId, 1);
+        assertTrue(
+                coordinator.hasSelectedSessionTab(removedSessionId),
+                "removed session should have tracked tab before removal");
+
+        state.removeSession(removedSessionId);
+
+        assertFalse(
+                coordinator.hasSelectedSessionTab(removedSessionId),
+                "removed session tab state should be cleaned up");
+        assertEquals(
+                0,
+                coordinator.selectedSessionTab(removedSessionId),
+                "removed session should fall back to default tab");
+        assertTrue(
+                coordinator.hasSelectedSessionTab(remainingSessionId),
+                "remaining session tab state should stay available");
+        assertEquals(
+                1,
+                coordinator.selectedSessionTab(remainingSessionId),
+                "remaining session tab should be preserved");
     }
 }
