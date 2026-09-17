@@ -51,6 +51,7 @@ public final class TerminalPanel extends JPanel {
     private final transient TerminalRuntime runtime;
     private final transient @Nullable TerminalId retainedId;
     private final JediTermWidget terminal;
+    private volatile Consumer<String> titleChanged = ignored -> {};
 
     public TerminalPanel(final String command, final Path directory) {
         this(command, directory, "", ignored -> {});
@@ -92,7 +93,13 @@ public final class TerminalPanel extends JPanel {
                 new javax.swing.border.EmptyBorder(
                         UiConstants.CARD_PADDING, 0, UiConstants.CARD_PADDING, 0));
         terminal =
-                new AppJediTermWidget(80, 24, new AppTerminalSettings(), runtime.directory(), this);
+                new AppJediTermWidget(
+                        80,
+                        24,
+                        new AppTerminalSettings(),
+                        runtime.directory(),
+                        this,
+                        this::applicationTitleChanged);
         add(terminal, BorderLayout.CENTER);
         setStateChanged(stateChanged);
     }
@@ -162,6 +169,21 @@ public final class TerminalPanel extends JPanel {
 
     public void setResourceName(final String resourceName) {
         manager.setResourceName(runtime, resourceName);
+    }
+
+    public void setTitleChanged(final Consumer<String> listener) {
+        titleChanged = listener == null ? ignored -> {} : listener;
+    }
+
+    /* package */ void applicationTitleChanged(final String title) {
+        if (title == null) {
+            return;
+        }
+        final String updatedTitle = title.trim();
+        if (updatedTitle.isEmpty()) {
+            return;
+        }
+        SwingUtilities.invokeLater(() -> titleChanged.accept(updatedTitle));
     }
 
     private void attach(final TtyConnector connector) {
@@ -259,8 +281,10 @@ public final class TerminalPanel extends JPanel {
                 final int rows,
                 final AppTerminalSettings settings,
                 final Path directory,
-                final JPanel owner) {
+                final JPanel owner,
+                final Consumer<String> titleChanged) {
             super(columns, rows, settings);
+            myTerminal.addApplicationTitleListener(titleChanged::accept);
             addHyperlinkFilter(new TerminalLinkFilter(PlatformCommands::openUrl));
             addHyperlinkFilter(
                     new TerminalFileLinkFilter(
