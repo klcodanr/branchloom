@@ -275,6 +275,57 @@ class TargetViewsUiTest {
     }
 
     @Test
+    void sessionViewRestoresSelectedTabPerSessionWhenSwitchingSessions()
+            throws InvalidObjectException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var projectId =
+                state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
+        final var firstSessionId =
+                state.addSession(
+                        projectId,
+                        new Session(projectId, "First Session", null, SESSION_PROMPT, null));
+        final var secondSessionId =
+                state.addSession(
+                        projectId,
+                        new Session(projectId, "Second Session", null, SESSION_PROMPT, null));
+        state.addTerminal(
+                firstSessionId, new Terminal(firstSessionId, "First Terminal", SUCCESS_COMMAND));
+        state.addTerminal(
+                secondSessionId, new Terminal(secondSessionId, "Second Terminal", SUCCESS_COMMAND));
+        state.updateCurrentProject(projectId);
+        final var coordinator = new ViewCoordinator(state);
+        final var context = new ActionContext(coordinator, state, null);
+
+        state.updateCurrentSession(firstSessionId);
+        final var firstSessionView = GuiActionRunner.execute(() -> new SessionView(context));
+        final var firstTabs =
+                (JTabbedPane)
+                        ((WorkspaceSplitPane) firstSessionView.getComponent(1)).getLeftComponent();
+        GuiActionRunner.execute(() -> firstTabs.setSelectedIndex(1));
+        firstSessionView.dispose();
+
+        state.updateCurrentSession(secondSessionId);
+        final var secondSessionView = GuiActionRunner.execute(() -> new SessionView(context));
+        final var secondTabs =
+                (JTabbedPane)
+                        ((WorkspaceSplitPane) secondSessionView.getComponent(1)).getLeftComponent();
+        assertEquals(0, secondTabs.getSelectedIndex(), ASSERTION_MESSAGE);
+        GuiActionRunner.execute(() -> secondTabs.setSelectedIndex(1));
+        secondSessionView.dispose();
+
+        state.updateCurrentSession(firstSessionId);
+        final var reopenedFirstSessionView =
+                GuiActionRunner.execute(() -> new SessionView(context));
+        final var reopenedFirstTabs =
+                (JTabbedPane)
+                        ((WorkspaceSplitPane) reopenedFirstSessionView.getComponent(1))
+                                .getLeftComponent();
+
+        assertEquals(1, reopenedFirstTabs.getSelectedIndex(), ASSERTION_MESSAGE);
+        reopenedFirstSessionView.dispose();
+    }
+
+    @Test
     void sessionViewRejectsAgentSessionWithoutWorktree() throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId =

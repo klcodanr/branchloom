@@ -5,6 +5,7 @@ import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.TerminalId;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.jetbrains.annotations.Nullable;
@@ -15,6 +16,7 @@ public final class ViewCoordinator {
     private final BackgroundJobs backgroundJobs = new BackgroundJobs();
     private final Consumer<ViewId> viewChanged;
     private final Map<ViewId, Integer> selectedTabs = new EnumMap<>(ViewId.class);
+    private final Map<SessionId, Integer> selectedSessionTabs = new HashMap<>();
     private ViewId currentViewId;
 
     public record ViewState(
@@ -81,5 +83,31 @@ public final class ViewCoordinator {
         if (tabIndex >= 0) {
             selectedTabs.put(viewId, tabIndex);
         }
+    }
+
+    public int selectedSessionTab(final SessionId sessionId) {
+        cleanupRemovedSessionTabs();
+        if (sessionId == null) {
+            return 0;
+        }
+        return selectedSessionTabs.getOrDefault(sessionId, 0);
+    }
+
+    public boolean hasSelectedSessionTab(final SessionId sessionId) {
+        cleanupRemovedSessionTabs();
+        return sessionId != null && selectedSessionTabs.containsKey(sessionId);
+    }
+
+    public void updateSelectedSessionTab(final SessionId sessionId, final int tabIndex) {
+        cleanupRemovedSessionTabs();
+        if (sessionId != null && tabIndex >= 0) {
+            selectedSessionTabs.put(sessionId, tabIndex);
+        }
+    }
+
+    private void cleanupRemovedSessionTabs() {
+        selectedSessionTabs
+                .keySet()
+                .removeIf(sessionId -> !appState.sessions().containsKey(sessionId));
     }
 }
