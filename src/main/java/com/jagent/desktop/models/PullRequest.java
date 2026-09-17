@@ -1,6 +1,7 @@
 package com.jagent.desktop.models;
 
 import com.jagent.desktop.api.PullRequestInfo;
+import java.util.List;
 import java.util.Objects;
 
 public record PullRequest(
@@ -22,8 +23,57 @@ public record PullRequest(
         int changedFiles,
         int checksPassed,
         int checksTotal,
-        String checksStatus)
+        String checksStatus,
+        List<PullRequestCheck> checks)
         implements PullRequestInfo {
+
+    public PullRequest {
+        checks = checks == null ? List.of() : List.copyOf(checks);
+    }
+
+    @SuppressWarnings("PMD.ExcessiveParameterList")
+    public PullRequest(
+            final ProjectId projectId,
+            final int number,
+            final String title,
+            final String description,
+            final String commentSummary,
+            final String url,
+            final String createdAt,
+            final String updatedAt,
+            final String reviewDecision,
+            final String mergeable,
+            final boolean draft,
+            final String author,
+            final String headBranch,
+            final int additions,
+            final int deletions,
+            final int changedFiles,
+            final int checksPassed,
+            final int checksTotal,
+            final String checksStatus) {
+        this(
+                projectId,
+                number,
+                title,
+                description,
+                commentSummary,
+                url,
+                createdAt,
+                updatedAt,
+                reviewDecision,
+                mergeable,
+                draft,
+                author,
+                headBranch,
+                additions,
+                deletions,
+                changedFiles,
+                checksPassed,
+                checksTotal,
+                checksStatus,
+                List.of());
+    }
 
     public int totalChanges() {
         return additions + deletions;

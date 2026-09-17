@@ -232,9 +232,7 @@ public final class ProjectTreePanel extends JPanel {
     private void restoreGlobalSelection() {
         final ViewId currentView = actionContext.viewCoordinator().currentViewId();
         final Object globalNode =
-                currentView == ViewId.MY_PULL_REQUESTS
-                        ? MyPullRequestsNode.INSTANCE
-                        : currentView == ViewId.REVIEW_QUEUE ? ReviewQueueNode.INSTANCE : null;
+                currentView == ViewId.MY_PULL_REQUESTS ? MyPullRequestsNode.INSTANCE : null;
         if (globalNode == null) {
             tree.clearSelection();
             return;
@@ -366,10 +364,6 @@ public final class ProjectTreePanel extends JPanel {
             actionContext
                     .viewCoordinator()
                     .updateView(ViewId.MY_PULL_REQUESTS, ViewCoordinator.ViewState.reset());
-        } else if (item == ReviewQueueNode.INSTANCE) {
-            actionContext
-                    .viewCoordinator()
-                    .updateView(ViewId.REVIEW_QUEUE, ViewCoordinator.ViewState.reset());
         }
     }
 
@@ -495,16 +489,7 @@ public final class ProjectTreePanel extends JPanel {
 
         @Override
         public String toString() {
-            return "My Pull Requests";
-        }
-    }
-
-    public enum ReviewQueueNode {
-        INSTANCE;
-
-        @Override
-        public String toString() {
-            return "Review Queue";
+            return "Pull Requests";
         }
     }
 

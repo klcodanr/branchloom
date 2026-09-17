@@ -10,13 +10,13 @@ import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestFilter;
 import com.jagent.desktop.models.PullRequestGroup;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ReviewPlanAgent;
 import com.jagent.desktop.services.Template;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.Defaults;
@@ -294,6 +294,16 @@ class CoreLogicTest {
         assertTrue(defaults.tools().isEmpty(), "null tools should default to empty");
         assertEquals("", defaults.agentContextPath(), "context path should default to blank");
         assertEquals(
+                List.of(
+                        new PullRequestFilter("Active", "(assignee:@me OR author:@me)"),
+                        new PullRequestFilter("Reviewable", "review-requested:@me -status:failure"),
+                        new PullRequestFilter(
+                                "My Reviews",
+                                "reviewed-by:@me is:unmerged -author:adobe-renovate-prod[bot]"
+                                        + " -author:@me")),
+                defaults.pullRequestFilters(),
+                "default pull request filters should be seeded");
+        assertEquals(
                 Defaults.DEFAULT_WORKTREE_TEMPLATE, defaults.worktreeTemplate(), VALUE_MESSAGE);
         assertEquals(
                 Defaults.DEFAULT_WORKTREE_TEMPLATE,
@@ -309,8 +319,7 @@ class CoreLogicTest {
                                 "Dark",
                                 List.of(),
                                 "custom",
-                                " global/context.md ",
-                                Defaults.DEFAULT_REVIEW_PLAN_PROMPT)
+                                " global/context.md ")
                         .agentContextPath(),
                 "context path should be trimmed");
         assertEquals(
@@ -390,19 +399,6 @@ class CoreLogicTest {
         assertEquals(Theme.dangerColor(), UiText.checksColor("FAILING"), VALUE_MESSAGE);
         assertEquals(Theme.warningColor(), UiText.checksColor("PENDING"), VALUE_MESSAGE);
         assertEquals(Theme.mutedColor(), UiText.checksColor("UNKNOWN"), VALUE_MESSAGE);
-    }
-
-    @Test
-    void reviewPlanAgentBuildsPromptCommandsWithAndWithoutPlaceholder() {
-        final PullRequest request = pullRequest(ProjectId.create(), false, "MERGEABLE", "APPROVED");
-
-        final String replaced =
-                ReviewPlanAgent.command("agent {prompt}", "Review these", List.of(request));
-        final String appended = ReviewPlanAgent.command("agent", "Review these", List.of(request));
-
-        assertTrue(replaced.startsWith("agent "), "placeholder command should retain its command");
-        assertTrue(appended.startsWith("agent "), "plain command should retain its command");
-        assertTrue(replaced.contains("#1"), "prompt should include pull request details");
     }
 
     private static Project project(final String name, final String path) {

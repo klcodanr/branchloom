@@ -382,9 +382,7 @@ public final class AppView extends JFrame {
         }
         currentView = topLevel;
         bottomBar.setRefreshVisible(
-                currentView instanceof SessionView
-                        || currentView instanceof MyPullRequestsView
-                        || currentView instanceof ReviewQueueView);
+                currentView instanceof SessionView || currentView instanceof MyPullRequestsView);
         content.removeAll();
         content.add(rendered, BorderLayout.CENTER);
         workspaceTree.removeAll();

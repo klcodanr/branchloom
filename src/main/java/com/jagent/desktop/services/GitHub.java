@@ -1,20 +1,27 @@
 package com.jagent.desktop.services;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.jagent.desktop.api.PullRequestInfo;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestCheck;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 public final class GitHub {
     private static final Logger LOG = Logger.getLogger(GitHub.class.getName());
+    private static final Gson JSON = new Gson();
+    private static final Type CHECKS_TYPE = new TypeToken<List<PullRequestCheck>>() {}.getType();
     private static final int PR_PAGE_SIZE = 25;
     private static final int ISSUE_PAGE_SIZE = 50;
     private static final int RECENT_COMMENT_LIMIT = 5;
@@ -22,15 +29,15 @@ public final class GitHub {
     private static final String PR_QUERY =
             "query($search:String!, $endCursor:String, $pageSize:Int!) {"
                     + " search(query:$search, type:ISSUE, first:$pageSize, after:$endCursor) {"
-                    + " nodes { ... on PullRequest { number title bodyText url createdAt updatedAt isDraft"
+                    + " nodes { ... on PullRequest { number title bodyHTML url createdAt updatedAt isDraft"
                     + " reviewDecision mergeable mergeStateStatus author { login } headRefName"
                     + " additions deletions changedFiles"
                     + " comments(last:"
                     + RECENT_COMMENT_LIMIT
                     + ") { nodes { bodyText author { login } } }"
                     + " statusCheckRollup { contexts(first:100) { nodes {"
-                    + " ... on CheckRun { conclusion status }"
-                    + " ... on StatusContext { state }"
+                    + " ... on CheckRun { name detailsUrl conclusion status summary title }"
+                    + " ... on StatusContext { context targetUrl description state }"
                     + " } } } } }"
                     + " pageInfo { hasNextPage endCursor } } }";
     private static final String ISSUE_QUERY =
@@ -41,7 +48,34 @@ public final class GitHub {
     private static final String ISSUE_JQ =
             ".data.search.nodes[] | [.number, .title, (.bodyText // \"\" | gsub(\"[\\\\t\\\\r\\\\n]+\"; \" \") ), .url] | @tsv";
     private static final String PR_JQ =
-            ".data.search.nodes[] | [.number, .title, (.bodyText // \"\"), ([.comments.nodes[]? | ((.author.login // \"unknown\") + \": \" + (.bodyText // \"\") | gsub(\"[\\\\t\\\\r\\\\n]+\"; \" \") )] | join(\" | \") ), .url, .createdAt, .updatedAt, .reviewDecision, (if .mergeStateStatus != null and .mergeStateStatus != \"UNKNOWN\" then .mergeStateStatus else .mergeable end), .isDraft, .author.login, .headRefName, .additions, .deletions, .changedFiles, ([.statusCheckRollup.contexts.nodes[]? | select((.conclusion // .state) == \"SUCCESS\" or (.conclusion // .state) == \"SKIPPED\" or (.conclusion // .state) == \"NEUTRAL\")] | length), (.statusCheckRollup.contexts.nodes | length), (if any(.statusCheckRollup.contexts.nodes[]?; (.conclusion // .state) == \"FAILURE\" or (.conclusion // .state) == \"ERROR\") then \"FAILING\" elif any(.statusCheckRollup.contexts.nodes[]?; (.status // \"\") != \"COMPLETED\" and (.state // \"\") != \"SUCCESS\" and (.state // \"\") != \"FAILURE\") then \"PENDING\" elif (.statusCheckRollup.contexts.nodes | length) == 0 then \"UNKNOWN\" else \"PASSING\" end)] | @tsv";
+            ".data.search.nodes[] | [.number, .title, (.bodyHTML // \"\"), ([.comments.nodes[]?"
+                    + " | ((.author.login // \"unknown\") + \": \" + (.bodyText // \"\")"
+                    + " | gsub(\"[\\\\t\\\\r\\\\n]+\"; \" \") )] | join(\" | \") ),"
+                    + " .url, .createdAt, .updatedAt, .reviewDecision,"
+                    + " (if .mergeStateStatus != null and .mergeStateStatus != \"UNKNOWN\""
+                    + " then .mergeStateStatus else .mergeable end),"
+                    + " .isDraft, .author.login, .headRefName, .additions, .deletions,"
+                    + " .changedFiles,"
+                    + " ([.statusCheckRollup.contexts.nodes[]?"
+                    + " | select((.conclusion // .state) == \"SUCCESS\""
+                    + " or (.conclusion // .state) == \"SKIPPED\""
+                    + " or (.conclusion // .state) == \"NEUTRAL\")] | length),"
+                    + " (.statusCheckRollup.contexts.nodes | length),"
+                    + " (if any(.statusCheckRollup.contexts.nodes[]?;"
+                    + " (.conclusion // .state) == \"FAILURE\""
+                    + " or (.conclusion // .state) == \"ERROR\") then \"FAILING\""
+                    + " elif any(.statusCheckRollup.contexts.nodes[]?;"
+                    + " (.status // \"\") != \"COMPLETED\" and (.state // \"\") != \"SUCCESS\""
+                    + " and (.state // \"\") != \"FAILURE\") then \"PENDING\""
+                    + " elif (.statusCheckRollup.contexts.nodes | length) == 0 then \"UNKNOWN\""
+                    + " else \"PASSING\" end),"
+                    + " ([.statusCheckRollup.contexts.nodes[]?"
+                    + " | {name:(.name // .context // \"Check\"),"
+                    + " status:(.status // .state // \"UNKNOWN\"),"
+                    + " conclusion:(.conclusion // .state // \"\"),"
+                    + " detailsUrl:(.detailsUrl // .targetUrl // \"\"),"
+                    + " details:(.summary // .title // .description // \"\")}] | @json)]"
+                    + " | @tsv";
 
     public record Auth(String host, String user) {
         @Override
@@ -107,9 +141,10 @@ public final class GitHub {
         }
     }
 
-    public static List<PullRequest> loadForProject(final ProjectId projectId, final Project project)
+    public static List<PullRequest> loadForProject(
+            final ProjectId projectId, final Project project, final String search)
             throws IOException, InterruptedException {
-        return load(projectId, project, "author:@me");
+        return load(projectId, project, Objects.requireNonNullElse(search, "").trim());
     }
 
     public static List<PullRequest> loadReviewRequestedForProject(
@@ -216,43 +251,6 @@ public final class GitHub {
         return details;
     }
 
-    public static void markReady(final Project project, final int number)
-            throws IOException, InterruptedException {
-        runPullRequestCommand(project, number, "ready");
-    }
-
-    public static void convertToDraft(final Project project, final int number)
-            throws IOException, InterruptedException {
-        runPullRequestCommand(project, number, "ready --undo");
-    }
-
-    public static void close(final Project project, final int number)
-            throws IOException, InterruptedException {
-        runPullRequestCommand(project, number, "close");
-    }
-
-    public static void merge(final Project project, final int number)
-            throws IOException, InterruptedException {
-        runPullRequestCommand(project, number, "merge --merge --delete-branch=false");
-    }
-
-    private static void runPullRequestCommand(
-            final Project project, final int number, final String arguments)
-            throws IOException, InterruptedException {
-        final String command = Git.githubCommand(project, "gh pr " + arguments + " " + number);
-        final ProcessBuilder builder =
-                PlatformCommands.prepare(new ProcessBuilder(PlatformCommands.shell(command)))
-                        .directory(Path.of(project.path()).toFile())
-                        .redirectErrorStream(true);
-        final Process process = builder.start();
-        final String output =
-                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        if (process.waitFor() != 0) {
-            PlatformCommands.logFailure(builder, process.exitValue(), output);
-            throw new IOException(output.trim());
-        }
-    }
-
     private static List<PullRequest> load(
             final ProjectId projectId, final Project project, final String search)
             throws IOException, InterruptedException {
@@ -317,7 +315,8 @@ public final class GitHub {
                                 row.changedFiles(),
                                 row.checksPassed(),
                                 row.checksTotal(),
-                                row.checksStatus()));
+                                row.checksStatus(),
+                                parseChecks(row.checksJson())));
             }
         }
         LOG.info(
@@ -360,7 +359,23 @@ public final class GitHub {
                 Integer.parseInt(values[14]),
                 Integer.parseInt(values[15]),
                 Integer.parseInt(values[16]),
-                values[17]);
+                values[17],
+                values.length < 19 ? "[]" : values[18]);
+    }
+
+    private static List<PullRequestCheck> parseChecks(final String checksJson) {
+        if (checksJson == null || checksJson.isBlank()) {
+            return List.of();
+        }
+        try {
+            final List<PullRequestCheck> parsed = JSON.fromJson(checksJson, CHECKS_TYPE);
+            if (parsed == null) {
+                return List.of();
+            }
+            return parsed.stream().filter(Objects::nonNull).toList();
+        } catch (RuntimeException failure) {
+            return List.of();
+        }
     }
 
     private record PullRequestRow(
@@ -381,7 +396,8 @@ public final class GitHub {
             int changedFiles,
             int checksPassed,
             int checksTotal,
-            String checksStatus) {}
+            String checksStatus,
+            String checksJson) {}
 
     private static String repositoryName(final Path path) throws IOException, InterruptedException {
         final ProcessBuilder builder =

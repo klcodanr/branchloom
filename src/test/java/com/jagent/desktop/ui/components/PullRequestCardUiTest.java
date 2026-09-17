@@ -24,11 +24,18 @@ import org.junit.jupiter.api.Test;
 
 class PullRequestCardUiTest {
     private static final String APPROVED = "APPROVED";
+    private static final String AUTHOR = "author";
+    private static final String COPY_URL = "Copy URL";
+    private static final String IMPORT_PR_BRANCH = "Import PR branch";
+    private static final String MERGE_PR = "Merge PR";
+    private static final String MERGEABLE = "MERGEABLE";
+    private static final String OPEN_PR = "Open PR";
     private static final String PASSING = "PASSING";
+    private static final String REVIEW_PR = "Review PR";
 
     @Test
     void rendersPullRequestIdentityMetadataAndChecks() {
-        final PullRequest request = request(APPROVED, "MERGEABLE", false, PASSING);
+        final PullRequest request = request(APPROVED, MERGEABLE, false, PASSING);
         final PullRequestCard card =
                 GuiActionRunner.execute(() -> new PullRequestCard(context(), request));
 
@@ -129,7 +136,7 @@ class PullRequestCardUiTest {
 
         assertNotNull(card.getComponentPopupMenu(), "pull request card should have a context menu");
         assertEquals(
-                List.of("Open PR", "Import PR branch", "Review PR"),
+                List.of(OPEN_PR, COPY_URL, IMPORT_PR_BRANCH, REVIEW_PR),
                 java.util.Arrays.stream(card.getComponentPopupMenu().getComponents())
                         .filter(JMenuItem.class::isInstance)
                         .map(component -> ((JMenuItem) component).getText())
@@ -140,7 +147,7 @@ class PullRequestCardUiTest {
     @Test
     void authoredPullRequestShowsContextSensitiveLifecycleActions() {
         final ProjectId projectId = ProjectId.create();
-        final PullRequest request = request(projectId, APPROVED, "MERGEABLE", false, PASSING);
+        final PullRequest request = request(projectId, APPROVED, MERGEABLE, false, PASSING);
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
@@ -150,7 +157,7 @@ class PullRequestCardUiTest {
                                         "Test",
                                         "/tmp/test",
                                         new com.jagent.desktop.services.GitHub.Auth(
-                                                "github.com", "author"))),
+                                                "github.com", AUTHOR))),
                         Map.of(),
                         Map.of());
         final PullRequestCard card =
@@ -161,13 +168,7 @@ class PullRequestCardUiTest {
                                         request));
 
         assertEquals(
-                List.of(
-                        "Open PR",
-                        "Import PR branch",
-                        "Review PR",
-                        "Convert to draft",
-                        "Merge PR",
-                        "Close PR"),
+                List.of(OPEN_PR, COPY_URL, IMPORT_PR_BRANCH, REVIEW_PR, "Make draft", MERGE_PR),
                 java.util.Arrays.stream(card.getComponentPopupMenu().getComponents())
                         .filter(JMenuItem.class::isInstance)
                         .map(component -> ((JMenuItem) component).getText())
@@ -176,10 +177,92 @@ class PullRequestCardUiTest {
     }
 
     @Test
+    void authoredDraftPullRequestShowsRequestApprovalAction() {
+        final ProjectId projectId = ProjectId.create();
+        final PullRequest request = request(projectId, APPROVED, MERGEABLE, true, PASSING);
+        final AppState state =
+                new AppState(
+                        Defaults.appSettings(),
+                        Map.of(
+                                projectId.value().toString(),
+                                new Project(
+                                        "Test",
+                                        "/tmp/test",
+                                        new com.jagent.desktop.services.GitHub.Auth(
+                                                "github.com", AUTHOR))),
+                        Map.of(),
+                        Map.of());
+        final PullRequestCard card =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestCard(
+                                        new ActionContext(new ViewCoordinator(state), state, null),
+                                        request));
+
+        assertEquals(
+                List.of(OPEN_PR, COPY_URL, IMPORT_PR_BRANCH, REVIEW_PR, "Request approval"),
+                java.util.Arrays.stream(card.getComponentPopupMenu().getComponents())
+                        .filter(JMenuItem.class::isInstance)
+                        .map(component -> ((JMenuItem) component).getText())
+                        .toList(),
+                "authored draft PR should expose request approval action");
+    }
+
+    @Test
+    void nonAuthoredPullRequestShowsApproveAction() {
+        final ProjectId projectId = ProjectId.create();
+        final PullRequest request = request(projectId, APPROVED, MERGEABLE, false, PASSING);
+        final AppState state =
+                new AppState(
+                        Defaults.appSettings(),
+                        Map.of(
+                                projectId.value().toString(),
+                                new Project(
+                                        "Test",
+                                        "/tmp/test",
+                                        new com.jagent.desktop.services.GitHub.Auth(
+                                                "github.com", "someone-else"))),
+                        Map.of(),
+                        Map.of());
+        final PullRequestCard card =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestCard(
+                                        new ActionContext(new ViewCoordinator(state), state, null),
+                                        request));
+
+        assertEquals(
+                List.of(OPEN_PR, COPY_URL, IMPORT_PR_BRANCH, REVIEW_PR, "Approve", MERGE_PR),
+                java.util.Arrays.stream(card.getComponentPopupMenu().getComponents())
+                        .filter(JMenuItem.class::isInstance)
+                        .map(component -> ((JMenuItem) component).getText())
+                        .toList(),
+                "non-authored PR should expose approve action");
+    }
+
+    @Test
     void buildsProjectAndApplicationMenusWithoutSelections() {
         assertTrue(
                 ProjectActions.menu(context(), ProjectId.create()).getComponentCount() > 0,
                 "project menu should contain actions");
+    }
+
+    @Test
+    void markApprovedUpdatesMetadataStatus() {
+        final PullRequestCard card =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestCard(
+                                        context(),
+                                        request("REVIEW_REQUIRED", MERGEABLE, false, PASSING)));
+
+        GuiActionRunner.execute(card::markApproved);
+
+        final JLabel metadata =
+                SwingTestSupport.find(
+                        card, JLabel.class, component -> component.getText().contains("Approved"));
+
+        assertNotNull(metadata, "approving should update the card metadata to Approved");
     }
 
     private static ActionContext context() {
@@ -203,9 +286,9 @@ class PullRequestCardUiTest {
                 createdAt,
                 updatedAt,
                 APPROVED,
-                "MERGEABLE",
+                MERGEABLE,
                 false,
-                "author",
+                AUTHOR,
                 "login-fix",
                 9,
                 3,
@@ -233,7 +316,7 @@ class PullRequestCardUiTest {
                 review,
                 mergeable,
                 draft,
-                "author",
+                AUTHOR,
                 "login-fix",
                 9,
                 3,

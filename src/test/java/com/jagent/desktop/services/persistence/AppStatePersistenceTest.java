@@ -55,6 +55,10 @@ class AppStatePersistenceTest {
                 defaults.agentContextPath(),
                 loaded.appSettings().agentContextPath(),
                 "default context path should load");
+        assertEquals(
+                defaults.pullRequestFilters(),
+                loaded.appSettings().pullRequestFilters(),
+                "default pull request filters should load");
     }
 
     @Test
@@ -76,8 +80,7 @@ class AppStatePersistenceTest {
                         THEME,
                         Defaults.appSettings().tools(),
                         "custom/{sessionSlug}",
-                        CONTEXT_PATH,
-                        Defaults.DEFAULT_REVIEW_PLAN_PROMPT));
+                        CONTEXT_PATH));
 
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
             persistence.persist();
@@ -111,6 +114,10 @@ class AppStatePersistenceTest {
                 "agent open command should load");
         assertEquals(
                 CONTEXT_PATH, loaded.appSettings().agentContextPath(), "context path should load");
+        assertEquals(
+                Defaults.appSettings().pullRequestFilters(),
+                loaded.appSettings().pullRequestFilters(),
+                "default pull request filters should load");
     }
 
     @Test
@@ -158,8 +165,7 @@ class AppStatePersistenceTest {
                         THEME,
                         Defaults.appSettings().tools(),
                         "custom/{sessionSlug}",
-                        CONTEXT_PATH,
-                        Defaults.DEFAULT_REVIEW_PLAN_PROMPT));
+                        CONTEXT_PATH));
 
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
             persistence.persist();
@@ -218,7 +224,6 @@ class AppStatePersistenceTest {
                 CONTEXT_PATH,
                 loaded.appSettings().agentContextPath(),
                 "context path should be read from settings");
-        assertEquals("plan", loaded.appSettings().reviewPlanPrompt(), "plan prompt should load");
         assertEquals(1, loaded.appSettings().agents().size(), "agent should load from settings");
     }
 
