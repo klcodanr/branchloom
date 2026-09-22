@@ -295,7 +295,7 @@ class CoreLogicTest {
         assertEquals("", defaults.agentContextPath(), "context path should default to blank");
         assertEquals(
                 List.of(
-                        new PullRequestFilter("Active", "(assignee:@me OR author:@me)"),
+                        new PullRequestFilter("My PRs", "author:@me"),
                         new PullRequestFilter("Reviewable", "review-requested:@me -status:failure"),
                         new PullRequestFilter(
                                 "My Reviews",

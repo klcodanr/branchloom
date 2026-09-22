@@ -14,7 +14,7 @@ public record AppSettings(
     private static final String DEFAULT_WORKTREE_TEMPLATE =
             "{projectPath}/../{projectName}-{sessionSlug}";
     private static final PullRequestFilter ACTIVE_FILTER =
-            new PullRequestFilter("Active", "(assignee:@me OR author:@me)");
+            new PullRequestFilter("My PRs", "author:@me");
     private static final PullRequestFilter REVIEWABLE_FILTER =
             new PullRequestFilter("Reviewable", "review-requested:@me -status:failure");
     private static final PullRequestFilter MY_REVIEWS_FILTER =
