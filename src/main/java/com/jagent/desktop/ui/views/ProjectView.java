@@ -29,7 +29,7 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
 public final class ProjectView extends AbstractWorkspaceView {
-    private static final String DEFAULT_FILTER = "Active";
+    private static final String DEFAULT_FILTER = "My PRs";
     private static final String REVIEWABLE_FILTER = "Reviewable";
     private final transient Project project;
     private final transient ProjectId projectId;

@@ -17,7 +17,7 @@ import javax.swing.JPanel;
 
 /** Pull requests authored by the current user across all projects. */
 public final class MyPullRequestsView extends JPanel implements View {
-    private static final String DEFAULT_FILTER = "Active";
+    private static final String DEFAULT_FILTER = "My PRs";
     private final transient PullRequestCache pullRequestCache;
     private final JComboBox<PullRequestFilter> filters;
     private final PullRequestsBoard board;
