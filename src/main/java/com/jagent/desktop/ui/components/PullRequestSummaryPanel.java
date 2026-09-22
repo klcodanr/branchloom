@@ -101,7 +101,12 @@ public final class PullRequestSummaryPanel extends JPanel {
                                 "Checks")));
         facts.add(
                 factsLine(
-                        iconValue(UiIcons.gitCompare(), changesHtml(request), "Changes"),
+                        iconValue(
+                                UiIcons.gitCompare(),
+                                changesHtml(request),
+                                "Changes",
+                                UIManager.getColor(LABEL_FOREGROUND),
+                                changesTooltip(request)),
                         iconValue(
                                 UiIcons.pullRequestCreate(),
                                 offsetOnly(request.createdAt(), now),
@@ -143,6 +148,15 @@ public final class PullRequestSummaryPanel extends JPanel {
 
     private static JPanel iconValue(
             final Icon icon, final String value, final String tooltip, final Color color) {
+        return iconValue(icon, value, tooltip, color, value);
+    }
+
+    private static JPanel iconValue(
+            final Icon icon,
+            final String value,
+            final String tooltip,
+            final Color color,
+            final String tooltipValue) {
         final JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, UiConstants.SPACING_XS, 0));
         row.setOpaque(false);
         row.setToolTipText(tooltip);
@@ -151,7 +165,7 @@ public final class PullRequestSummaryPanel extends JPanel {
         iconLabel.setVerticalAlignment(SwingConstants.TOP);
         row.add(iconLabel);
         final JLabel text = UiFactory.label(value, Theme.FontSize.SM);
-        text.setToolTipText(tooltip + ": " + value);
+        text.setToolTipText(tooltip + ": " + tooltipValue);
         if (color != null) {
             text.setForeground(color);
         }
@@ -234,6 +248,15 @@ public final class PullRequestSummaryPanel extends JPanel {
                 + "  files "
                 + request.changedFiles()
                 + "</html>";
+    }
+
+    private static String changesTooltip(final PullRequest request) {
+        return "+"
+                + request.additions()
+                + "  -"
+                + request.deletions()
+                + " files "
+                + request.changedFiles();
     }
 
     private static Color mergeStatusColor(final PullRequest request) {

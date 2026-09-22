@@ -237,4 +237,21 @@ class PresentationHelpersTest {
                 ((JLabel) first.getComponent(2)).getText(),
                 "path should be rendered");
     }
+
+    @Test
+    void doesNotExposeChangesMarkupInTooltip() {
+        final PullRequest request =
+                new PullRequest(
+                        null, 12, "Fix", "", "", "", "", "", "", CLEAN, false, "author", "branch",
+                        63, 178, 5, 4, 5, "PASSING");
+        final PullRequestSummaryPanel panel = new PullRequestSummaryPanel();
+
+        panel.render(request);
+
+        final JPanel facts = (JPanel) ((JPanel) panel.getComponent(0)).getComponent(2);
+        final JPanel changes = (JPanel) ((JPanel) facts.getComponent(1)).getComponent(0);
+        final JLabel value = (JLabel) changes.getComponent(1);
+        assertEquals(
+                false, value.getToolTipText().contains("<html>"), "tooltip should not expose HTML");
+    }
 }
