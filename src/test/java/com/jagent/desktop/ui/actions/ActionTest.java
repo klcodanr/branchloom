@@ -9,7 +9,9 @@ import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.Project;
+import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
+import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundJobs;
 import com.jagent.desktop.services.PlatformCommands;
@@ -374,6 +376,27 @@ class ActionTest {
     }
 
     @Test
+    void removingUnselectedSessionDoesNotNavigateToItsProject() throws InvalidObjectException {
+        final AppState state = TestAppState.empty();
+        final var projectId =
+                state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
+        final var removedSessionId =
+                state.addSession(projectId, new Session(projectId, "Removed", null, null, null));
+        final var selectedSessionId =
+                state.addSession(projectId, new Session(projectId, "Selected", null, null, null));
+        final var coordinator = new ViewCoordinator(state);
+        coordinator.updateView(
+                ViewId.SESSION, ViewCoordinator.ViewState.session(projectId, selectedSessionId));
+        final var action = new RemoveSessionActionStub(new ActionContext(coordinator, state, null));
+
+        action.removeSessionForTest(state, removedSessionId, projectId);
+
+        assertEquals(ViewId.SESSION, coordinator.currentViewId(), ASSERTION_MESSAGE);
+        assertEquals(selectedSessionId, state.currentSessionId(), ASSERTION_MESSAGE);
+        assertTrue(state.sessions().containsKey(selectedSessionId), ASSERTION_MESSAGE);
+    }
+
+    @Test
     void removeSessionReportsValidationFailure() throws IOException, InterruptedException {
         final AppState state = TestAppState.empty();
         final Path repository = tempDirectory.resolve(REPOSITORY_DIRECTORY);
@@ -430,6 +453,11 @@ class ActionTest {
         @Override
         protected void failRemoval(final BackgroundJobs.Handle job, final Throwable failure) {
             job.fail(failure.getMessage());
+        }
+
+        private void removeSessionForTest(
+                final AppState state, final SessionId sessionId, final ProjectId projectId) {
+            removeSession(state, sessionId, projectId);
         }
     }
 

@@ -208,9 +208,14 @@ public class RemoveSessionAction extends BaseAction {
                 actionContext.window(), message, TITLE, JOptionPane.ERROR_MESSAGE);
     }
 
-    private void removeSession(
+    protected void removeSession(
             final AppState state, final SessionId sessionId, final ProjectId projectId) {
+        final boolean selected = sessionId.equals(state.currentSessionId());
         state.removeSession(sessionId);
-        actionContext.viewCoordinator().updateView(ViewId.PROJECT, ViewState.project(projectId));
+        if (selected) {
+            actionContext
+                    .viewCoordinator()
+                    .updateView(ViewId.PROJECT, ViewState.project(projectId));
+        }
     }
 }
