@@ -7,6 +7,7 @@ import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
 import com.jagent.desktop.services.terminal.TerminalState;
+import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.utils.ClipboardImagePaster;
 import com.jediterm.core.Color;
 import com.jediterm.terminal.TerminalColor;
@@ -23,6 +24,7 @@ import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Point;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
@@ -35,8 +37,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import javax.swing.BoundedRangeModel;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollBar;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
@@ -276,6 +280,8 @@ public final class TerminalPanel extends JPanel {
     }
 
     private static final class AppJediTermWidget extends JediTermWidget {
+        private boolean linkActivationAllowed;
+
         private AppJediTermWidget(
                 final int columns,
                 final int rows,
@@ -285,11 +291,14 @@ public final class TerminalPanel extends JPanel {
                 final Consumer<String> titleChanged) {
             super(columns, rows, settings);
             myTerminal.addApplicationTitleListener(titleChanged::accept);
-            addHyperlinkFilter(new TerminalLinkFilter(PlatformCommands::openUrl));
+            addHyperlinkFilter(
+                    new TerminalLinkFilter(
+                            PlatformCommands::openUrl, this::isLinkActivationAllowed));
             addHyperlinkFilter(
                     new TerminalFileLinkFilter(
                             directory,
-                            link -> TerminalFileLinkOpener.open(link, directory, owner)));
+                            link -> TerminalFileLinkOpener.open(link, directory, owner),
+                            this::isLinkActivationAllowed));
             getTerminalPanel()
                     .addCustomKeyListener(
                             new KeyAdapter() {
@@ -314,6 +323,10 @@ public final class TerminalPanel extends JPanel {
                             });
         }
 
+        private boolean isLinkActivationAllowed() {
+            return linkActivationAllowed;
+        }
+
         @Override
         protected JScrollBar createScrollBar() {
             final JScrollBar bar = new AppScrollBar();
@@ -326,7 +339,8 @@ public final class TerminalPanel extends JPanel {
                 final com.jediterm.terminal.ui.settings.SettingsProvider settings,
                 final StyleState styleState,
                 final TerminalTextBuffer textBuffer) {
-            return new AppTerminalPanel(settings, textBuffer, styleState);
+            return new AppTerminalPanel(
+                    settings, textBuffer, styleState, allowed -> linkActivationAllowed = allowed);
         }
     }
 
@@ -337,12 +351,16 @@ public final class TerminalPanel extends JPanel {
 
     private static final class AppTerminalPanel extends com.jediterm.terminal.ui.TerminalPanel {
         private transient TerminalStarter terminalStarter;
+        private transient Point lastMousePoint;
+        private final transient Consumer<Boolean> linkActivationChanged;
 
         private AppTerminalPanel(
                 final com.jediterm.terminal.ui.settings.SettingsProvider settings,
                 final TerminalTextBuffer textBuffer,
-                final StyleState styleState) {
+                final StyleState styleState,
+                final Consumer<Boolean> linkActivationChanged) {
             super(settings, textBuffer, styleState);
+            this.linkActivationChanged = linkActivationChanged;
             setTransferHandler(
                     new TransferHandler() {
                         @Override
@@ -376,6 +394,50 @@ public final class TerminalPanel extends JPanel {
                             }
                         }
                     });
+        }
+
+        @Override
+        protected void processMouseEvent(final java.awt.event.MouseEvent event) {
+            lastMousePoint = event.getPoint();
+            linkActivationChanged.accept(
+                    event.getID() == java.awt.event.MouseEvent.MOUSE_CLICKED
+                            && event.getButton() == java.awt.event.MouseEvent.BUTTON1
+                            && (event.isControlDown() || event.isMetaDown()));
+            super.processMouseEvent(event);
+            linkActivationChanged.accept(false);
+        }
+
+        @Override
+        protected JPopupMenu createPopupMenu(
+                final com.jediterm.terminal.ui.TerminalActionProvider actionProvider) {
+            final JPopupMenu menu = super.createPopupMenu(actionProvider);
+            final String link = linkAt(lastMousePoint);
+            if (link != null) {
+                final JMenuItem copyLink = new JMenuItem("Copy Link");
+                copyLink.addActionListener(ignored -> CopyPathAction.copy(link));
+                menu.addSeparator();
+                menu.add(copyLink);
+            }
+            return menu;
+        }
+
+        private String linkAt(final Point point) {
+            if (point == null || myCharSize.width <= 0 || myCharSize.height <= 0) {
+                return null;
+            }
+            final int column = Math.max(0, point.x / myCharSize.width);
+            final int row = Math.max(0, point.y / myCharSize.height);
+            if (row >= getTerminalTextBuffer().getHeight()
+                    || column >= getTerminalTextBuffer().getWidth()) {
+                return null;
+            }
+            final var style = getTerminalTextBuffer().getStyleAt(column, row);
+            if (!(style instanceof com.jediterm.terminal.HyperlinkStyle hyperlink)) {
+                return null;
+            }
+            return hyperlink.getLinkInfo() instanceof TerminalLinkInfo linkInfo
+                    ? linkInfo.value()
+                    : null;
         }
 
         @Override

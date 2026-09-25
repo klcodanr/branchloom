@@ -1,10 +1,10 @@
 package com.jagent.desktop.ui.components;
 
 import com.jediterm.terminal.model.hyperlinks.HyperlinkFilter;
-import com.jediterm.terminal.model.hyperlinks.LinkInfo;
 import com.jediterm.terminal.model.hyperlinks.LinkResult;
 import com.jediterm.terminal.model.hyperlinks.LinkResultItem;
 import java.util.ArrayList;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -14,9 +14,16 @@ final class TerminalLinkFilter implements HyperlinkFilter {
     private static final Pattern URL_PATTERN =
             Pattern.compile("(?i)\\bhttps?://(?:[^\\s<>\\[\\]{}\"']|\\R)+");
     private final Consumer<String> openUrl;
+    private final BooleanSupplier activationAllowed;
 
     protected TerminalLinkFilter(final Consumer<String> openUrl) {
+        this(openUrl, () -> true);
+    }
+
+    protected TerminalLinkFilter(
+            final Consumer<String> openUrl, final BooleanSupplier activationAllowed) {
         this.openUrl = openUrl;
+        this.activationAllowed = activationAllowed;
     }
 
     @Override
@@ -30,7 +37,8 @@ final class TerminalLinkFilter implements HyperlinkFilter {
                         new LinkResultItem(
                                 matcher.start(),
                                 matcher.start() + url.length(),
-                                new LinkInfo(() -> openUrl.accept(url))));
+                                new TerminalLinkInfo(
+                                        url, activationAllowed, () -> openUrl.accept(url))));
             }
         }
         return links.isEmpty() ? null : new LinkResult(links);

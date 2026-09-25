@@ -1,12 +1,12 @@
 package com.jagent.desktop.ui.components;
 
 import com.jediterm.terminal.model.hyperlinks.HyperlinkFilter;
-import com.jediterm.terminal.model.hyperlinks.LinkInfo;
 import com.jediterm.terminal.model.hyperlinks.LinkResult;
 import com.jediterm.terminal.model.hyperlinks.LinkResultItem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -17,11 +17,20 @@ final class TerminalFileLinkFilter implements HyperlinkFilter {
     private static final Pattern LOCATION = Pattern.compile("^(.+?)(?::(\\d+))?(?::(\\d+))?$");
     private final Path directory;
     private final Consumer<TerminalFileLink> openFile;
+    private final BooleanSupplier activationAllowed;
 
     protected TerminalFileLinkFilter(
             final Path directory, final Consumer<TerminalFileLink> openFile) {
+        this(directory, openFile, () -> true);
+    }
+
+    protected TerminalFileLinkFilter(
+            final Path directory,
+            final Consumer<TerminalFileLink> openFile,
+            final BooleanSupplier activationAllowed) {
         this.directory = directory.toAbsolutePath().normalize();
         this.openFile = openFile;
+        this.activationAllowed = activationAllowed;
     }
 
     @Override
@@ -37,7 +46,10 @@ final class TerminalFileLinkFilter implements HyperlinkFilter {
                         new LinkResultItem(
                                 start,
                                 start + candidate.length(),
-                                new LinkInfo(() -> openFile.accept(link))));
+                                new TerminalLinkInfo(
+                                        candidate,
+                                        activationAllowed,
+                                        () -> openFile.accept(link))));
             }
         }
         return links.isEmpty() ? null : new LinkResult(links);

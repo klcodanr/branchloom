@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
@@ -42,5 +43,21 @@ class TerminalLinkFilterTest {
         assertEquals(1, result.getItems().size(), "a URL may span terminal lines");
         result.getItems().getFirst().getLinkInfo().navigate();
         assertEquals("https://example.com/long-path", opened.get(), "line breaks are not URL data");
+    }
+
+    @Test
+    void onlyNavigatesWhenActivationIsAllowed() {
+        final var opened = new AtomicReference<String>();
+        final var allowed = new AtomicBoolean();
+        final var result =
+                new TerminalLinkFilter(opened::set, allowed::get).apply("https://example.com");
+
+        assertNotNull(result, "the URL should be detected");
+        result.getItems().getFirst().getLinkInfo().navigate();
+        assertNull(opened.get(), "ordinary clicks should not navigate links");
+
+        allowed.set(true);
+        result.getItems().getFirst().getLinkInfo().navigate();
+        assertEquals("https://example.com", opened.get(), "modified clicks should navigate links");
     }
 }
