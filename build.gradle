@@ -23,7 +23,7 @@ dependencies {
     implementation 'com.formdev:flatlaf-extras:3.7.2'
     implementation 'com.google.code.gson:gson:2.14.0'
     implementation 'org.kohsuke:github-api:1.330'
-    implementation 'org.commonmark:commonmark:0.22.0'
+    implementation 'org.commonmark:commonmark:0.30.0'
     implementation 'com.github.javakeyring:java-keyring:1.0.4'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.2.2'
     implementation 'org.jetbrains.pty4j:pty4j:0.13.13'
