@@ -120,7 +120,7 @@ def macIconPath = file('src/main/resources/Branchloom.icns').absolutePath
 def configuredJarName = tasks.named('jar').get().archiveFileName.get()
 
 java {
-    toolchain { languageVersion = JavaLanguageVersion.of(25) }
+    toolchain { languageVersion = JavaLanguageVersion.of(27) }
 }
 
 spotless {
@@ -139,6 +139,12 @@ pmd {
     ignoreFailures = false
     ruleSets = []
     ruleSetFiles = files('config/pmd/pmd-ruleset.xml')
+}
+
+tasks.withType(Pmd).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
 }
 
 tasks.named('pmdTest') {
@@ -188,7 +194,7 @@ tasks.register('ciTest') {
 
 
 def jpackageJava = javaToolchains.launcherFor {
-    languageVersion = JavaLanguageVersion.of(25)
+    languageVersion = JavaLanguageVersion.of(27)
 }
 
 def jpackageExecutable = {
@@ -323,7 +329,7 @@ tasks.register('dev') {
         }
 
         def javaExecutable = javaToolchains.launcherFor {
-            languageVersion = JavaLanguageVersion.of(25)
+            languageVersion = JavaLanguageVersion.of(27)
         }.get().executablePath.asFile.absolutePath
         def classpath = sourceSets.main.runtimeClasspath.asPath
         def startApplication = {
