@@ -27,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.StreamSupport;
 import org.kohsuke.github.GHCheckRun;
 import org.kohsuke.github.GHIssueState;
@@ -49,12 +50,7 @@ public final class GitHub {
     private static final String DEFAULT_HOST = "github.com";
     private static final String CLI_CONNECTION_ID = "github-cli";
     private static final Logger LOG = LoggerFactory.getLogger(GitHub.class);
-    private static final GitHubTokenFactory TOKEN_FACTORY =
-            new GitHubTokenFactory(
-                    new PersonalAccessTokenProvider(
-                            new KeyringCredentialStore(), GitHubTokenExpiration.http()),
-                    new CliTokenProvider(),
-                    Clock.systemUTC());
+    private static final GitHubTokenFactory TOKEN_FACTORY = createTokenFactory();
     private static final Duration CACHE_EXPIRATION = Duration.ofHours(1);
     private static final long CACHE_MAXIMUM_SIZE = 512;
     private static final int CORE_RATE_LIMIT_BUFFER = 1;
@@ -112,7 +108,42 @@ public final class GitHub {
 
     private GitHub() {}
 
+    private static GitHubTokenFactory createTokenFactory() {
+        CredentialStore credentialStore;
+        try {
+            credentialStore = new KeyringCredentialStore();
+        } catch (RuntimeException exception) {
+            LOG.warn(
+                    "OS keyring unavailable; using in-memory credential store for this run",
+                    exception);
+            credentialStore = new InMemoryCredentialStore();
+        }
+        return new GitHubTokenFactory(
+                new PersonalAccessTokenProvider(credentialStore, GitHubTokenExpiration.http()),
+                new CliTokenProvider(),
+                Clock.systemUTC());
+    }
+
     public record Issue(int number, String title, String body, String url) {}
+
+    private static final class InMemoryCredentialStore implements CredentialStore {
+        private final Map<String, String> secrets = new HashMap<>();
+
+        @Override
+        public void put(final String key, final String secret) {
+            secrets.put(key, secret);
+        }
+
+        @Override
+        public Optional<String> get(final String key) {
+            return Optional.ofNullable(secrets.get(key));
+        }
+
+        @Override
+        public void delete(final String key) {
+            secrets.remove(key);
+        }
+    }
 
     public static List<Auth> configuredAuths(final AppState state) {
         final List<Auth> auths = new ArrayList<>(cliAuths());
