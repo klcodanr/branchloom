@@ -8,7 +8,7 @@ import java.awt.geom.AffineTransform;
 import javax.swing.Icon;
 
 /** An icon that rotates in place when repainted. */
-final class RotatingIcon implements Icon {
+public final class RotatingIcon implements Icon {
     private final Icon delegate;
     private double angle;
 

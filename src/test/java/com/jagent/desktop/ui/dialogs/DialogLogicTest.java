@@ -5,9 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.Agent;
+import com.jagent.desktop.models.GitHubUser;
+import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequest.State;
 import com.jagent.desktop.services.GitHub.Issue;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -41,28 +47,24 @@ class DialogLogicTest {
     }
 
     @Test
-    void reviewPromptSubstitutesRequestDetailsAndRejectsBlankPrompts() {
+    void reviewPromptSubstitutesRequestDetailsAndRejectsBlankPrompts()
+            throws MalformedURLException {
+        final Project project = new Project("Demo", "/tmp/demo", null);
         final PullRequest request =
                 new PullRequest(
                         ProjectId.create(),
+                        project,
                         12,
+                        State.OPEN,
                         "Improve tests",
                         "description",
-                        "comments",
-                        "https://example.test/12",
-                        "created",
-                        "updated",
-                        "APPROVED",
-                        "MERGEABLE",
-                        false,
-                        "author",
+                        new URL("https://example.test/12"),
+                        new Date(),
+                        new Date(),
+                        new GitHubUser("author", new URL("https://example.test/author")),
                         "branch",
-                        7,
-                        1,
-                        1,
-                        1,
-                        1,
-                        "PASSING");
+                        "1234567",
+                        "main");
 
         assertEquals(
                 "Review #12: Improve tests",

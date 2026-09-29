@@ -112,7 +112,7 @@ public final class UiFactory {
     }
 
     public static JTextArea selectableText(final String text, final Theme.FontSize size) {
-        final JTextArea area = new JTextArea(text == null ? "" : text);
+        final JTextArea area = new JTextArea(UiText.valueOrDefault(text, ""));
         configureTextAreaTraversal(area);
         area.setFont(Theme.font(size));
         area.setEditable(false);

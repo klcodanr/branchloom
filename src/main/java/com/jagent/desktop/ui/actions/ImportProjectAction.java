@@ -13,14 +13,15 @@ import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.CompletionException;
-import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Starts importing a project from a remote Git repository. */
 public final class ImportProjectAction extends BaseAction {
     private static final String TITLE = "Clone remote project";
-    private static final Logger LOG = Logger.getLogger(ImportProjectAction.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(ImportProjectAction.class);
     private final String targetGroup;
 
     public ImportProjectAction(final ActionContext actionContext) {
@@ -47,7 +48,10 @@ public final class ImportProjectAction extends BaseAction {
         final ProgressOperation progress =
                 ProgressOperation.start(
                         actionContext.window(), TITLE, "Loading GitHub accounts...");
-        BackgroundTasks.submit("Operations", "Load GitHub accounts", GitHub::configuredAuths)
+        BackgroundTasks.submit(
+                        "Operations",
+                        "Load GitHub accounts",
+                        () -> GitHub.configuredAuths(actionContext.appState()))
                 .whenComplete(
                         (configuredAuths, failure) ->
                                 SwingUtilities.invokeLater(
@@ -80,7 +84,7 @@ public final class ImportProjectAction extends BaseAction {
         final ProgressOperation progress =
                 ProgressOperation.start(actionContext.window(), TITLE, "Cloning repository...");
         new Git()
-                .cloneRepository(request.remote(), destinationPath, request.auth())
+                .cloneRepository(request.remote(), destinationPath)
                 .whenCompleteAsync(
                         (ignored, failure) -> {
                             progress.close();
@@ -90,12 +94,15 @@ public final class ImportProjectAction extends BaseAction {
                                                         && failure.getCause() != null
                                                 ? failure.getCause()
                                                 : failure;
-                                LOG.warning("Clone remote project failed: " + cause.getMessage());
+                                LOG.warn("Clone remote project failed: {}", cause.getMessage());
                                 showError("Could not clone the repository:\n" + message(cause));
                                 return;
                             }
                             final Project project =
-                                    new Project(projectName, destinationPath.toString(), null);
+                                    new Project(
+                                            projectName,
+                                            destinationPath.toString(),
+                                            request.auth());
                             final var projectId =
                                     actionContext
                                             .appState()
@@ -110,7 +117,7 @@ public final class ImportProjectAction extends BaseAction {
                         SwingUtilities::invokeLater);
     }
 
-    private String registrationFailure(final String projectName, final Path destination) {
+    protected String registrationFailure(final String projectName, final Path destination) {
         if (actionContext.appState().projects().values().stream()
                 .anyMatch(project -> project.name().equalsIgnoreCase(projectName))) {
             return "A project with that name is already registered.";
@@ -132,7 +139,7 @@ public final class ImportProjectAction extends BaseAction {
         }
     }
 
-    private static String message(final Throwable failure) {
+    protected static String message(final Throwable failure) {
         return failure.getMessage() == null || failure.getMessage().isBlank()
                 ? "Git did not provide more details."
                 : failure.getMessage();

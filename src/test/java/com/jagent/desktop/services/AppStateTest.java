@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.jagent.desktop.models.GitHubConnection;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
@@ -177,5 +178,41 @@ class AppStateTest {
         assertNull(state.currentProjectId(), "current project should be cleared");
         assertNull(state.currentSessionId(), "current session should be cleared");
         assertNull(state.currentTerminalId(), "current terminal should be cleared");
+    }
+
+    @Test
+    void removingGitHubConnectionClearsProjectConnectionReference() {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final String connectionId = "connection-id";
+        state.addGitHubConnection(
+                new GitHubConnection(
+                        connectionId,
+                        "GitHub connection",
+                        "github.com",
+                        null,
+                        true,
+                        "github:" + connectionId));
+        final Project project =
+                new Project(
+                        DEMO,
+                        DEMO_PATH,
+                        null,
+                        "github.com",
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        List.of(),
+                        null,
+                        null,
+                        connectionId);
+        final ProjectId projectId = state.addProject(project);
+
+        state.removeGitHubConnection(connectionId);
+
+        assertTrue(state.githubConnections().isEmpty(), "connection should be removed");
+        assertNull(
+                state.projects().get(projectId).githubConnectionId(),
+                "project connection ID should be cleared");
     }
 }

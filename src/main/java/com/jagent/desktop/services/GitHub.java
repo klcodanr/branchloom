@@ -1,432 +1,668 @@
 package com.jagent.desktop.services;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-import com.jagent.desktop.api.PullRequestInfo;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.jagent.desktop.models.GitHubConnection;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestCheck;
+import com.jagent.desktop.models.PullRequestChecks;
+import com.jagent.desktop.models.PullRequestDetails;
+import com.jagent.desktop.models.PullRequestReview;
+import com.jagent.desktop.models.PullRequestReviews;
+import com.jagent.desktop.ui.components.UiText;
 import java.io.IOException;
-import java.lang.reflect.Type;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.logging.Logger;
-import java.util.stream.Stream;
+import java.util.Optional;
+import java.util.stream.StreamSupport;
+import org.kohsuke.github.GHCheckRun;
+import org.kohsuke.github.GHIssueState;
+import org.kohsuke.github.GHObject;
+import org.kohsuke.github.GHPullRequest;
+import org.kohsuke.github.GHRepository;
+import org.kohsuke.github.GitHubAbuseLimitHandler;
+import org.kohsuke.github.GitHubBuilder;
+import org.kohsuke.github.GitHubRateLimitHandler;
+import org.kohsuke.github.RateLimitChecker;
+import org.kohsuke.github.RateLimitTarget;
+import org.kohsuke.github.connector.GitHubConnector;
+import org.kohsuke.github.connector.GitHubConnectorRequest;
+import org.kohsuke.github.connector.GitHubConnectorResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+@SuppressWarnings({"PMD.GodClass", "PMD.CommentDefaultAccessModifier"})
 public final class GitHub {
-    private static final Logger LOG = Logger.getLogger(GitHub.class.getName());
-    private static final Gson JSON = new Gson();
-    private static final Type CHECKS_TYPE = new TypeToken<List<PullRequestCheck>>() {}.getType();
-    private static final int PR_PAGE_SIZE = 25;
-    private static final int ISSUE_PAGE_SIZE = 50;
-    private static final int RECENT_COMMENT_LIMIT = 5;
-    private static final String TSV_SEPARATOR = "\\t";
-    private static final String PR_QUERY =
-            "query($search:String!, $endCursor:String, $pageSize:Int!) {"
-                    + " search(query:$search, type:ISSUE, first:$pageSize, after:$endCursor) {"
-                    + " nodes { ... on PullRequest { number title bodyHTML url createdAt updatedAt isDraft"
-                    + " reviewDecision mergeable mergeStateStatus author { login } headRefName"
-                    + " additions deletions changedFiles"
-                    + " comments(last:"
-                    + RECENT_COMMENT_LIMIT
-                    + ") { nodes { bodyText author { login } } }"
-                    + " statusCheckRollup { contexts(first:100) { nodes {"
-                    + " ... on CheckRun { name detailsUrl conclusion status summary title }"
-                    + " ... on StatusContext { context targetUrl description state }"
-                    + " } } } } }"
-                    + " pageInfo { hasNextPage endCursor } } }";
-    private static final String ISSUE_QUERY =
-            "query($search:String!, $endCursor:String, $pageSize:Int!) {"
-                    + " search(query:$search, type:ISSUE, first:$pageSize, after:$endCursor) {"
-                    + " nodes { ... on Issue { number title bodyText url } }"
-                    + " pageInfo { hasNextPage endCursor } } }";
-    private static final String ISSUE_JQ =
-            ".data.search.nodes[] | [.number, .title, (.bodyText // \"\" | gsub(\"[\\\\t\\\\r\\\\n]+\"; \" \") ), .url] | @tsv";
-    private static final String PR_JQ =
-            ".data.search.nodes[] | [.number, .title, (.bodyHTML // \"\"), ([.comments.nodes[]?"
-                    + " | ((.author.login // \"unknown\") + \": \" + (.bodyText // \"\")"
-                    + " | gsub(\"[\\\\t\\\\r\\\\n]+\"; \" \") )] | join(\" | \") ),"
-                    + " .url, .createdAt, .updatedAt, .reviewDecision,"
-                    + " (if .mergeStateStatus != null and .mergeStateStatus != \"UNKNOWN\""
-                    + " then .mergeStateStatus else .mergeable end),"
-                    + " .isDraft, .author.login, .headRefName, .additions, .deletions,"
-                    + " .changedFiles,"
-                    + " ([.statusCheckRollup.contexts.nodes[]?"
-                    + " | select((.conclusion // .state) == \"SUCCESS\""
-                    + " or (.conclusion // .state) == \"SKIPPED\""
-                    + " or (.conclusion // .state) == \"NEUTRAL\")] | length),"
-                    + " (.statusCheckRollup.contexts.nodes | length),"
-                    + " (if any(.statusCheckRollup.contexts.nodes[]?;"
-                    + " (.conclusion // .state) == \"FAILURE\""
-                    + " or (.conclusion // .state) == \"ERROR\") then \"FAILING\""
-                    + " elif any(.statusCheckRollup.contexts.nodes[]?;"
-                    + " (.status // \"\") != \"COMPLETED\" and (.state // \"\") != \"SUCCESS\""
-                    + " and (.state // \"\") != \"FAILURE\") then \"PENDING\""
-                    + " elif (.statusCheckRollup.contexts.nodes | length) == 0 then \"UNKNOWN\""
-                    + " else \"PASSING\" end),"
-                    + " ([.statusCheckRollup.contexts.nodes[]?"
-                    + " | {name:(.name // .context // \"Check\"),"
-                    + " status:(.status // .state // \"UNKNOWN\"),"
-                    + " conclusion:(.conclusion // .state // \"\"),"
-                    + " detailsUrl:(.detailsUrl // .targetUrl // \"\"),"
-                    + " details:(.summary // .title // .description // \"\")}] | @json)]"
-                    + " | @tsv";
+    private static final String DEFAULT_HOST = "github.com";
+    private static final String CLI_CONNECTION_ID = "github-cli";
+    private static final Logger LOG = LoggerFactory.getLogger(GitHub.class);
+    private static final GitHubTokenFactory TOKEN_FACTORY = createTokenFactory();
+    private static final Duration CACHE_EXPIRATION = Duration.ofHours(1);
+    private static final long CACHE_MAXIMUM_SIZE = 512;
+    private static final int CORE_RATE_LIMIT_BUFFER = 1;
+    private static final int SEARCH_RATE_LIMIT_BUFFER = 1;
+    private static final Cache<RepositoryCacheKey, GHRepository> REPOSITORIES =
+            Caffeine.newBuilder()
+                    .maximumSize(CACHE_MAXIMUM_SIZE)
+                    .expireAfterWrite(CACHE_EXPIRATION)
+                    .build();
 
-    public record Auth(String host, String user) {
+    public record Auth(String host, String user, String connectionId, String displayName) {
+        public Auth(final String host, final String user) {
+            this(host, user, CLI_CONNECTION_ID, null);
+        }
+
+        public Auth(final String host, final String user, final String connectionId) {
+            this(host, user, connectionId, null);
+        }
+
+        public GitHubConnection connection() {
+            return isCli()
+                    ? new GitHubConnection(
+                            connectionId == null ? CLI_CONNECTION_ID : connectionId,
+                            "GitHub CLI",
+                            host,
+                            user,
+                            false,
+                            null)
+                    : new GitHubConnection(
+                            connectionId, label(), host, user, true, "github:" + connectionId);
+        }
+
         @Override
         public String toString() {
-            return user + " (" + host + ")";
+            return label();
+        }
+
+        private String label() {
+            return isCli()
+                    ? UiText.valueOrDefault(user, "GitHub CLI") + " (" + host + ")"
+                    : (displayName == null || displayName.isBlank()
+                                    ? "Personal access token"
+                                    : displayName)
+                            + " ("
+                            + host
+                            + ")";
+        }
+
+        public boolean isCli() {
+            return connectionId == null
+                    || CLI_CONNECTION_ID.equals(connectionId)
+                    || connectionId.startsWith(CLI_CONNECTION_ID + ":");
         }
     }
 
     private GitHub() {}
 
-    public record PullRequestDetails(
-            int number,
-            String title,
-            String state,
-            String reviewDecision,
-            String mergeState,
-            String url,
-            boolean draft,
-            int checksPassed,
-            int checksTotal,
-            String checksStatus)
-            implements PullRequestInfo {}
+    private static GitHubTokenFactory createTokenFactory() {
+        CredentialStore credentialStore;
+        try {
+            credentialStore = new KeyringCredentialStore();
+        } catch (RuntimeException exception) {
+            LOG.warn(
+                    "OS keyring unavailable; using in-memory credential store for this run",
+                    exception);
+            credentialStore = new InMemoryCredentialStore();
+        }
+        return new GitHubTokenFactory(
+                new PersonalAccessTokenProvider(credentialStore, GitHubTokenExpiration.http()),
+                new CliTokenProvider(),
+                Clock.systemUTC());
+    }
 
     public record Issue(int number, String title, String body, String url) {}
 
-    public static List<Auth> configuredAuths() {
+    private static final class InMemoryCredentialStore implements CredentialStore {
+        private final Map<String, String> secrets = new HashMap<>();
+
+        @Override
+        public void put(final String key, final String secret) {
+            secrets.put(key, secret);
+        }
+
+        @Override
+        public Optional<String> get(final String key) {
+            return Optional.ofNullable(secrets.get(key));
+        }
+
+        @Override
+        public void delete(final String key) {
+            secrets.remove(key);
+        }
+    }
+
+    public static List<Auth> configuredAuths(final AppState state) {
+        final List<Auth> auths = new ArrayList<>(cliAuths());
+        auths.addAll(state.githubConnections().values().stream().map(GitHub::auth).toList());
+        return List.copyOf(auths);
+    }
+
+    private static List<Auth> cliAuths() {
         try {
-            final String expression =
-                    ".hosts | to_entries[] | .key as $host | .value[] | [$host, .login] | @tsv";
-            final ProcessBuilder builder =
-                    PlatformCommands.prepare(
-                                    new ProcessBuilder(
-                                            PlatformCommands.executable("gh"),
-                                            "auth",
-                                            "status",
-                                            "--json",
-                                            "hosts",
-                                            "--jq",
-                                            expression))
-                            .redirectErrorStream(true);
-            final Process process = builder.start();
+            final Process process =
+                    new ProcessBuilder("gh", "auth", "status", "--json", "hosts")
+                            .redirectErrorStream(true)
+                            .start();
             final String output =
                     new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             if (process.waitFor() != 0) {
-                PlatformCommands.logFailure(builder, process.exitValue(), output);
-                return List.of();
+                return List.of(new Auth(DEFAULT_HOST, null, CLI_CONNECTION_ID));
             }
-            return output.lines()
-                    .map(line -> line.split(TSV_SEPARATOR, 2))
-                    .filter(
-                            values ->
-                                    values.length == 2
-                                            && !values[0].isBlank()
-                                            && !values[1].isBlank())
-                    .map(values -> new Auth(values[0], values[1]))
-                    .distinct()
-                    .toList();
+            try {
+                return parseCliAuths(output);
+            } catch (RuntimeException ignored) {
+                return List.of(new Auth(DEFAULT_HOST, null, CLI_CONNECTION_ID));
+            }
         } catch (IOException exception) {
-            return List.of();
+            return List.of(new Auth(DEFAULT_HOST, null, CLI_CONNECTION_ID));
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            return List.of();
+            return List.of(new Auth(DEFAULT_HOST, null, CLI_CONNECTION_ID));
         }
+    }
+
+    private static List<Auth> parseCliAuths(final String output) {
+        final JsonObject hosts =
+                JsonParser.parseString(output).getAsJsonObject().getAsJsonObject("hosts");
+        if (hosts == null || hosts.isEmpty()) {
+            return List.of(new Auth(DEFAULT_HOST, null, CLI_CONNECTION_ID));
+        }
+        final List<Auth> auths = new ArrayList<>();
+        for (final String host : hosts.keySet()) {
+            final JsonElement entries = hosts.get(host);
+            if (entries.isJsonArray()) {
+                entries.getAsJsonArray()
+                        .forEach(
+                                entry -> {
+                                    final JsonObject account = entry.getAsJsonObject();
+                                    final JsonElement login = account.get("login");
+                                    if (login != null && !login.isJsonNull()) {
+                                        final String user = login.getAsString();
+                                        auths.add(
+                                                new Auth(
+                                                        host,
+                                                        user,
+                                                        CLI_CONNECTION_ID
+                                                                + ":"
+                                                                + host
+                                                                + ":"
+                                                                + user));
+                                    }
+                                });
+            }
+        }
+        return auths.isEmpty()
+                ? List.of(new Auth(DEFAULT_HOST, null, CLI_CONNECTION_ID))
+                : List.copyOf(auths);
+    }
+
+    private static Auth auth(final GitHubConnection connection) {
+        return new Auth(connection.host(), connection.user(), connection.id(), connection.name());
     }
 
     public static List<PullRequest> loadForProject(
             final ProjectId projectId, final Project project, final String search)
             throws IOException, InterruptedException {
-        return load(projectId, project, Objects.requireNonNullElse(search, "").trim());
+        return loadForProject(projectId, project, search, Map.of());
     }
 
-    public static List<PullRequest> loadReviewRequestedForProject(
-            final ProjectId projectId, final Project project)
+    public static List<PullRequest> loadForProject(
+            final ProjectId projectId,
+            final Project project,
+            final String search,
+            final Map<String, GitHubConnection> configuredConnections)
             throws IOException, InterruptedException {
-        return Stream.concat(
-                        load(projectId, project, "review-requested:@me -author:@me").stream(),
-                        load(projectId, project, "reviewed-by:@me -author:@me").stream())
-                .distinct()
-                .toList();
+        return load(
+                projectId,
+                project,
+                Objects.requireNonNullElse(search, "").trim(),
+                configuredConnections);
     }
 
     public static List<Issue> loadIssuesForProject(final Project project)
             throws IOException, InterruptedException {
-        final Path projectPath = Path.of(project.path());
-        final String repository = repositoryName(projectPath);
-        if (repository == null) {
-            throw new IOException("No GitHub remote found for this project");
-        }
-        final String query =
-                "gh api graphql --paginate -F pageSize="
-                        + ISSUE_PAGE_SIZE
-                        + " -f search="
-                        + PlatformCommands.shellQuote("repo:" + repository + " is:issue is:open")
-                        + " -f query="
-                        + PlatformCommands.shellQuote(ISSUE_QUERY)
-                        + " --jq "
-                        + PlatformCommands.shellQuote(ISSUE_JQ);
-        final ProcessBuilder builder =
-                PlatformCommands.prepare(
-                                new ProcessBuilder(
-                                        PlatformCommands.shell(Git.githubCommand(project, query))))
-                        .directory(projectPath.toFile())
-                        .redirectErrorStream(true);
-        final Process process = builder.start();
-        final String output =
-                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        if (process.waitFor() != 0) {
-            PlatformCommands.logFailure(builder, process.exitValue(), output);
-            throw new IOException(output.trim());
-        }
-        final List<Issue> issues = new ArrayList<>();
-        for (final String line : output.split("\\R")) {
-            final String[] values = line.split(TSV_SEPARATOR, -1);
-            if (values.length >= 4) {
-                issues.add(new Issue(Integer.parseInt(values[0]), values[1], values[2], values[3]));
-            }
-        }
-        return issues;
+        final GHRepository repository = repository(project, Map.of());
+        return StreamSupport.stream(
+                        projectClient(project, Map.of())
+                                .searchIssues()
+                                .q("repo:" + repository.getFullName() + " is:issue is:open")
+                                .list()
+                                .spliterator(),
+                        false)
+                .map(
+                        issue ->
+                                new Issue(
+                                        issue.getNumber(),
+                                        issue.getTitle(),
+                                        issue.getBody(),
+                                        url(issue)))
+                .toList();
     }
 
-    public static PullRequestDetails loadCurrent(final Project project, final Path worktree)
+    public static PullRequest pullRequest(
+            final ProjectId projectId, final Project project, final Path worktree)
             throws IOException, InterruptedException {
-        final String command =
-                Git.githubCommand(
-                        project,
-                        "gh pr view --json number,title,state,url,reviewDecision,mergeable,mergeStateStatus,isDraft,statusCheckRollup --jq '[.number, .title, .state, .reviewDecision, (if .mergeStateStatus != null and .mergeStateStatus != \"UNKNOWN\" then .mergeStateStatus else .mergeable end), .url, .isDraft, ([.statusCheckRollup[]? | select((.conclusion // .state) == \"SUCCESS\" or (.conclusion // .state) == \"SKIPPED\" or (.conclusion // .state) == \"NEUTRAL\")] | length), (.statusCheckRollup | length), (if any(.statusCheckRollup[]?; (.conclusion // .state) == \"FAILURE\" or (.conclusion // .state) == \"ERROR\") then \"FAILING\" elif any(.statusCheckRollup[]?; (.status // \"\") != \"COMPLETED\" and (.state // \"\") != \"SUCCESS\" and (.state // \"\") != \"FAILURE\") then \"PENDING\" elif (.statusCheckRollup | length) == 0 then \"UNKNOWN\" else \"PASSING\" end)] | @tsv'");
-        final ProcessBuilder builder =
-                PlatformCommands.prepare(new ProcessBuilder(PlatformCommands.shell(command)))
-                        .directory(worktree.toFile())
-                        .redirectErrorStream(true);
-        final Process process = builder.start();
-        final String output =
-                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        if (process.waitFor() != 0) {
-            if (output.toLowerCase(java.util.Locale.ROOT).contains("no pull request")) {
-                LOG.info(
-                        () ->
-                                "PR status lookup finished: project="
-                                        + project.name()
-                                        + ", worktree="
-                                        + worktree
-                                        + ", result=no-pull-request");
-                throw new IOException("No pull request found");
-            }
-            PlatformCommands.logFailure(builder, process.exitValue(), output);
-            throw new IOException(output.trim());
+        return pullRequest(projectId, project, worktree, Map.of());
+    }
+
+    public static PullRequest pullRequest(
+            final ProjectId projectId,
+            final Project project,
+            final Path worktree,
+            final Map<String, GitHubConnection> configuredConnections)
+            throws IOException, InterruptedException {
+        final String branch = Git.currentBranch(worktree).trim();
+        final GHRepository repository = repository(project, configuredConnections);
+        final String fullName = repository.getFullName();
+        final int separator = fullName.indexOf('/');
+        final String owner = fullName.substring(0, separator);
+        final GHPullRequest request =
+                StreamSupport.stream(
+                                repository
+                                        .queryPullRequests()
+                                        .state(GHIssueState.OPEN)
+                                        .head(owner + ":" + branch)
+                                        .list()
+                                        .spliterator(),
+                                false)
+                        .findFirst()
+                        .orElseThrow(() -> new IOException("No pull request found"));
+
+        JsonLogging.info(
+                GitHub.class,
+                "PR status lookup finished",
+                Map.of(
+                        "project",
+                        project.name(),
+                        "worktree",
+                        worktree.toString(),
+                        "result",
+                        "found",
+                        "number",
+                        request.getNumber()));
+        return PullRequest.from(projectId, project, request);
+    }
+
+    public static PullRequestDetails pullRequestDetails(
+            final ProjectId projectId, final Project project, final int number)
+            throws IOException, InterruptedException {
+        return pullRequestDetails(projectId, project, number, Map.of());
+    }
+
+    public static PullRequestDetails pullRequestDetails(
+            final ProjectId projectId,
+            final Project project,
+            final int number,
+            final Map<String, GitHubConnection> configuredConnections)
+            throws IOException, InterruptedException {
+        return PullRequestDetails.fromPullRequest(
+                projectId,
+                project,
+                repository(project, configuredConnections).getPullRequest(number));
+    }
+
+    public static GHPullRequest nativePullRequest(final Project project, final int number)
+            throws IOException, InterruptedException {
+        return nativePullRequest(project, number, Map.of());
+    }
+
+    public static GHPullRequest nativePullRequest(
+            final Project project,
+            final int number,
+            final Map<String, GitHubConnection> configuredConnections)
+            throws IOException, InterruptedException {
+        return repository(project, configuredConnections).getPullRequest(number);
+    }
+
+    static String apiEndpoint(final Project project) {
+        final String host = fallbackConnection(project).host();
+        return apiEndpoint(host);
+    }
+
+    static String apiEndpoint(
+            final Project project, final Map<String, GitHubConnection> configuredConnections)
+            throws IOException {
+        final String host = connection(project, configuredConnections).host();
+        return apiEndpoint(host);
+    }
+
+    static String apiEndpoint(final String host) {
+        return DEFAULT_HOST.equalsIgnoreCase(host)
+                ? "https://api.github.com"
+                : "https://" + host + "/api/v3";
+    }
+
+    static String token(final Project project) throws IOException, InterruptedException {
+        return token(project, Map.of());
+    }
+
+    static String token(
+            final Project project, final Map<String, GitHubConnection> configuredConnections)
+            throws IOException, InterruptedException {
+        return TOKEN_FACTORY.token(connection(project, configuredConnections));
+    }
+
+    private static GitHubConnection fallbackConnection(final Project project) {
+        final String configuredHost = project.githubHost();
+        final String host = UiText.valueOrDefault(configuredHost, DEFAULT_HOST);
+        final String id = project.githubConnectionId();
+        return new GitHubConnection(
+                id == null ? CLI_CONNECTION_ID : id,
+                id == null ? "GitHub CLI" : "GitHub connection",
+                host,
+                project.githubUser(),
+                id != null && !isCliConnection(id, CLI_CONNECTION_ID),
+                id == null || isCliConnection(id, CLI_CONNECTION_ID) ? null : "github:" + id);
+    }
+
+    private static GitHubConnection connection(
+            final Project project, final Map<String, GitHubConnection> configuredConnections)
+            throws IOException {
+        final GitHubConnection fallback = fallbackConnection(project);
+        if (!fallback.usePersonalAccessToken()) {
+            return fallback;
         }
-        final String[] values = output.trim().split(TSV_SEPARATOR, -1);
-        if (values.length < 10) {
-            throw new IOException("No pull request found");
+        final GitHubConnection configured = configuredConnections.get(fallback.id());
+        if (configured == null) {
+            throw new IOException("Configured GitHub connection not found: " + fallback.id());
         }
-        final PullRequestDetails details =
-                new PullRequestDetails(
-                        Integer.parseInt(values[0]),
-                        values[1],
-                        values[2],
-                        values[3],
-                        values[4],
-                        values[5],
-                        Boolean.parseBoolean(values[6]),
-                        Integer.parseInt(values[7]),
-                        Integer.parseInt(values[8]),
-                        values[9]);
-        LOG.info(
-                () ->
-                        "PR status lookup finished: project="
-                                + project.name()
-                                + ", worktree="
-                                + worktree
-                                + ", result=found"
-                                + ", number="
-                                + details.number());
-        return details;
+        return configured;
     }
 
     private static List<PullRequest> load(
-            final ProjectId projectId, final Project project, final String search)
+            final ProjectId projectId,
+            final Project project,
+            final String search,
+            final Map<String, GitHubConnection> configuredConnections)
             throws IOException, InterruptedException {
-        final long started = System.nanoTime();
-        LOG.info(() -> "PR CLI load started: project=" + project.name() + ", search=" + search);
-        final Path projectPath = Path.of(project.path());
-        final String repository = repositoryName(projectPath);
-        if (repository == null) {
-            throw new IOException("No GitHub remote found for this project");
-        }
-        final String query =
-                "gh api graphql --paginate -F pageSize="
-                        + PR_PAGE_SIZE
-                        + " -f search="
-                        + PlatformCommands.shellQuote(
-                                "repo:" + repository + " is:pr is:open " + search)
-                        + " -f query="
-                        + PlatformCommands.shellQuote(PR_QUERY)
-                        + " --jq "
-                        + PlatformCommands.shellQuote(PR_JQ);
-        final ProcessBuilder builder =
-                PlatformCommands.prepare(
-                                new ProcessBuilder(
-                                        PlatformCommands.shell(Git.githubCommand(project, query))))
-                        .directory(projectPath.toFile())
-                        .redirectErrorStream(true);
-        final Process process = builder.start();
-        final String output =
-                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        if (process.waitFor() != 0) {
-            LOG.warning(
-                    "PR CLI load failed: project="
-                            + project.name()
-                            + ", search="
-                            + search
-                            + ", elapsedMs="
-                            + elapsedMillis(started));
-            PlatformCommands.logFailure(builder, process.exitValue(), output);
-            throw new IOException(output.trim());
-        }
-        final List<PullRequest> requests = new ArrayList<>();
-        for (final String line : output.split("\\R")) {
-            final PullRequestRow row = parse(line);
-            if (row != null) {
-                requests.add(
-                        new PullRequest(
-                                projectId,
-                                row.number(),
-                                row.title(),
-                                row.description(),
-                                row.commentSummary(),
-                                row.url(),
-                                row.createdAt(),
-                                row.updatedAt(),
-                                row.reviewDecision(),
-                                row.mergeable(),
-                                row.draft(),
-                                row.author(),
-                                row.headBranch(),
-                                row.additions(),
-                                row.deletions(),
-                                row.changedFiles(),
-                                row.checksPassed(),
-                                row.checksTotal(),
-                                row.checksStatus(),
-                                parseChecks(row.checksJson())));
-            }
-        }
+        final long started = System.currentTimeMillis();
+        final GitHubConnection auth = connection(project, configuredConnections);
+        JsonLogging.info(
+                GitHub.class,
+                "PR API load started",
+                Map.of("project", project.name(), "search", search));
+        LOG.debug(
+                "PR API auth selection: project={}, host={}, user={}, connectionId={}, usingPAT={}",
+                project.name(),
+                auth.host(),
+                auth.user(),
+                auth.id(),
+                auth.usePersonalAccessToken());
+        final GHRepository repository = repository(project, configuredConnections);
+        final List<PullRequest> requests =
+                StreamSupport.stream(
+                                projectClient(project, configuredConnections)
+                                        .searchPullRequests()
+                                        .q(
+                                                "repo:"
+                                                        + repository.getFullName()
+                                                        + " is:pr is:open "
+                                                        + search)
+                                        .list()
+                                        .spliterator(),
+                                false)
+                        .map(request -> PullRequest.from(projectId, project, request))
+                        .toList();
+
         LOG.info(
-                () ->
-                        "PR CLI load finished: project="
-                                + project.name()
-                                + ", search="
-                                + search
-                                + ", count="
-                                + requests.size()
-                                + ", elapsedMs="
-                                + elapsedMillis(started));
+                "PR API load finished: project={}, search={}, count={}, elapsedMs={}",
+                project.name(),
+                search,
+                requests.size(),
+                System.currentTimeMillis() - started);
         return requests;
     }
 
-    private static long elapsedMillis(final long started) {
-        return (System.nanoTime() - started) / 1_000_000;
+    private static boolean isCliConnection(final String id, final String cliConnectionId) {
+        return cliConnectionId.equals(id) || id.startsWith(cliConnectionId + ":");
     }
 
-    private static PullRequestRow parse(final String line) {
-        final String[] values = line.split(TSV_SEPARATOR, -1);
-        if (values.length < 18) {
-            return null;
+    public static PullRequestChecks getChecks(
+            final PullRequest request, final Map<String, GitHubConnection> configuredConnections)
+            throws IOException, InterruptedException {
+        final GHRepository repository = repository(request.project(), configuredConnections);
+        String headSha = request.headSha();
+        LOG.debug(
+                "PR checks lookup started: project={}, number={}, summaryHeadSha={}",
+                request.project().name(),
+                request.number(),
+                request.abbreviatedHeadSha());
+        if (headSha.isBlank()) {
+            LOG.debug(
+                    "PR checks lookup requires refresh for missing SHA: project={}, number={}",
+                    request.project().name(),
+                    request.number());
+            final GHPullRequest refreshed = repository.getPullRequest(request.number());
+            headSha =
+                    refreshed.getHead() == null || refreshed.getHead().getSha() == null
+                            ? ""
+                            : refreshed.getHead().getSha();
+            LOG.debug(
+                    "PR checks refresh resolved SHA: project={}, number={}, refreshedHeadSha={}",
+                    request.project().name(),
+                    request.number(),
+                    request.abbreviatedHeadSha());
         }
-        return new PullRequestRow(
-                Integer.parseInt(values[0]),
-                values[1],
-                values[2],
-                values[3],
-                values[4],
-                values[5],
-                values[6],
-                values[7],
-                values[8],
-                Boolean.parseBoolean(values[9]),
-                values[10],
-                values[11],
-                Integer.parseInt(values[12]),
-                Integer.parseInt(values[13]),
-                Integer.parseInt(values[14]),
-                Integer.parseInt(values[15]),
-                Integer.parseInt(values[16]),
-                values[17],
-                values.length < 19 ? "[]" : values[18]);
+        if (headSha.isBlank()) {
+            LOG.debug(
+                    "PR checks lookup has no SHA after refresh: project={}, number={}",
+                    request.project().name(),
+                    request.number());
+            return new PullRequestChecks(List.of());
+        }
+        final List<PullRequestCheck> checksFromRuns =
+                latestCheckRunsByName(repository.getCheckRuns(headSha).toList()).stream()
+                        .map(PullRequestCheck::from)
+                        .toList();
+        final List<PullRequestCheck> checksFromStatuses =
+                repository.getCommit(headSha).listStatuses().toList().stream()
+                        .map(PullRequestCheck::from)
+                        .toList();
+        final List<PullRequestCheck> checks = mergeChecks(checksFromRuns, checksFromStatuses);
+        LOG.debug(
+                "PR checks lookup finished: project={}, number={}, headSha={}, checks={}",
+                request.project().name(),
+                request.number(),
+                request.abbreviatedHeadSha(),
+                checks.size());
+        return new PullRequestChecks(checks);
     }
 
-    private static List<PullRequestCheck> parseChecks(final String checksJson) {
-        if (checksJson == null || checksJson.isBlank()) {
-            return List.of();
+    static List<PullRequestCheck> mergeChecks(
+            final List<PullRequestCheck> checksFromRuns,
+            final List<PullRequestCheck> checksFromStatuses) {
+        final Map<String, PullRequestCheck> mergedByName = new LinkedHashMap<>();
+        for (final PullRequestCheck check : checksFromRuns) {
+            mergedByName.put(check.name(), check);
         }
+        final Map<String, PullRequestCheck> latestStatusesByName = new HashMap<>();
+        for (final PullRequestCheck status : checksFromStatuses) {
+            final PullRequestCheck existing = latestStatusesByName.get(status.name());
+            if (existing == null || checkTimestamp(status) >= checkTimestamp(existing)) {
+                latestStatusesByName.put(status.name(), status);
+            }
+        }
+        latestStatusesByName.entrySet().stream()
+                .sorted(
+                        (left, right) ->
+                                Long.compare(
+                                        checkTimestamp(right.getValue()),
+                                        checkTimestamp(left.getValue())))
+                .forEach(entry -> mergedByName.putIfAbsent(entry.getKey(), entry.getValue()));
+        return List.copyOf(mergedByName.values());
+    }
+
+    private static long checkTimestamp(final PullRequestCheck check) {
+        return check.completedAt() == null ? Long.MIN_VALUE : check.completedAt().getTime();
+    }
+
+    private static List<GHCheckRun> latestCheckRunsByName(final List<GHCheckRun> runs) {
+        final Map<String, GHCheckRun> latestByName = new HashMap<>();
+        for (final GHCheckRun run : runs) {
+            final String name = run.getName() == null ? "" : run.getName().trim();
+            final GHCheckRun existing = latestByName.get(name);
+            if (existing == null || checkRunTimestamp(run) >= checkRunTimestamp(existing)) {
+                latestByName.put(name, run);
+            }
+        }
+        return latestByName.values().stream()
+                .sorted(
+                        (left, right) ->
+                                Long.compare(checkRunTimestamp(right), checkRunTimestamp(left)))
+                .toList();
+    }
+
+    private static long checkRunTimestamp(final GHCheckRun run) {
+        final Date completed = run.getCompletedAt();
+        if (completed != null) {
+            return completed.getTime();
+        }
+        final Date started = run.getStartedAt();
+        if (started != null) {
+            return started.getTime();
+        }
+        return Long.MIN_VALUE;
+    }
+
+    public static PullRequestReviews getReviews(final PullRequest request)
+            throws IOException, InterruptedException {
+        return getReviews(request, Map.of());
+    }
+
+    public static PullRequestReviews getReviews(
+            final PullRequest request, final Map<String, GitHubConnection> configuredConnections)
+            throws IOException, InterruptedException {
+        final List<PullRequestReview> reviews =
+                repository(request.project(), configuredConnections)
+                        .getPullRequest(request.number())
+                        .listReviews()
+                        .toList()
+                        .stream()
+                        .map(
+                                review -> {
+                                    try {
+                                        return PullRequestReview.from(review);
+                                    } catch (IOException e) {
+                                        LOG.warn(
+                                                "Failed to convert GitHub review to PullRequestReview",
+                                                e);
+                                    }
+                                    return null;
+                                })
+                        .filter(Objects::nonNull)
+                        .toList();
+        return new PullRequestReviews(reviews);
+    }
+
+    private static String url(final GHObject object) {
         try {
-            final List<PullRequestCheck> parsed = JSON.fromJson(checksJson, CHECKS_TYPE);
-            if (parsed == null) {
-                return List.of();
-            }
-            return parsed.stream().filter(Objects::nonNull).toList();
-        } catch (RuntimeException failure) {
-            return List.of();
+            return object.getHtmlUrl().toString();
+        } catch (IOException exception) {
+            return "";
         }
     }
 
-    private record PullRequestRow(
-            int number,
-            String title,
-            String description,
-            String commentSummary,
-            String url,
-            String createdAt,
-            String updatedAt,
-            String reviewDecision,
-            String mergeable,
-            boolean draft,
-            String author,
-            String headBranch,
-            int additions,
-            int deletions,
-            int changedFiles,
-            int checksPassed,
-            int checksTotal,
-            String checksStatus,
-            String checksJson) {}
+    private static GHRepository repository(
+            final Project project, final Map<String, GitHubConnection> configuredConnections)
+            throws IOException, InterruptedException {
+        final String name = Git.repositoryName(Path.of(project.path()));
+        if (name == null) {
+            throw new IOException("No GitHub remote found for this project");
+        }
+        final String token = token(project, configuredConnections);
+        final String apiEndpoint = apiEndpoint(project, configuredConnections);
 
-    private static String repositoryName(final Path path) throws IOException, InterruptedException {
-        final ProcessBuilder builder =
-                PlatformCommands.prepare(
-                                new ProcessBuilder(
-                                        PlatformCommands.executable("git"),
-                                        "config",
-                                        "--get",
-                                        "remote.origin.url"))
-                        .directory(path.toFile())
-                        .redirectErrorStream(true);
-        final Process process = builder.start();
-        String remote =
-                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
-        if (process.waitFor() != 0 || remote.isBlank()) {
-            if (process.exitValue() != 0) {
-                PlatformCommands.logFailure(builder, process.exitValue(), remote);
-            }
-            return null;
+        final RepositoryCacheKey key = new RepositoryCacheKey(apiEndpoint, token, name);
+        final GHRepository repository =
+                REPOSITORIES.get(
+                        key,
+                        (n) -> {
+                            final org.kohsuke.github.GitHub client;
+                            try {
+                                client = client(apiEndpoint, token);
+                                return client.getRepository(name);
+                            } catch (IOException | InterruptedException e) {
+                                LOG.error("Failed to get GitHub repository for name: {}", name, e);
+                            }
+                            return null;
+                        });
+        if (repository == null) {
+            throw new IOException("Failed to get GitHub repository for name: " + name);
         }
-        if (remote.endsWith(".git")) {
-            remote = remote.substring(0, remote.length() - 4);
-        }
-        if (remote.startsWith("git@")) {
-            final int colon = remote.indexOf(':');
-            return colon < 0 ? null : remote.substring(colon + 1);
-        }
-        final URI uri = URI.create(remote);
-        final String remotePath = uri.getPath();
-        return remotePath == null ? null : remotePath.replaceFirst("^/", "");
+        return repository;
     }
+
+    private static org.kohsuke.github.GitHub projectClient(
+            final Project project, final Map<String, GitHubConnection> configuredConnections)
+            throws IOException, InterruptedException {
+        return client(
+                apiEndpoint(project, configuredConnections), token(project, configuredConnections));
+    }
+
+    private static org.kohsuke.github.GitHub client(final String apiEndpoint, final String token)
+            throws IOException, InterruptedException {
+        return new GitHubBuilder()
+                .withEndpoint(apiEndpoint)
+                .withOAuthToken(token)
+                .withRateLimitHandler(GitHubRateLimitHandler.WAIT)
+                .withAbuseLimitHandler(GitHubAbuseLimitHandler.WAIT)
+                .withRateLimitChecker(
+                        new RateLimitChecker.LiteralValue(CORE_RATE_LIMIT_BUFFER),
+                        RateLimitTarget.CORE)
+                .withRateLimitChecker(
+                        new RateLimitChecker.LiteralValue(SEARCH_RATE_LIMIT_BUFFER),
+                        RateLimitTarget.SEARCH)
+                .withConnector(new LoggingGitHubConnector(GitHubConnector.DEFAULT))
+                .build();
+    }
+
+    private static final class LoggingGitHubConnector implements GitHubConnector {
+        private final GitHubConnector delegate;
+
+        private LoggingGitHubConnector(final GitHubConnector delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public GitHubConnectorResponse send(final GitHubConnectorRequest request)
+                throws IOException {
+            final long started = System.nanoTime();
+            try {
+                final GitHubConnectorResponse response = delegate.send(request);
+                LOG.debug(
+                        "GitHub API {} {} -> {} ({}ms, remaining={}, reset={})",
+                        request.method(),
+                        request.url().toExternalForm(),
+                        response.statusCode(),
+                        (System.nanoTime() - started) / 1_000_000,
+                        UiText.valueOrDefault(response.header("X-RateLimit-Remaining"), "unknown"),
+                        UiText.valueOrDefault(response.header("X-RateLimit-Reset"), "unknown"));
+                return response;
+            } catch (IOException exception) {
+                LOG.debug(
+                        "GitHub API {} {} failed after {}ms",
+                        request.method(),
+                        request.url(),
+                        (System.nanoTime() - started) / 1_000_000,
+                        exception);
+                throw exception;
+            }
+        }
+    }
+
+    private record RepositoryCacheKey(String endpoint, String token, String repositoryName) {}
 }

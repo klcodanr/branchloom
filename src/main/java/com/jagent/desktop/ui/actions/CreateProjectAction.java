@@ -12,11 +12,11 @@ import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.ui.components.GitHubAuthSelector;
+import com.jagent.desktop.ui.components.UiText;
 import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import java.awt.Dimension;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.logging.Logger;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
@@ -24,11 +24,13 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Starts the workflow for adding an existing local project. */
 public class CreateProjectAction extends BaseAction {
 
-    private static final Logger LOG = Logger.getLogger(CreateProjectAction.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(CreateProjectAction.class);
     private static final String ADD_PROJECT_TITLE = "Add local project";
     private final String targetGroup;
 
@@ -58,14 +60,17 @@ public class CreateProjectAction extends BaseAction {
                         this.actionContext.window(),
                         ADD_PROJECT_TITLE,
                         "Loading GitHub accounts...");
-        BackgroundTasks.submit("Operations", "Load GitHub accounts", GitHub::configuredAuths)
+        BackgroundTasks.submit(
+                        "Operations",
+                        "Load GitHub accounts",
+                        () -> GitHub.configuredAuths(this.actionContext.appState()))
                 .whenComplete(
                         (configuredAuths, failure) ->
                                 SwingUtilities.invokeLater(
                                         () -> {
                                             progress.close();
                                             if (failure != null) {
-                                                LOG.severe(
+                                                LOG.error(
                                                         "Add local project: Failed to load GitHub accounts.");
                                                 return;
                                             }
@@ -88,7 +93,7 @@ public class CreateProjectAction extends BaseAction {
 
     protected static String initialDirectory(final String folderPath) {
         final String trimmedPath = folderPath.trim();
-        return trimmedPath.isBlank() ? System.getProperty("user.home") : trimmedPath;
+        return UiText.valueOrDefault(trimmedPath, System.getProperty("user.home"));
     }
 
     private void showDialog(final java.util.List<GitHub.Auth> configuredAuths) {
@@ -121,7 +126,7 @@ public class CreateProjectAction extends BaseAction {
                         name,
                         "Project folder",
                         pathInput,
-                        "GitHub CLI auth",
+                        "GitHub connection",
                         githubAuth);
         if (JOptionPane.showConfirmDialog(
                         this.actionContext.window(),
@@ -134,12 +139,12 @@ public class CreateProjectAction extends BaseAction {
         final String projectName = name.getText().trim();
         final Path projectPath = Path.of(path.getText().trim()).toAbsolutePath().normalize();
         if (projectName.isBlank()) {
-            LOG.severe("Add local project: Project name is required.");
+            LOG.error("Add local project: Project name is required.");
             return;
         }
         if (!Files.isDirectory(projectPath)) {
             final String message = "The selected path is not a folder.";
-            LOG.severe("Add local project: " + message);
+            LOG.error("Add local project: {}", message);
             JOptionPane.showMessageDialog(
                     this.actionContext.window(),
                     message,
@@ -148,11 +153,11 @@ public class CreateProjectAction extends BaseAction {
             return;
         }
         if (duplicatePath(appState.projects().values(), projectPath)) {
-            LOG.severe("Add local project: That project is already registered.");
+            LOG.error("Add local project: That project is already registered.");
             return;
         }
         if (duplicateName(appState.projects().values(), projectName)) {
-            LOG.severe("Add local project: A project with that name already exists.");
+            LOG.error("Add local project: A project with that name already exists.");
             return;
         }
         final GitHub.Auth auth =

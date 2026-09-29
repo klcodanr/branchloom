@@ -14,14 +14,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Owns one terminal process and its lifecycle monitors. */
 public class TerminalRuntime {
     private static final long QUIET_PERIOD_MILLIS = 4000;
-    private static final String SINCE_START_REQUEST_MS = ", sinceStartRequestMs=";
-    private static final Logger LOG = Logger.getLogger(TerminalRuntime.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(TerminalRuntime.class);
     private final String command;
     private final Path directory;
     private final String historyFile;
@@ -48,7 +47,7 @@ public class TerminalRuntime {
             if (disposed) {
                 final IllegalStateException exception =
                         new IllegalStateException("Terminal runtime has already been disposed.");
-                LOG.log(Level.SEVERE, "Cannot start terminal at " + directory, exception);
+                LOG.error("Cannot start terminal at {}", directory, exception);
                 failed.accept(exception);
                 return;
             }
@@ -132,15 +131,11 @@ public class TerminalRuntime {
         try {
             final PtyProcess startedProcess = launchProcess();
             LOG.info(
-                    () ->
-                            "Terminal process started: dir="
-                                    + directory
-                                    + ", cmdLength="
-                                    + command.length()
-                                    + ", launchMs="
-                                    + (System.nanoTime() - launchStartedAtNanos) / 1_000_000
-                                    + SINCE_START_REQUEST_MS
-                                    + (System.nanoTime() - startRequestedAtNanos) / 1_000_000);
+                    "Terminal process started: dir={}, cmdLength={}, launchMs={}, sinceStartRequestMs={}",
+                    directory,
+                    command.length(),
+                    (System.nanoTime() - launchStartedAtNanos) / 1_000_000,
+                    (System.nanoTime() - startRequestedAtNanos) / 1_000_000);
             synchronized (lifecycleLock) {
                 if (disposed || Thread.currentThread().isInterrupted()) {
                     startedProcess.destroy();
@@ -153,15 +148,11 @@ public class TerminalRuntime {
                 final long attachStartedAtNanos = System.nanoTime();
                 attach.accept(tty);
                 LOG.info(
-                        () ->
-                                "Terminal connector attached: dir="
-                                        + directory
-                                        + ", cmdLength="
-                                        + command.length()
-                                        + ", attachMs="
-                                        + (System.nanoTime() - attachStartedAtNanos) / 1_000_000
-                                        + SINCE_START_REQUEST_MS
-                                        + (System.nanoTime() - startRequestedAtNanos) / 1_000_000);
+                        "Terminal connector attached: dir={}, cmdLength={}, attachMs={}, sinceStartRequestMs={}",
+                        directory,
+                        command.length(),
+                        (System.nanoTime() - attachStartedAtNanos) / 1_000_000,
+                        (System.nanoTime() - startRequestedAtNanos) / 1_000_000);
             }
             BackgroundTasks.submit(
                     "Terminals", "agent-terminal-monitor", () -> monitorExit(startedProcess));
@@ -172,7 +163,7 @@ public class TerminalRuntime {
                 return;
             }
             setState(TerminalState.FAILED);
-            LOG.log(Level.SEVERE, "Terminal process at " + directory + ": " + command, exception);
+            LOG.error("Terminal process at {}: {}", directory, command, exception);
             failed.accept(exception);
         } finally {
             launchThread = null;
@@ -187,13 +178,10 @@ public class TerminalRuntime {
                 && !command.equals(PlatformCommands.userShell())) {
             writeCommand(runningProcess);
             LOG.info(
-                    () ->
-                            "Terminal command submitted: cmd="
-                                    + command.length()
-                                    + ", submitMs="
-                                    + (System.nanoTime() - submitStartedAtNanos) / 1_000_000
-                                    + SINCE_START_REQUEST_MS
-                                    + (System.nanoTime() - startRequestedAtNanos) / 1_000_000);
+                    "Terminal command submitted: cmd={}, submitMs={}, sinceStartRequestMs={}",
+                    command.length(),
+                    (System.nanoTime() - submitStartedAtNanos) / 1_000_000,
+                    (System.nanoTime() - startRequestedAtNanos) / 1_000_000);
         }
     }
 
@@ -221,14 +209,11 @@ public class TerminalRuntime {
                 setState(exitCode == 0 ? TerminalState.EXITED : TerminalState.FAILED);
             }
             if (exitCode != 0) {
-                LOG.log(
-                        Level.SEVERE,
-                        "Terminal process at "
-                                + directory
-                                + " exited with status "
-                                + exitCode
-                                + ": "
-                                + command);
+                LOG.error(
+                        "Terminal process at {} exited with status {}: {}",
+                        directory,
+                        exitCode,
+                        command);
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
@@ -242,7 +227,7 @@ public class TerminalRuntime {
                     .write((command + "\r\n").getBytes(StandardCharsets.UTF_8));
             terminalProcess.getOutputStream().flush();
         } catch (IOException exception) {
-            LOG.log(Level.WARNING, "Could not submit terminal command: " + command, exception);
+            LOG.warn("Could not submit terminal command: {}", command, exception);
         }
     }
 

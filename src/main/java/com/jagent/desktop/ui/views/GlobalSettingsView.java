@@ -5,9 +5,11 @@ import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.AppSettings;
+import com.jagent.desktop.models.GitHubConnection;
 import com.jagent.desktop.models.PullRequestFilter;
 import com.jagent.desktop.models.Tool;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.KeyringCredentialStore;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.components.SettingsPanel;
 import com.jagent.desktop.ui.components.Theme;
@@ -27,7 +29,9 @@ import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
@@ -114,6 +118,7 @@ public final class GlobalSettingsView implements View {
         final JTabbedPane tabs = new JTabbedPane(JTabbedPane.TOP);
         tabs.putClientProperty("JTabbedPane.scrollButtonsPolicy", "asNeeded");
         tabs.addTab("General", general);
+        tabs.addTab("GitHub", githubEditor(state));
         tabs.addTab(
                 "Agents", agentEditor(settings.agents(), names, newSessionCommands, openCommands));
         tabs.addTab("Editors", toolEditor(settings.tools(), toolNames, toolCommands));
@@ -181,6 +186,93 @@ public final class GlobalSettingsView implements View {
         fields.add(SettingsPanel.labeledField("Pull request prompt", prompt));
         editor.add(fields, BorderLayout.CENTER);
         return editor;
+    }
+
+    private static JPanel githubEditor(final AppState state) {
+        final JPanel editor = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
+        editor.setOpaque(false);
+        editor.setBorder(
+                new EmptyBorder(
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING,
+                        UiConstants.CONTENT_PADDING));
+        final JPanel intro = new JPanel(new BorderLayout());
+        intro.setOpaque(false);
+        intro.add(
+                UiFactory.label("Personal access token connections", Theme.FontSize.LG),
+                BorderLayout.WEST);
+        intro.add(
+                UiFactory.label(
+                        "Saved securely in the operating system keychain", Theme.FontSize.SM),
+                BorderLayout.EAST);
+        editor.add(intro, BorderLayout.NORTH);
+        final JPanel rows = new JPanel();
+        rows.setOpaque(false);
+        rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
+        state.githubConnections()
+                .values()
+                .forEach(connection -> addConnectionRow(state, rows, connection));
+        editor.add(configuredList(rows), BorderLayout.CENTER);
+        final JButton add = UiFactory.button("+  Add PAT connection");
+        add.addActionListener(event -> addConnectionDialog(state, rows));
+        editor.add(add, BorderLayout.SOUTH);
+        return editor;
+    }
+
+    private static void addConnectionRow(
+            final AppState state, final JPanel rows, final GitHubConnection connection) {
+        final JPanel row = new JPanel(new BorderLayout(UiConstants.CONTENT_PADDING, 0));
+        configureRow(row);
+        row.add(UiFactory.label(connection.name(), Theme.FontSize.MD), BorderLayout.WEST);
+        row.add(UiFactory.label(connection.host(), Theme.FontSize.SM), BorderLayout.CENTER);
+        final JButton remove = UiFactory.button("Remove");
+        remove.addActionListener(
+                event -> {
+                    state.removeGitHubConnection(connection.id());
+                    rows.remove(row);
+                    rows.revalidate();
+                    rows.repaint();
+                });
+        row.add(remove, BorderLayout.EAST);
+        rows.add(row);
+    }
+
+    private static void addConnectionDialog(final AppState state, final JPanel rows) {
+        final JTextField name = new JTextField(25);
+        final JTextField host = new JTextField("github.com", 25);
+        final JPasswordField token = new JPasswordField(25);
+        final JPanel form = new JPanel();
+        form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
+        form.add(SettingsPanel.labeledField("Name", name));
+        form.add(SettingsPanel.labeledField("Host", host));
+        form.add(SettingsPanel.labeledField("Personal access token", token));
+        if (JOptionPane.showConfirmDialog(
+                        null, form, "Add GitHub connection", JOptionPane.OK_CANCEL_OPTION)
+                != JOptionPane.OK_OPTION) {
+            return;
+        }
+        if (name.getText().isBlank()
+                || host.getText().isBlank()
+                || token.getPassword().length == 0) {
+            return;
+        }
+        final String connectionId = java.util.UUID.randomUUID().toString();
+        final GitHubConnection connection =
+                new GitHubConnection(
+                        connectionId,
+                        name.getText().trim(),
+                        host.getText().trim(),
+                        null,
+                        true,
+                        "github:" + connectionId);
+        try (KeyringCredentialStore credentials = new KeyringCredentialStore()) {
+            credentials.put(connection.credentialKey(), new String(token.getPassword()));
+        }
+        state.addGitHubConnection(connection);
+        addConnectionRow(state, rows, connection);
+        rows.revalidate();
+        rows.repaint();
     }
 
     private static JPanel filterEditor(

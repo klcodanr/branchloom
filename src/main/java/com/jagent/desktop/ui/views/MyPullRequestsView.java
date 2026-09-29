@@ -6,6 +6,7 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestFilter;
 import com.jagent.desktop.services.PullRequestCache;
+import com.jagent.desktop.ui.components.GitHubAuthAlert;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
 import java.awt.BorderLayout;
@@ -24,7 +25,10 @@ public final class MyPullRequestsView extends JPanel implements View {
 
     public MyPullRequestsView(final ActionContext actionContext) {
         super(new BorderLayout());
-        this.pullRequestCache = PullRequestCache.get(actionContext.appState());
+        this.pullRequestCache =
+                PullRequestCache.get(
+                        actionContext.appState(),
+                        exception -> GitHubAuthAlert.show(this, exception));
         filters =
                 new JComboBox<>(
                         actionContext
@@ -72,9 +76,11 @@ public final class MyPullRequestsView extends JPanel implements View {
     @Override
     public void detach() {}
 
-    private List<PullRequest> pullRequests(final String query) {
-        return pullRequestCache.loadForFilter(
-                new PullRequestFilter(selectedFilter().name(), query));
+    private List<PullRequest> pullRequests(final String query, final boolean forceRefresh) {
+        final PullRequestFilter filter = new PullRequestFilter(selectedFilter().name(), query);
+        return forceRefresh
+                ? pullRequestCache.refreshForFilter(filter)
+                : pullRequestCache.loadForFilter(filter);
     }
 
     private PullRequestFilter selectedFilter() {

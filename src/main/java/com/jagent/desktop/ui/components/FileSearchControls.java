@@ -1,5 +1,6 @@
 package com.jagent.desktop.ui.components;
 
+import com.jagent.desktop.services.BackgroundTasks;
 import java.awt.FlowLayout;
 import java.awt.GraphicsEnvironment;
 import java.awt.Toolkit;
@@ -7,7 +8,6 @@ import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import javax.swing.JButton;
@@ -130,7 +130,7 @@ public final class FileSearchControls extends javax.swing.JPanel {
             clearSearch();
             return;
         }
-        CompletableFuture.supplyAsync(() -> findMatches(contentSnapshot, query))
+        BackgroundTasks.submit("Search", "file-search", () -> findMatches(contentSnapshot, query))
                 .thenAcceptAsync(
                         result -> {
                             if (generation != searchGeneration) {

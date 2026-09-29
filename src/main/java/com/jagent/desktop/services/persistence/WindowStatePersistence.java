@@ -4,12 +4,12 @@ import com.jagent.desktop.models.WindowState;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Owns persistence for the application window geometry. */
 public final class WindowStatePersistence extends PersistenceSupport implements AutoCloseable {
-    private static final Logger LOG = Logger.getLogger(WindowStatePersistence.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(WindowStatePersistence.class);
 
     private final Path path;
     private final Path directory;
@@ -45,7 +45,7 @@ public final class WindowStatePersistence extends PersistenceSupport implements 
             Files.createDirectories(directory);
             writeAtomically(path, state);
         } catch (IOException exception) {
-            LOG.log(Level.WARNING, "Failed to persist window state", exception);
+            LOG.warn("Failed to persist window state", exception);
         }
     }
 
@@ -56,7 +56,7 @@ public final class WindowStatePersistence extends PersistenceSupport implements 
             }
             return JSON.fromJson(Files.readString(path), WindowState.class);
         } catch (IOException | RuntimeException exception) {
-            LOG.log(Level.WARNING, "Failed to load window state", exception);
+            LOG.warn("Failed to load window state", exception);
             return new WindowState();
         }
     }

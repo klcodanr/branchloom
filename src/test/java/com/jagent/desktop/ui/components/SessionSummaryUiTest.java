@@ -1,5 +1,6 @@
 package com.jagent.desktop.ui.components;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -62,6 +63,29 @@ class SessionSummaryUiTest {
         assertTrue(
                 allComponentsAreSwing(summary),
                 "status failure should leave a renderable Swing tree");
+    }
+
+    @Test
+    void buildsFallbackStatusPanelsForUnavailableWorkspace() {
+        final Project project = new Project(DEMO_PROJECT, "/tmp/demo", null);
+        final Session session =
+                new Session(
+                        null, FEATURE_SESSION, AGENT, "Investigate login", "/path/does/not/exist");
+
+        final SessionSummary summary =
+                GuiActionRunner.execute(() -> new SessionSummary(project, session));
+
+        assertEquals(1, summary.getComponentCount(), "summary should render one details panel");
+        final Component details = summary.getComponent(0);
+        final var text = new ArrayList<String>();
+        collectText((Container) details, new ArrayList<>(), text);
+        assertTrue(
+                text.stream().anyMatch(value -> value.contains("Investigate login")),
+                "summary should include session prompt text");
+        assertTrue(
+                text.stream().anyMatch(value -> value.contains("/path/does/not/exist")),
+                "summary should include unavailable worktree path");
+        assertTrue(summary.isVisible(), "summary should remain visible");
     }
 
     @Test

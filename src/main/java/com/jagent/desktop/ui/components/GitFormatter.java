@@ -1,7 +1,10 @@
 package com.jagent.desktop.ui.components;
 
-import com.jagent.desktop.api.PullRequestInfo;
+import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestChecks;
+import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.services.Git;
+import java.awt.Color;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -19,8 +22,11 @@ public final class GitFormatter {
 
     private GitFormatter() {}
 
-    public static String detailsHtml(final PullRequestInfo request) {
-        final String lifecycle = request.draft() ? "Draft" : UiText.titleCase(request.state());
+    public static String detailsHtml(final PullRequest request, final PullRequestDetails details) {
+        final String lifecycle =
+                details != null && details.draft()
+                        ? "Draft"
+                        : UiText.titleCase(request.state().toString());
         return "<html><b>#"
                 + request.number()
                 + "</b>  "
@@ -30,59 +36,24 @@ public final class GitFormatter {
                 + UiText.colorHex(UIManager.getColor(UiConstants.DISABLED_FOREGROUND))
                 + "'>"
                 + lifecycle
-                + "  ·  "
-                + reviewStatus(request.reviewDecision())
-                + "  ·  "
-                + mergeStatus(request)
-                + "  ·  "
-                + checksSummary(
-                        request.checksPassed(), request.checksTotal(), request.checksStatus())
                 + "</font>"
                 + "</html>";
     }
 
-    public static String statusHtml(final PullRequestInfo request) {
+    public static String statusHtml(final PullRequestDetails details) {
+        final String status =
+                details == null ? "Loading" : UiText.titleCase(details.status().toString());
         final String color =
-                UiText.colorHex(
-                        UiText.pullRequestIndicatorColor(
-                                request.mergeState(), request.checksStatus()));
-        return "PR: <font color='"
-                + color
-                + "'>&#9679;</font> "
-                + mergeStatus(request)
-                + "  ·  Checks: "
-                + request.checksPassed()
+                UiText.colorHex(details == null ? Theme.mutedColor() : details.indicatorColor());
+        return "PR: <font color='" + color + "'>&#9679;</font> " + status;
+    }
+
+    public static String checksSummary(final PullRequestChecks checks) {
+        return checks.passed()
                 + "/"
-                + request.checksTotal()
-                + " "
-                + UiText.titleCase(request.checksStatus());
-    }
-
-    public static String mergeStatus(final String value) {
-        if ("CLEAN".equals(value) || "MERGEABLE".equals(value)) {
-            return "Can merge";
-        }
-        if ("CONFLICTING".equals(value) || "DIRTY".equals(value)) {
-            return "Cannot merge";
-        }
-        if ("QUEUED".equals(value)) {
-            return "In merge queue";
-        }
-        return "Mergeability unknown";
-    }
-
-    private static String mergeStatus(final PullRequestInfo request) {
-        if ("MERGED".equals(request.state())) {
-            return "Merged";
-        }
-        if ("CLOSED".equals(request.state())) {
-            return "Closed";
-        }
-        return mergeStatus(request.mergeState());
-    }
-
-    public static String checksSummary(final int passed, final int total, final String status) {
-        return passed + "/" + total + " checks " + UiText.titleCase(status);
+                + checks.total()
+                + " checks "
+                + UiText.titleCase(checks.checksStatus().toString());
     }
 
     public static String statusSummary(final Git.WorktreeStatus status) {
@@ -142,7 +113,7 @@ public final class GitFormatter {
 
     private static void highlightDiffLine(
             final JTextArea diff, final String line, final int offset) {
-        final java.awt.Color color = diffLineColor(line);
+        final Color color = diffLineColor(line);
         if (color == null || line.isEmpty()) {
             return;
         }
@@ -157,26 +128,25 @@ public final class GitFormatter {
         }
     }
 
-    private static java.awt.Color diffLineColor(final String line) {
+    private static Color diffLineColor(final String line) {
         if (line.startsWith("+++") || line.startsWith("---")) {
             return null;
         }
         if (line.startsWith("+")) {
-            return highlightColor(Theme.successColor(), new java.awt.Color(46, 125, 50));
+            return highlightColor(Theme.successColor(), new Color(46, 125, 50));
         }
         if (line.startsWith("-")) {
-            return highlightColor(Theme.dangerColor(), new java.awt.Color(198, 40, 40));
+            return highlightColor(Theme.dangerColor(), new Color(198, 40, 40));
         }
         if (line.startsWith("@@")) {
-            return highlightColor(Theme.warningColor(), new java.awt.Color(173, 80, 0));
+            return highlightColor(Theme.warningColor(), new Color(173, 80, 0));
         }
         return null;
     }
 
-    private static java.awt.Color highlightColor(
-            final java.awt.Color color, final java.awt.Color fallback) {
-        final java.awt.Color value = color == null ? fallback : color;
-        return new java.awt.Color(value.getRGB() & 0x00FFFFFF | 0x30000000, true);
+    private static Color highlightColor(final Color color, final Color fallback) {
+        final Color value = color == null ? fallback : color;
+        return new Color(value.getRGB() & 0x00FFFFFF | 0x30000000, true);
     }
 
     private static JTextArea value(final String text) {
@@ -193,11 +163,5 @@ public final class GitFormatter {
             }
             summary.append(marker).append(count);
         }
-    }
-
-    private static String reviewStatus(final String reviewDecision) {
-        return reviewDecision.isBlank()
-                ? "Review pending"
-                : "Review: " + UiText.titleCase(reviewDecision);
     }
 }

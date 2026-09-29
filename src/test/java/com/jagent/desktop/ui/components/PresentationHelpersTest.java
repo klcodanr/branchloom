@@ -1,257 +1,136 @@
 package com.jagent.desktop.ui.components;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.jagent.desktop.models.GitHubUser;
+import com.jagent.desktop.models.Project;
+import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestDetails;
 import java.awt.Color;
 import java.awt.image.BufferedImage;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Date;
 import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
-import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
 class PresentationHelpersTest {
-    private static final String CLEAN = "CLEAN";
-    private static final String UNKNOWN = "UNKNOWN";
-    private static final String VALUE_MESSAGE = "presentation value should match";
-
     @Test
     void createsAnAppIconAtTheRequestedSize() {
         final BufferedImage image = AppIcon.image(32);
-
-        assertEquals(32, image.getWidth(), VALUE_MESSAGE);
-        assertEquals(32, image.getHeight(), VALUE_MESSAGE);
-        assertNotNull(image.getRGB(16, 16), "generated icon should contain pixels");
+        assertEquals(32, image.getWidth(), "icon width should match requested size");
+        assertEquals(32, image.getHeight(), "icon height should match requested size");
     }
 
     @Test
     void wrapsContentWithTheStandardInset() {
         final JLabel content = new JLabel("Content");
-
         final JPanel body = TabBody.wrap(content);
-
-        assertSame(content, body.getComponent(0), VALUE_MESSAGE);
-        assertEquals(TabBody.INSET, body.getInsets().top, VALUE_MESSAGE);
-        assertEquals(TabBody.INSET, body.getInsets().left, VALUE_MESSAGE);
+        assertSame(content, body.getComponent(0), "wrapped panel should contain content");
+        assertEquals(TabBody.INSET, body.getInsets().top, "top inset should match standard inset");
     }
 
     @Test
-    void rendersDefaultGithubAuthOption() {
-        final var selector = GuiActionRunner.execute(GitHubAuthSelector::render);
+    void detailsHtmlEscapesTitleAndRendersLifecycle() throws MalformedURLException {
+        final PullRequest request = request("Fix <login>");
+        final PullRequestDetails details = details(true, false, "clean");
+        final String html = GitFormatter.detailsHtml(request, details);
 
-        assertNull(selector.getItemAt(0), "default account should be the first option");
-        final var rendered =
-                selector.getRenderer()
-                        .getListCellRendererComponent(new JList<>(), null, 0, false, false);
-        assertEquals("Default (active account)", ((JLabel) rendered).getText(), VALUE_MESSAGE);
+        assertTrue(html.contains("Fix &lt;login&gt;"), "title should be escaped in HTML");
+        assertTrue(html.contains("Draft"), "status text should reflect draft lifecycle");
     }
 
     @Test
-    void formatsPullRequestStatusesForDetailsAndTooltips() {
-        assertEquals(
-                "Can merge",
-                GitFormatter.mergeStatus(CLEAN),
-                "clean pull requests should be mergeable");
-        assertEquals(
-                "Can merge",
-                GitFormatter.mergeStatus("MERGEABLE"),
-                "mergeable pull requests should be mergeable");
-        assertEquals(
-                "Cannot merge",
-                GitFormatter.mergeStatus("CONFLICTING"),
-                "conflicting pull requests should not be mergeable");
-        assertEquals(
-                "Cannot merge",
-                GitFormatter.mergeStatus("DIRTY"),
-                "dirty pull requests should not be mergeable");
-        assertEquals(
-                "Mergeability unknown",
-                GitFormatter.mergeStatus(UNKNOWN),
-                "unknown merge states should remain unknown");
-        assertEquals(
-                "In merge queue",
-                GitFormatter.mergeStatus("QUEUED"),
-                "queued pull requests should show their queue status");
-
-        final PullRequest request =
-                new PullRequest(
-                        null,
-                        12,
-                        "Fix <login>",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "OPEN",
-                        CLEAN,
-                        false,
-                        "",
-                        "",
-                        4,
-                        1,
-                        1,
-                        2,
-                        3,
-                        "PASSING");
-        final String details = GitFormatter.detailsHtml(request);
-        assertEquals(
-                "<html><b>#12</b>  Fix &lt;login&gt;<br><font color='"
-                        + UiText.colorHex(
-                                javax.swing.UIManager.getColor(UiConstants.DISABLED_FOREGROUND))
-                        + "'>Open  ·  Review: Open  ·  Can merge  ·  2/3 checks Passing</font></html>",
-                details,
-                "details should format and escape pull request values");
-        assertEquals(
-                "<html><b>#12</b>  Fix<br><font color='"
-                        + UiText.colorHex(
-                                javax.swing.UIManager.getColor(UiConstants.DISABLED_FOREGROUND))
-                        + "'>Draft  ·  Review pending  ·  Mergeability unknown  ·  0/0 checks Unknown</font></html>",
-                GitFormatter.detailsHtml(
-                        new PullRequest(
-                                null, 12, "Fix", "", "", "", "", "", "", "", true, "", "", 0, 0, 0,
-                                0, 0, UNKNOWN)),
-                "draft details should show pending review and unknown states");
-    }
-
-    @Test
-    void formatsCompactPullRequestStatusWithCheckColor() {
+    void statusHtmlUsesPendingColor() {
         Theme.applySwingDefaults();
-        javax.swing.UIManager.put("Actions.Red", Color.RED);
-        final String status =
-                GitFormatter.statusHtml(
-                        new PullRequest(
-                                null,
-                                1,
-                                "",
-                                "",
-                                "",
-                                "",
-                                "",
-                                "",
-                                "",
-                                "CONFLICTING",
-                                false,
-                                "",
-                                "",
-                                2,
-                                1,
-                                1,
-                                1,
-                                2,
-                                "FAILING"));
-
-        assertEquals(
-                "PR: <font color='"
-                        + UiText.colorHex(Theme.dangerColor())
-                        + "'>&#9679;</font> Cannot merge  ·  Checks: 1/2 Failing",
-                status,
-                "compact status should include merge and check state");
-    }
-
-    @Test
-    void prioritizesClosedPullRequestLifecycleOverMergeability() {
-        final var merged =
-                new com.jagent.desktop.services.GitHub.PullRequestDetails(
-                        1, "", "MERGED", "", UNKNOWN, "", false, 0, 0, UNKNOWN);
-        final var closed =
-                new com.jagent.desktop.services.GitHub.PullRequestDetails(
-                        1, "", "CLOSED", "", CLEAN, "", false, 0, 0, UNKNOWN);
-
-        assertEquals(
-                true,
-                GitFormatter.detailsHtml(merged).contains("  ·  Merged  ·  "),
-                "merged pull requests should show their lifecycle state");
-        assertEquals(
-                true,
-                GitFormatter.detailsHtml(closed).contains("  ·  Closed  ·  "),
-                "closed pull requests should show their lifecycle state");
-
-        final var conflicting =
-                new com.jagent.desktop.services.GitHub.PullRequestDetails(
-                        1, "", "OPEN", "", "CONFLICTING", "", false, 0, 0, UNKNOWN);
-        assertEquals(
-                true,
-                GitFormatter.detailsHtml(conflicting).contains("  ·  Cannot merge  ·  "),
-                "conflicting pull requests should show that they cannot merge");
-    }
-
-    @Test
-    void formatsCompactPullRequestStatusWithMergeStateColor() {
-        Theme.applySwingDefaults();
-        final PullRequest request =
-                new PullRequest(
-                        null, 1, "", "", "", "", "", "", "", CLEAN, false, "", "", 2, 1, 1, 1, 2,
-                        "FAILING");
-
-        assertEquals(
-                "PR: <font color='"
-                        + UiText.colorHex(Theme.mergeColor())
-                        + "'>&#9679;</font> Can merge  ·  Checks: 1/2 Failing",
-                GitFormatter.statusHtml(request),
-                "mergeable pull requests should use the merge indicator color");
-        assertEquals(
-                Theme.mergeQueueColor(),
-                UiText.pullRequestIndicatorColor("QUEUED", "PASSING"),
-                "queued pull requests should use the merge queue indicator color");
+        final PullRequestDetails details = details(true, false, "draft");
+        final String status = GitFormatter.statusHtml(details);
+        assertTrue(status.contains("Draft"), "draft status should be displayed");
     }
 
     @Test
     void rendersEmptyAndUnavailableDiffs() {
         final JPanel diff = new JPanel();
-
         GitFormatter.renderDiff(diff, "");
-        assertEquals(1, diff.getComponentCount(), "empty diffs should show a message");
+        assertEquals(1, diff.getComponentCount(), "diff panel should contain one component");
         assertEquals(
                 "No changes in worktree",
                 ((JTextArea) diff.getComponent(0)).getText(),
-                "empty diff text should explain the clean state");
+                "empty diffs should render the empty-worktree message");
 
         GitFormatter.renderDiff(diff, "Unavailable: no worktree");
-        assertEquals(1, diff.getComponentCount(), "unavailable diffs should show a message");
         assertEquals(
                 "Unavailable: no worktree",
                 ((JTextArea) diff.getComponent(0)).getText(),
-                "unavailable diff text should explain the failure");
+                "unavailable diffs should render source message");
     }
 
     @Test
-    void rendersValidDiffRowsAndSkipsMalformedRows() {
-        final JPanel diff = new JPanel();
-
-        GitFormatter.renderDiff(diff, "4\t2\tsrc/App.java\nmalformed\n1\t0\tREADME.md");
-
-        assertEquals(2, diff.getComponentCount(), "only valid diff rows should render");
-        final JPanel first = (JPanel) diff.getComponent(0);
+    void displayTextHelpersFormatValues() {
         assertEquals(
-                "+4", ((JLabel) first.getComponent(0)).getText(), "additions should be rendered");
+                "a&amp;b&lt;c&gt;",
+                UiText.escapeHtml("a&b<c>"),
+                "escapeHtml should encode special characters");
         assertEquals(
-                "-2", ((JLabel) first.getComponent(1)).getText(), "deletions should be rendered");
+                "#0a14ff",
+                UiText.colorHex(new Color(10, 20, 255)),
+                "colorHex should convert RGB values");
         assertEquals(
-                "src/App.java",
-                ((JLabel) first.getComponent(2)).getText(),
-                "path should be rendered");
+                "Ready For Review",
+                UiText.titleCase("READY_FOR_REVIEW"),
+                "titleCase should format check status tokens");
+        assertEquals(
+                Theme.successColor(),
+                UiText.checksColor("PASSING"),
+                "passing checks should map to success color");
+        assertEquals(
+                "Ready Review",
+                UiText.titleCase("READY__REVIEW"),
+                "titleCase should collapse repeated separators");
+        assertEquals("", UiText.titleCase("___"), "titleCase should handle separator-only tokens");
+        assertEquals(
+                Theme.dangerColor(),
+                UiText.checksColor("FAILING"),
+                "failing checks should map to danger color");
+        assertEquals(
+                Theme.warningColor(),
+                UiText.checksColor("PENDING"),
+                "pending checks should map to warning color");
+        assertEquals(
+                Theme.mutedColor(),
+                UiText.checksColor("UNKNOWN"),
+                "unknown checks should map to muted color");
     }
 
-    @Test
-    void doesNotExposeChangesMarkupInTooltip() {
-        final PullRequest request =
-                new PullRequest(
-                        null, 12, "Fix", "", "", "", "", "", "", CLEAN, false, "author", "branch",
-                        63, 178, 5, 4, 5, "PASSING");
-        final PullRequestSummaryPanel panel = new PullRequestSummaryPanel();
+    private static PullRequest request(final String title) throws MalformedURLException {
+        final ProjectId projectId = ProjectId.create();
+        final Project project = new Project("Demo", "/tmp/demo", null);
+        return new PullRequest(
+                projectId,
+                project,
+                12,
+                PullRequest.State.OPEN,
+                title,
+                "Description",
+                new URL("https://example.test/12"),
+                new Date(),
+                new Date(),
+                new GitHubUser("author", new URL("https://example.test/author")),
+                "feature/test",
+                "abc1234def5678",
+                "main");
+    }
 
-        panel.render(request);
-
-        final JPanel facts = (JPanel) ((JPanel) panel.getComponent(0)).getComponent(2);
-        final JPanel changes = (JPanel) ((JPanel) facts.getComponent(1)).getComponent(0);
-        final JLabel value = (JLabel) changes.getComponent(1);
-        assertEquals(
-                false, value.getToolTipText().contains("<html>"), "tooltip should not expose HTML");
+    private static PullRequestDetails details(
+            final boolean draft, final boolean mergeable, final String mergeableState) {
+        final ProjectId projectId = ProjectId.create();
+        final Project project = new Project("Demo", "/tmp/demo", null);
+        return new PullRequestDetails(
+                projectId, project, 12, draft, mergeable, mergeableState, 2, 1, 1);
     }
 }

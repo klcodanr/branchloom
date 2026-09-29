@@ -35,7 +35,7 @@ public final class ImportProjectDialog extends JDialog {
     public record Request(String remote, Path destination, GitHub.Auth auth) {}
 
     public ImportProjectDialog(final ActionContext actionContext, final Consumer<Request> onValid) {
-        this(actionContext, GitHub.configuredAuths(), onValid);
+        this(actionContext, GitHub.configuredAuths(actionContext.appState()), onValid);
     }
 
     public ImportProjectDialog(
@@ -64,7 +64,7 @@ public final class ImportProjectDialog extends JDialog {
                         remote,
                         "Destination directory",
                         destinationInput,
-                        "GitHub CLI auth",
+                        "GitHub connection",
                         githubAuth),
                 BorderLayout.CENTER);
         final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));

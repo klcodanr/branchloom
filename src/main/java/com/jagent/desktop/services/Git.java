@@ -3,7 +3,9 @@ package com.jagent.desktop.services;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.git.GitParser;
+import com.jagent.desktop.ui.components.UiText;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,20 +23,6 @@ public final class Git {
 
     public record WorktreeStatus(
             Map<String, String> files, int additions, int modifications, int deletions) {}
-
-    public static String githubCommand(final Project project, final String command) {
-        final String host = project.githubHost();
-        final String user = project.githubUser();
-        if (host == null || host.isBlank() || user == null || user.isBlank()) {
-            return command;
-        }
-        return "GH_TOKEN=$(gh auth token --hostname "
-                + PlatformCommands.shellQuote(host)
-                + " --user "
-                + PlatformCommands.shellQuote(user)
-                + ") "
-                + command;
-    }
 
     public static String status(final Path worktree) throws IOException, InterruptedException {
         return run(worktree, "git status --short");
@@ -233,8 +221,38 @@ public final class Git {
         return runCommand("git worktree prune", Path.of(project.path())).thenApply(ignored -> null);
     }
 
-    public CompletableFuture<Void> cloneRepository(
-            final String remote, final Path destination, final GitHub.Auth auth) {
+    public static String repositoryName(final Path path) throws IOException, InterruptedException {
+        final ProcessBuilder builder =
+                PlatformCommands.prepare(
+                                new ProcessBuilder(
+                                        PlatformCommands.executable("git"),
+                                        "config",
+                                        "--get",
+                                        "remote.origin.url"))
+                        .directory(path.toFile())
+                        .redirectErrorStream(true);
+        final Process process = builder.start();
+        String remote =
+                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+        if (process.waitFor() != 0 || remote.isBlank()) {
+            if (process.exitValue() != 0) {
+                PlatformCommands.logFailure(builder, process.exitValue(), remote);
+            }
+            return null;
+        }
+        if (remote.endsWith(".git")) {
+            remote = remote.substring(0, remote.length() - 4);
+        }
+        if (remote.startsWith("git@")) {
+            final int colon = remote.indexOf(':');
+            return colon < 0 ? null : remote.substring(colon + 1);
+        }
+        final URI uri = URI.create(remote);
+        final String remotePath = uri.getPath();
+        return remotePath == null ? null : remotePath.replaceFirst("^/", "");
+    }
+
+    public CompletableFuture<Void> cloneRepository(final String remote, final Path destination) {
         final Path normalized = destination.toAbsolutePath().normalize();
         final Path parent =
                 Optional.ofNullable(normalized.getParent())
@@ -247,36 +265,8 @@ public final class Git {
                         + PlatformCommands.shellQuote(remote)
                         + " "
                         + PlatformCommands.shellQuote(normalized.toString());
-        final String authenticatedCommand =
-                auth == null
-                        ? command
-                        : "GH_TOKEN=$(gh auth token --hostname "
-                                + PlatformCommands.shellQuote(auth.host())
-                                + " --user "
-                                + PlatformCommands.shellQuote(auth.user())
-                                + ") "
-                                + command;
-        return runCommand(authenticatedCommand, parent).thenApply(ignored -> null);
-    }
 
-    public CompletableFuture<Void> cloneRepository(final String remote, final Path destination) {
-        return cloneRepository(remote, destination, null);
-    }
-
-    public CompletableFuture<Void> cloneRepositoryIntoParent(
-            final String remote, final Path parent, final GitHub.Auth auth) {
-        final String command = "git clone " + PlatformCommands.shellQuote(remote);
-        final String authenticatedCommand =
-                auth == null
-                        ? command
-                        : "GH_TOKEN=$(gh auth token --hostname "
-                                + PlatformCommands.shellQuote(auth.host())
-                                + " --user "
-                                + PlatformCommands.shellQuote(auth.user())
-                                + ") "
-                                + command;
-        return runCommand(authenticatedCommand, parent.toAbsolutePath().normalize())
-                .thenApply(ignored -> null);
+        return runCommand(command, parent).thenApply(ignored -> null);
     }
 
     /** Initializes a Git repository in an existing folder. */
@@ -542,7 +532,7 @@ public final class Git {
                             .trim();
             if (process.waitFor() != 0) {
                 throw new IOException(
-                        output.isBlank() ? "Git could not remove the worktree." : output);
+                        UiText.valueOrDefault(output, "Git could not remove the worktree."));
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
@@ -571,7 +561,8 @@ public final class Git {
             }
             return "true".equals(output.trim());
         } catch (IOException exception) {
-            // The caller cannot distinguish a missing Git executable from a non-repository path.
+            // The caller cannot distinguish a missing Git executable from a non-repository
+            // path.
             return false;
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();

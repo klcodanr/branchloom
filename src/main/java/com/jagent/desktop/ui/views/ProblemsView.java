@@ -19,7 +19,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JOptionPane;
@@ -39,14 +39,16 @@ public final class ProblemsView extends JPanel implements View {
     private final ProblemTableModel tableModel;
     private final JTable table;
     private JButton showAllButton;
+    private final transient Function<Integer, List<LogEntry>> logLoader;
 
     public ProblemsView() {
-        this(() -> JsonLogging.load(INITIAL_PROBLEM_LIMIT));
+        this(JsonLogging::load);
     }
 
-    protected ProblemsView(final Supplier<List<LogEntry>> problemLoader) {
+    protected ProblemsView(final Function<Integer, List<LogEntry>> loader) {
         super();
         this.problems = new ArrayList<>();
+        this.logLoader = loader;
         setLayout(new BorderLayout(0, UiConstants.SECTION_PADDING));
         add(header(), BorderLayout.NORTH);
         tableModel = new ProblemTableModel(problems);
@@ -78,7 +80,7 @@ public final class ProblemsView extends JPanel implements View {
                 TITLE,
                 "load-log",
                 () -> {
-                    final List<LogEntry> loaded = problemLoader.get();
+                    final List<LogEntry> loaded = loader.apply(INITIAL_PROBLEM_LIMIT);
                     SwingUtilities.invokeLater(
                             () -> {
                                 problems.addAll(loaded);
@@ -176,7 +178,7 @@ public final class ProblemsView extends JPanel implements View {
                 TITLE,
                 "load-all-log",
                 () -> {
-                    final List<LogEntry> loaded = JsonLogging.load();
+                    final List<LogEntry> loaded = logLoader.apply(Integer.MAX_VALUE);
                     SwingUtilities.invokeLater(
                             () -> {
                                 problems.clear();

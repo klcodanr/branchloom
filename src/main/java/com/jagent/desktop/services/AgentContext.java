@@ -25,9 +25,9 @@ public final class AgentContext {
     }
 
     public static String generatedContent(final Project project, final Session session) {
+        final String additionalText = project.agentContextText();
         final String githubHost = project.githubHost();
         final String githubUser = project.githubUser();
-        final String additionalText = project.agentContextText();
         final StringBuilder content =
                 new StringBuilder(384)
                         .append("# Agent context\n\n## Project\n\n- Name: ")
@@ -41,7 +41,7 @@ public final class AgentContext {
                                         + "- Read this file at the start of each session before making changes.\n"
                                         + "- Keep ongoing notes in this file as you work so future sessions share the same context.\n");
         if (hasText(githubHost) || hasText(githubUser)) {
-            content.append("\n\n## GitHub CLI\n\n");
+            content.append("\n\n## GitHub\n\n");
             if (hasText(githubHost)) {
                 content.append("- Host: ").append(githubHost).append('\n');
             }

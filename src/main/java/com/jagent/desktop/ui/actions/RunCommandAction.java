@@ -6,7 +6,9 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.CommandRunner;
 import com.jagent.desktop.services.Template;
+import com.jagent.desktop.ui.components.UiText;
 import com.jagent.desktop.ui.utils.CurrentPath;
+import java.awt.GraphicsEnvironment;
 import java.awt.Window;
 import java.nio.file.Path;
 import java.util.Locale;
@@ -32,11 +34,10 @@ public final class RunCommandAction extends BaseAction {
                     Path.of(path),
                     null,
                     output ->
-                            JOptionPane.showMessageDialog(
+                            showError(
                                     owner,
-                                    output == null || output.isBlank() ? "Command failed." : output,
                                     title,
-                                    JOptionPane.ERROR_MESSAGE));
+                                    UiText.valueOrDefault(output, "Command failed.")));
         } catch (RuntimeException exception) {
             showFailure(title, owner, exception);
         }
@@ -83,10 +84,13 @@ public final class RunCommandAction extends BaseAction {
     private static void showFailure(
             final String title, final Window owner, final RuntimeException exception) {
         final String message = exception.getMessage();
-        JOptionPane.showMessageDialog(
-                owner,
-                message == null || message.isBlank() ? "Could not run command." : message,
-                title,
-                JOptionPane.ERROR_MESSAGE);
+        showError(owner, title, UiText.valueOrDefault(message, "Could not run command."));
+    }
+
+    private static void showError(final Window owner, final String title, final String message) {
+        if (GraphicsEnvironment.isHeadless()) {
+            return;
+        }
+        JOptionPane.showMessageDialog(owner, message, title, JOptionPane.ERROR_MESSAGE);
     }
 }

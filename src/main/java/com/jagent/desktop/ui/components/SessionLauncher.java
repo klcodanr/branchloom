@@ -106,8 +106,7 @@ public final class SessionLauncher {
             final Runnable onComplete,
             final TerminalPanel terminalPanel,
             final String output) {
-        final String message =
-                output == null || output.isBlank() ? "Setup command failed." : output;
+        final String message = UiText.valueOrDefault(output, "Setup command failed.");
         job.fail(message);
         if (GraphicsEnvironment.isHeadless()) {
             return;

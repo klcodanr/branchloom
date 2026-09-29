@@ -1,4 +1,4 @@
-package com.jagent.desktop.ui.components;
+package com.jagent.desktop.ui.layout;
 
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
@@ -10,6 +10,13 @@ import com.jagent.desktop.services.WorkspaceFiles;
 import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.actions.OpenDirectoryAction;
 import com.jagent.desktop.ui.actions.RunCommandAction;
+import com.jagent.desktop.ui.components.GitStatusPanel;
+import com.jagent.desktop.ui.components.SmIconButton;
+import com.jagent.desktop.ui.components.Theme;
+import com.jagent.desktop.ui.components.UiConstants;
+import com.jagent.desktop.ui.components.UiFactory;
+import com.jagent.desktop.ui.components.UiIcons;
+import com.jagent.desktop.ui.components.UiText;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -171,7 +178,14 @@ public final class WorkspaceTreePanel extends JPanel {
                                 }
                                 try {
                                     final String baseBranch =
-                                            GitHubPullRequest.baseBranch(project, workspace).trim();
+                                            GitHubPullRequest.baseBranch(
+                                                            projectId,
+                                                            project,
+                                                            workspace,
+                                                            actionContext
+                                                                    .appState()
+                                                                    .githubConnections())
+                                                    .trim();
                                     if (!baseBranch.isBlank()) {
                                         return Git.worktreeStatus(
                                                 workspace, true, "origin/" + baseBranch);
@@ -253,42 +267,52 @@ public final class WorkspaceTreePanel extends JPanel {
         }
         final boolean changedOnly = changedOnlyButton.isSelected();
         BackgroundTasks.submit(
-                "Workspace",
-                "load-files",
-                () -> {
-                    final List<Path> children;
-                    try {
-                        children = workspaceFiles.children(directory);
-                    } catch (IOException failure) {
-                        SwingUtilities.invokeLater(
-                                () -> {
-                                    parent.removeAllChildren();
-                                    parent.add(new DefaultMutableTreeNode("Unavailable"));
-                                    ((DefaultTreeModel) tree.getModel()).reload(parent);
-                                });
-                        return;
-                    } catch (InterruptedException failure) {
-                        Thread.currentThread().interrupt();
-                        return;
-                    }
-                    final List<DefaultMutableTreeNode> childNodes =
-                            children.stream()
-                                    .filter(path -> !changedOnly || changed(path))
-                                    .map(this::node)
-                                    .toList();
-                    SwingUtilities.invokeLater(
-                            () -> {
-                                parent.removeAllChildren();
-                                if (childNodes.isEmpty()) {
-                                    parent.add(new DefaultMutableTreeNode(EMPTY));
-                                } else {
-                                    childNodes.forEach(parent::add);
-                                }
-                                ((DefaultTreeModel) tree.getModel()).reload(parent);
-                                tree.expandPath(new TreePath(parent.getPath()));
-                                restoreTreeState();
-                            });
-                });
+                        "Workspace",
+                        "load-files",
+                        () -> {
+                            final List<Path> children;
+                            try {
+                                children = workspaceFiles.children(directory);
+                            } catch (IOException failure) {
+                                SwingUtilities.invokeLater(
+                                        () -> {
+                                            parent.removeAllChildren();
+                                            parent.add(new DefaultMutableTreeNode("Unavailable"));
+                                            ((DefaultTreeModel) tree.getModel()).reload(parent);
+                                        });
+                                return;
+                            } catch (InterruptedException failure) {
+                                Thread.currentThread().interrupt();
+                                return;
+                            }
+                            final List<DefaultMutableTreeNode> childNodes =
+                                    children.stream()
+                                            .filter(path -> !changedOnly || changed(path))
+                                            .map(this::node)
+                                            .toList();
+                            SwingUtilities.invokeLater(
+                                    () -> {
+                                        parent.removeAllChildren();
+                                        if (childNodes.isEmpty()) {
+                                            parent.add(new DefaultMutableTreeNode(EMPTY));
+                                        } else {
+                                            childNodes.forEach(parent::add);
+                                        }
+                                        ((DefaultTreeModel) tree.getModel()).reload(parent);
+                                        tree.expandPath(new TreePath(parent.getPath()));
+                                        restoreTreeState();
+                                    });
+                        })
+                .exceptionally(
+                        failure -> {
+                            SwingUtilities.invokeLater(
+                                    () -> {
+                                        parent.removeAllChildren();
+                                        parent.add(new DefaultMutableTreeNode("Unavailable"));
+                                        ((DefaultTreeModel) tree.getModel()).reload(parent);
+                                    });
+                            return null;
+                        });
     }
 
     private void restoreTreeState() {
@@ -541,7 +565,10 @@ public final class WorkspaceTreePanel extends JPanel {
             final Object item = ((DefaultMutableTreeNode) value).getUserObject();
             if (item instanceof Path path) {
                 final String status = statusCode(path);
-                setText(fileName(path) + (status == null ? "" : " [" + status.trim() + "]"));
+                setText(
+                        fileName(path)
+                                + UiText.valueOrDefault(
+                                        status == null ? null : " [" + status.trim() + "]", ""));
                 setToolTipText(path.toString());
                 if (!selected && status != null) {
                     setForeground(statusColor(status));

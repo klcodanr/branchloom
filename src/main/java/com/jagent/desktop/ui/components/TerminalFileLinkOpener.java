@@ -25,10 +25,7 @@ public final class TerminalFileLinkOpener {
                 directory,
                 null,
                 () -> {},
-                output ->
-                        showFailure(
-                                owner,
-                                output == null || output.isBlank() ? "Editor failed." : output));
+                output -> showFailure(owner, UiText.valueOrDefault(output, "Editor failed.")));
     }
 
     private static void showFailure(final Component owner, final String message) {

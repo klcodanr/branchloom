@@ -2,6 +2,7 @@ package com.jagent.desktop.services.git;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.services.Git;
@@ -11,6 +12,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class GitParserTest {
+
     @Test
     void parsesLocalAndRemoteBranchesAndSkipsHeadReferences() {
         final List<Git.Branch> branches =
@@ -26,6 +28,26 @@ class GitParserTest {
                 List.of(new Git.Branch("main", false), new Git.Branch("origin/feature", true)),
                 branches,
                 "local and remote branches should exclude HEAD references");
+    }
+
+    @Test
+    void handlesBranchesWithOnlyWhitespaceAfterPipe() {
+        final List<Git.Branch> branches =
+                GitParser.parseBranches(
+                        List.of("refs/heads/main|   ", "refs/remotes/origin/feature|\t"));
+
+        assertEquals(
+                List.of(new Git.Branch("main", false), new Git.Branch("origin/feature", true)),
+                branches,
+                "blank content after pipe separator should pass through");
+    }
+
+    @Test
+    void handlesEmptyBranchInput() {
+        final List<Git.Branch> branches = GitParser.parseBranches(List.of());
+
+        assertNotNull(branches, "parseBranches should not return null for empty input");
+        assertTrue(branches.isEmpty(), "empty input list should return empty result");
     }
 
     @Test
@@ -72,5 +94,43 @@ class GitParserTest {
                 "refs/heads/main", worktrees.get(0).branch(), "first worktree branch should parse");
         assertFalse(worktrees.get(0).prunable(), "normal worktrees should not be prunable");
         assertTrue(worktrees.get(1).prunable(), "prunable marker should be retained");
+    }
+
+    @Test
+    void worktreesHandlesIncompleteRecordThenCompleteRecord() {
+        final List<Git.Worktree> worktrees =
+                GitParser.parseWorktrees(
+                        List.of(
+                                "worktree incomplete",
+                                "worktree complete",
+                                "branch refs/heads/main"));
+
+        assertEquals(2, worktrees.size(), "incomplete record should be skipped");
+        assertFalse(worktrees.get(0).prunable(), "normal worktrees should not be prunable");
+    }
+
+    @Test
+    void worktreesHandlesEmptyInput() {
+        final List<Git.Worktree> worktrees = GitParser.parseWorktrees(List.of());
+
+        assertNotNull(worktrees, "parseWorktrees should not return null for empty input");
+        assertTrue(worktrees.isEmpty(), "empty input list should return empty result");
+    }
+
+    @Test
+    void parsesBranchesWithLeadingAndTrailingSpaces() {
+        final List<Git.Branch> expected =
+                GitParser.parseBranches(
+                        List.of("refs/heads/ main |", "refs/remotes/origin /feature |"));
+
+        assertEquals(2, expected.size(), "leading/trailing spaces should be trimmed");
+    }
+
+    @Test
+    void parsesDiffStatusWithEmptyLines() {
+        final Map<String, String> statuses = GitParser.parseDiffStatus("");
+
+        assertNotNull(statuses, "parseDiffStatus should not return null for empty input");
+        assertTrue(statuses.isEmpty(), "empty diff status input should return empty map");
     }
 }

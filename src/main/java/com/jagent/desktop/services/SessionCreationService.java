@@ -13,12 +13,12 @@ import java.nio.file.Path;
 import java.text.Normalizer;
 import java.util.Locale;
 import java.util.concurrent.CompletionException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Creates a session, its worktree, and its initial terminal. */
 public final class SessionCreationService {
-    private static final Logger LOG = Logger.getLogger(SessionCreationService.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(SessionCreationService.class);
     private final AppState state;
     private final Git git;
 
@@ -55,7 +55,7 @@ public final class SessionCreationService {
         try {
             AgentContext.write(project, session, state.appSettings().agentContextPath());
         } catch (IOException exception) {
-            LOG.log(Level.WARNING, "Could not write agent context", exception);
+            LOG.warn("Could not write agent context", exception);
         }
         final SessionId sessionId = state.addSession(projectId, session);
         final TerminalId terminalId =

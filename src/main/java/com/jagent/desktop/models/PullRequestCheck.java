@@ -1,17 +1,147 @@
 package com.jagent.desktop.models;
 
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Date;
+import java.util.List;
+import org.kohsuke.github.GHCheckRun;
+import org.kohsuke.github.GHCommitState;
+import org.kohsuke.github.GHCommitStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /** One status check entry reported for a pull request. */
 public record PullRequestCheck(
-        String name, String status, String conclusion, String detailsUrl, String details) {
-    public PullRequestCheck {
-        name = normalize(name);
-        status = normalize(status);
-        conclusion = normalize(conclusion);
-        detailsUrl = normalize(detailsUrl);
-        details = normalize(details);
+        String name, Status status, Date completedAt, Conclusion conclusion, URL detailsUrl) {
+    private static final Logger LOG = LoggerFactory.getLogger(PullRequestCheck.class);
+
+    public enum Status {
+        QUEUED,
+        IN_PROGRESS,
+        COMPLETED,
+        UNKNOWN;
+
+        public static Status from(final GHCheckRun.Status status) {
+            switch (status) {
+                case QUEUED -> {
+                    return QUEUED;
+                }
+                case IN_PROGRESS -> {
+                    return IN_PROGRESS;
+                }
+                case COMPLETED -> {
+                    return COMPLETED;
+                }
+                default -> {
+                    return UNKNOWN;
+                }
+            }
+        }
     }
 
-    private static String normalize(final String value) {
-        return value == null ? "" : value.trim();
+    public enum Conclusion {
+        ACTION_REQUIRED,
+        CANCELLED,
+        FAILURE,
+        NEUTRAL,
+        SUCCESS,
+        SKIPPED,
+        STALE,
+        TIMED_OUT,
+        UNKNOWN;
+
+        public static Conclusion parse(final GHCheckRun.Conclusion conclusion) {
+            if (conclusion == null) {
+                return UNKNOWN;
+            }
+            try {
+                return Conclusion.valueOf(conclusion.name());
+            } catch (IllegalArgumentException exception) {
+                return UNKNOWN;
+            }
+        }
+    }
+
+    public static PullRequestCheck from(final GHCheckRun check) {
+        return new PullRequestCheck(
+                check.getName() == null ? "" : check.getName().trim(),
+                Status.from(check.getStatus()),
+                check.getCompletedAt(),
+                Conclusion.parse(check.getConclusion()),
+                check.getDetailsUrl());
+    }
+
+    public static PullRequestCheck from(final GHCommitStatus status) {
+        final String context = status.getContext() == null ? "" : status.getContext().trim();
+        Date updatedAt = null;
+        try {
+            updatedAt = status.getUpdatedAt();
+        } catch (IOException e) {
+            LOG.warn("Failed to get updatedAt for commit status: context={}", context, e);
+        }
+        return fromCommitStatus(context, status.getState(), updatedAt, status.getTargetUrl());
+    }
+
+    /* package */ static PullRequestCheck fromCommitStatus(
+            final String context,
+            final GHCommitState state,
+            final Date updatedAt,
+            final String targetUrl) {
+        final URL parsedTargetUrl = parseUrl(context, targetUrl);
+        if (state == null) {
+            return new PullRequestCheck(
+                    context, Status.UNKNOWN, updatedAt, Conclusion.UNKNOWN, parsedTargetUrl);
+        }
+        return switch (state) {
+            case SUCCESS ->
+                    new PullRequestCheck(
+                            context,
+                            Status.COMPLETED,
+                            updatedAt,
+                            Conclusion.SUCCESS,
+                            parsedTargetUrl);
+            case PENDING ->
+                    new PullRequestCheck(
+                            context,
+                            Status.IN_PROGRESS,
+                            updatedAt,
+                            Conclusion.UNKNOWN,
+                            parsedTargetUrl);
+            case ERROR, FAILURE ->
+                    new PullRequestCheck(
+                            context,
+                            Status.COMPLETED,
+                            updatedAt,
+                            Conclusion.FAILURE,
+                            parsedTargetUrl);
+        };
+    }
+
+    private static URL parseUrl(final String context, final String targetUrl) {
+        if (targetUrl == null || targetUrl.isBlank()) {
+            return null;
+        }
+        try {
+            return new URL(targetUrl);
+        } catch (MalformedURLException | IllegalArgumentException exception) {
+            LOG.warn("Failed to parse targetUrl for commit status: context={}", context, exception);
+            return null;
+        }
+    }
+
+    public boolean passing() {
+        return PullRequestCheck.Conclusion.SUCCESS.equals(conclusion())
+                || PullRequestCheck.Conclusion.SKIPPED.equals(conclusion())
+                || PullRequestCheck.Conclusion.NEUTRAL.equals(conclusion());
+    }
+
+    public boolean failing() {
+        return List.of(
+                        PullRequestCheck.Conclusion.ACTION_REQUIRED,
+                        PullRequestCheck.Conclusion.CANCELLED,
+                        PullRequestCheck.Conclusion.FAILURE,
+                        PullRequestCheck.Conclusion.TIMED_OUT)
+                .contains(conclusion());
     }
 }

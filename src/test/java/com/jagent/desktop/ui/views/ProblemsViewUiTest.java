@@ -14,12 +14,14 @@ import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
 class ProblemsViewUiTest {
+    private static final String SOURCE = "src";
+
     @Test
     void tableShowsProblemsNewestFirst() throws InterruptedException {
         final var first = new LogEntry("first-source", "warning", "first message");
         final var second = new LogEntry("second-source", "error", "second message");
         final var view =
-                GuiActionRunner.execute(() -> new ProblemsView(() -> List.of(first, second)));
+                GuiActionRunner.execute(() -> new ProblemsView(ignored -> List.of(first, second)));
         waitForRows(view, 2);
 
         final var table = table(view);
@@ -40,7 +42,10 @@ class ProblemsViewUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new ProblemsView(
-                                        () -> List.of(new LogEntry("source", "error", "message"))));
+                                        ignored ->
+                                                List.of(
+                                                        new LogEntry(
+                                                                "source", "error", "message"))));
         waitForRows(view, 1);
 
         final var showAll = SwingTestSupport.findButton(view, "Show all logs");
@@ -56,7 +61,7 @@ class ProblemsViewUiTest {
 
     @Test
     void tableFillsAvailableViewHeight() {
-        final var view = GuiActionRunner.execute(() -> new ProblemsView(List::of));
+        final var view = GuiActionRunner.execute(() -> new ProblemsView(ignored -> List.of()));
 
         GuiActionRunner.execute(
                 () -> {
@@ -81,5 +86,30 @@ class ProblemsViewUiTest {
             throws InterruptedException {
         SwingTestSupport.await(
                 () -> table(view).getRowCount() == rows, "problem rows did not load");
+    }
+
+    @Test
+    void loadAllLogsShowsAllEntriesWithInjectableLoader() throws InterruptedException {
+        final var initial = List.of(new LogEntry(SOURCE, "warning", "initial"));
+        final var full =
+                List.of(
+                        new LogEntry(SOURCE, "info     ", "oldest"),
+                        new LogEntry(SOURCE, "warning  ", "mid"),
+                        new LogEntry(SOURCE, "error    ", "newest"));
+        final var view =
+                GuiActionRunner.execute(
+                        () ->
+                                new ProblemsView(
+                                        (count) -> {
+                                            if (count == 500) {
+                                                return initial;
+                                            }
+                                            return full;
+                                        }));
+        waitForRows(view, 1);
+
+        final var showAll = SwingTestSupport.findButton(view, "Show all logs");
+        assertTrue(showAll != null, "show-all button should exist");
+        assertTrue(showAll.isEnabled(), "should start enabled");
     }
 }

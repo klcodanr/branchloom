@@ -1,10 +1,11 @@
 package com.jagent.desktop.ui.components;
 
-import com.jagent.desktop.api.PullRequestInfo;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.BackgroundTasks;
@@ -48,7 +49,7 @@ public final class ProjectTreePanel extends JPanel {
     private final JTree tree;
     private final DefaultMutableTreeNode root = new DefaultMutableTreeNode("Projects");
     private final transient Map<Session, TerminalState> sessionStates = new HashMap<>();
-    private final transient Map<Session, PullRequestInfo> pullRequestStatuses = new HashMap<>();
+    private final transient Map<Session, PullRequestDetails> pullRequestStatuses = new HashMap<>();
     private final transient ProjectTreeSynchronizer treeSynchronizer;
     private final SearchInput search;
     private Map<ProjectId, Project> renderedProjects = Map.of();
@@ -297,11 +298,11 @@ public final class ProjectTreePanel extends JPanel {
         final String agent = session.agent();
         final String promptValue = session.prompt();
         final String worktreePath = session.worktreePath();
-        String prompt = promptValue == null ? "" : promptValue.trim();
+        String prompt = UiText.valueOrDefault(promptValue, "").trim();
         if (prompt.length() > 140) {
             prompt = prompt.substring(0, 137) + "...";
         }
-        final PullRequestInfo pullRequest = pullRequestStatuses.get(session);
+        final PullRequestDetails pullRequest = pullRequestStatuses.get(session);
         final String pullRequestHtml =
                 pullRequest == null ? "" : "<br>" + GitFormatter.statusHtml(pullRequest);
         return "<html><b>"
@@ -322,12 +323,22 @@ public final class ProjectTreePanel extends JPanel {
                 "left-nav-pr-status",
                 () -> {
                     try {
-                        final GitHub.PullRequestDetails details =
-                                GitHub.loadCurrent(project, Path.of(session.worktreePath()));
-                        final PullRequestInfo status = details;
+                        final PullRequest pullRequest =
+                                GitHub.pullRequest(
+                                        session.projectId(),
+                                        project,
+                                        Path.of(session.worktreePath()),
+                                        actionContext.appState().githubConnections());
+                        final PullRequestDetails pullRequestDetails =
+                                GitHub.pullRequestDetails(
+                                        session.projectId(),
+                                        project,
+                                        pullRequest.number(),
+                                        actionContext.appState().githubConnections());
+
                         SwingUtilities.invokeLater(
                                 () -> {
-                                    pullRequestStatuses.put(session, status);
+                                    pullRequestStatuses.put(session, pullRequestDetails);
                                     tree.repaint();
                                 });
                     } catch (IOException | InterruptedException | RuntimeException ignored) {
