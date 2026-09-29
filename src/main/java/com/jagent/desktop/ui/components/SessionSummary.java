@@ -1,6 +1,9 @@
 package com.jagent.desktop.ui.components;
 
+import com.jagent.desktop.models.GitHubConnection;
 import com.jagent.desktop.models.Project;
+import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Tool;
 import com.jagent.desktop.services.AgentContext;
@@ -20,9 +23,8 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.Consumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -31,16 +33,19 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class SessionSummary extends JPanel {
     private static final String TASK_GROUP = "Session summary";
-    private static final Logger LOG = Logger.getLogger(SessionSummary.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(SessionSummary.class);
     private static final String UNAVAILABLE = "Unavailable";
     private static final String AGENT_CONTEXT = "Agent context";
     private static final String EDIT_LABEL = "Edit";
     private static final String RESET_LABEL = "Reset";
     private final transient Session session;
     private final transient Project project;
+    private final transient Map<String, GitHubConnection> configuredConnections;
     private final String globalContextPath;
     private final List<Tool> editors;
     private final JTextArea branch = value("Loading branch status...");
@@ -60,12 +65,12 @@ public final class SessionSummary extends JPanel {
     private boolean worktreeClean;
 
     public SessionSummary(final Project project, final Session session) {
-        this(project, session, "", List.of(), () -> {});
+        this(project, session, Map.of(), "", List.of(), () -> {});
     }
 
     public SessionSummary(
             final Project project, final Session session, final Runnable removeSessionAndWorktree) {
-        this(project, session, "", List.of(), removeSessionAndWorktree);
+        this(project, session, Map.of(), "", List.of(), removeSessionAndWorktree);
     }
 
     public SessionSummary(
@@ -73,19 +78,22 @@ public final class SessionSummary extends JPanel {
             final Session session,
             final String globalContextPath,
             final Runnable removeSessionAndWorktree) {
-        this(project, session, globalContextPath, List.of(), removeSessionAndWorktree);
+        this(project, session, Map.of(), globalContextPath, List.of(), removeSessionAndWorktree);
     }
 
     public SessionSummary(
             final Project project,
             final Session session,
+            final Map<String, GitHubConnection> configuredConnections,
             final String globalContextPath,
             final List<Tool> editors,
             final Runnable removeSessionAndWorktree) {
         super();
         this.project = project;
         this.session = session;
-        this.globalContextPath = globalContextPath == null ? "" : globalContextPath;
+        this.configuredConnections =
+                configuredConnections == null ? Map.of() : Map.copyOf(configuredConnections);
+        this.globalContextPath = UiText.valueOrDefault(globalContextPath, "");
         this.editors = editors == null ? List.of() : List.copyOf(editors);
         setBorder(UiFactory.sectionBorder());
         setLayout(new BorderLayout(0, UiConstants.SPACING_XL));
@@ -181,16 +189,11 @@ public final class SessionSummary extends JPanel {
 
     public void refresh() {
         LOG.info(
-                () ->
-                        "Session summary refresh started: project="
-                                + project.name()
-                                + ", projectPath="
-                                + project.path()
-                                + ", session="
-                                + session.name()
-                                + ", worktree="
-                                + session.worktreePath()
-                                + ", checks=branch-status,pull-request-status,diff-summary");
+                "Session summary refresh started: project={}, projectPath={}, session={}, worktree={}, checks=branch-status,pull-request-status,diff-summary",
+                project.name(),
+                project.path(),
+                session.name(),
+                session.worktreePath());
         diff.setOpaque(false);
         diff.setLayout(new BoxLayout(diff, BoxLayout.Y_AXIS));
         diff.removeAll();
@@ -231,8 +234,7 @@ public final class SessionSummary extends JPanel {
         final Path contextPath = AgentContext.path(project, session, globalContextPath);
         contextFile.setText(contextPath == null ? "Not configured" : contextPath.toString());
         contextFile.setCaretPosition(0);
-        contextText.setText(
-                content == null || content.isBlank() ? "No context configured." : content);
+        contextText.setText(UiText.valueOrDefault(content, "No context configured."));
         contextText.setCaretPosition(0);
         final boolean configured = contextPath != null;
         editContext.setEnabled(configured);
@@ -261,9 +263,8 @@ public final class SessionSummary extends JPanel {
                 output ->
                         JOptionPane.showMessageDialog(
                                 this,
-                                output == null || output.isBlank()
-                                        ? "Could not open the context file in the editor."
-                                        : output,
+                                UiText.valueOrDefault(
+                                        output, "Could not open the context file in the editor."),
                                 AGENT_CONTEXT,
                                 JOptionPane.ERROR_MESSAGE));
     }
@@ -276,11 +277,11 @@ public final class SessionSummary extends JPanel {
             AgentContext.save(project, session, globalContextPath, generated);
             loadContext();
         } catch (IOException exception) {
-            LOG.log(Level.SEVERE, "Reset session agent context", exception);
+            LOG.error("Reset session agent context", exception);
             JOptionPane.showMessageDialog(
                     this,
                     "Could not reset agent context: "
-                            + (exception.getMessage() == null ? "" : exception.getMessage()),
+                            + UiText.valueOrDefault(exception.getMessage(), ""),
                     AGENT_CONTEXT,
                     JOptionPane.ERROR_MESSAGE);
         }
@@ -328,21 +329,31 @@ public final class SessionSummary extends JPanel {
                 "session-pull-request-status",
                 () -> {
                     try {
-                        final GitHub.PullRequestDetails details =
-                                GitHub.loadCurrent(project, Path.of(session.worktreePath()));
+                        final PullRequest details =
+                                GitHub.pullRequest(
+                                        session.projectId(),
+                                        project,
+                                        Path.of(session.worktreePath()),
+                                        configuredConnections);
+                        final PullRequestDetails pullRequestDetails =
+                                GitHub.pullRequestDetails(
+                                        session.projectId(),
+                                        project,
+                                        details.number(),
+                                        configuredConnections);
                         SwingUtilities.invokeLater(
                                 () -> {
-                                    pullRequestUrl = details.url();
-                                    pullRequest.setText(GitFormatter.detailsHtml(details));
-                                    updatePullRequestDot(details);
+                                    pullRequestUrl = details.url().toExternalForm();
+                                    pullRequest.setText(
+                                            GitFormatter.detailsHtml(details, pullRequestDetails));
+                                    updatePullRequestDot(pullRequestDetails);
                                     pullRequestClosed =
-                                            "CLOSED".equals(details.state())
-                                                    || "MERGED".equals(details.state());
+                                            details.state() == PullRequest.State.CLOSED
+                                                    || details.state() == PullRequest.State.MERGED;
                                     updateCleanupSuggestion();
                                 });
                     } catch (IOException exception) {
-                        final String message =
-                                exception.getMessage() == null ? "" : exception.getMessage();
+                        final String message = UiText.valueOrDefault(exception.getMessage(), "");
                         if (message.toLowerCase(Locale.ROOT).contains("no pull request")) {
                             SwingUtilities.invokeLater(
                                     () -> {
@@ -352,13 +363,13 @@ public final class SessionSummary extends JPanel {
                                         pullRequest.setToolTipText(null);
                                     });
                         } else {
-                            LOG.log(Level.SEVERE, "Session PR status", exception);
+                            LOG.error("Session PR status", exception);
                             SwingUtilities.invokeLater(
                                     () -> pullRequest.setText(UNAVAILABLE + ": " + message));
                         }
                     } catch (InterruptedException exception) {
                         Thread.currentThread().interrupt();
-                        LOG.log(Level.SEVERE, "Session PR status", exception);
+                        LOG.error("Session PR status", exception);
                         SwingUtilities.invokeLater(
                                 () -> pullRequest.setText("Pull request lookup interrupted"));
                     }
@@ -395,14 +406,13 @@ public final class SessionSummary extends JPanel {
 
     private void reportFailure(
             final String source, final Exception exception, final Consumer<String> update) {
-        LOG.log(Level.SEVERE, source, exception);
+        LOG.error(source, exception);
         final String message = exception.getMessage();
-        SwingUtilities.invokeLater(() -> update.accept(message == null ? "" : message));
+        SwingUtilities.invokeLater(() -> update.accept(UiText.valueOrDefault(message, "")));
     }
 
-    private void updatePullRequestDot(final GitHub.PullRequestDetails details) {
-        final Color color =
-                UiText.pullRequestIndicatorColor(details.mergeState(), details.checksStatus());
+    private void updatePullRequestDot(final PullRequestDetails details) {
+        final Color color = details.indicatorColor();
         pullRequestStatusDot.update(color, null);
         pullRequestDetails.revalidate();
         pullRequestDetails.repaint();

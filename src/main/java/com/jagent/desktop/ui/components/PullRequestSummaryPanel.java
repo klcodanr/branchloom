@@ -1,14 +1,23 @@
 package com.jagent.desktop.ui.components;
 
+import com.jagent.desktop.models.GitHubConnection;
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestChecks;
+import com.jagent.desktop.models.PullRequestDetails;
+import com.jagent.desktop.services.BackgroundTasks;
+import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.PlatformCommands;
-import com.jagent.desktop.ui.utils.RelativeTime;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
-import java.net.URI;
-import java.time.Instant;
-import java.util.Locale;
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.Icon;
@@ -18,12 +27,26 @@ import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.html.HTMLDocument;
+import javax.swing.text.html.HTMLEditorKit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class PullRequestSummaryPanel extends JPanel {
+    private static final Logger LOG = LoggerFactory.getLogger(PullRequestSummaryPanel.class);
     private static final String LABEL_FOREGROUND = "Label.foreground";
     private final PullRequestChecksPanel checks = new PullRequestChecksPanel();
+    private final AtomicLong renderGeneration = new AtomicLong();
+    private final transient Set<String> loadingChecks = new HashSet<>();
+    private final transient Map<String, PullRequestChecks> checksByRequest = new HashMap<>();
+    private final transient Map<String, HTMLDocument> bodyByRequest = new HashMap<>();
+    private final transient Set<String> loadingBodies = new HashSet<>();
+    private transient PullRequest displayedRequest;
+    private transient Map<String, GitHubConnection> configuredConnections = Map.of();
 
     public PullRequestSummaryPanel() {
         super(new BorderLayout(0, UiConstants.SPACING_MD));
@@ -36,7 +59,9 @@ public final class PullRequestSummaryPanel extends JPanel {
                         UiConstants.SPACING_XS));
     }
 
-    public void render(final PullRequest request) {
+    public void render(final PullRequest request, final PullRequestDetails details) {
+        final long generation = renderGeneration.incrementAndGet();
+        displayedRequest = request;
         removeAll();
         if (request == null) {
             final JLabel empty =
@@ -46,7 +71,6 @@ public final class PullRequestSummaryPanel extends JPanel {
             return;
         }
 
-        final Instant now = Instant.now();
         final JPanel top = new JPanel();
         top.setOpaque(false);
         top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
@@ -59,7 +83,9 @@ public final class PullRequestSummaryPanel extends JPanel {
         number.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
         header.add(number);
         final JButton title =
-                UiFactory.link(request.title(), () -> PlatformCommands.openUrl(request.url()));
+                UiFactory.link(
+                        request.title(),
+                        () -> PlatformCommands.openUrl(request.url().toExternalForm()));
         title.setFont(Theme.boldFont(Theme.FontSize.XL));
         header.add(title);
         top.add(header);
@@ -72,48 +98,42 @@ public final class PullRequestSummaryPanel extends JPanel {
                 factsLine(
                         iconLinkValue(
                                 UiIcons.userRoundArrowLeft(),
-                                "@" + request.author(),
+                                "@" + PullRequestPresentation.authorLogin(request),
                                 "Author",
-                                authorUrl(request)),
+                                PullRequestPresentation.authorUrl(request)),
                         iconLinkValue(
                                 UiIcons.gitBranch(),
-                                blankAsNone(request.headBranch()),
+                                PullRequestPresentation.blankAsNone(request.headBranch()),
                                 "Branch",
-                                request.url())));
+                                request.url().toExternalForm())));
         facts.add(
                 factsLine(
                         iconValue(
                                 UiIcons.messageSquareDiff(),
-                                formatReview(request),
+                                formatReviewStatus(request, details),
                                 "Review status"),
                         iconValue(
                                 UiIcons.gitCompareArrows(),
-                                GitFormatter.mergeStatus(request.mergeable()),
+                                details == null
+                                        ? "Loading"
+                                        : UiText.titleCase(details.status().toString()),
                                 "Merge status",
-                                mergeStatusColor(request)),
-                        iconValue(
-                                UiIcons.activity(),
-                                request.checksPassed()
-                                        + "/"
-                                        + request.checksTotal()
-                                        + " "
-                                        + UiText.titleCase(request.checksStatus()),
-                                "Checks")));
+                                PullRequestPresentation.mergeStatusColor(details))));
         facts.add(
                 factsLine(
                         iconValue(
                                 UiIcons.gitCompare(),
-                                changesHtml(request),
+                                PullRequestPresentation.changesHtml(details),
                                 "Changes",
-                                UIManager.getColor(LABEL_FOREGROUND),
-                                changesTooltip(request)),
+                                null,
+                                PullRequestPresentation.changesTooltip(details)),
                         iconValue(
                                 UiIcons.pullRequestCreate(),
-                                offsetOnly(request.createdAt(), now),
+                                PullRequestPresentation.offsetOnly(request.createdAt()),
                                 "Opened"),
                         iconValue(
                                 UiIcons.rotateCwClock(),
-                                offsetOnly(request.updatedAt(), now),
+                                PullRequestPresentation.offsetOnly(request.updatedAt()),
                                 "Updated")));
         top.add(facts);
         add(top, BorderLayout.NORTH);
@@ -121,7 +141,12 @@ public final class PullRequestSummaryPanel extends JPanel {
         final JPanel center = new JPanel();
         center.setOpaque(false);
         center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
-        checks.render(request);
+        final String checksKey = PullRequestPresentation.checksKey(request);
+        final boolean checksLoading = !checksByRequest.containsKey(checksKey);
+        checks.render(
+                request,
+                checksByRequest.getOrDefault(checksKey, new PullRequestChecks(List.of())),
+                checksLoading);
         checks.setAlignmentX(LEFT_ALIGNMENT);
         center.add(checks);
         center.add(Box.createVerticalStrut(UiConstants.SPACING_SM));
@@ -130,16 +155,66 @@ public final class PullRequestSummaryPanel extends JPanel {
         bodyPanel.setOpaque(false);
         bodyPanel.setAlignmentX(LEFT_ALIGNMENT);
         bodyPanel.setBorder(UiFactory.contentAreaBorder());
-        final JEditorPane body = new JEditorPane("text/html", bodyHtml(request.description()));
-        body.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, true);
-        body.setFont(Theme.font(Theme.FontSize.SM));
-        body.setEditable(false);
-        body.setOpaque(false);
-        body.setFocusable(false);
-        body.setBorder(new EmptyBorder(0, 0, 0, 0));
+        final String bodyKey = PullRequestPresentation.bodyKey(request);
+        final HTMLDocument cachedBody = bodyByRequest.get(bodyKey);
+        final JEditorPane body =
+                cachedBody == null
+                        ? createBodyEditor(PullRequestPresentation.loadingBodyHtml())
+                        : createBodyEditor(cachedBody);
         bodyPanel.add(body, BorderLayout.CENTER);
         center.add(bodyPanel);
         add(center, BorderLayout.CENTER);
+        loadBodyAsync(request, generation, bodyKey, bodyPanel, body);
+        loadChecksAsync(request, generation, checksKey);
+    }
+
+    public void setConfiguredConnections(
+            final Map<String, GitHubConnection> configuredConnections) {
+        this.configuredConnections =
+                configuredConnections == null ? Map.of() : Map.copyOf(configuredConnections);
+    }
+
+    private void loadBodyAsync(
+            final PullRequest request,
+            final long generation,
+            final String bodyKey,
+            final JPanel bodyPanel,
+            final JEditorPane fallbackBody) {
+        if (bodyByRequest.containsKey(bodyKey) || loadingBodies.contains(bodyKey)) {
+            return;
+        }
+        loadingBodies.add(bodyKey);
+        BackgroundTasks.submit(
+                        "Pull Requests",
+                        "render-pr-description",
+                        () -> parseBody(PullRequestPresentation.bodyHtml(request.description())))
+                .thenAcceptAsync(
+                        document -> {
+                            loadingBodies.remove(bodyKey);
+                            bodyByRequest.put(bodyKey, document);
+                            if (generation == renderGeneration.get()
+                                    && request.equals(displayedRequest)) {
+                                bodyPanel.remove(fallbackBody);
+                                bodyPanel.add(createBodyEditor(document), BorderLayout.CENTER);
+                                bodyPanel.revalidate();
+                                bodyPanel.repaint();
+                            }
+                        },
+                        SwingUtilities::invokeLater)
+                .exceptionally(
+                        failure -> {
+                            SwingUtilities.invokeLater(
+                                    () -> {
+                                        loadingBodies.remove(bodyKey);
+                                        if (generation == renderGeneration.get()
+                                                && request.equals(displayedRequest)) {
+                                            fallbackBody.setText(
+                                                    PullRequestPresentation.errorBodyHtml(failure));
+                                            fallbackBody.setCaretPosition(0);
+                                        }
+                                    });
+                            return null;
+                        });
     }
 
     private static JPanel iconValue(final Icon icon, final String value, final String tooltip) {
@@ -197,98 +272,89 @@ public final class PullRequestSummaryPanel extends JPanel {
         return line;
     }
 
-    private static String formatReview(final PullRequest request) {
-        if (request.draft()) {
+    private static String formatReviewStatus(
+            final PullRequest request, final PullRequestDetails requestDetails) {
+        if (requestDetails != null && requestDetails.draft()) {
             return "Draft";
         }
-        final String value = request.reviewDecision();
-        return UiText.titleCase(value == null ? "unknown" : value.replace('_', ' '));
+        return UiText.titleCase(request.state().name());
     }
 
-    private static String bodyHtml(final String value) {
-        if (value == null || value.isBlank()) {
-            return "<html><body style='font-family:sans-serif; font-size:12px; margin:0;'>"
-                    + "<p style='margin:0;'>No description provided.</p></body></html>";
+    private void loadChecksAsync(
+            final PullRequest request, final long generation, final String checksKey) {
+        if (checksByRequest.containsKey(checksKey) || loadingChecks.contains(checksKey)) {
+            return;
         }
-        final String content = value.replace("\\r\\n", "\n").replace("\\n", "\n");
-        if (content.toLowerCase(Locale.ROOT).contains("<html")
-                || content.toLowerCase(Locale.ROOT).contains("<body")
-                || content.toLowerCase(Locale.ROOT).contains("<p")
-                || content.toLowerCase(Locale.ROOT).contains("<div")) {
-            return content;
-        }
-        return "<html><body style='font-family:sans-serif; font-size:12px; margin:0;'>"
-                + content
-                + "</body></html>";
+        loadingChecks.add(checksKey);
+        BackgroundTasks.submit("Pull Requests", "load-pr-checks", () -> loadChecks(request))
+                .thenAcceptAsync(
+                        pullRequestChecks -> {
+                            loadingChecks.remove(checksKey);
+                            checksByRequest.put(checksKey, pullRequestChecks);
+                            if (generation == renderGeneration.get()
+                                    && request.equals(displayedRequest)) {
+                                checks.render(request, pullRequestChecks, false);
+                                checks.revalidate();
+                                checks.repaint();
+                            }
+                        },
+                        SwingUtilities::invokeLater)
+                .exceptionally(
+                        failure -> {
+                            SwingUtilities.invokeLater(() -> loadingChecks.remove(checksKey));
+                            LOG.warn(
+                                    "Failed to load checks for pull request: {}",
+                                    request.number(),
+                                    failure);
+                            return null;
+                        });
     }
 
-    private static String blankAsNone(final String value) {
-        return value == null || value.isBlank() ? "None" : value;
-    }
-
-    private static String changesHtml(final PullRequest request) {
-        final Color additionsColor =
-                Theme.successColor() == null
-                        ? UIManager.getColor(LABEL_FOREGROUND)
-                        : Theme.successColor();
-        final Color deletionsColor =
-                Theme.dangerColor() == null
-                        ? UIManager.getColor(LABEL_FOREGROUND)
-                        : Theme.dangerColor();
-        return "<html><font color='"
-                + UiText.colorHex(additionsColor)
-                + "'>+"
-                + request.additions()
-                + "</font>  "
-                + "<font color='"
-                + UiText.colorHex(deletionsColor)
-                + "'>-"
-                + request.deletions()
-                + "</font>"
-                + "  files "
-                + request.changedFiles()
-                + "</html>";
-    }
-
-    private static String changesTooltip(final PullRequest request) {
-        return "+"
-                + request.additions()
-                + "  -"
-                + request.deletions()
-                + " files "
-                + request.changedFiles();
-    }
-
-    private static Color mergeStatusColor(final PullRequest request) {
-        final Color color =
-                UiText.pullRequestIndicatorColor(request.mergeable(), request.checksStatus());
-        if (color != null) {
-            return color;
-        }
-        final Color fallback = UIManager.getColor(LABEL_FOREGROUND);
-        return fallback == null ? Color.GRAY : fallback;
-    }
-
-    private static String offsetOnly(final String timestamp, final Instant now) {
-        final String offset = RelativeTime.offsetTime(timestamp, now);
-        if ("unknown".equals(offset)) {
-            return "Unknown";
-        }
-        return "now".equals(offset) ? "just now" : offset + " ago";
-    }
-
-    private static String authorUrl(final PullRequest request) {
-        final String author = request.author() == null ? "" : request.author().trim();
-        if (author.isEmpty()) {
-            return request.url();
-        }
+    private PullRequestChecks loadChecks(final PullRequest request) {
         try {
-            final URI uri = URI.create(request.url());
-            final String scheme = uri.getScheme() == null ? "https" : uri.getScheme();
-            final String host = uri.getHost() == null ? "github.com" : uri.getHost();
-            return scheme + "://" + host + "/" + author;
-        } catch (IllegalArgumentException exception) {
-            return "https://github.com/" + author;
+            return GitHub.getChecks(request, configuredConnections);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Could not load pull request checks", exception);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(
+                    "Pull request checks loading was interrupted", exception);
+        }
+    }
+
+    private static JEditorPane createBodyEditor(final String html) {
+        final JEditorPane body = new JEditorPane("text/html", html);
+        configureBodyEditor(body);
+        body.setCaretPosition(0);
+        return body;
+    }
+
+    private static JEditorPane createBodyEditor(final HTMLDocument document) {
+        final JEditorPane body = new JEditorPane();
+        body.setEditorKit(new HTMLEditorKit());
+        body.setDocument(document);
+        configureBodyEditor(body);
+        body.setCaretPosition(0);
+        return body;
+    }
+
+    private static void configureBodyEditor(final JEditorPane body) {
+        body.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, true);
+        body.setFont(Theme.font(Theme.FontSize.SM));
+        body.setEditable(false);
+        body.setOpaque(false);
+        body.setFocusable(true);
+        body.setBorder(new EmptyBorder(0, 0, 0, 0));
+    }
+
+    private static HTMLDocument parseBody(final String html) {
+        final HTMLEditorKit kit = new HTMLEditorKit();
+        final HTMLDocument document = (HTMLDocument) kit.createDefaultDocument();
+        try {
+            kit.read(new StringReader(html), document, 0);
+            return document;
+        } catch (IOException | BadLocationException exception) {
+            throw new IllegalStateException("Could not parse pull request description", exception);
         }
     }
 }

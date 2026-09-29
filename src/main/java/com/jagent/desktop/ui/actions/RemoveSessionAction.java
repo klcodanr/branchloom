@@ -12,22 +12,23 @@ import com.jagent.desktop.services.BackgroundJobs.Handle;
 import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.ui.components.UiText;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.CompletionException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.BoxLayout;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Starts the selected session removal workflow. */
 public class RemoveSessionAction extends BaseAction {
     private static final String TITLE = "Remove session";
-    private static final Logger LOG = Logger.getLogger(RemoveSessionAction.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(RemoveSessionAction.class);
     private final Git git = new Git();
 
     private record WorktreeCheck(Path path, boolean hasChanges) {}
@@ -200,10 +201,10 @@ public class RemoveSessionAction extends BaseAction {
                         ? failure.getCause()
                         : failure;
         final String message =
-                cause.getMessage() == null ? "Could not remove worktree." : cause.getMessage();
+                UiText.valueOrDefault(cause.getMessage(), "Could not remove worktree.");
         job.output(message);
         job.fail(message);
-        LOG.log(Level.SEVERE, "Could not remove worktree", cause);
+        LOG.error("Could not remove worktree", cause);
         JOptionPane.showMessageDialog(
                 actionContext.window(), message, TITLE, JOptionPane.ERROR_MESSAGE);
     }

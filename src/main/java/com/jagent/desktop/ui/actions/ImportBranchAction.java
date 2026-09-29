@@ -27,16 +27,16 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Starts importing a branch into the selected project. */
 public class ImportBranchAction extends BaseAction {
     private static final String TITLE = "Import branch";
     private static final String EMPTY_MESSAGE = "No branches are available to import.";
-    private static final Logger LOG = Logger.getLogger(ImportBranchAction.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(ImportBranchAction.class);
 
     protected record BranchChoice(String displayName, String ref, boolean remote) {
         @Override
@@ -91,7 +91,7 @@ public class ImportBranchAction extends BaseAction {
                             if (failure != null) {
                                 progress.close();
                                 actionContext.window().setCursor(Cursor.getDefaultCursor());
-                                LOG.log(Level.SEVERE, "Git query", failure);
+                                LOG.error("Git query", failure);
                                 return;
                             }
                             progress.close();
@@ -190,7 +190,7 @@ public class ImportBranchAction extends BaseAction {
                             .whenCompleteAsync(
                                     (ignored, failure) -> {
                                         if (failure != null) {
-                                            LOG.log(Level.SEVERE, "Import pull request", failure);
+                                            LOG.error("Import pull request", failure);
                                         }
                                     },
                                     SwingUtilities::invokeLater);
@@ -213,7 +213,7 @@ public class ImportBranchAction extends BaseAction {
                 .anyMatch(
                         session ->
                                 session != null && session.name().equalsIgnoreCase(sessionName))) {
-            LOG.severe("Import worktree: A session with that name already exists.");
+            LOG.error("Import worktree: A session with that name already exists.");
             return;
         }
 
@@ -228,7 +228,7 @@ public class ImportBranchAction extends BaseAction {
                                         false),
                                 project));
         if (GitUtils.isWorktreeRegistered(state.sessions(), worktree) || Files.exists(worktree)) {
-            LOG.severe("Import worktree: The worktree path is already in use.");
+            LOG.error("Import worktree: The worktree path is already in use.");
             return;
         }
 
@@ -242,7 +242,7 @@ public class ImportBranchAction extends BaseAction {
                             progress.close();
                             actionContext.window().setCursor(Cursor.getDefaultCursor());
                             if (failure != null) {
-                                LOG.log(Level.SEVERE, TITLE, failure);
+                                LOG.error(TITLE, failure);
                                 return;
                             }
                             final Session session =
@@ -260,7 +260,7 @@ public class ImportBranchAction extends BaseAction {
                                                 ViewId.SESSION,
                                                 ViewState.session(projectId, sessionId));
                             } catch (InvalidObjectException exception) {
-                                LOG.log(Level.SEVERE, TITLE, exception);
+                                LOG.error(TITLE, exception);
                             }
                         },
                         SwingUtilities::invokeLater);

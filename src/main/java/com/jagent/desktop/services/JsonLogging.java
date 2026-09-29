@@ -22,10 +22,19 @@ import java.util.logging.Formatter;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import org.jetbrains.annotations.NotNull;
 
 public final class JsonLogging {
     private static final Logger LOGGER = Logger.getLogger("com.jagent.desktop");
     private static final Gson JSON = new GsonBuilder().disableHtmlEscaping().create();
+    private static final Map<String, Level> LEVELS =
+            Map.of(
+                    "warning", Level.WARNING,
+                    "warn", Level.WARNING,
+                    "error", Level.SEVERE,
+                    "severe", Level.SEVERE,
+                    "debug", Level.FINE,
+                    "fine", Level.FINE);
     private static final java.lang.reflect.Type DATA_TYPE =
             new TypeToken<Map<String, Object>>() {}.getType();
     private static final Object LOCK = new Object();
@@ -35,6 +44,27 @@ public final class JsonLogging {
 
     private static Path logFile() {
         return Path.of(System.getProperty("user.home"), ".branchloom", "branchloom.log");
+    }
+
+    public static void info(
+            @NotNull final Class<?> source,
+            @NotNull final String message,
+            @NotNull final Map<String, ?> data) {
+        log(new LogEntry(source.getName(), "info", message, data));
+    }
+
+    public static void warn(
+            @NotNull final Class<?> source,
+            @NotNull final String message,
+            @NotNull final Map<String, ?> data) {
+        log(new LogEntry(source.getName(), "warning", message, data));
+    }
+
+    public static void debug(
+            @NotNull final Class<?> source,
+            @NotNull final String message,
+            @NotNull final Map<String, ?> data) {
+        log(new LogEntry(source.getName(), "debug", message, data));
     }
 
     public static void configure() throws IOException {
@@ -59,8 +89,9 @@ public final class JsonLogging {
         final Level level = levelFor(event.level());
         synchronized (LOCK) {
             final LogRecord record = new LogRecord(level, event.message());
-            record.setLoggerName(LOGGER.getName());
-            record.setSourceClassName(event.source() == null ? "Application" : event.source());
+            final String source = event.source() == null ? "Application" : event.source();
+            record.setLoggerName(source);
+            record.setSourceClassName(source);
             record.setSourceMethodName("report");
             record.setParameters(new Object[] {event.data()});
             LOGGER.log(record);
@@ -71,11 +102,8 @@ public final class JsonLogging {
     }
 
     private static Level levelFor(final String severity) {
-        return switch (severity == null ? "" : severity.toLowerCase(Locale.ROOT)) {
-            case "warning", "warn" -> Level.WARNING;
-            case "error", "severe" -> Level.SEVERE;
-            default -> Level.INFO;
-        };
+        final String normalized = severity == null ? "" : severity.toLowerCase(Locale.ROOT);
+        return LEVELS.getOrDefault(normalized, Level.INFO);
     }
 
     public static List<LogEntry> load() {
@@ -148,12 +176,14 @@ public final class JsonLogging {
             final var entry = new LinkedHashMap<String, Object>();
             entry.put("timestamp", Instant.ofEpochMilli(record.getMillis()).toString());
             entry.put("level", record.getLevel().getName());
-            entry.put("source", record.getLoggerName());
-            entry.put("message", formatMessage(record));
-            if (record.getParameters() != null
-                    && record.getParameters().length > 0
-                    && record.getParameters()[0] instanceof Map<?, ?> data
-                    && !data.isEmpty()) {
+            entry.put(
+                    "source",
+                    record.getLoggerName() == null
+                            ? record.getSourceClassName()
+                            : record.getLoggerName());
+            entry.put("message", record.getMessage());
+            final Map<String, Object> data = parameters(record.getParameters());
+            if (!data.isEmpty()) {
                 entry.put("data", data);
             }
             if (record.getThrown() != null) {
@@ -162,6 +192,22 @@ public final class JsonLogging {
                 entry.put("exception", stackTrace.toString());
             }
             return JSON.toJson(entry) + System.lineSeparator();
+        }
+
+        private static Map<String, Object> parameters(final Object... parameters) {
+            if (parameters == null || parameters.length == 0) {
+                return Map.of();
+            }
+            if (parameters.length == 1 && parameters[0] instanceof Map<?, ?> map) {
+                final Map<String, Object> data = new LinkedHashMap<>();
+                map.forEach((key, value) -> data.put(String.valueOf(key), value));
+                return data;
+            }
+            final Map<String, Object> data = new LinkedHashMap<>();
+            for (int i = 0; i < parameters.length; i++) {
+                data.put("arg" + i, parameters[i]);
+            }
+            return data;
         }
     }
 }

@@ -24,41 +24,19 @@ class GitTest {
     private static final String FEATURE_FILE = "feature.txt";
     private static final String BRANCH_COMMAND = "git branch ";
     private static final String REMOTE_ADD_ORIGIN = "git remote add origin ";
-    private static final String PUSH_MASTER = " && git push -qu origin master";
+    private static final String PUSH_MASTER =
+            " && git branch -M master && git push -qu origin master";
     private static final String SET_REMOTE_HEAD = " && git remote set-head origin -a";
     private static final String CLONE_COMMAND = "git clone -q ";
     private static final String BARE_REMOTE_INIT =
-            "git init --bare -q && git symbolic-ref HEAD refs/heads/master";
+            "git init --bare -q"
+                    + " && git -c safe.bareRepository=all symbolic-ref HEAD refs/heads/master";
     private static final String ADD_COMMAND = " && git add ";
     private static final String CLONE_SUFFIX =
-            " . && git config user.name test && git config user.email test";
+            " . && git config user.name test && git config user.email test && git branch -M master";
     private static final String WORKTREE_BRANCH_COMMAND =
             BRANCH_COMMAND + FEATURE_BRANCH + " && git worktree add -q ";
     private static final String SHOW_BRANCH_COMMAND = "git branch --show-current";
-
-    @Test
-    void githubCommandUsesSelectedAccount() {
-        final Project project =
-                new Project(
-                        "Demo",
-                        "/tmp/demo",
-                        null,
-                        "github.example",
-                        "user",
-                        null,
-                        null,
-                        List.of(),
-                        List.of());
-
-        assertEquals(
-                "GH_TOKEN=$(gh auth token --hostname 'github.example' --user 'user') git status",
-                Git.githubCommand(project, "git status"),
-                "configured GitHub account should be applied");
-        assertEquals(
-                "git status",
-                Git.githubCommand(new Project("Demo", "/tmp/demo", null), "git status"),
-                "missing GitHub account should leave command unchanged");
-    }
 
     @Test
     void quotesWindowsCommandArguments() {
@@ -593,13 +571,11 @@ class GitTest {
         final Path remote = Files.createTempDirectory("branchloom-remote-");
         final Path source = Files.createTempDirectory("branchloom-source-");
         run(remote, BARE_REMOTE_INIT);
-        run(
-                directory,
-                REMOTE_ADD_ORIGIN + PlatformCommands.shellQuote(remote.toString()) + PUSH_MASTER);
+        run(directory, REMOTE_ADD_ORIGIN + quotedRemote(remote) + PUSH_MASTER);
         run(
                 source,
                 CLONE_COMMAND
-                        + PlatformCommands.shellQuote(remote.toString())
+                        + quotedRemote(remote)
                         + CLONE_SUFFIX
                         + " && printf 'remote' > upstream.txt && git add upstream.txt"
                         + " && git commit -qm upstream && git push -q origin master");
@@ -621,14 +597,14 @@ class GitTest {
         run(
                 directory,
                 REMOTE_ADD_ORIGIN
-                        + PlatformCommands.shellQuote(remote.toString())
+                        + quotedRemote(remote)
                         + PUSH_MASTER
                         + " && printf 'local' > local.txt"
                         + " && git add local.txt && git commit -qm local");
         run(
                 source,
                 CLONE_COMMAND
-                        + PlatformCommands.shellQuote(remote.toString())
+                        + quotedRemote(remote)
                         + CLONE_SUFFIX
                         + " && printf 'remote' > remote.txt && git add remote.txt"
                         + " && git commit -qm remote && git push -q origin master");
@@ -652,16 +628,11 @@ class GitTest {
         Files.createDirectories(remote);
         Files.createDirectories(source);
         run(remote, BARE_REMOTE_INIT);
-        run(
-                directory,
-                REMOTE_ADD_ORIGIN
-                        + PlatformCommands.shellQuote(remote.toString())
-                        + PUSH_MASTER
-                        + SET_REMOTE_HEAD);
+        run(directory, REMOTE_ADD_ORIGIN + quotedRemote(remote) + PUSH_MASTER + SET_REMOTE_HEAD);
         run(
                 source,
                 CLONE_COMMAND
-                        + PlatformCommands.shellQuote(remote.toString())
+                        + quotedRemote(remote)
                         + CLONE_SUFFIX
                         + " && printf 'primary' > primary.txt && git add primary.txt"
                         + " && git commit -qm primary && git push -q origin master");
@@ -683,7 +654,7 @@ class GitTest {
         run(
                 directory,
                 REMOTE_ADD_ORIGIN
-                        + PlatformCommands.shellQuote(remote.toString())
+                        + quotedRemote(remote)
                         + PUSH_MASTER
                         + SET_REMOTE_HEAD
                         + " && git switch -qc unexpected");
@@ -746,7 +717,7 @@ class GitTest {
         run(
                 directory,
                 REMOTE_ADD_ORIGIN
-                        + PlatformCommands.shellQuote(remote.toString())
+                        + quotedRemote(remote)
                         + PUSH_MASTER
                         + SET_REMOTE_HEAD
                         + " && git checkout -qb feature && printf 'feature' > "
@@ -757,7 +728,7 @@ class GitTest {
         run(
                 source,
                 CLONE_COMMAND
-                        + PlatformCommands.shellQuote(remote.toString())
+                        + quotedRemote(remote)
                         + CLONE_SUFFIX
                         + " && printf 'primary' > primary.txt && git add primary.txt"
                         + " && git commit -qm primary && git push -q origin master");
@@ -786,7 +757,7 @@ class GitTest {
         run(
                 directory,
                 REMOTE_ADD_ORIGIN
-                        + PlatformCommands.shellQuote(remote.toString())
+                        + quotedRemote(remote)
                         + PUSH_MASTER
                         + SET_REMOTE_HEAD
                         + " && git checkout -qb feature && printf 'feature' > tracked.txt"
@@ -794,7 +765,7 @@ class GitTest {
         run(
                 source,
                 CLONE_COMMAND
-                        + PlatformCommands.shellQuote(remote.toString())
+                        + quotedRemote(remote)
                         + CLONE_SUFFIX
                         + " && printf 'primary' > tracked.txt && git add tracked.txt"
                         + " && git commit -qm primary && git push -q origin master");
@@ -889,6 +860,10 @@ class GitTest {
     private static String readCommand(final Path directory, final String command)
             throws IOException, InterruptedException {
         return output(directory, command);
+    }
+
+    private static String quotedRemote(final Path remote) {
+        return PlatformCommands.shellQuote("file://" + remote.toAbsolutePath());
     }
 
     private static void assertCompletionFailure(final java.util.function.Supplier<?> operation) {

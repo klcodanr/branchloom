@@ -1,4 +1,4 @@
-package com.jagent.desktop.ui.components;
+package com.jagent.desktop.ui.layout;
 
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;

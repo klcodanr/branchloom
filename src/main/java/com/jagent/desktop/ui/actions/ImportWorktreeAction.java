@@ -19,16 +19,16 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Starts importing a worktree into the selected project. */
 public final class ImportWorktreeAction extends BaseAction {
     private static final String TITLE = "Import worktree";
     private static final String EMPTY_MESSAGE = "No worktrees are available to import.";
-    private static final Logger LOG = Logger.getLogger(ImportWorktreeAction.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(ImportWorktreeAction.class);
     private final Git git = new Git();
 
     public ImportWorktreeAction(final ActionContext actionContext) {
@@ -66,7 +66,7 @@ public final class ImportWorktreeAction extends BaseAction {
                         (paths, failure) -> {
                             progress.close();
                             if (failure != null) {
-                                LOG.log(Level.SEVERE, "Git query", failure);
+                                LOG.error("Git query", failure);
                             } else {
                                 importWorktree(projectId, project, paths);
                             }
@@ -133,7 +133,7 @@ public final class ImportWorktreeAction extends BaseAction {
                     .viewCoordinator()
                     .updateView(ViewId.SESSION, ViewState.session(projectId, sessionId));
         } catch (java.io.InvalidObjectException exception) {
-            LOG.log(Level.SEVERE, TITLE, exception);
+            LOG.error(TITLE, exception);
         }
     }
 }

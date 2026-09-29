@@ -1,109 +1,69 @@
 package com.jagent.desktop.models;
 
-import com.jagent.desktop.api.PullRequestInfo;
-import java.util.List;
-import java.util.Objects;
+import java.io.IOException;
+import java.net.URL;
+import java.util.Date;
+import org.jetbrains.annotations.NotNull;
+import org.kohsuke.github.GHPullRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public record PullRequest(
-        ProjectId projectId,
-        int number,
-        String title,
-        String description,
-        String commentSummary,
-        String url,
-        String createdAt,
-        String updatedAt,
-        String reviewDecision,
-        String mergeable,
-        boolean draft,
-        String author,
-        String headBranch,
-        int additions,
-        int deletions,
-        int changedFiles,
-        int checksPassed,
-        int checksTotal,
-        String checksStatus,
-        List<PullRequestCheck> checks)
-        implements PullRequestInfo {
+        @NotNull ProjectId projectId,
+        @NotNull Project project,
+        @NotNull int number,
+        @NotNull State state,
+        @NotNull String title,
+        @NotNull String description,
+        @NotNull URL url,
+        @NotNull Date createdAt,
+        @NotNull Date updatedAt,
+        @NotNull GitHubUser author,
+        @NotNull String headBranch,
+        @NotNull String headSha,
+        @NotNull String baseBranch) {
+    private static final Logger LOG = LoggerFactory.getLogger(PullRequest.class);
 
-    public PullRequest {
-        checks = checks == null ? List.of() : List.copyOf(checks);
-    }
-
-    @SuppressWarnings("PMD.ExcessiveParameterList")
-    public PullRequest(
-            final ProjectId projectId,
-            final int number,
-            final String title,
-            final String description,
-            final String commentSummary,
-            final String url,
-            final String createdAt,
-            final String updatedAt,
-            final String reviewDecision,
-            final String mergeable,
-            final boolean draft,
-            final String author,
-            final String headBranch,
-            final int additions,
-            final int deletions,
-            final int changedFiles,
-            final int checksPassed,
-            final int checksTotal,
-            final String checksStatus) {
-        this(
-                projectId,
-                number,
-                title,
-                description,
-                commentSummary,
-                url,
-                createdAt,
-                updatedAt,
-                reviewDecision,
-                mergeable,
-                draft,
-                author,
-                headBranch,
-                additions,
-                deletions,
-                changedFiles,
-                checksPassed,
-                checksTotal,
-                checksStatus,
-                List.of());
-    }
-
-    public int totalChanges() {
-        return additions + deletions;
-    }
-
-    @Override
-    public String mergeState() {
-        return mergeable;
-    }
-
-    public String relevanceGroup() {
-        if (draft || hasBlockingChecks() || hasBlockingMergeabilityForBoardGrouping()) {
-            return PullRequestGroup.NOT_READY.label();
+    public static PullRequest from(
+            @NotNull final ProjectId projectId,
+            @NotNull final Project project,
+            @NotNull final GHPullRequest request) {
+        try {
+            return new PullRequest(
+                    projectId,
+                    project,
+                    request.getNumber(),
+                    request.getState() == null
+                            ? State.OPEN
+                            : State.valueOf(request.getState().toString()),
+                    request.getTitle() == null ? "" : request.getTitle(),
+                    request.getBody() == null ? "" : request.getBody(),
+                    request.getHtmlUrl(),
+                    request.getCreatedAt(),
+                    request.getUpdatedAt(),
+                    GitHubUser.from(request.getUser()),
+                    request.getHead() == null ? "" : request.getHead().getRef(),
+                    request.getHead() == null ? "" : request.getHead().getSha(),
+                    request.getBase() == null ? "" : request.getBase().getRef());
+        } catch (IOException e) {
+            LOG.error("Failed to create PullRequest from GHPullRequest", e);
         }
-        return switch (reviewDecision) {
-            case "CHANGES_REQUESTED" -> PullRequestGroup.WAITING_FOR_CHANGES.label();
-            case "APPROVED" -> PullRequestGroup.APPROVED.label();
-            default -> PullRequestGroup.READY_FOR_REVIEW.label();
-        };
+        return null;
     }
 
-    @Override
-    public boolean equals(final Object other) {
-        return other instanceof PullRequest request
-                && number == request.number
-                && Objects.equals(url, request.url());
+    public String abbreviatedHeadSha() {
+        if (headSha().isBlank()) {
+            return "missing";
+        }
+        if (headSha().length() <= 12) {
+            return headSha();
+        }
+        return headSha().substring(0, 7) + "..." + headSha().substring(headSha().length() - 5);
     }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(number, url);
+    public enum State {
+        OPEN,
+        CLOSED,
+        MERGED
     }
 }

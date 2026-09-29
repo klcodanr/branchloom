@@ -20,7 +20,8 @@ public record Project(
         List<String> startupCommands,
         List<SessionId> sessionIds,
         @Nullable String agentContextPath,
-        @Nullable String agentContextText) {
+        @Nullable String agentContextText,
+        @Nullable String githubConnectionId) {
 
     public Project {
         sessionIds = sessionIds == null ? List.of() : List.copyOf(sessionIds);
@@ -31,14 +32,15 @@ public record Project(
                 name,
                 path,
                 Defaults.DEFAULT_GROUP,
-                auth != null ? auth.host() : null,
-                auth != null ? auth.user() : null,
+                auth == null ? null : auth.host(),
+                auth == null ? null : auth.user(),
                 null,
                 null,
                 List.of(),
                 List.of(),
                 null,
-                null);
+                null,
+                auth == null ? null : auth.connectionId());
     }
 
     public Project(
@@ -62,6 +64,35 @@ public record Project(
                 startupCommands,
                 sessionIds,
                 null,
+                null,
+                null);
+    }
+
+    @SuppressWarnings("PMD.ExcessiveParameterList")
+    public Project(
+            final String name,
+            final String path,
+            final String group,
+            final String githubHost,
+            final String githubUser,
+            final String worktreeTemplate,
+            final String worktreeCommand,
+            final List<String> startupCommands,
+            final List<SessionId> sessionIds,
+            final String agentContextPath,
+            final String agentContextText) {
+        this(
+                name,
+                path,
+                group,
+                githubHost,
+                githubUser,
+                worktreeTemplate,
+                worktreeCommand,
+                startupCommands,
+                sessionIds,
+                agentContextPath,
+                agentContextText,
                 null);
     }
 
@@ -83,7 +114,8 @@ public record Project(
                 this.startupCommands,
                 this.sessionIds,
                 this.agentContextPath,
-                this.agentContextText);
+                this.agentContextText,
+                this.githubConnectionId);
     }
 
     public Project withGroup(final String group) {
@@ -98,7 +130,8 @@ public record Project(
                 this.startupCommands,
                 this.sessionIds,
                 this.agentContextPath,
-                this.agentContextText);
+                this.agentContextText,
+                this.githubConnectionId);
     }
 
     public Project withNewSession(final SessionId sessionId) {
@@ -115,7 +148,8 @@ public record Project(
                 this.startupCommands,
                 List.copyOf(newSessions),
                 this.agentContextPath,
-                this.agentContextText);
+                this.agentContextText,
+                this.githubConnectionId);
     }
 
     public Project withRemovedSession(final SessionId sessionId) {
@@ -130,6 +164,7 @@ public record Project(
                 this.startupCommands,
                 this.sessionIds.stream().filter(id -> !id.equals(sessionId)).toList(),
                 this.agentContextPath,
-                this.agentContextText);
+                this.agentContextText,
+                this.githubConnectionId);
     }
 }

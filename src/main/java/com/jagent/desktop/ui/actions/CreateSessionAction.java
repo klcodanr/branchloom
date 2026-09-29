@@ -15,13 +15,14 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Comparator;
 import java.util.List;
-import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Starts the session creation workflow. */
 public final class CreateSessionAction extends BaseAction {
-    private static final Logger LOG = Logger.getLogger(CreateSessionAction.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(CreateSessionAction.class);
     private static final String CREATE_SESSION = "Create session";
     private final Git git = new Git();
     private final SessionCreationService sessionCreator;
@@ -111,7 +112,7 @@ public final class CreateSessionAction extends BaseAction {
                         session ->
                                 session != null
                                         && session.name().equalsIgnoreCase(request.name()))) {
-            LOG.severe("Create session: A session with that name already exists.");
+            LOG.error("Create session: A session with that name already exists.");
             return;
         }
 
@@ -150,7 +151,7 @@ public final class CreateSessionAction extends BaseAction {
     }
 
     private void showError(final String title, final String message) {
-        LOG.severe(title + ": " + message);
+        LOG.error("{}: {}", title, message);
         if (actionContext.window() != null) {
             JOptionPane.showMessageDialog(
                     actionContext.window(), message, title, JOptionPane.ERROR_MESSAGE);

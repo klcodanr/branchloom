@@ -8,14 +8,17 @@ import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestFilter;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
+import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.PullRequestCache;
+import com.jagent.desktop.ui.components.GitHubAuthAlert;
 import com.jagent.desktop.ui.components.ProjectActions;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
 import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.UiFactory;
+import com.jagent.desktop.ui.components.UiText;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.nio.file.Path;
@@ -27,8 +30,11 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class ProjectView extends AbstractWorkspaceView {
+    private static final Logger LOG = LoggerFactory.getLogger(ProjectView.class);
     private static final String DEFAULT_FILTER = "My PRs";
     private static final String REVIEWABLE_FILTER = "Reviewable";
     private final transient Project project;
@@ -43,7 +49,10 @@ public final class ProjectView extends AbstractWorkspaceView {
     public ProjectView(final ActionContext actionContext, final Project project) {
         super(actionContext, ViewId.PROJECT);
         this.project = project;
-        this.pullRequestCache = PullRequestCache.get(actionContext.appState());
+        this.pullRequestCache =
+                PullRequestCache.get(
+                        actionContext.appState(),
+                        exception -> GitHubAuthAlert.show(this, exception));
         this.projectId =
                 actionContext.appState().projects().entrySet().stream()
                         .filter(entry -> entry.getValue().equals(project))
@@ -65,26 +74,27 @@ public final class ProjectView extends AbstractWorkspaceView {
                 new PullRequestsBoard(
                         actionContext,
                         defaultFilter.query(),
-                        query ->
-                                this.projectId == null
-                                        ? List.of()
-                                        : pullRequestCache.loadForProjectFilter(
-                                                this.projectId,
-                                                (PullRequestFilter) this.filters.getSelectedItem()
-                                                                == null
-                                                        ? new PullRequestFilter(
-                                                                DEFAULT_FILTER, query)
-                                                        : new PullRequestFilter(
-                                                                ((PullRequestFilter)
-                                                                                this.filters
-                                                                                        .getSelectedItem())
-                                                                        .name(),
-                                                                query)));
+                        (query, forceRefresh) -> {
+                            if (this.projectId == null) {
+                                return List.of();
+                            }
+                            final PullRequestFilter selected =
+                                    (PullRequestFilter) this.filters.getSelectedItem();
+                            final PullRequestFilter filter =
+                                    new PullRequestFilter(
+                                            selected == null ? DEFAULT_FILTER : selected.name(),
+                                            query);
+                            return forceRefresh
+                                    ? pullRequestCache.refreshForProjectFilter(
+                                            this.projectId, filter)
+                                    : pullRequestCache.loadForProjectFilter(this.projectId, filter);
+                        });
         this.filters.addActionListener(
                 event -> {
                     final PullRequestFilter selected =
                             (PullRequestFilter) this.filters.getSelectedItem();
-                    this.pullRequests.setQuery(selected == null ? "" : selected.query());
+                    this.pullRequests.setQuery(
+                            UiText.valueOrDefault(selected == null ? null : selected.query(), ""));
                     this.pullRequests.refresh();
                 });
         initializeWorkspace(project.name());
@@ -108,14 +118,31 @@ public final class ProjectView extends AbstractWorkspaceView {
 
     @Override
     protected void addTitleDetails(final JPanel titleArea) {
-        if (Git.isRepository(Path.of(project.path()))) {
-            return;
-        }
         gitWarning.setOpaque(false);
         gitWarning.add(new JLabel("This folder is not a Git repository."));
         initializeGit.addActionListener(event -> initializeGit());
         gitWarning.add(initializeGit);
         titleArea.add(gitWarning);
+        gitWarning.setVisible(false);
+        loadGitRepositoryStatus();
+    }
+
+    private void loadGitRepositoryStatus() {
+        BackgroundTasks.submit(
+                        "Project",
+                        "git-repository-check",
+                        () -> Git.isRepository(Path.of(project.path())))
+                .thenAcceptAsync(
+                        isRepository -> gitWarning.setVisible(!isRepository),
+                        SwingUtilities::invokeLater)
+                .exceptionally(
+                        failure -> {
+                            LOG.warn(
+                                    "Could not verify Git repository state for project {}",
+                                    project.name(),
+                                    failure);
+                            return null;
+                        });
     }
 
     private void initializeGit() {

@@ -6,19 +6,20 @@ import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.ui.components.UiText;
 import java.awt.Window;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.CompletionException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Offers recovery when an imported session points to a missing worktree. */
 public final class MissingWorktreeRecovery {
-    private static final Logger LOG = Logger.getLogger(MissingWorktreeRecovery.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(MissingWorktreeRecovery.class);
 
     private MissingWorktreeRecovery() {}
 
@@ -37,7 +38,7 @@ public final class MissingWorktreeRecovery {
                 .whenCompleteAsync(
                         (prunable, failure) -> {
                             if (failure != null) {
-                                LOG.log(Level.WARNING, "Check missing worktree", failure);
+                                LOG.warn("Check missing worktree", failure);
                                 return;
                             }
                             showRecovery(actionContext, project, session, prunable, git);
@@ -138,7 +139,7 @@ public final class MissingWorktreeRecovery {
                         : failure;
         JOptionPane.showMessageDialog(
                 owner,
-                cause.getMessage() == null ? "Git operation failed." : cause.getMessage(),
+                UiText.valueOrDefault(cause.getMessage(), "Git operation failed."),
                 title,
                 JOptionPane.ERROR_MESSAGE);
     }

@@ -2,6 +2,8 @@ package com.jagent.desktop.ui.components;
 
 import java.awt.Color;
 import java.util.Locale;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /** Formatting helpers for values displayed by Swing components. */
 public final class UiText {
@@ -13,6 +15,11 @@ public final class UiText {
 
     public static String colorHex(final Color color) {
         return String.format("#%02x%02x%02x", color.getRed(), color.getGreen(), color.getBlue());
+    }
+
+    public static String valueOrDefault(
+            @Nullable final String value, @NotNull final String defaultValue) {
+        return value == null || value.isBlank() ? defaultValue : value;
     }
 
     public static String titleCase(final String value) {

@@ -200,7 +200,12 @@ public final class Theme {
     }
 
     public static Color warningColor() {
-        return color("Actions.Yellow", "Component.focusColor");
+        final Color yellow = UIManager.getColor("Actions.Yellow");
+        if (yellow != null) {
+            return yellow;
+        }
+        final Color orange = UIManager.getColor("Actions.Orange");
+        return orange == null ? new Color(255, 152, 0) : orange;
     }
 
     public static Color mergeColor() {

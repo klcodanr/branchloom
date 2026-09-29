@@ -8,12 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.test.TestGitRepository;
+import com.jagent.desktop.ui.Defaults;
 import java.io.IOException;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -27,35 +25,27 @@ class GitHubTest {
     }
 
     @Test
-    void loadingAuthoredRequestsRequiresAGitHubRemote(@TempDir final Path directory)
-            throws IOException, InterruptedException {
-        TestGitRepository.initialize(directory);
-
-        assertThrows(
-                IOException.class,
-                () -> GitHub.loadForProject(ProjectId.create(), project(directory), "author:@me"),
-                "a project without a GitHub remote should fail before invoking gh");
+    void authFormatsPersonalAccessTokenWithoutExposingToken() {
+        assertEquals(
+                "Personal access token (github.example)",
+                new GitHub.Auth("github.example", null, "pat-connection", null).toString(),
+                "auth should not expose the token");
     }
 
     @Test
-    void loadingFilteredRequestsRequiresAGitHubRemote(@TempDir final Path directory)
-            throws IOException, InterruptedException {
-        TestGitRepository.initialize(directory);
-
-        assertThrows(
-                IOException.class,
-                () -> GitHub.loadForProject(ProjectId.create(), project(directory), "author:@me"),
-                "filtered loading without a GitHub remote should fail before invoking gh");
+    void configuredAuthsIncludesDefaultCliOption() {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var auths = GitHub.configuredAuths(state);
+        assertFalse(auths.isEmpty(), "default auth should be available");
     }
 
     @Test
-    void loadingReviewRequestsRequiresAGitHubRemote(@TempDir final Path directory)
+    void loadingRequestsRequiresAGitHubRemote(@TempDir final Path directory)
             throws IOException, InterruptedException {
         TestGitRepository.initialize(directory);
-
         assertThrows(
                 IOException.class,
-                () -> GitHub.loadReviewRequestedForProject(ProjectId.create(), project(directory)),
+                () -> GitHub.loadForProject(ProjectId.create(), project(directory), "author:@me"),
                 "a project without a GitHub remote should fail before invoking gh");
     }
 
@@ -63,7 +53,6 @@ class GitHubTest {
     void loadingIssuesRequiresAGitHubRemote(@TempDir final Path directory)
             throws IOException, InterruptedException {
         TestGitRepository.initialize(directory);
-
         assertThrows(
                 IOException.class,
                 () -> GitHub.loadIssuesForProject(project(directory)),
@@ -73,88 +62,22 @@ class GitHubTest {
     @Test
     void loadingCurrentRequestReportsMissingWorktree(@TempDir final Path directory) {
         final Project project = project(directory);
-
         assertThrows(
                 IOException.class,
-                () -> GitHub.loadCurrent(project, directory.resolve("missing")),
-                "a missing worktree should fail without attempting a request lookup");
+                () -> GitHub.pullRequest(ProjectId.create(), project, directory.resolve("missing")),
+                "a missing worktree should fail request lookup");
     }
 
     @Test
-    void loadingCurrentRequestReportsGitHubCliErrors(@TempDir final Path directory)
+    void loadingCurrentRequestReportsLookupErrors(@TempDir final Path directory)
             throws IOException, InterruptedException {
         TestGitRepository.initialize(directory);
-
         final IOException exception =
                 assertThrows(
                         IOException.class,
-                        () -> GitHub.loadCurrent(project(directory), directory),
-                        "a repository without a pull request should report the CLI error");
-
-        assertNotNull(exception.getMessage(), "CLI errors should include a message");
-        assertFalse(exception.getMessage().isBlank(), "CLI errors should include details");
-    }
-
-    @Test
-    void loadsGitHubDataFromCliOutput(@TempDir final Path directory)
-            throws IOException, InterruptedException, ReflectiveOperationException {
-        TestGitRepository.initialize(directory);
-        TestGitRepository.run(
-                directory, "git remote add origin git@github.com:adobe/branchloom.git");
-        final Path bin = Files.createDirectory(directory.resolve("bin"));
-        final Path gh = bin.resolve("gh");
-        Files.writeString(
-                gh,
-                "#!/bin/sh\n"
-                        + "case \"$1\" in\n"
-                        + "  auth) printf 'github.example\\talice\\n' ;;\n"
-                        + "  pr) if [ \"$4\" = \"baseRefName\" ]; then printf 'master\\n'; else printf '42\\tTitle\\tOPEN\\tAPPROVED\\tMERGEABLE\\t"
-                        + "https://github.com/adobe/branchloom/pull/42\\tfalse\\t2\\t3\\tPASSING\\n'; fi ;;\n"
-                        + "  api) printf '42\\tTitle\\tbody\\tcomment\\turl\\tcreated\\tupdated\\tAPPROVED\\tMERGEABLE\\tfalse\\tauthor\\tfeature\\t15\\t6\\t4\\t2\\t3\\tPASSING\\n' ;;\n"
-                        + "  *) exit 1 ;;\n"
-                        + "esac\n",
-                StandardCharsets.UTF_8);
-        Files.setPosixFilePermissions(
-                gh,
-                java.util.Set.of(
-                        java.nio.file.attribute.PosixFilePermission.OWNER_READ,
-                        java.nio.file.attribute.PosixFilePermission.OWNER_WRITE,
-                        java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE));
-
-        final VarHandle discoveredPath =
-                MethodHandles.privateLookupIn(PlatformCommands.class, MethodHandles.lookup())
-                        .findStaticVarHandle(
-                                PlatformCommands.class, "discoveredPath", String.class);
-        final Object previousPath = discoveredPath.get();
-        discoveredPath.set(bin + java.io.File.pathSeparator + System.getenv("PATH"));
-        try {
-            assertEquals(1, GitHub.configuredAuths().size(), "configured auth should parse");
-            assertEquals(
-                    1,
-                    GitHub.loadForProject(ProjectId.create(), project(directory), "author:@me")
-                            .size(),
-                    "pull requests should parse");
-            assertEquals(
-                    1,
-                    GitHub.loadIssuesForProject(project(directory)).size(),
-                    "issues should parse");
-            final GitHub.PullRequestDetails current =
-                    GitHub.loadCurrent(project(directory), directory);
-            assertEquals(42, current.number(), "current pull request should parse");
-            assertEquals("MERGEABLE", current.mergeState(), "merge state should parse");
-            assertEquals("PASSING", current.checksStatus(), "checks status should parse");
-            assertEquals(
-                    "master",
-                    GitHubPullRequest.baseBranch(project(directory), directory),
-                    "current pull request base branch should parse");
-            GitHubPullRequest.markReady(project(directory), 42);
-            GitHubPullRequest.convertToDraft(project(directory), 42);
-            GitHubPullRequest.close(project(directory), 42);
-            GitHubPullRequest.merge(project(directory), 42);
-            GitHubPullRequest.approve(project(directory), 42);
-        } finally {
-            discoveredPath.set(previousPath);
-        }
+                        () -> GitHub.pullRequest(ProjectId.create(), project(directory), directory),
+                        "a repository without a pull request should report lookup errors");
+        assertNotNull(exception.getMessage(), "errors should include a message");
     }
 
     private static Project project(final Path directory) {

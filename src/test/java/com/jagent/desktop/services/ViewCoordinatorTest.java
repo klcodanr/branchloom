@@ -141,4 +141,30 @@ class ViewCoordinatorTest {
                 coordinator.selectedSessionTab(remainingSessionId),
                 "remaining session tab should be preserved");
     }
+
+    @Test
+    void viewStateFactoriesPreserveSelections() {
+        final ProjectId projectId = ProjectId.create();
+        final SessionId sessionId = SessionId.create();
+        final TerminalId terminalId = TerminalId.create();
+
+        assertNull(ViewCoordinator.ViewState.reset().newProjectId(), "reset should clear project");
+        assertEquals(
+                projectId,
+                ViewCoordinator.ViewState.project(projectId).newProjectId(),
+                "project state should preserve project id");
+        assertEquals(
+                terminalId,
+                ViewCoordinator.ViewState.projectTerminal(projectId, terminalId).newTerminalId(),
+                "project terminal state should preserve terminal");
+        assertEquals(
+                sessionId,
+                ViewCoordinator.ViewState.session(projectId, sessionId).newSessionId(),
+                "session state should preserve session");
+        assertEquals(
+                terminalId,
+                ViewCoordinator.ViewState.sessionTerminal(projectId, sessionId, terminalId)
+                        .newTerminalId(),
+                "session terminal state should preserve terminal");
+    }
 }

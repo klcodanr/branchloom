@@ -1,4 +1,4 @@
-package com.jagent.desktop.ui.components;
+package com.jagent.desktop.ui.layout;
 
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
@@ -6,6 +6,13 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundJobs;
 import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.Git;
+import com.jagent.desktop.ui.components.GitStatusPanel;
+import com.jagent.desktop.ui.components.RotatingIcon;
+import com.jagent.desktop.ui.components.Theme;
+import com.jagent.desktop.ui.components.UiConstants;
+import com.jagent.desktop.ui.components.UiFactory;
+import com.jagent.desktop.ui.components.UiIcons;
+import com.jagent.desktop.ui.components.UiText;
 import com.jagent.desktop.ui.dialogs.BackgroundJobDialog;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -228,7 +235,7 @@ public final class BottomBar extends JPanel {
 
     private void updateGitStatus(
             final String projectName, final String branchName, final Git.WorktreeStatus status) {
-        project.setText(projectName == null ? "" : projectName);
+        project.setText(UiText.valueOrDefault(projectName, ""));
         final boolean hasBranch = branchName != null && !branchName.isBlank();
         branchIcon.setVisible(hasBranch);
         branch.setText(hasBranch ? branchName : "");
