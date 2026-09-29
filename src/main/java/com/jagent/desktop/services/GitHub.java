@@ -131,7 +131,11 @@ public final class GitHub {
             if (process.waitFor() != 0) {
                 return List.of(new Auth(DEFAULT_HOST, null, CLI_CONNECTION_ID));
             }
-            return parseCliAuths(output);
+            try {
+                return parseCliAuths(output);
+            } catch (RuntimeException ignored) {
+                return List.of(new Auth(DEFAULT_HOST, null, CLI_CONNECTION_ID));
+            }
         } catch (IOException exception) {
             return List.of(new Auth(DEFAULT_HOST, null, CLI_CONNECTION_ID));
         } catch (InterruptedException exception) {
