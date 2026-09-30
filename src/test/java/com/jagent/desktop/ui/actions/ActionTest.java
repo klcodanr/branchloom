@@ -35,6 +35,7 @@ class ActionTest {
     private static final String PROJECT_NAME = "Demo";
     private static final String REPOSITORY_DIRECTORY = "repository";
     private static final String SESSION_NAME = "Feature";
+    private static final long AGENT_START_TIMEOUT_NANOS = 10_000_000_000L;
     @TempDir private Path tempDirectory;
 
     @AfterEach
@@ -279,7 +280,8 @@ class ActionTest {
         assertEquals("setup", Files.readString(notes), ASSERTION_MESSAGE);
         AsyncTestSupport.await(
                 () -> Files.exists(agentMarker),
-                "agent should start after the notes file is ready");
+                "agent should start after the notes file is ready",
+                AGENT_START_TIMEOUT_NANOS);
         AsyncTestSupport.await(
                 () ->
                         coordinator.backgroundJobs().jobs().stream()

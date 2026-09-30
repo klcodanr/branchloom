@@ -1,7 +1,9 @@
 package com.jagent.desktop.models;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Date;
 import org.junit.jupiter.api.Test;
@@ -60,5 +62,67 @@ class PullRequestCheckModelTest {
                 PullRequestCheck.Conclusion.FAILURE,
                 failure.conclusion(),
                 "failure commit status should map to FAILURE conclusion");
+    }
+
+    @Test
+    void fromCommitStatusMapsErrorToFailureAndParsesValidUrls() {
+        final PullRequestCheck error =
+                PullRequestCheck.fromCommitStatus(
+                        "ci/error",
+                        GHCommitState.ERROR,
+                        new Date(2_000),
+                        "https://example.test/status");
+
+        assertEquals(
+                PullRequestCheck.Status.COMPLETED,
+                error.status(),
+                "error commit status should map to COMPLETED status");
+        assertEquals(
+                PullRequestCheck.Conclusion.FAILURE,
+                error.conclusion(),
+                "error commit status should map to FAILURE conclusion");
+        assertEquals(
+                "https://example.test/status",
+                error.detailsUrl().toString(),
+                "valid status URLs should be retained");
+    }
+
+    @Test
+    void passingAndFailingReflectConclusionBuckets() {
+        final PullRequestCheck passing =
+                new PullRequestCheck(
+                        "ci/pass",
+                        PullRequestCheck.Status.COMPLETED,
+                        null,
+                        PullRequestCheck.Conclusion.SUCCESS,
+                        null);
+        final PullRequestCheck skipped =
+                new PullRequestCheck(
+                        "ci/skip",
+                        PullRequestCheck.Status.COMPLETED,
+                        null,
+                        PullRequestCheck.Conclusion.SKIPPED,
+                        null);
+        final PullRequestCheck neutral =
+                new PullRequestCheck(
+                        "ci/neutral",
+                        PullRequestCheck.Status.COMPLETED,
+                        null,
+                        PullRequestCheck.Conclusion.NEUTRAL,
+                        null);
+        final PullRequestCheck failing =
+                new PullRequestCheck(
+                        "ci/fail",
+                        PullRequestCheck.Status.COMPLETED,
+                        null,
+                        PullRequestCheck.Conclusion.FAILURE,
+                        null);
+
+        assertTrue(passing.passing(), "SUCCESS should be passing");
+        assertTrue(skipped.passing(), "SKIPPED should be passing");
+        assertTrue(neutral.passing(), "NEUTRAL should be passing");
+        assertFalse(failing.passing(), "FAILURE should not be passing");
+        assertTrue(failing.failing(), "FAILURE should be failing");
+        assertFalse(passing.failing(), "SUCCESS should not be failing");
     }
 }

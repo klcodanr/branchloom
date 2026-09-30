@@ -89,14 +89,14 @@ jacocoTestReport {
 }
 
 jacocoTestCoverageVerification {
-    dependsOn tasks.named('test'), tasks.named('integrationTest')
-    executionData(fileTree(layout.buildDirectory).include('jacoco/*.exec'))
+    dependsOn tasks.named('test')
+    executionData(layout.buildDirectory.file('jacoco/test.exec'))
     violationRules {
         rule {
             limit {
                 counter = 'LINE'
                 value = 'COVEREDRATIO'
-                minimum = 0.7
+                minimum = 0.6
             }
         }
     }

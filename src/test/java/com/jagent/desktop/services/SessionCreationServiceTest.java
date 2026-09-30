@@ -24,6 +24,7 @@ class SessionCreationServiceTest {
     private static final String SESSION_NAME = "Fix login";
     private static final String PROMPT = "prompt";
     private static final String WORKTREE_TEMPLATE = "worktrees/{sessionSlug}";
+    private static final String WORKTREE_DIRECTORY = "worktree";
 
     @Test
     void createsConfiguredWorktreeSessionAndTerminal(@TempDir final Path directory)
@@ -296,10 +297,10 @@ class SessionCreationServiceTest {
                         SESSION_NAME,
                         AGENT_NAME,
                         PROMPT,
-                        directory.resolve(".").resolve("worktree"));
+                        directory.resolve(".").resolve(WORKTREE_DIRECTORY));
 
         assertEquals(
-                directory.resolve("worktree").toAbsolutePath().normalize().toString(),
+                directory.resolve(WORKTREE_DIRECTORY).toAbsolutePath().normalize().toString(),
                 state.sessions().get(sessionId).worktreePath(),
                 "session should be registered with a normalized absolute path");
     }
@@ -321,7 +322,9 @@ class SessionCreationServiceTest {
                                         new SessionCreationService.SessionDetails(
                                                 SESSION_NAME, AGENT_NAME, PROMPT),
                                         new SessionCreationService.WorktreeRequest(
-                                                directory.resolve("worktree"), "HEAD", " ")));
+                                                directory.resolve(WORKTREE_DIRECTORY),
+                                                "HEAD",
+                                                " ")));
 
         assertTrue(
                 exception.getMessage().contains("cannot be blank"),
@@ -345,7 +348,9 @@ class SessionCreationServiceTest {
                                         new SessionCreationService.SessionDetails(
                                                 SESSION_NAME, AGENT_NAME, PROMPT),
                                         new SessionCreationService.WorktreeRequest(
-                                                directory.resolve("worktree"), "feature", null)));
+                                                directory.resolve(WORKTREE_DIRECTORY),
+                                                "feature",
+                                                null)));
 
         assertTrue(
                 exception.getMessage().contains("Invalid remote branch reference"),
