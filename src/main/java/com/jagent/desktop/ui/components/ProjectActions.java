@@ -107,33 +107,42 @@ public final class ProjectActions {
 
     private static void addAgents(
             final Container menu, final ActionContext actionContext, final ProjectId projectId) {
-        final JMenu agents = new JMenu("Agents");
+        boolean added = false;
         for (final Agent agent : actionContext.appState().appSettings().agents()) {
-            agents.add(
+            if (!added) {
+                addSectionHeading(menu, "Agents");
+                added = true;
+            }
+            menu.add(
                     projectActionItem(
                             actionContext,
                             projectId,
                             new CreateTerminalAction(
                                     actionContext, agent.name, agent.openCommand)));
         }
-        if (agents.getItemCount() > 0) {
-            menu.add(agents);
-        }
     }
 
     private static void addEditors(
             final Container menu, final ActionContext actionContext, final ProjectId projectId) {
-        final JMenu editors = new JMenu("Editors");
+        boolean added = false;
         for (final Tool editor : actionContext.appState().appSettings().tools()) {
-            editors.add(
+            if (!added) {
+                addSectionHeading(menu, "Editors");
+                added = true;
+            }
+            menu.add(
                     projectActionItem(
                             actionContext,
                             projectId,
                             new RunCommandAction(actionContext, editor.label(), editor.command())));
         }
-        if (editors.getItemCount() > 0) {
-            menu.add(editors);
-        }
+    }
+
+    private static void addSectionHeading(final Container menu, final String label) {
+        menu.add(new JSeparator());
+        final JMenuItem heading = new JMenuItem(label);
+        heading.setEnabled(false);
+        menu.add(heading);
     }
 
     private static JMenuItem projectActionItem(

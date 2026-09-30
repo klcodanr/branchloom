@@ -185,9 +185,11 @@ class WorkspaceTreePanelUiTest {
                                                 openedFiltered.set(filtered);
                                             }));
             waitForFile(panel, FILE);
+            waitForLabel(panel, "~1");
             final var node = findNode(root(panel), FILE);
             GuiActionRunner.execute(
                     () -> tree(panel).setSelectionPath(new TreePath(node.getPath())));
+            waitForSelection(panel, FILE);
             GuiActionRunner.execute(
                     () -> tree(panel).getActionMap().get(OPEN_SELECTED_FILE).actionPerformed(null));
 
