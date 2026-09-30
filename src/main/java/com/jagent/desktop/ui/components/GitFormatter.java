@@ -46,11 +46,13 @@ public final class GitFormatter {
     }
 
     public static String checksSummary(final PullRequestChecks checks) {
-        return checks.passed()
-                + "/"
-                + checks.total()
+        return checksPassed(checks)
                 + " checks "
                 + UiText.titleCase(checks.checksStatus().toString());
+    }
+
+    public static String checksPassed(final PullRequestChecks checks) {
+        return checks.passed() + "/" + checks.total() + " passed";
     }
 
     public static void renderDiff(final JPanel diff, final String output) {
