@@ -135,12 +135,7 @@ public final class ImportWorktreeAction extends BaseAction {
             sessionCreationService.checkCreateSession(project, sessionName, normalizedPath);
             final var sessionId =
                     sessionCreationService.createSession(
-                            projectId,
-                            project,
-                            sessionName,
-                            "Imported worktree",
-                            "",
-                            normalizedPath);
+                            projectId, sessionName, "Imported worktree", "", normalizedPath);
             actionContext
                     .viewCoordinator()
                     .updateView(ViewId.SESSION, ViewState.session(projectId, sessionId));

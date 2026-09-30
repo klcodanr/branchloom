@@ -11,7 +11,6 @@ import com.jagent.desktop.models.git.Branch;
 import com.jagent.desktop.services.git.GitRepository;
 import java.io.IOException;
 import java.io.InvalidObjectException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.Normalizer;
@@ -20,7 +19,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Creates a session, its worktree, and its initial terminal. */
-@SuppressWarnings("PMD.GodClass")
 public final class SessionCreationService {
     private static final Logger LOG = LoggerFactory.getLogger(SessionCreationService.class);
     private final AppState state;
@@ -73,7 +71,6 @@ public final class SessionCreationService {
 
     public SessionId createSession(
             final ProjectId projectId,
-            final Project project,
             final String sessionName,
             final String agent,
             final String prompt,
@@ -181,29 +178,13 @@ public final class SessionCreationService {
             final String sourceRef,
             final String localBranch)
             throws IOException {
-        final StringBuilder command = new StringBuilder("git worktree add ");
-        if (localBranch != null && !localBranch.isBlank()) {
-            command.append("-b ").append(PlatformCommands.shellQuote(localBranch)).append(' ');
-        }
-        command.append(PlatformCommands.shellQuote(worktreePath.toString()))
-                .append(' ')
-                .append(PlatformCommands.shellQuote(sourceRef));
-        final ProcessBuilder builder =
-                PlatformCommands.prepare(
-                                new ProcessBuilder(PlatformCommands.shell(command.toString())))
-                        .directory(Path.of(project.path()).toFile())
-                        .redirectErrorStream(true);
-        final Process process = builder.start();
-        final String output =
-                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        try {
-            final int exitCode = process.waitFor();
-            if (exitCode != 0) {
-                throw new IOException(output.isBlank() ? "Could not add worktree." : output.trim());
+        try (GitRepository repository = GitRepository.open(Path.of(project.path()))) {
+            if (localBranch != null && !localBranch.isBlank()) {
+                repository.createBranch(new Branch(sourceRef), localBranch);
+                repository.addWorktree(worktreePath, new Branch(localBranch));
+                return;
             }
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IOException("Interrupted while adding worktree.", exception);
+            repository.addWorktree(worktreePath, new Branch(sourceRef));
         }
     }
 

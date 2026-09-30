@@ -18,6 +18,7 @@ import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.components.UiText;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
@@ -266,6 +267,9 @@ public final class GitHub {
             final Path worktree,
             final Map<String, GitHubConnection> configuredConnections)
             throws IOException, InterruptedException {
+        if (!Files.isDirectory(worktree)) {
+            throw new IOException("The worktree directory does not exist: " + worktree);
+        }
         final String branch;
         try (GitRepository gitRepo = GitRepository.open(worktree)) {
             branch = gitRepo.currentBranch();
