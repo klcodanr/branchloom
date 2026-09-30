@@ -15,11 +15,15 @@ class PullRequestDetailsModelTest {
         assertStatus("draft", true, true, PullRequestDetails.Status.DRAFT, Theme.mutedColor());
         assertStatus("clean", false, true, PullRequestDetails.Status.READY, Theme.successColor());
         assertStatus(
-                "blocked", false, false, PullRequestDetails.Status.PENDING, Theme.warningColor());
+                "blocked", false, false, PullRequestDetails.Status.BLOCKED, Theme.warningColor());
         assertStatus(
                 "dirty", false, false, PullRequestDetails.Status.CONFLICTED, Theme.dangerColor());
         assertStatus(
-                "unstable", false, false, PullRequestDetails.Status.FAILED, Theme.dangerColor());
+                "unstable",
+                false,
+                false,
+                PullRequestDetails.Status.CHECKS_FAILING,
+                Theme.dangerColor());
         assertStatus("unknown", false, false, PullRequestDetails.Status.OTHER, Theme.mutedColor());
     }
 

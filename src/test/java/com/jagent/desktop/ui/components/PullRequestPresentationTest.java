@@ -8,11 +8,14 @@ import com.jagent.desktop.models.GitHubUser;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestCheck;
+import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
 import java.awt.Color;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Date;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class PullRequestPresentationTest {
@@ -113,6 +116,28 @@ class PullRequestPresentationTest {
                 "Loading changes...",
                 PullRequestPresentation.changesTooltip(null),
                 "null details should show loading tooltip");
+    }
+
+    @Test
+    void formatsPullRequestStatusAndCheckCount() {
+        final PullRequestCheck passed =
+                new PullRequestCheck(
+                        "build",
+                        PullRequestCheck.Status.COMPLETED,
+                        null,
+                        PullRequestCheck.Conclusion.SUCCESS,
+                        null);
+        final PullRequestCheck pending =
+                new PullRequestCheck(
+                        "test",
+                        PullRequestCheck.Status.IN_PROGRESS,
+                        null,
+                        PullRequestCheck.Conclusion.UNKNOWN,
+                        null);
+        assertEquals(
+                "1/2 passed",
+                GitFormatter.checksPassed(new PullRequestChecks(List.of(passed, pending))),
+                "check count should show passed checks over total checks");
     }
 
     private static PullRequest request(final String title, final String author)
