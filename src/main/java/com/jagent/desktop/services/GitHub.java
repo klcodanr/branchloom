@@ -175,7 +175,13 @@ public final class GitHub {
     private static List<Auth> cliAuths() {
         try {
             final Process process =
-                    new ProcessBuilder("gh", "auth", "status", "--json", "hosts")
+                    PlatformCommands.prepare(
+                                    new ProcessBuilder(
+                                            PlatformCommands.executable("gh"),
+                                            "auth",
+                                            "status",
+                                            "--json",
+                                            "hosts"))
                             .redirectErrorStream(true)
                             .start();
             final String output =

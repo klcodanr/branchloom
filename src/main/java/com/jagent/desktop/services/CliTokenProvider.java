@@ -25,7 +25,7 @@ public final class CliTokenProvider implements GitHubTokenProvider {
     public GitHubToken acquire(final GitHubConnection connection)
             throws IOException, InterruptedException {
         final List<String> command = new ArrayList<>();
-        command.add("gh");
+        command.add(PlatformCommands.executable("gh"));
         command.add("auth");
         command.add("token");
         command.add("--hostname");
@@ -35,7 +35,10 @@ public final class CliTokenProvider implements GitHubTokenProvider {
             command.add("--user");
             command.add(user);
         }
-        final Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+        final Process process =
+                PlatformCommands.prepare(new ProcessBuilder(command))
+                        .redirectErrorStream(true)
+                        .start();
         final String output =
                 new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
         if (process.waitFor() != 0 || output.isBlank()) {
