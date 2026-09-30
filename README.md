@@ -1,7 +1,11 @@
+[![Build Release Installers](https://github.com/klcodanr/branchloom/actions/workflows/release.yml/badge.svg)](https://github.com/klcodanr/branchloom/actions/workflows/release.yml)
+
 # Branchloom
 
 A Java/Swing desktop for organizing Git repositories, isolated worktree sessions,
-local agent terminals, and pull-request reviews in one workspace.
+local agent terminals, and pull-request reviews in one application.
+
+Branchloom enables you to work with multiple agentic and traditional coding frameworks such as Copilot, OpenCode or Claude via CLI or launching your preferred editor whether it's VS Code, Cursor, IntelliJ or more.
 
 ## Highlights
 
@@ -9,10 +13,8 @@ local agent terminals, and pull-request reviews in one workspace.
 - Create isolated agent sessions with project startup commands.
 - Run agents and shell commands in native PTY-backed terminal tabs.
 - Browse, import, and review GitHub pull requests.
-- Configure agents, editors, themes, worktree paths, and review prompts.
+- Customize your agents, editors, themes, worktree paths, and review prompts.
 
-Branchloom launches configured command-line programs; it does not provide or host
-an agent model. Agents such as OpenCode and Claude are external tools.
 
 ## Documentation
 
