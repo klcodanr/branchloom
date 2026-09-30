@@ -267,6 +267,20 @@ class AppStatePersistenceTest {
     }
 
     @Test
+    void closesWithoutWaitingForPersistenceExecutorOnEdt(@TempDir final Path directory)
+            throws InterruptedException, java.lang.reflect.InvocationTargetException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        state.updateAppSettings(Defaults.appSettings());
+        try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
+            SwingUtilities.invokeAndWait(persistence::close);
+        }
+
+        assertTrue(
+                Files.exists(directory.resolve(SETTINGS_FILE)),
+                "closing on the EDT should persist settings");
+    }
+
+    @Test
     void restoresUpdatesAfterPersistenceWriteFailure(@TempDir final Path directory)
             throws IOException, InterruptedException, java.lang.reflect.InvocationTargetException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
