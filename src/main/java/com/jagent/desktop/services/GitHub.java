@@ -311,7 +311,7 @@ public final class GitHub {
                 StreamSupport.stream(
                                 repository
                                         .queryPullRequests()
-                                        .state(GHIssueState.OPEN)
+                                        .state(GHIssueState.ALL)
                                         .head(owner + ":" + branch)
                                         .list()
                                         .spliterator(),
