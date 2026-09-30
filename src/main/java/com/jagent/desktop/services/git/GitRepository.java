@@ -36,6 +36,26 @@ import org.eclipse.jgit.util.io.DisabledOutputStream;
 import org.jetbrains.annotations.NotNull;
 
 @SuppressWarnings({"PMD.GodClass", "PMD.CyclomaticComplexity"})
+/**
+ * High-level Git service for repository and worktree operations.
+ *
+ * <p>Use this class when application code needs to inspect or mutate repository state (branches,
+ * status, diffs, worktrees) without constructing raw command lines. It combines JGit for
+ * repository-aware reads with {@link GitNative} for operations that are more reliable via the git
+ * CLI.
+ *
+ * <p>Typical usage is:
+ *
+ * <pre>{@code
+ * try (GitRepository repository = GitRepository.open(worktreePath)) {
+ *     List<Branch> branches = repository.listAvailableBranches();
+ *     repository.addWorktree(newWorktreePath, branches.getFirst());
+ * }
+ * }</pre>
+ *
+ * <p>Create and close instances with try-with-resources. Callers should handle {@link IOException}
+ * as the unified failure type for both JGit and native git execution failures.
+ */
 public final class GitRepository implements AutoCloseable {
 
     private static final String FETCH = "fetch";

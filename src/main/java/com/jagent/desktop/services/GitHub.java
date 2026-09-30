@@ -48,6 +48,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings({"PMD.GodClass", "PMD.CommentDefaultAccessModifier"})
+/**
+ * GitHub integration service for pull request, issue, review, and check data.
+ *
+ * <p>Use this class when application services need data from GitHub for a {@link Project}. It
+ * resolves auth from configured connections or GitHub CLI, builds API clients with rate-limit
+ * handling, and caches repository lookups.
+ *
+ * <p>This class is static by design: call its methods directly, pass the project context and, when
+ * available, configured GitHub connections.
+ *
+ * <pre>{@code
+ * List<PullRequest> requests =
+ *         GitHub.loadForProject(projectId, project, searchText, configuredConnections);
+ * PullRequestChecks checks = GitHub.getChecks(request, configuredConnections);
+ * }</pre>
+ *
+ * <p>Use {@link com.jagent.desktop.services.git.GitRepository} for local git state and this class
+ * for remote GitHub API state.
+ */
 public final class GitHub {
     private static final String DEFAULT_HOST = "github.com";
     private static final String CLI_CONNECTION_ID = "github-cli";
