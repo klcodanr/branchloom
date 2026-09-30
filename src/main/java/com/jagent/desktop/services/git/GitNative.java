@@ -10,6 +10,16 @@ import java.util.ArrayList;
 import java.util.List;
 import org.eclipse.jgit.annotations.NonNull;
 
+/**
+ * Low-level adapter for invoking native git commands.
+ *
+ * <p>Use this class only from git service internals when behavior requires the git CLI (for
+ * example, worktree porcelain operations). UI and higher-level services should use {@link
+ * GitRepository} instead of calling this class directly.
+ *
+ * <p>All methods execute in the supplied repository directory and throw {@link IOException} on
+ * command failures or interruption.
+ */
 final class GitNative {
 
     private static final String WORKTREE = "worktree";
