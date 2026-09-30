@@ -44,7 +44,7 @@ class SessionCreationServiceTest {
         final Agent agent = new Agent(AGENT_NAME, AGENT_COMMAND + " --prompt {prompt}");
 
         final SessionCreationService.CreatedSession created =
-                new SessionCreationService(state, new Git())
+                new SessionCreationService(state)
                         .create(projectId, project, agent, SESSION_NAME, "Investigate login", null);
 
         final Path worktree = Path.of(created.worktreePath());
@@ -100,7 +100,7 @@ class SessionCreationServiceTest {
                 assertThrows(
                         IOException.class,
                         () ->
-                                new SessionCreationService(state, new Git())
+                                new SessionCreationService(state)
                                         .create(
                                                 projectId,
                                                 project,
@@ -134,7 +134,7 @@ class SessionCreationServiceTest {
         final ProjectId projectId = state.addProject(project);
 
         final SessionCreationService.CreatedSession created =
-                new SessionCreationService(state, new Git())
+                new SessionCreationService(state)
                         .create(
                                 projectId,
                                 project,
@@ -174,7 +174,7 @@ class SessionCreationServiceTest {
                 assertThrows(
                         IOException.class,
                         () ->
-                                new SessionCreationService(state, new Git())
+                                new SessionCreationService(state)
                                         .create(
                                                 projectId,
                                                 project,
@@ -218,7 +218,7 @@ class SessionCreationServiceTest {
                 assertThrows(
                         IOException.class,
                         () ->
-                                new SessionCreationService(state, new Git())
+                                new SessionCreationService(state)
                                         .create(
                                                 projectId,
                                                 project,
@@ -244,7 +244,7 @@ class SessionCreationServiceTest {
                 assertThrows(
                         IOException.class,
                         () ->
-                                new SessionCreationService(state, new Git())
+                                new SessionCreationService(state)
                                         .create(
                                                 projectId,
                                                 project,

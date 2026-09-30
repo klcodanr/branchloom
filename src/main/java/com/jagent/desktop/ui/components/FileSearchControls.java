@@ -1,6 +1,6 @@
 package com.jagent.desktop.ui.components;
 
-import com.jagent.desktop.services.BackgroundTasks;
+import com.jagent.desktop.async.BackgroundOperations;
 import java.awt.FlowLayout;
 import java.awt.GraphicsEnvironment;
 import java.awt.Toolkit;
@@ -130,7 +130,8 @@ public final class FileSearchControls extends javax.swing.JPanel {
             clearSearch();
             return;
         }
-        BackgroundTasks.submit("Search", "file-search", () -> findMatches(contentSnapshot, query))
+        BackgroundOperations.submit(
+                        "Search", "file-search", () -> findMatches(contentSnapshot, query))
                 .thenAcceptAsync(
                         result -> {
                             if (generation != searchGeneration) {

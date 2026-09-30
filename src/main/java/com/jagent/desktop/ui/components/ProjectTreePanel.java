@@ -1,6 +1,7 @@
 package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
@@ -8,7 +9,6 @@ import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
-import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.services.terminal.TerminalManager;
@@ -25,7 +25,6 @@ import java.awt.Rectangle;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
@@ -318,32 +317,29 @@ public final class ProjectTreePanel extends JPanel {
     }
 
     private void loadPullRequestStatus(final Project project, final Session session) {
-        BackgroundTasks.submit(
+        BackgroundOperations.submit(
                 "Pull requests",
                 "left-nav-pr-status",
                 () -> {
-                    try {
-                        final PullRequest pullRequest =
-                                GitHub.pullRequest(
-                                        session.projectId(),
-                                        project,
-                                        Path.of(session.worktreePath()),
-                                        actionContext.appState().githubConnections());
-                        final PullRequestDetails pullRequestDetails =
-                                GitHub.pullRequestDetails(
-                                        session.projectId(),
-                                        project,
-                                        pullRequest.number(),
-                                        actionContext.appState().githubConnections());
+                    final PullRequest pullRequest =
+                            GitHub.pullRequest(
+                                    session.projectId(),
+                                    project,
+                                    Path.of(session.worktreePath()),
+                                    actionContext.appState().githubConnections());
+                    final PullRequestDetails pullRequestDetails =
+                            GitHub.pullRequestDetails(
+                                    session.projectId(),
+                                    project,
+                                    pullRequest.number(),
+                                    actionContext.appState().githubConnections());
 
-                        SwingUtilities.invokeLater(
-                                () -> {
-                                    pullRequestStatuses.put(session, pullRequestDetails);
-                                    tree.repaint();
-                                });
-                    } catch (IOException | InterruptedException | RuntimeException ignored) {
-                        // A branch without a pull request has no PR tooltip details.
-                    }
+                    SwingUtilities.invokeLater(
+                            () -> {
+                                pullRequestStatuses.put(session, pullRequestDetails);
+                                tree.repaint();
+                            });
+                    return null;
                 });
     }
 
@@ -378,7 +374,6 @@ public final class ProjectTreePanel extends JPanel {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private void showContextMenu(final MouseEvent event) {
         final TreePath path = contextMenuPath(event.getX(), event.getY());
         if (path == null) {

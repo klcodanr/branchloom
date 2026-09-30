@@ -16,6 +16,7 @@ import java.awt.Toolkit;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.util.Map;
+import java.util.Objects;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -43,14 +44,18 @@ class AppMenuBarTest {
         assertFalse(hasMenu(bar, "Session"), ASSERTION_MESSAGE);
 
         final JMenu file = bar.getMenu(0);
-        assertEquals("Add local project", file.getItem(0).getText(), ASSERTION_MESSAGE);
-        assertTrue(file.getItem(0).isEnabled(), ASSERTION_MESSAGE);
-        assertEquals("Settings", file.getItem(2).getText(), ASSERTION_MESSAGE);
-        assertTrue(file.getMenuComponent(1) instanceof JSeparator, ASSERTION_MESSAGE);
+        final JMenuItem addLocalProject = findItem(file, "Add local project");
+        final JMenuItem cloneRemoteProject = findItem(file, "Clone remote project");
+        final JMenuItem settings = findItem(file, "Settings");
+        assertNotNull(addLocalProject, ASSERTION_MESSAGE);
+        assertNotNull(cloneRemoteProject, ASSERTION_MESSAGE);
+        assertNotNull(settings, ASSERTION_MESSAGE);
+        assertTrue(addLocalProject.isEnabled(), ASSERTION_MESSAGE);
+        assertTrue(file.getMenuComponent(2) instanceof JSeparator, ASSERTION_MESSAGE);
         if (SystemInfo.isMacOS) {
             assertFalse(hasItem(file, "Exit"), ASSERTION_MESSAGE);
         } else {
-            assertEquals("Exit", file.getItem(4).getText(), ASSERTION_MESSAGE);
+            assertNotNull(findItem(file, "Exit"), ASSERTION_MESSAGE);
         }
     }
 
@@ -74,20 +79,19 @@ class AppMenuBarTest {
         assertEquals("Help", bar.getMenu(4).getText(), ASSERTION_MESSAGE);
 
         final JMenu file = bar.getMenu(0);
-        assertEquals("Start agent session", file.getItem(1).getText(), ASSERTION_MESSAGE);
-        assertEquals("New Terminal Tab", file.getItem(2).getText(), ASSERTION_MESSAGE);
-        assertTrue(file.getItem(1).isEnabled(), ASSERTION_MESSAGE);
-        assertTrue(file.getItem(2).isEnabled(), ASSERTION_MESSAGE);
+        final JMenuItem addProject = findItem(file, "Add local project");
+        final JMenuItem startSession = findItem(file, "Start agent session");
+        final JMenuItem newTerminal = findItem(file, "New Terminal Tab");
+        assertNotNull(addProject, ASSERTION_MESSAGE);
+        assertNotNull(startSession, ASSERTION_MESSAGE);
+        assertNotNull(newTerminal, ASSERTION_MESSAGE);
+        assertTrue(startSession.isEnabled(), ASSERTION_MESSAGE);
+        assertTrue(newTerminal.isEnabled(), ASSERTION_MESSAGE);
+        assertEquals(shortcut(KeyEvent.VK_N, true), addProject.getAccelerator(), ASSERTION_MESSAGE);
         assertEquals(
-                shortcut(KeyEvent.VK_N, true), file.getItem(0).getAccelerator(), ASSERTION_MESSAGE);
+                shortcut(KeyEvent.VK_N, false), startSession.getAccelerator(), ASSERTION_MESSAGE);
         assertEquals(
-                shortcut(KeyEvent.VK_N, false),
-                file.getItem(1).getAccelerator(),
-                ASSERTION_MESSAGE);
-        assertEquals(
-                shortcut(KeyEvent.VK_T, false),
-                file.getItem(2).getAccelerator(),
-                ASSERTION_MESSAGE);
+                shortcut(KeyEvent.VK_T, false), newTerminal.getAccelerator(), ASSERTION_MESSAGE);
 
         final JMenu view = bar.getMenu(1);
         assertEquals(
@@ -112,7 +116,10 @@ class AppMenuBarTest {
         final ActionContext context = new ActionContext(coordinator, state, null);
         final JMenuBar bar = GuiActionRunner.execute(() -> AppMenuBar.create(context));
 
-        GuiActionRunner.execute(() -> bar.getMenu(0).getItem(2).doClick());
+        GuiActionRunner.execute(
+                () ->
+                        Objects.requireNonNull(findItem(bar.getMenu(0), "New Terminal Tab"))
+                                .doClick());
 
         assertEquals(1, state.sessions().get(sessionId).terminalIds().size(), ASSERTION_MESSAGE);
         assertEquals(
@@ -141,6 +148,15 @@ class AppMenuBarTest {
             }
         }
         return false;
+    }
+
+    private static JMenuItem findItem(final JMenu menu, final String label) {
+        for (final var component : menu.getMenuComponents()) {
+            if (component instanceof JMenuItem item && label.equals(item.getText())) {
+                return item;
+            }
+        }
+        return null;
     }
 
     private static KeyStroke shortcut(final int keyCode, final boolean shift) {

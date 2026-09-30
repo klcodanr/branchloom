@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.jagent.desktop.async.BackgroundOperations;
 import java.util.concurrent.CompletionException;
 import org.junit.jupiter.api.Test;
 
@@ -12,9 +13,9 @@ class BackgroundTasksTest {
     void tracksCompletedTasksAndCompletesFailuresExceptionally() {
         final String group = "coverage-tests";
 
-        BackgroundTasks.submit(group, "success", () -> {}).join();
+        BackgroundOperations.submit(group, "success", () -> null).join();
         final var failure =
-                BackgroundTasks.submit(
+                BackgroundOperations.submit(
                         group,
                         "failure",
                         () -> {
@@ -22,7 +23,7 @@ class BackgroundTasksTest {
                         });
         assertThrows(CompletionException.class, failure::join);
 
-        final var summary = BackgroundTasks.summary();
+        final var summary = BackgroundOperations.summary();
         final var groupSummary =
                 summary.groups().stream()
                         .filter(entry -> entry.group().equals(group))

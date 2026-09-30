@@ -1,20 +1,24 @@
 package com.jagent.desktop.ui.components;
 
-import com.jagent.desktop.services.WorkspaceFileReader;
+import com.jagent.desktop.async.BackgroundOperations;
+import com.jagent.desktop.services.git.GitRepository;
+import com.jagent.desktop.ui.utils.ErrorMessages;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import javax.swing.ButtonGroup;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 import javax.swing.JToggleButton;
 import javax.swing.UIManager;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rsyntaxtextarea.SyntaxScheme;
 import org.fife.ui.rsyntaxtextarea.TokenTypes;
 
@@ -29,7 +33,7 @@ public final class FileViewer extends JPanel {
     private final CardLayout cards = new CardLayout();
     private final JPanel content = new JPanel(cards);
     private final RSyntaxTextArea source = new RSyntaxTextArea();
-    private final JTextArea diff = new JTextArea();
+    private final RSyntaxTextArea diff = new RSyntaxTextArea();
     private volatile String loadedContent;
     private final FileSearchControls searchControls =
             new FileSearchControls(
@@ -115,7 +119,10 @@ public final class FileViewer extends JPanel {
 
     private void configureDiff() {
         diff.setEditable(false);
+        diff.setCodeFoldingEnabled(false);
+        diff.setHighlightCurrentLine(true);
         diff.setLineWrap(false);
+        diff.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_UNIX_SHELL);
         diff.setFont(Theme.terminalFont(Theme.FontSize.SM));
         diff.setBorder(UiFactory.cardBorder());
         applyEditorTheme();
@@ -200,33 +207,55 @@ public final class FileViewer extends JPanel {
     }
 
     private void load() {
-        WorkspaceFileReader.read(workspace, file)
-                .thenAcceptAsync(
-                        document -> {
-                            if (document.binary()) {
+        BackgroundOperations.submit(
+                        "Workspace",
+                        "file-view",
+                        () -> {
+                            final byte[] bytes = Files.readAllBytes(file);
+                            final boolean binary = isBinary(bytes);
+                            final String content =
+                                    binary ? "" : new String(bytes, StandardCharsets.UTF_8);
+                            final String fileDiff;
+                            try (GitRepository repository = GitRepository.open(workspace)) {
+                                fileDiff = repository.getFileDiff(file, false, "HEAD");
+                            }
+                            return new LoadedFile(content, fileDiff, binary);
+                        })
+                .thenAccept(
+                        loaded -> {
+                            if (loaded.binary()) {
                                 loadedContent = null;
                                 source.setText("Binary file cannot be displayed.");
+                                GitFormatter.renderDiff(diff, loaded.diff());
                                 status.setText("Binary");
-                            } else {
-                                loadedContent = document.content();
-                                source.setText(document.content());
-                                source.setCaretPosition(0);
-                                GitFormatter.renderDiff(diff, document.diff());
-                                status.setText(document.diff().isBlank() ? "Unchanged" : "Changed");
-                                searchControls.refresh();
+                                return;
                             }
-                        },
-                        javax.swing.SwingUtilities::invokeLater)
+                            loadedContent = loaded.content();
+                            source.setText(loaded.content());
+                            source.setCaretPosition(0);
+                            GitFormatter.renderDiff(diff, loaded.diff());
+                            status.setText(loaded.diff().isBlank() ? "Unchanged" : "Changed");
+                            searchControls.refresh();
+                        })
                 .exceptionally(
                         failure -> {
-                            javax.swing.SwingUtilities.invokeLater(
-                                    () -> {
-                                        loadedContent = null;
-                                        source.setText(
-                                                "Could not load file: " + failure.getMessage());
-                                        status.setText("Unavailable");
-                                    });
+                            loadedContent = null;
+                            source.setText(
+                                    "Could not load file: "
+                                            + ErrorMessages.deepestCause(failure, "Unknown error"));
+                            status.setText("Unavailable");
                             return null;
                         });
     }
+
+    private static boolean isBinary(final byte[] bytes) {
+        for (final byte value : bytes) {
+            if (value == 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private record LoadedFile(String content, String diff, boolean binary) {}
 }

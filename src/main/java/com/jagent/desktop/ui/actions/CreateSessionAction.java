@@ -1,36 +1,33 @@
 package com.jagent.desktop.ui.actions;
 
 import com.jagent.desktop.api.BaseAction;
+import com.jagent.desktop.async.BackgroundOperations;
+import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.models.git.Branch;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.SessionCreationService;
+import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.components.SessionLauncher;
 import com.jagent.desktop.ui.dialogs.NewSessionDialog;
-import com.jagent.desktop.ui.dialogs.ProgressOperation;
+import com.jagent.desktop.ui.utils.ErrorDialogs;
 import com.jagent.desktop.ui.utils.ErrorMessages;
-import java.io.IOException;
-import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** Starts the session creation workflow. */
 public final class CreateSessionAction extends BaseAction {
-    private static final Logger LOG = LoggerFactory.getLogger(CreateSessionAction.class);
     private static final String CREATE_SESSION = "Create session";
-    private final Git git = new Git();
     private final SessionCreationService sessionCreator;
     private final SessionLauncher sessionLauncher;
 
     public CreateSessionAction(final ActionContext actionContext) {
         super(actionContext);
-        sessionCreator = new SessionCreationService(actionContext.appState(), git);
+        sessionCreator = new SessionCreationService(actionContext.appState());
         sessionLauncher = new SessionLauncher(actionContext);
     }
 
@@ -65,35 +62,42 @@ public final class CreateSessionAction extends BaseAction {
             return;
         }
         final Project project = state.projects().get(projectId);
-        git.listBranches(project)
-                .whenCompleteAsync(
-                        (branches, failure) -> {
-                            if (failure != null) {
-                                showError(
-                                        "Load base branches",
-                                        failure.getMessage() == null
-                                                ? "Git could not list branches."
-                                                : failure.getMessage());
-                                return;
+
+        BackgroundOperations.submit(
+                        "Sessions",
+                        "list-branches",
+                        () -> {
+                            try (GitRepository repository =
+                                    GitRepository.open(Path.of(project.path()))) {
+                                return repository.listBranches();
                             }
+                        })
+                .thenAccept(
+                        branches -> {
                             new NewSessionDialog(
                                             actionContext,
                                             preferredBranches(branches),
                                             request -> addSession(projectId, request))
                                     .setVisible(true);
-                        },
-                        SwingUtilities::invokeLater);
+                        })
+                .exceptionally(
+                        failure -> {
+                            final String message =
+                                    ErrorMessages.deepestCause(
+                                            failure, "Git could not list branches.");
+                            ErrorDialogs.show(
+                                    actionContext.window(), "Load base branches", message);
+                            return null;
+                        });
     }
 
-    private List<Git.Branch> preferredBranches(final List<Git.Branch> branches) {
+    private List<Branch> preferredBranches(final List<Branch> branches) {
         return branches.stream()
-                .sorted(
-                        Comparator.comparingInt(this::branchPriority)
-                                .thenComparing(Git.Branch::name))
+                .sorted(Comparator.comparingInt(this::branchPriority).thenComparing(Branch::name))
                 .toList();
     }
 
-    private int branchPriority(final Git.Branch branch) {
+    private int branchPriority(final Branch branch) {
         return switch (branch.name()) {
             case "origin/main" -> 0;
             case "main" -> 1;
@@ -112,49 +116,36 @@ public final class CreateSessionAction extends BaseAction {
                         session ->
                                 session != null
                                         && session.name().equalsIgnoreCase(request.name()))) {
-            LOG.error("Create session: A session with that name already exists.");
+            ErrorDialogs.show(
+                    actionContext.window(),
+                    CREATE_SESSION,
+                    "A session with that name already exists.");
             return;
         }
 
-        final ProgressOperation progress =
-                ProgressOperation.start(
-                        actionContext.window(), CREATE_SESSION, "Creating agent session...");
-        com.jagent.desktop.services.BackgroundTasks.submit(
-                        "Sessions",
-                        "create",
-                        () -> {
-                            try {
-                                return sessionCreator.create(
+        ProgressOperation.run(
+                        actionContext,
+                        CREATE_SESSION,
+                        "Creating agent session...",
+                        () ->
+                                sessionCreator.create(
                                         projectId,
                                         project,
                                         request.agent(),
                                         request.name(),
                                         request.prompt(),
-                                        request.baseBranch());
-                            } catch (IOException exception) {
-                                throw new UncheckedIOException(exception);
-                            }
+                                        request.baseBranch()))
+                .thenAccept(
+                        created -> {
+                            sessionLauncher.launch(project, created);
                         })
-                .whenCompleteAsync(
-                        (created, failure) -> {
-                            progress.close();
-                            if (failure != null) {
-                                showError(
-                                        CREATE_SESSION,
-                                        ErrorMessages.deepestCause(
-                                                failure, "Could not create the session."));
-                            } else {
-                                sessionLauncher.launch(project, created);
-                            }
-                        },
-                        SwingUtilities::invokeLater);
-    }
-
-    private void showError(final String title, final String message) {
-        LOG.error("{}: {}", title, message);
-        if (actionContext.window() != null) {
-            JOptionPane.showMessageDialog(
-                    actionContext.window(), message, title, JOptionPane.ERROR_MESSAGE);
-        }
+                .exceptionally(
+                        failure -> {
+                            final String message =
+                                    ErrorMessages.deepestCause(
+                                            failure, "Could not create the session.");
+                            ErrorDialogs.show(actionContext.window(), CREATE_SESSION, message);
+                            return null;
+                        });
     }
 }

@@ -1,9 +1,9 @@
 package com.jagent.desktop.ui.components;
 
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestDetails;
-import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.GitHub;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
@@ -15,8 +15,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -60,29 +58,15 @@ public final class PullRequestsBoard extends JPanel {
     private boolean refreshInFlight;
     private boolean refreshQueued;
     private String localFilter = "";
-    private String currentQuery;
-
-    public PullRequestsBoard(
-            final ActionContext actionContext, final Supplier<List<PullRequest>> onRefresh) {
-        this(actionContext, "", (ignored, forceRefresh) -> onRefresh.get());
-    }
+    private String currentQuery = "";
 
     public PullRequestsBoard(
             final ActionContext actionContext,
-            final String initialQuery,
-            final Function<String, List<PullRequest>> onRefresh) {
-        this(actionContext, initialQuery, (query, forceRefresh) -> onRefresh.apply(query));
-    }
-
-    public PullRequestsBoard(
-            final ActionContext actionContext,
-            final String initialQuery,
             final BiFunction<String, Boolean, List<PullRequest>> onRefresh) {
         super();
         this.actionContext = actionContext;
         setLayout(new BorderLayout(0, UiConstants.CONTENT_PADDING));
         this.onRefresh = onRefresh;
-        currentQuery = UiText.valueOrDefault(initialQuery, "").trim();
 
         final var parent = this;
 
@@ -167,10 +151,6 @@ public final class PullRequestsBoard extends JPanel {
         }
     }
 
-    public boolean focusSearch() {
-        return query.requestFocusInWindow();
-    }
-
     public void refresh() {
         refresh(true);
     }
@@ -199,7 +179,7 @@ public final class PullRequestsBoard extends JPanel {
             completeRefresh(List.of(), "PRs refreshed", started);
             return;
         }
-        BackgroundTasks.submit(
+        BackgroundOperations.submit(
                         "Pull Requests",
                         "pull-request-cache-refresh",
                         () -> {
@@ -377,7 +357,7 @@ public final class PullRequestsBoard extends JPanel {
             return;
         }
         loadingDetailKeys.add(detailKey);
-        BackgroundTasks.submit("Pull Requests", "load-pr-details", () -> loadDetails(request))
+        BackgroundOperations.submit("Pull Requests", "load-pr-details", () -> loadDetails(request))
                 .thenAcceptAsync(
                         details -> {
                             loadedDetailKeys.add(detailKey);

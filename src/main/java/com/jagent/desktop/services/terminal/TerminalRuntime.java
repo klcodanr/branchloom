@@ -1,6 +1,6 @@
 package com.jagent.desktop.services.terminal;
 
-import com.jagent.desktop.services.BackgroundTasks;
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.ProcessTtyConnector;
@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,10 +59,10 @@ public class TerminalRuntime {
             startRequestedAtNanos = System.nanoTime();
             setState(TerminalState.STARTING);
             launchTask =
-                    BackgroundTasks.submit(
+                    BackgroundOperations.submit(
                             "Terminals",
                             "agent-terminal-start",
-                            () -> startProcess(attach, failed));
+                            Executors.callable(() -> startProcess(attach, failed), null));
         }
     }
 
@@ -154,10 +155,14 @@ public class TerminalRuntime {
                         (System.nanoTime() - attachStartedAtNanos) / 1_000_000,
                         (System.nanoTime() - startRequestedAtNanos) / 1_000_000);
             }
-            BackgroundTasks.submit(
-                    "Terminals", "agent-terminal-monitor", () -> monitorExit(startedProcess));
-            BackgroundTasks.submit(
-                    "Terminals", "agent-terminal-activity", () -> monitorActivity(startedProcess));
+            BackgroundOperations.submit(
+                    "Terminals",
+                    "agent-terminal-monitor",
+                    Executors.callable(() -> monitorExit(startedProcess), null));
+            BackgroundOperations.submit(
+                    "Terminals",
+                    "agent-terminal-activity",
+                    Executors.callable(() -> monitorActivity(startedProcess), null));
         } catch (Exception exception) {
             if (disposed) {
                 return;

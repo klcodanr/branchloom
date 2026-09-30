@@ -14,6 +14,7 @@ import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Enumeration;
 import java.util.Map;
 import java.util.function.IntConsumer;
 import javax.swing.JComponent;
@@ -27,6 +28,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class AppViewShortcutIntegrationTest {
+    private static final long CLOSE_TIMEOUT_NANOS = 5_000_000_000L;
+
     @TempDir private Path dataDirectory;
 
     @Test
@@ -49,33 +52,39 @@ class AppViewShortcutIntegrationTest {
             assertNotNull(projectView.titleLabel(), "project title should be present");
             invokeAction(app, "select-terminal-1");
             invokeAction(app, "clear-transient-focus");
-            GuiActionRunner.execute(() -> projectView.openFile(file));
             final JTabbedPane tabs = find(projectView, JTabbedPane.class);
             assertNotNull(tabs, "project tabs should be present");
-            assertEquals(3, tabs.getTabCount(), "opening a file should add a tab");
+            final int defaultTabCount = tabs.getTabCount();
             GuiActionRunner.execute(() -> projectView.openFile(file));
-            assertEquals(3, tabs.getTabCount(), "opening an already open file should select it");
+            assertEquals(
+                    defaultTabCount + 1, tabs.getTabCount(), "opening a file should add a tab");
+            GuiActionRunner.execute(() -> projectView.openFile(file));
+            assertEquals(
+                    defaultTabCount + 1,
+                    tabs.getTabCount(),
+                    "opening an already open file should select it");
             final JComponent fileViewer = (JComponent) tabs.getSelectedComponent();
             final IntConsumer closeCallback =
                     (IntConsumer) fileViewer.getClientProperty("JTabbedPane.tabCloseCallback");
             GuiActionRunner.execute(() -> closeCallback.accept(tabs.getSelectedIndex()));
-            assertEquals(2, tabs.getTabCount(), "the tab close callback should close the file");
+            assertEquals(
+                    defaultTabCount,
+                    tabs.getTabCount(),
+                    "the tab close callback should close the file");
             GuiActionRunner.execute(() -> projectView.openFile(file));
 
             invokeCloseShortcut(app);
-            assertEquals(2, tabs.getTabCount(), "the active file should close first");
+            assertEquals(defaultTabCount, tabs.getTabCount(), "the active file should close first");
 
             invokeCloseShortcut(app);
             assertEquals(
-                    2, tabs.getTabCount(), "default tabs should remain after closing the file");
+                    defaultTabCount,
+                    tabs.getTabCount(),
+                    "default tabs should remain after closing the file");
             projectView.openDefaultTab();
             projectView.openFile(dataDirectory.getRoot());
         } finally {
-            GuiActionRunner.execute(
-                    () -> {
-                        app.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-                        app.dispatchEvent(new WindowEvent(app, WindowEvent.WINDOW_CLOSING));
-                    });
+            close(app);
         }
     }
 
@@ -95,9 +104,39 @@ class AppViewShortcutIntegrationTest {
 
     private static void selectProject(final JTree tree) {
         final DefaultMutableTreeNode root = (DefaultMutableTreeNode) tree.getModel().getRoot();
-        final DefaultMutableTreeNode group = (DefaultMutableTreeNode) root.getChildAt(2);
-        final DefaultMutableTreeNode project = (DefaultMutableTreeNode) group.getChildAt(0);
+        final DefaultMutableTreeNode project = firstProjectNode(root);
+        assertNotNull(project, "project should exist in tree");
         tree.setSelectionPath(new TreePath(project.getPath()));
+    }
+
+    private static DefaultMutableTreeNode firstProjectNode(final DefaultMutableTreeNode root) {
+        final Enumeration<?> traversal = root.breadthFirstEnumeration();
+        while (traversal.hasMoreElements()) {
+            final Object current = traversal.nextElement();
+            if (current instanceof DefaultMutableTreeNode node
+                    && node.getUserObject() instanceof Map.Entry<?, ?> entry
+                    && entry.getValue() instanceof Project) {
+                return node;
+            }
+        }
+        return null;
+    }
+
+    private static void close(final AppView app) {
+        GuiActionRunner.execute(
+                () -> {
+                    app.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+                    app.dispatchEvent(new WindowEvent(app, WindowEvent.WINDOW_CLOSING));
+                });
+        final long deadline = System.nanoTime() + CLOSE_TIMEOUT_NANOS;
+        while (app.isDisplayable() && System.nanoTime() < deadline) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
     }
 
     private static <T extends Component> T find(final Container root, final Class<T> type) {

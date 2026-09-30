@@ -36,10 +36,7 @@ public final class MyPullRequestsView extends JPanel implements View {
                                 .appSettings()
                                 .pullRequestFilters()
                                 .toArray(PullRequestFilter[]::new));
-        final PullRequestFilter defaultFilter =
-                actionContext.appState().appSettings().filterNamed(DEFAULT_FILTER);
-        filters.setSelectedItem(defaultFilter);
-        board = new PullRequestsBoard(actionContext, defaultFilter.query(), this::pullRequests);
+        board = new PullRequestsBoard(actionContext, this::pullRequests);
         filters.addActionListener(
                 event -> {
                     board.setQuery(selectedFilter().query());

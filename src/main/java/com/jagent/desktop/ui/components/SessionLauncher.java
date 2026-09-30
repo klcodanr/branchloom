@@ -1,12 +1,12 @@
 package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.BackgroundJobs.Handle;
-import com.jagent.desktop.services.CommandRunner;
 import com.jagent.desktop.services.SessionCreationService.CreatedSession;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import java.awt.GraphicsEnvironment;
@@ -80,22 +80,37 @@ public final class SessionLauncher {
                         + (index + 1)
                         + " of "
                         + project.startupCommands().size());
-        CommandRunner.run(
-                project.startupCommands().get(index),
-                Path.of(worktreePath),
-                job::output,
-                () ->
-                        runStartupCommand(
-                                project, worktreePath, job, index + 1, onComplete, terminalPanel),
-                output ->
-                        failStartup(
-                                project,
-                                worktreePath,
-                                job,
-                                index,
-                                onComplete,
-                                terminalPanel,
-                                output));
+        BackgroundOperations.runCommand(
+                        "Commands",
+                        "session-startup",
+                        project.startupCommands().get(index),
+                        Path.of(worktreePath),
+                        job::output)
+                .thenRun(
+                        () ->
+                                runStartupCommand(
+                                        project,
+                                        worktreePath,
+                                        job,
+                                        index + 1,
+                                        onComplete,
+                                        terminalPanel))
+                .exceptionally(
+                        exception -> {
+                            final String message =
+                                    exception.getCause() == null
+                                            ? exception.getMessage()
+                                            : exception.getCause().getMessage();
+                            failStartup(
+                                    project,
+                                    worktreePath,
+                                    job,
+                                    index,
+                                    onComplete,
+                                    terminalPanel,
+                                    UiText.valueOrDefault(message, ""));
+                            return null;
+                        });
     }
 
     private void failStartup(

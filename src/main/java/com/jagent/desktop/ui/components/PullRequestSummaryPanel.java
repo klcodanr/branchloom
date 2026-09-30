@@ -1,10 +1,10 @@
 package com.jagent.desktop.ui.components;
 
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.GitHubConnection;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
-import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.PlatformCommands;
 import java.awt.BorderLayout;
@@ -184,7 +184,7 @@ public final class PullRequestSummaryPanel extends JPanel {
             return;
         }
         loadingBodies.add(bodyKey);
-        BackgroundTasks.submit(
+        BackgroundOperations.submit(
                         "Pull Requests",
                         "render-pr-description",
                         () -> parseBody(PullRequestPresentation.bodyHtml(request.description())))
@@ -286,7 +286,7 @@ public final class PullRequestSummaryPanel extends JPanel {
             return;
         }
         loadingChecks.add(checksKey);
-        BackgroundTasks.submit("Pull Requests", "load-pr-checks", () -> loadChecks(request))
+        BackgroundOperations.submit("Pull Requests", "load-pr-checks", () -> loadChecks(request))
                 .thenAcceptAsync(
                         pullRequestChecks -> {
                             loadingChecks.remove(checksKey);

@@ -4,8 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.jagent.desktop.api.View;
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.LogEntry;
-import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.JsonLogging;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
@@ -28,7 +28,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.ScrollPaneConstants;
-import javax.swing.SwingUtilities;
 import javax.swing.table.AbstractTableModel;
 
 public final class ProblemsView extends JPanel implements View {
@@ -76,16 +75,14 @@ public final class ProblemsView extends JPanel implements View {
         scroll.setPreferredSize(new Dimension(0, 260));
         add(scroll, BorderLayout.CENTER);
         refresh();
-        BackgroundTasks.submit(
+        BackgroundOperations.submit(
                 TITLE,
                 "load-log",
                 () -> {
                     final List<LogEntry> loaded = loader.apply(INITIAL_PROBLEM_LIMIT);
-                    SwingUtilities.invokeLater(
-                            () -> {
-                                problems.addAll(loaded);
-                                refresh();
-                            });
+                    problems.addAll(loaded);
+                    refresh();
+                    return null;
                 });
     }
 
@@ -174,18 +171,16 @@ public final class ProblemsView extends JPanel implements View {
 
     private void loadAllLogs() {
         showAllButton.setEnabled(false);
-        BackgroundTasks.submit(
+        BackgroundOperations.submit(
                 TITLE,
                 "load-all-log",
                 () -> {
                     final List<LogEntry> loaded = logLoader.apply(Integer.MAX_VALUE);
-                    SwingUtilities.invokeLater(
-                            () -> {
-                                problems.clear();
-                                problems.addAll(loaded);
-                                showAllButton.setVisible(false);
-                                refresh();
-                            });
+                    problems.clear();
+                    problems.addAll(loaded);
+                    showAllButton.setVisible(false);
+                    refresh();
+                    return null;
                 });
     }
 

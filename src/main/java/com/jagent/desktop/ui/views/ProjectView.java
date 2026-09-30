@@ -1,17 +1,16 @@
 package com.jagent.desktop.ui.views;
 
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
-import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestFilter;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
-import com.jagent.desktop.services.BackgroundTasks;
-import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.PullRequestCache;
+import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.components.GitHubAuthAlert;
 import com.jagent.desktop.ui.components.ProjectActions;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
@@ -27,7 +26,6 @@ import java.util.Map;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import org.slf4j.Logger;
@@ -35,15 +33,12 @@ import org.slf4j.LoggerFactory;
 
 public final class ProjectView extends AbstractWorkspaceView {
     private static final Logger LOG = LoggerFactory.getLogger(ProjectView.class);
-    private static final String DEFAULT_FILTER = "My PRs";
-    private static final String REVIEWABLE_FILTER = "Reviewable";
     private final transient Project project;
     private final transient ProjectId projectId;
     private final transient PullRequestCache pullRequestCache;
     private final PullRequestsBoard pullRequests;
     private final JComboBox<PullRequestFilter> filters;
     private final JPanel gitWarning = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-    private final JButton initializeGit = new JButton("Initialize Git");
     private int terminalNumber;
 
     public ProjectView(final ActionContext actionContext, final Project project) {
@@ -66,14 +61,9 @@ public final class ProjectView extends AbstractWorkspaceView {
                                 .appSettings()
                                 .pullRequestFilters()
                                 .toArray(PullRequestFilter[]::new));
-        this.filters.setSelectedItem(
-                actionContext.appState().appSettings().filterNamed(DEFAULT_FILTER));
-        final PullRequestFilter defaultFilter =
-                actionContext.appState().appSettings().filterNamed(DEFAULT_FILTER);
         this.pullRequests =
                 new PullRequestsBoard(
                         actionContext,
-                        defaultFilter.query(),
                         (query, forceRefresh) -> {
                             if (this.projectId == null) {
                                 return List.of();
@@ -81,9 +71,7 @@ public final class ProjectView extends AbstractWorkspaceView {
                             final PullRequestFilter selected =
                                     (PullRequestFilter) this.filters.getSelectedItem();
                             final PullRequestFilter filter =
-                                    new PullRequestFilter(
-                                            selected == null ? DEFAULT_FILTER : selected.name(),
-                                            query);
+                                    new PullRequestFilter(selected.name(), query);
                             return forceRefresh
                                     ? pullRequestCache.refreshForProjectFilter(
                                             this.projectId, filter)
@@ -120,18 +108,12 @@ public final class ProjectView extends AbstractWorkspaceView {
     protected void addTitleDetails(final JPanel titleArea) {
         gitWarning.setOpaque(false);
         gitWarning.add(new JLabel("This folder is not a Git repository."));
-        initializeGit.addActionListener(event -> initializeGit());
-        gitWarning.add(initializeGit);
         titleArea.add(gitWarning);
         gitWarning.setVisible(false);
-        loadGitRepositoryStatus();
-    }
-
-    private void loadGitRepositoryStatus() {
-        BackgroundTasks.submit(
+        BackgroundOperations.submit(
                         "Project",
                         "git-repository-check",
-                        () -> Git.isRepository(Path.of(project.path())))
+                        () -> GitRepository.isRepository(Path.of(project.path())))
                 .thenAcceptAsync(
                         isRepository -> gitWarning.setVisible(!isRepository),
                         SwingUtilities::invokeLater)
@@ -143,30 +125,6 @@ public final class ProjectView extends AbstractWorkspaceView {
                                     failure);
                             return null;
                         });
-    }
-
-    private void initializeGit() {
-        initializeGit.setEnabled(false);
-        new Git()
-                .initializeRepository(Path.of(project.path()))
-                .whenComplete(
-                        (ignored, failure) ->
-                                SwingUtilities.invokeLater(
-                                        () -> {
-                                            if (failure == null) {
-                                                gitWarning.setVisible(false);
-                                                gitWarning.getParent().revalidate();
-                                                gitWarning.getParent().repaint();
-                                            } else {
-                                                initializeGit.setEnabled(true);
-                                                JOptionPane.showMessageDialog(
-                                                        this,
-                                                        "Git could not be initialized: "
-                                                                + failure.getMessage(),
-                                                        "Initialize Git",
-                                                        JOptionPane.ERROR_MESSAGE);
-                                            }
-                                        }));
     }
 
     @Override
@@ -230,18 +188,6 @@ public final class ProjectView extends AbstractWorkspaceView {
     @Override
     public void refresh() {
         pullRequests.refresh();
-    }
-
-    public void reviewPullRequest(final PullRequest request) {
-        final PullRequestFilter reviewable =
-                actionContext.appState().appSettings().filterNamed(REVIEWABLE_FILTER);
-        filters.setSelectedItem(reviewable);
-        pullRequests.setQuery(reviewable.query());
-        tabs.setSelectedIndex(0);
-    }
-
-    public boolean focusPullRequestSearch() {
-        return pullRequests.focusSearch();
     }
 
     /** Adds a project terminal; project summary and pull-request tabs are not terminal tabs. */

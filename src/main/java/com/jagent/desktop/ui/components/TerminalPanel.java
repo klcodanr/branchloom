@@ -1,8 +1,8 @@
 package com.jagent.desktop.ui.components;
 
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
-import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import javax.swing.BoundedRangeModel;
 import javax.swing.JMenuItem;
@@ -195,8 +196,10 @@ public final class TerminalPanel extends JPanel {
                 () -> {
                     terminal.setTtyConnector(connector);
                     terminal.start();
-                    BackgroundTasks.submit(
-                            "Terminals", "agent-terminal-submit-command", runtime::submitCommand);
+                    BackgroundOperations.submit(
+                            "Terminals",
+                            "agent-terminal-submit-command",
+                            Executors.callable(runtime::submitCommand));
                 });
     }
 

@@ -14,6 +14,7 @@ import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.PullRequestReview;
 import com.jagent.desktop.models.PullRequestReviews;
+import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.components.UiText;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -265,7 +266,14 @@ public final class GitHub {
             final Path worktree,
             final Map<String, GitHubConnection> configuredConnections)
             throws IOException, InterruptedException {
-        final String branch = Git.currentBranch(worktree).trim();
+        final String branch;
+        try (GitRepository gitRepo = GitRepository.open(worktree)) {
+            branch = gitRepo.currentBranch();
+        } catch (IOException exception) {
+            throw new IOException(
+                    "Failed to determine current branch for worktree: " + worktree, exception);
+        }
+
         final GHRepository repository = repository(project, configuredConnections);
         final String fullName = repository.getFullName();
         final int separator = fullName.indexOf('/');
@@ -579,7 +587,10 @@ public final class GitHub {
     private static GHRepository repository(
             final Project project, final Map<String, GitHubConnection> configuredConnections)
             throws IOException, InterruptedException {
-        final String name = Git.repositoryName(Path.of(project.path()));
+        final String name;
+        try (GitRepository gitRepo = GitRepository.open(Path.of(project.path()))) {
+            name = gitRepo.repositoryOrgAndName();
+        }
         if (name == null) {
             throw new IOException("No GitHub remote found for this project");
         }

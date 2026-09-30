@@ -5,15 +5,14 @@ import static com.jagent.desktop.ui.components.UiFactory.form;
 
 import com.jagent.desktop.api.BaseAction;
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
-import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.ui.components.GitHubAuthSelector;
 import com.jagent.desktop.ui.components.UiText;
-import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import java.awt.Dimension;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,7 +22,6 @@ import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,45 +53,17 @@ public class CreateProjectAction extends BaseAction {
 
     @Override
     public void execute() {
-        final ProgressOperation progress =
-                ProgressOperation.start(
-                        this.actionContext.window(),
+        ProgressOperation.run(
+                        this.actionContext,
                         ADD_PROJECT_TITLE,
-                        "Loading GitHub accounts...");
-        BackgroundTasks.submit(
-                        "Operations",
-                        "Load GitHub accounts",
+                        "Loading GitHub accounts...",
                         () -> GitHub.configuredAuths(this.actionContext.appState()))
-                .whenComplete(
-                        (configuredAuths, failure) ->
-                                SwingUtilities.invokeLater(
-                                        () -> {
-                                            progress.close();
-                                            if (failure != null) {
-                                                LOG.error(
-                                                        "Add local project: Failed to load GitHub accounts.");
-                                                return;
-                                            }
-                                            showDialog(configuredAuths);
-                                        }));
-    }
-
-    protected static boolean duplicateName(
-            final java.util.Collection<Project> projects, final String name) {
-        return projects.stream().anyMatch(project -> project.name().equalsIgnoreCase(name));
-    }
-
-    protected static boolean duplicatePath(
-            final java.util.Collection<Project> projects, final Path path) {
-        return projects.stream()
-                .anyMatch(
-                        project ->
-                                path.equals(Path.of(project.path()).toAbsolutePath().normalize()));
-    }
-
-    protected static String initialDirectory(final String folderPath) {
-        final String trimmedPath = folderPath.trim();
-        return UiText.valueOrDefault(trimmedPath, System.getProperty("user.home"));
+                .thenAccept(this::showDialog)
+                .exceptionally(
+                        failure -> {
+                            LOG.error("Add local project: Failed to load GitHub accounts.");
+                            return null;
+                        });
     }
 
     private void showDialog(final java.util.List<GitHub.Auth> configuredAuths) {
@@ -106,7 +76,11 @@ public class CreateProjectAction extends BaseAction {
         final JButton browse = button("Browse...");
         browse.addActionListener(
                 event -> {
-                    final JFileChooser chooser = new JFileChooser(initialDirectory(path.getText()));
+                    final JFileChooser chooser =
+                            new JFileChooser(
+                                    UiText.valueOrDefault(
+                                            path.getText().trim(),
+                                            System.getProperty("user.home")));
                     chooser.setDialogTitle("Select project folder");
                     chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
                     chooser.setAcceptAllFileFilterUsed(false);
@@ -152,12 +126,12 @@ public class CreateProjectAction extends BaseAction {
                     JOptionPane.ERROR_MESSAGE);
             return;
         }
-        if (duplicatePath(appState.projects().values(), projectPath)) {
+        if (appState.projects().values().stream()
+                .anyMatch(
+                        project ->
+                                project.name().equalsIgnoreCase(projectName)
+                                        || project.path().equals(projectPath.toString()))) {
             LOG.error("Add local project: That project is already registered.");
-            return;
-        }
-        if (duplicateName(appState.projects().values(), projectName)) {
-            LOG.error("Add local project: A project with that name already exists.");
             return;
         }
         final GitHub.Auth auth =
