@@ -22,4 +22,3 @@ Branchloom enables you to work with multiple agentic and traditional coding fram
 - [Use Branchloom](docs/USAGE.md)
 - [Develop and release Branchloom](docs/DEVELOPMENT.md)
 - [Design standards for maintainable UX](docs/DESIGN_STANDARDS.md)
-- [UX design review and consistency checklist](docs/DESIGN_REVIEW.md)
