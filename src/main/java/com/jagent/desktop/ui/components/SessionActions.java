@@ -55,7 +55,7 @@ public final class SessionActions {
                         actionContext, sessionId, new RenameSessionAction(actionContext)));
         final JMenuItem removeSession =
                 sessionActionItem(actionContext, sessionId, new RemoveSessionAction(actionContext));
-        removeSession.setForeground(Theme.dangerColor());
+        removeSession.setForeground(Theme.Colors.danger());
         menu.add(removeSession);
     }
 

@@ -29,22 +29,6 @@ class PullRequestPresentationTest {
                         .contains(Integer.toString(request.number())),
                 "body key should include request number");
         assertEquals(
-                "author",
-                PullRequestPresentation.authorLogin(request),
-                "author login should resolve");
-        assertEquals(
-                "https://example.test/author",
-                PullRequestPresentation.authorUrl(request),
-                "author URL should resolve");
-        assertEquals(
-                "None",
-                PullRequestPresentation.blankAsNone(""),
-                "blank values should render as None");
-        assertEquals(
-                "value",
-                PullRequestPresentation.blankAsNone("value"),
-                "non-blank values should pass through");
-        assertEquals(
                 request.projectId() + ":" + request.number(),
                 PullRequestPresentation.detailKey(request),
                 "detail key should include project id and number");

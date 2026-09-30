@@ -26,7 +26,6 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
-import javax.swing.UIManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,10 +38,6 @@ public final class PullRequestCard extends JPanel {
     private final transient PullRequestDetails details;
     private final JLabel metadata;
 
-    public PullRequestCard(final ActionContext actionContext, final PullRequest request) {
-        this(actionContext, request, null, () -> {});
-    }
-
     public PullRequestCard(
             final ActionContext actionContext,
             final PullRequest request,
@@ -53,10 +48,10 @@ public final class PullRequestCard extends JPanel {
         this.onPullRequestApproved = onPullRequestApproved;
         this.details = details;
         final JPopupMenu contextMenu = menu(request);
-        setBackground(UIManager.getColor("TextField.background"));
+        setBackground(Theme.Colors.textareaBackground());
         setBorder(
                 BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor")),
+                        BorderFactory.createLineBorder(Theme.Colors.border()),
                         UiFactory.cardBorder()));
         setPreferredSize(new Dimension(UiConstants.PR_CARD_WIDTH, UiConstants.PR_CARD_HEIGHT));
         setMinimumSize(new Dimension(UiConstants.PR_CARD_WIDTH, UiConstants.PR_CARD_HEIGHT));
@@ -64,7 +59,7 @@ public final class PullRequestCard extends JPanel {
         setAlignmentX(LEFT_ALIGNMENT);
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         final JLabel number = UiFactory.label("#" + request.number(), Theme.FontSize.XS);
-        number.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+        number.setForeground(Theme.Colors.muted());
         number.setFont(Theme.boldFont(Theme.FontSize.XS));
         number.setAlignmentX(LEFT_ALIGNMENT);
         number.setComponentPopupMenu(contextMenu);
@@ -73,17 +68,17 @@ public final class PullRequestCard extends JPanel {
         title.setAlignmentX(LEFT_ALIGNMENT);
         title.setToolTipText(request.title());
         title.setFont(Theme.boldFont(Theme.FontSize.MD));
-        title.setForeground(UIManager.getColor("Label.foreground"));
+        title.setForeground(Theme.Colors.foreground());
         title.setComponentPopupMenu(contextMenu);
         add(title);
         final JComponent statusDot =
-                new StatusDot(details == null ? Theme.mutedColor() : details.indicatorColor());
+                new StatusDot(details == null ? Theme.Colors.muted() : details.indicatorColor());
         final JPanel statusRow = new JPanel();
         statusRow.setOpaque(false);
         statusRow.setLayout(new BoxLayout(statusRow, BoxLayout.X_AXIS));
         statusRow.setAlignmentX(LEFT_ALIGNMENT);
         metadata = UiFactory.label(metadataText(request, details), Theme.FontSize.XS);
-        metadata.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+        metadata.setForeground(Theme.Colors.muted());
         metadata.setToolTipText(metadataText(request, details));
         statusRow.add(statusDot);
         statusRow.add(Box.createHorizontalStrut(UiConstants.SPACING_XS));
@@ -114,7 +109,7 @@ public final class PullRequestCard extends JPanel {
         final String offset = RelativeTime.offsetTime(timestamp);
         final JLabel value = new JLabel(offset, icon, JLabel.LEFT);
         value.setFont(Theme.font(Theme.FontSize.XS));
-        value.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+        value.setForeground(Theme.Colors.muted());
         final String description =
                 "unknown".equals(offset)
                         ? label

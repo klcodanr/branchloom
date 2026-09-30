@@ -12,15 +12,16 @@ class PullRequestDetailsModelTest {
 
     @Test
     void statusAndColorReflectDraftAndMergeability() {
-        assertStatus("draft", true, true, PullRequestDetails.Status.DRAFT, Theme.mutedColor());
-        assertStatus("clean", false, true, PullRequestDetails.Status.READY, Theme.successColor());
+        assertStatus("draft", true, true, PullRequestDetails.Status.DRAFT, Theme.Colors.muted());
+        assertStatus("clean", false, true, PullRequestDetails.Status.READY, Theme.Colors.success());
         assertStatus(
-                "blocked", false, false, PullRequestDetails.Status.PENDING, Theme.warningColor());
+                "blocked", false, false, PullRequestDetails.Status.PENDING, Theme.Colors.warning());
         assertStatus(
-                "dirty", false, false, PullRequestDetails.Status.CONFLICTED, Theme.dangerColor());
+                "dirty", false, false, PullRequestDetails.Status.CONFLICTED, Theme.Colors.danger());
         assertStatus(
-                "unstable", false, false, PullRequestDetails.Status.FAILED, Theme.dangerColor());
-        assertStatus("unknown", false, false, PullRequestDetails.Status.OTHER, Theme.mutedColor());
+                "unstable", false, false, PullRequestDetails.Status.FAILED, Theme.Colors.danger());
+        assertStatus(
+                "unknown", false, false, PullRequestDetails.Status.OTHER, Theme.Colors.muted());
     }
 
     private static void assertStatus(

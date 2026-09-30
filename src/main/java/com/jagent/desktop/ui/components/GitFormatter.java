@@ -6,11 +6,12 @@ import com.jagent.desktop.models.PullRequestDetails;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
-import javax.swing.UIManager;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 
 /** Shared presentation formatting for pull-request status values. */
@@ -30,7 +31,7 @@ public final class GitFormatter {
                 + UiText.escapeHtml(request.title())
                 + "<br>"
                 + "<font color='"
-                + UiText.colorHex(UIManager.getColor(UiConstants.DISABLED_FOREGROUND))
+                + UiText.colorHex(Theme.Colors.muted())
                 + "'>"
                 + lifecycle
                 + "</font>"
@@ -41,7 +42,7 @@ public final class GitFormatter {
         final String status =
                 details == null ? "Loading" : UiText.titleCase(details.status().toString());
         final String color =
-                UiText.colorHex(details == null ? Theme.mutedColor() : details.indicatorColor());
+                UiText.colorHex(details == null ? Theme.Colors.muted() : details.indicatorColor());
         return "PR: <font color='" + color + "'>&#9679;</font> " + status;
     }
 
@@ -72,11 +73,11 @@ public final class GitFormatter {
                 constraints.insets = new Insets(0, 0, 0, UiConstants.COMPONENT_GAP);
                 constraints.gridx = 0;
                 final JLabel additions = UiFactory.label("+" + fields[0], Theme.FontSize.XS);
-                additions.setForeground(Theme.successColor());
+                additions.setForeground(Theme.Colors.success());
                 change.add(additions, constraints);
                 constraints.gridx = 1;
                 final JLabel deletions = UiFactory.label("-" + fields[1], Theme.FontSize.XS);
-                deletions.setForeground(Theme.dangerColor());
+                deletions.setForeground(Theme.Colors.danger());
                 change.add(deletions, constraints);
                 constraints.gridx = 2;
                 constraints.weightx = 1;
@@ -92,6 +93,23 @@ public final class GitFormatter {
     public static void renderDiff(final RSyntaxTextArea diff, final String output) {
         diff.setText(output.isBlank() ? "No changes from HEAD." : output);
         diff.setCaretPosition(0);
+    }
+
+    /* default */ static List<Integer> changedLines(final String output) {
+        final List<Integer> changedLines = new ArrayList<>();
+        if (output.isBlank()) {
+            return changedLines;
+        }
+        final String[] lines = output.split("\\R", -1);
+        for (int line = 0; line < lines.length; line++) {
+            final String text = lines[line].stripLeading();
+            if (text.startsWith("+") && !text.startsWith("+++")) {
+                changedLines.add(line + 1);
+            } else if (text.startsWith("-") && !text.startsWith("---")) {
+                changedLines.add(-(line + 1));
+            }
+        }
+        return List.copyOf(changedLines);
     }
 
     private static JTextArea value(final String text) {

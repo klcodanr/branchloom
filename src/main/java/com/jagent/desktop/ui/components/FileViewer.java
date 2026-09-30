@@ -11,14 +11,18 @@ import java.awt.Font;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.ButtonGroup;
+import javax.swing.Icon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JToggleButton;
-import javax.swing.UIManager;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DefaultHighlighter;
+import javax.swing.text.Highlighter;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
-import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rsyntaxtextarea.SyntaxScheme;
 import org.fife.ui.rsyntaxtextarea.TokenTypes;
 
@@ -34,6 +38,7 @@ public final class FileViewer extends JPanel {
     private final JPanel content = new JPanel(cards);
     private final RSyntaxTextArea source = new RSyntaxTextArea();
     private final RSyntaxTextArea diff = new RSyntaxTextArea();
+    private final List<Object> diffIndicatorHighlights = new ArrayList<>();
     private volatile String loadedContent;
     private final FileSearchControls searchControls =
             new FileSearchControls(
@@ -44,10 +49,6 @@ public final class FileViewer extends JPanel {
                     },
                     () -> cards.show(content, SOURCE),
                     source::requestFocusInWindow);
-
-    public FileViewer(final Path workspace, final Path file) {
-        this(workspace, file, false);
-    }
 
     public FileViewer(final Path workspace, final Path file, final boolean showDiffInitially) {
         super(new BorderLayout(0, UiConstants.CONTENT_PADDING));
@@ -96,7 +97,7 @@ public final class FileViewer extends JPanel {
     }
 
     private static JToggleButton segmentedButton(
-            final javax.swing.Icon icon, final String name, final String position) {
+            final Icon icon, final String name, final String position) {
         final JToggleButton button = new JToggleButton(icon);
         button.setToolTipText(name);
         button.getAccessibleContext().setAccessibleName(name);
@@ -122,7 +123,7 @@ public final class FileViewer extends JPanel {
         diff.setCodeFoldingEnabled(false);
         diff.setHighlightCurrentLine(true);
         diff.setLineWrap(false);
-        diff.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_UNIX_SHELL);
+        diff.setSyntaxEditingStyle(RSyntaxTextArea.SYNTAX_STYLE_NONE);
         diff.setFont(Theme.terminalFont(Theme.FontSize.SM));
         diff.setBorder(UiFactory.cardBorder());
         applyEditorTheme();
@@ -137,29 +138,18 @@ public final class FileViewer extends JPanel {
     }
 
     private void applyEditorTheme() {
-        final Color background = color("TextArea.background", "Panel.background", Color.WHITE);
-        final Color foreground = color("TextArea.foreground", "Label.foreground", Color.BLACK);
-        final Color selectionBackground =
-                color(
-                        "TextArea.selectionBackground",
-                        "TextComponent.selectionBackground",
-                        new Color(184, 207, 229));
-        final Color selectionForeground =
-                color(
-                        "TextArea.selectionForeground",
-                        "TextComponent.selectionForeground",
-                        Color.BLACK);
-        final Color caret =
-                color("TextArea.caretForeground", "TextComponent.foreground", foreground);
-        final Color currentLine =
-                color("TextArea.currentLineHighlight", "TextComponent.background", background);
+        final Color background = Theme.Colors.textareaBackground();
+        final Color foreground = Theme.Colors.textareaForeground();
+        final Color selectionBackground = Theme.Colors.textSelectionBackground();
+        final Color selectionForeground = Theme.Colors.textSelectionForeground();
+        final Color caret = Theme.Colors.textCaretForeground();
 
         source.setBackground(background);
         source.setForeground(foreground);
         source.setCaretColor(caret);
         source.setSelectionColor(selectionBackground);
         source.setSelectedTextColor(selectionForeground);
-        source.setCurrentLineHighlightColor(currentLine);
+        source.setCurrentLineHighlightColor(background);
         source.setSyntaxScheme(syntaxScheme(foreground));
 
         diff.setBackground(background);
@@ -167,15 +157,15 @@ public final class FileViewer extends JPanel {
         diff.setCaretColor(caret);
         diff.setSelectionColor(selectionBackground);
         diff.setSelectedTextColor(selectionForeground);
+        diff.setCurrentLineHighlightColor(lineHighlight(background, foreground));
     }
 
     private static SyntaxScheme syntaxScheme(final Color foreground) {
-        final boolean dark = isDark(foreground);
-        final Color keyword = dark ? new Color(198, 146, 255) : new Color(128, 48, 145);
-        final Color string = dark ? new Color(165, 214, 129) : new Color(46, 125, 50);
-        final Color comment = dark ? new Color(139, 148, 158) : new Color(94, 99, 104);
-        final Color number = dark ? new Color(121, 192, 255) : new Color(0, 92, 170);
-        final Color literal = dark ? new Color(255, 166, 87) : new Color(173, 80, 0);
+        final Color keyword = Theme.Colors.purple();
+        final Color string = Theme.Colors.green();
+        final Color comment = Theme.Colors.textareaForeground();
+        final Color number = Theme.Colors.blue();
+        final Color literal = Theme.Colors.darkYellow();
         final SyntaxScheme scheme = new SyntaxScheme(true);
         for (int i = 0; i < scheme.getStyleCount(); i++) {
             scheme.getStyle(i).foreground = foreground;
@@ -199,11 +189,16 @@ public final class FileViewer extends JPanel {
         return brightness < 128_000;
     }
 
-    private static Color color(
-            final String key, final String fallbackKey, final Color defaultColor) {
-        final Color value = UIManager.getColor(key);
-        final Color fallback = UIManager.getColor(fallbackKey);
-        return value == null && fallback == null ? defaultColor : value == null ? fallback : value;
+    private static Color lineHighlight(final Color background, final Color foreground) {
+        final double amount = isDark(foreground) ? 0.10d : 0.06d;
+        return new Color(
+                blend(background.getRed(), foreground.getRed(), amount),
+                blend(background.getGreen(), foreground.getGreen(), amount),
+                blend(background.getBlue(), foreground.getBlue(), amount));
+    }
+
+    private static int blend(final int background, final int foreground, final double amount) {
+        return (int) Math.round(background + (foreground - background) * amount);
     }
 
     private void load() {
@@ -219,7 +214,8 @@ public final class FileViewer extends JPanel {
                             try (GitRepository repository = GitRepository.open(workspace)) {
                                 fileDiff = repository.getFileDiff(file, false, "HEAD");
                             }
-                            return new LoadedFile(content, fileDiff, binary);
+                            return new LoadedFile(
+                                    content, fileDiff, binary, GitFormatter.changedLines(fileDiff));
                         })
                 .thenAccept(
                         loaded -> {
@@ -227,6 +223,7 @@ public final class FileViewer extends JPanel {
                                 loadedContent = null;
                                 source.setText("Binary file cannot be displayed.");
                                 GitFormatter.renderDiff(diff, loaded.diff());
+                                highlightDiffLines(loaded.changedLines());
                                 status.setText("Binary");
                                 return;
                             }
@@ -234,6 +231,7 @@ public final class FileViewer extends JPanel {
                             source.setText(loaded.content());
                             source.setCaretPosition(0);
                             GitFormatter.renderDiff(diff, loaded.diff());
+                            highlightDiffLines(loaded.changedLines());
                             status.setText(loaded.diff().isBlank() ? "Unchanged" : "Changed");
                             searchControls.refresh();
                         })
@@ -257,5 +255,48 @@ public final class FileViewer extends JPanel {
         return false;
     }
 
-    private record LoadedFile(String content, String diff, boolean binary) {}
+    private void highlightDiffLines(final List<Integer> changedLines) {
+        diff.removeAllLineHighlights();
+        diffIndicatorHighlights.forEach(diff.getHighlighter()::removeHighlight);
+        diffIndicatorHighlights.clear();
+        if (changedLines.isEmpty()) {
+            return;
+        }
+        final Color background = diff.getBackground();
+        final Color addedAccent = Theme.Colors.success();
+        final Color removedAccent = Theme.Colors.danger();
+        final Color added = diffLineColor(background, addedAccent);
+        final Color removed = diffLineColor(background, removedAccent);
+        final Highlighter.HighlightPainter addedPainter =
+                new DefaultHighlighter.DefaultHighlightPainter(addedAccent);
+        final Highlighter.HighlightPainter removedPainter =
+                new DefaultHighlighter.DefaultHighlightPainter(removedAccent);
+        for (final int changedLine : changedLines) {
+            try {
+                final boolean addition = changedLine > 0;
+                final int line = Math.abs(changedLine) - 1;
+                final int start = diff.getLineStartOffset(line);
+                diff.addLineHighlight(line, addition ? added : removed);
+                diffIndicatorHighlights.add(
+                        diff.getHighlighter()
+                                .addHighlight(
+                                        start,
+                                        start + 1,
+                                        addition ? addedPainter : removedPainter));
+            } catch (BadLocationException ignored) {
+                // The document cannot change while this EDT callback is running.
+            }
+        }
+    }
+
+    private static Color diffLineColor(final Color background, final Color accent) {
+        final double amount = isDark(background) ? 0.20d : 0.12d;
+        return new Color(
+                blend(background.getRed(), accent.getRed(), amount),
+                blend(background.getGreen(), accent.getGreen(), amount),
+                blend(background.getBlue(), accent.getBlue(), amount));
+    }
+
+    private record LoadedFile(
+            String content, String diff, boolean binary, List<Integer> changedLines) {}
 }

@@ -114,9 +114,9 @@ public final class BackgroundJobDialog {
 
     private static Color statusColor(final BackgroundJobs.Status status) {
         return switch (status) {
-            case RUNNING -> Theme.warningColor();
-            case SUCCEEDED -> Theme.successColor();
-            case FAILED -> Theme.dangerColor();
+            case RUNNING -> Theme.Colors.warning();
+            case SUCCEEDED -> Theme.Colors.success();
+            case FAILED -> Theme.Colors.danger();
         };
     }
 }

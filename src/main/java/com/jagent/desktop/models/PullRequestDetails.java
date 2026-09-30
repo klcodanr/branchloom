@@ -75,14 +75,14 @@ public record PullRequestDetails(
     public Color indicatorColor() {
         final Status stat = status();
         if (draft()) {
-            return Theme.mutedColor();
+            return Theme.Colors.muted();
         } else if (stat == Status.READY) {
-            return Theme.successColor();
+            return Theme.Colors.success();
         } else if (stat == Status.PENDING) {
-            return Theme.warningColor();
+            return Theme.Colors.warning();
         } else if (stat == Status.FAILED || stat == Status.CONFLICTED) {
-            return Theme.dangerColor();
+            return Theme.Colors.danger();
         }
-        return Theme.mutedColor();
+        return Theme.Colors.muted();
     }
 }
