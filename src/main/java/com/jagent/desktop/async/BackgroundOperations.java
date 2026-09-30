@@ -16,7 +16,16 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.swing.SwingUtilities;
 
-/** Application-scoped executor for blocking background work. */
+/**
+ * Application-scoped executor for blocking background work.
+ *
+ * <p>Use this class when an operation may block (process execution, network access, disk I/O) and
+ * should not run on the Swing event dispatch thread (EDT). Tasks are executed on virtual threads,
+ * and completion is marshalled back onto the EDT so UI callers can update state safely.
+ *
+ * <p>For user-facing operations that should also show a loading indicator, use {@link
+ * ProgressOperation}.
+ */
 public final class BackgroundOperations {
     private static final ExecutorService EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
     private static final ConcurrentMap<String, Counters> GROUPS = new ConcurrentHashMap<>();
@@ -25,15 +34,17 @@ public final class BackgroundOperations {
     private BackgroundOperations() {}
 
     /**
-     * Submits a task to be executed in the background under the specified group and name. The task
-     * will be executed using a virtual thread, and the result or exception will be propagated to
-     * the returned CompletableFuture on the Swing event dispatch thread.
+     * Runs a task on a virtual background thread and completes the returned future on the EDT.
      *
-     * @param <T>
-     * @param group
-     * @param name
-     * @param task
-     * @return
+     * <p>Use this as the default entry point for asynchronous work started by views and
+     * coordinators. The {@code group} and {@code name} values are used for thread naming and
+     * runtime diagnostics.
+     *
+     * @param <T> result type produced by the task
+     * @param group logical task group for observability
+     * @param name task name for observability
+     * @param task blocking or long-running task body
+     * @return future completed on the EDT with task result or failure
      */
     public static <T> CompletableFuture<T> submit(
             final String group, final String name, final Callable<T> task) {
@@ -63,6 +74,19 @@ public final class BackgroundOperations {
         return future;
     }
 
+    /**
+     * Runs a shell command asynchronously and streams line output to an optional callback.
+     *
+     * <p>Use this helper when command output should be surfaced incrementally to the UI while the
+     * command is still running. Command output callbacks are dispatched on the EDT.
+     *
+     * @param group logical task group for observability
+     * @param name task name for observability
+     * @param command shell command string
+     * @param directory working directory for command execution
+     * @param onOutput optional callback for each output line; may be {@code null}
+     * @return future completed on the EDT with full combined command output
+     */
     public static CompletableFuture<String> runCommand(
             final String group,
             final String name,
@@ -116,6 +140,11 @@ public final class BackgroundOperations {
         return output.toString();
     }
 
+    /**
+     * Returns executor and task counters intended for diagnostics and tests.
+     *
+     * @return snapshot of thread counts, group counters, and active task names
+     */
     public static ThreadSummary summary() {
         long virtual = 0;
         long platform = 0;
@@ -144,6 +173,11 @@ public final class BackgroundOperations {
                 ACTIVE_TASKS.values().stream().sorted().toList());
     }
 
+    /**
+     * Stops all running tasks and shuts down the shared executor.
+     *
+     * <p>Intended for controlled shutdown and tests.
+     */
     public static void shutdown() {
         EXECUTOR.shutdownNow();
     }
@@ -154,6 +188,7 @@ public final class BackgroundOperations {
         private final AtomicLong completed = new AtomicLong();
     }
 
+    /** Aggregate runtime task metrics across all groups. */
     public record ThreadSummary(
             long virtualThreads,
             long platformThreads,
@@ -161,5 +196,6 @@ public final class BackgroundOperations {
             List<GroupSummary> groups,
             List<String> activeTasks) {}
 
+    /** Per-group task counters used by {@link ThreadSummary}. */
     public record GroupSummary(String group, long submitted, long active, long completed) {}
 }

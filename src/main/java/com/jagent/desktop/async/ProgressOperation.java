@@ -9,7 +9,13 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import javax.swing.JDialog;
 
-/** Runs a slow operation off the EDT while displaying progress and reporting failures. */
+/**
+ * UI helper that wraps a background task with transient progress UI state.
+ *
+ * <p>Use this class for user-initiated operations where the app should show a loading indicator and
+ * wait cursor while work runs off the EDT. For background work that does not need UI progress, use
+ * {@link BackgroundOperations} directly.
+ */
 public final class ProgressOperation {
     private final Window window;
     private final ProgressDialog progress;
@@ -51,22 +57,17 @@ public final class ProgressOperation {
     }
 
     /**
-     * Runs a background operation while displaying progress and reporting failures.
+     * Runs a background operation with a visible progress indicator and wait cursor.
      *
-     * <p>This method returns a CompletableFuture that will be completed with the result of the
-     * operation once it finishes, or completed exceptionally if the operation fails.
+     * <p>The operation runs via {@link BackgroundOperations} and the returned future completes on
+     * the EDT. The dialog and cursor are always cleaned up, even when the operation fails.
      *
-     * <p>The progress dialog will be displayed while the operation is running and closed once it
-     * completes. Note that this method does not block the calling thread; it returns immediately
-     * with a CompletableFuture.
-     *
-     * @param <T> the type of the result produced by the background operation
-     * @param actionContext the context of the action, providing access to the parent window
-     * @param title the title of the progress dialog
-     * @param message the message to display in the progress dialog
-     * @param operation the background operation to execute
-     * @return a CompletableFuture that will be completed with the result of the operation or
-     *     exceptionally if it fails
+     * @param <T> result type produced by the background operation
+     * @param actionContext source context that provides the parent window
+     * @param title progress dialog title and background task name
+     * @param message progress message shown in the loading panel
+     * @param operation blocking operation to run off the EDT
+     * @return future completed on the EDT with the operation result or failure
      */
     public static <T> CompletableFuture<T> run(
             final ActionContext actionContext,
