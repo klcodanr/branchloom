@@ -131,8 +131,12 @@ public final class Theme {
 
         private static String commandOutput(final String... command) {
             try {
+                final String[] resolvedCommand = command.clone();
+                resolvedCommand[0] = PlatformCommands.executable(command[0]);
                 final Process process =
-                        new ProcessBuilder(command).redirectErrorStream(true).start();
+                        PlatformCommands.prepare(new ProcessBuilder(resolvedCommand))
+                                .redirectErrorStream(true)
+                                .start();
                 if (!process.waitFor(1, TimeUnit.SECONDS)) {
                     process.destroyForcibly();
                     return null;

@@ -59,7 +59,10 @@ public final class TerminalResources {
         final List<String> command = new ArrayList<>(List.of("ps", "-o", "pid=,rss=", "-p"));
         command.add(String.join(",", pids.stream().map(Object::toString).toList()));
         try {
-            final Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+            final Process process =
+                    PlatformCommands.prepare(new ProcessBuilder(command))
+                            .redirectErrorStream(true)
+                            .start();
             final String output =
                     new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             if (!process.waitFor(2, TimeUnit.SECONDS) || process.exitValue() != 0) {
@@ -88,7 +91,10 @@ public final class TerminalResources {
         final List<String> command = new ArrayList<>(List.of("ps", "-o", "pid=,time=", "-p"));
         command.add(String.join(",", pids.stream().map(Object::toString).toList()));
         try {
-            final Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+            final Process process =
+                    PlatformCommands.prepare(new ProcessBuilder(command))
+                            .redirectErrorStream(true)
+                            .start();
             final String output =
                     new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             if (!process.waitFor(2, TimeUnit.SECONDS) || process.exitValue() != 0) {
