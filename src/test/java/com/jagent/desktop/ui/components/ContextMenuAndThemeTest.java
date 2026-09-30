@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Test;
 
 class ContextMenuAndThemeTest {
     private static final String VALUE_MESSAGE = "theme value should be available";
+    private static final String AGENTS_LABEL = "Agents";
+    private static final String EDITORS_LABEL = "Editors";
     private static final String AGENT_NAME = "Agent";
     private static final String AGENT_COMMAND = "agent";
 
@@ -50,16 +52,42 @@ class ContextMenuAndThemeTest {
         final var sessionMenu =
                 GuiActionRunner.execute(() -> SessionActions.menu(context, sessionId));
 
-        assertTrue(findMenu(projectMenu, "Agents") != null, "project agents menu should exist");
-        assertTrue(findMenu(projectMenu, "Editors") != null, "project editors menu should exist");
+        assertTrue(
+                findMenu(projectMenu, AGENTS_LABEL) == null,
+                "project should not use agents submenu");
+        assertTrue(
+                findMenu(projectMenu, EDITORS_LABEL) == null,
+                "project should not use editors submenu");
+        final var projectAgentsHeading = findItem(projectMenu, AGENTS_LABEL);
+        final var projectEditorsHeading = findItem(projectMenu, EDITORS_LABEL);
+        assertNotNull(projectAgentsHeading, "project agents heading should exist");
+        assertTrue(!projectAgentsHeading.isEnabled(), "project agents heading should be disabled");
+        assertNotNull(projectEditorsHeading, "project editors heading should exist");
+        assertTrue(
+                !projectEditorsHeading.isEnabled(), "project editors heading should be disabled");
+        assertNotNull(findItem(projectMenu, AGENT_NAME), "project agent action should exist");
+        assertNotNull(findItem(projectMenu, "Editor"), "project editor action should exist");
         final var importMenu = findMenu(projectMenu, "Import from");
         assertNotNull(importMenu, "project import menu should exist");
         assertEquals("Branches", importMenu.getItem(0).getText(), "branch import should exist");
         assertEquals("Worktrees", importMenu.getItem(1).getText(), "worktree import should exist");
         assertEquals("GitHub issues", importMenu.getItem(2).getText(), "issue import should exist");
         assertEquals("Pasted lines", importMenu.getItem(3).getText(), "paste import should exist");
-        assertTrue(findMenu(sessionMenu, "Agents") != null, "session agents menu should exist");
-        assertTrue(findMenu(sessionMenu, "Editors") != null, "session editors menu should exist");
+        assertTrue(
+                findMenu(sessionMenu, AGENTS_LABEL) == null,
+                "session should not use agents submenu");
+        assertTrue(
+                findMenu(sessionMenu, EDITORS_LABEL) == null,
+                "session should not use editors submenu");
+        final var sessionAgentsHeading = findItem(sessionMenu, AGENTS_LABEL);
+        final var sessionEditorsHeading = findItem(sessionMenu, EDITORS_LABEL);
+        assertNotNull(sessionAgentsHeading, "session agents heading should exist");
+        assertTrue(!sessionAgentsHeading.isEnabled(), "session agents heading should be disabled");
+        assertNotNull(sessionEditorsHeading, "session editors heading should exist");
+        assertTrue(
+                !sessionEditorsHeading.isEnabled(), "session editors heading should be disabled");
+        assertNotNull(findItem(sessionMenu, AGENT_NAME), "session agent action should exist");
+        assertNotNull(findItem(sessionMenu, "Editor"), "session editor action should exist");
 
         final var updateBranch = findItem(sessionMenu, "Update branch");
         assertNotNull(updateBranch, "session update branch action should exist");
@@ -104,11 +132,13 @@ class ContextMenuAndThemeTest {
         final var menu = GuiActionRunner.execute(() -> SessionActions.menu(context, sessionId));
 
         assertEquals(projectId, state.currentProjectId(), "menu should select the session project");
-        final javax.swing.JMenu agentsMenu = findMenu(menu, "Agents");
-        assertNotNull(agentsMenu, "session agents menu should exist");
-        assertNotNull(agentsMenu.getItem(0), "configured agent action should exist");
+        final javax.swing.JMenuItem agentsHeading = findItem(menu, AGENTS_LABEL);
+        assertNotNull(agentsHeading, "session agents heading should exist");
+        assertTrue(!agentsHeading.isEnabled(), "session agents heading should be disabled");
+        final javax.swing.JMenuItem agentAction = findItem(menu, AGENT_NAME);
+        assertNotNull(agentAction, "configured agent action should exist");
         assertTrue(
-                agentsMenu.getItem(0).isEnabled(),
+                agentAction.isEnabled(),
                 "session agent action should be enabled for the target project");
     }
 
