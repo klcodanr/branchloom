@@ -164,6 +164,17 @@ public final class PullRequestsBoard extends JPanel {
             return;
         }
         currentQuery = UiText.valueOrDefault(query.getText(), "").trim();
+        if (currentQuery.isBlank()) {
+            refreshStatus.setText("Enter a pull request query");
+            remove(loading);
+            add(splitPane, BorderLayout.CENTER);
+            requests = List.of();
+            selectedRequest = null;
+            render();
+            revalidate();
+            repaint();
+            return;
+        }
         refreshInFlight = true;
         final long started = System.nanoTime();
         LOG.info(

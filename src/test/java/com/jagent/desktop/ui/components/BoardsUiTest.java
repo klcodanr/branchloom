@@ -1,5 +1,6 @@
 package com.jagent.desktop.ui.components;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.ActionContext;
@@ -18,10 +19,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
 class BoardsUiTest {
+    private static final String PROJECT_NAME = "Demo";
+    private static final String PROJECT_PATH = "/tmp/demo";
+
     @Test
     void emptyPullRequestBoardShowsAndAcceptsFilters() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
@@ -37,10 +42,30 @@ class BoardsUiTest {
     }
 
     @Test
+    void blankInitialQueryDoesNotLoadPullRequests() {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
+        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+        final var loaded = new AtomicBoolean();
+
+        GuiActionRunner.execute(
+                () ->
+                        new PullRequestsBoard(
+                                context,
+                                (query, forceRefresh) -> {
+                                    loaded.set(true);
+                                    return List.of();
+                                },
+                                ""));
+
+        assertFalse(loaded.get(), "blank queries should not trigger a pull request search");
+    }
+
+    @Test
     void pullRequestBoardRendersLoadedRequestsAndFiltersThem()
             throws InterruptedException, MalformedURLException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ProjectId projectId = state.addProject(new Project("Demo", "/tmp/demo", null));
+        final ProjectId projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
         final var context = new ActionContext(new ViewCoordinator(state), state, null);
         final var loaded = new CountDownLatch(1);
         final var initialQuery = new java.util.concurrent.atomic.AtomicReference<String>();
@@ -70,7 +95,7 @@ class BoardsUiTest {
     @Test
     void pullRequestBoardReportsRefreshFailures() throws InterruptedException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.addProject(new Project("Demo", "/tmp/demo", null));
+        state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
         final var context = new ActionContext(new ViewCoordinator(state), state, null);
         final PullRequestsBoard board =
                 GuiActionRunner.execute(
@@ -80,7 +105,7 @@ class BoardsUiTest {
                                         (query, forceRefresh) -> {
                                             throw new IllegalStateException("fixture failure");
                                         },
-                                        ""));
+                                        "author:@me"));
         SwingTestSupport.await(
                 () -> componentText(board).contains("PR refresh failed"),
                 "refresh failures should be surfaced");
@@ -94,7 +119,7 @@ class BoardsUiTest {
             throws MalformedURLException {
         return new PullRequest(
                 projectId,
-                new Project("Demo", "/tmp/demo", null),
+                new Project(PROJECT_NAME, PROJECT_PATH, null),
                 number,
                 PullRequest.State.OPEN,
                 title,
