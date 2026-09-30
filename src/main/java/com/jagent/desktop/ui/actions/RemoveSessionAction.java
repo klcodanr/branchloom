@@ -2,6 +2,7 @@ package com.jagent.desktop.ui.actions;
 
 import com.jagent.desktop.api.BaseAction;
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
@@ -9,11 +10,10 @@ import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundJobs.Handle;
-import com.jagent.desktop.services.BackgroundTasks;
-import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.components.UiText;
-import java.io.IOException;
+import com.jagent.desktop.ui.utils.ErrorDialogs;
 import java.nio.file.Path;
 import java.util.concurrent.CompletionException;
 import javax.swing.BoxLayout;
@@ -21,15 +21,10 @@ import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** Starts the selected session removal workflow. */
 public class RemoveSessionAction extends BaseAction {
     private static final String TITLE = "Remove session";
-    private static final Logger LOG = LoggerFactory.getLogger(RemoveSessionAction.class);
-    private final Git git = new Git();
 
     private record WorktreeCheck(Path path, boolean hasChanges) {}
 
@@ -123,76 +118,62 @@ public class RemoveSessionAction extends BaseAction {
                         .start(TITLE, project.name(), session.name());
         job.update("Checking worktree...");
         job.output("Checking worktree: " + session.worktreePath());
-        BackgroundTasks.submit("Operations", TITLE, () -> checkWorktree(project, session))
-                .whenCompleteAsync(
-                        (check, failure) ->
-                                handleWorktreeCheck(
-                                        state, sessionId, projectId, project, session, job, check,
-                                        failure),
-                        SwingUtilities::invokeLater);
-    }
-
-    private WorktreeCheck checkWorktree(final Project project, final Session session) {
-        try {
-            final Path worktree = git.validateWorktreeDeletion(project, session);
-            return new WorktreeCheck(worktree, !Git.status(worktree).isBlank());
-        } catch (IOException exception) {
-            throw new CompletionException(exception);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new CompletionException(exception);
-        }
-    }
-
-    private void handleWorktreeCheck(
-            final AppState state,
-            final SessionId sessionId,
-            final ProjectId projectId,
-            final Project project,
-            final Session session,
-            final Handle job,
-            final WorktreeCheck check,
-            final Throwable failure) {
-        if (failure != null) {
-            failRemoval(job, failure);
-            return;
-        }
-        if (check.hasChanges() && !confirmWorktreeDeletion(session)) {
-            job.output("Worktree removal cancelled.");
-            job.complete();
-            return;
-        }
-        job.update("Removing worktree...");
-        job.output("Removing worktree: " + check.path());
-        BackgroundTasks.submit("Operations", TITLE, () -> deleteWorktree(project, check.path()))
-                .whenCompleteAsync(
-                        (ignored, removalFailure) ->
-                                finishWorktreeRemoval(
-                                        state, sessionId, projectId, job, removalFailure),
-                        SwingUtilities::invokeLater);
-    }
-
-    private void deleteWorktree(final Project project, final Path worktree) {
-        try {
-            git.deleteWorktree(project, worktree);
-        } catch (IOException exception) {
-            throw new CompletionException(exception);
-        }
-    }
-
-    private void finishWorktreeRemoval(
-            final AppState state,
-            final SessionId sessionId,
-            final ProjectId projectId,
-            final Handle job,
-            final Throwable failure) {
-        if (failure == null) {
-            job.output("Worktree removed.");
-            job.complete();
-            removeSession(state, sessionId, projectId);
-        } else {
-            failRemoval(job, failure);
-        }
+        BackgroundOperations.submit(
+                        "Operations",
+                        TITLE,
+                        () -> {
+                            final String worktreePath = session.worktreePath();
+                            if (worktreePath == null || worktreePath.isBlank()) {
+                                throw new IllegalStateException(
+                                        "The session has no worktree path.");
+                            }
+                            final Path path = Path.of(worktreePath);
+                            try (GitRepository worktree = GitRepository.open(path)) {
+                                final var status = worktree.statusSummary();
+                                final boolean hasChanges =
+                                        status.additions() > 0
+                                                || status.modifications() > 0
+                                                || status.deletions() > 0;
+                                return new WorktreeCheck(path, hasChanges);
+                            }
+                        })
+                .thenAccept(
+                        check -> {
+                            if (check.hasChanges() && !confirmWorktreeDeletion(session)) {
+                                job.output("Worktree removal cancelled.");
+                                job.complete();
+                                return;
+                            }
+                            job.update("Removing worktree...");
+                            job.output("Removing worktree: " + check.path());
+                            BackgroundOperations.submit(
+                                            "Operations",
+                                            TITLE,
+                                            () -> {
+                                                try (GitRepository repository =
+                                                        GitRepository.open(
+                                                                Path.of(project.path()))) {
+                                                    repository.deleteWorktree(check.path());
+                                                    return null;
+                                                }
+                                            })
+                                    .thenRun(
+                                            () -> {
+                                                job.output("Worktree removed.");
+                                                job.complete();
+                                                removeSession(state, sessionId, projectId);
+                                            })
+                                    .exceptionally(
+                                            failure -> {
+                                                failRemoval(job, failure);
+                                                return null;
+                                            });
+                        })
+                .exceptionally(
+                        failure -> {
+                            failRemoval(job, failure);
+                            return null;
+                        });
     }
 
     protected void failRemoval(final Handle job, final Throwable failure) {
@@ -204,9 +185,7 @@ public class RemoveSessionAction extends BaseAction {
                 UiText.valueOrDefault(cause.getMessage(), "Could not remove worktree.");
         job.output(message);
         job.fail(message);
-        LOG.error("Could not remove worktree", cause);
-        JOptionPane.showMessageDialog(
-                actionContext.window(), message, TITLE, JOptionPane.ERROR_MESSAGE);
+        ErrorDialogs.show(actionContext.window(), TITLE, message);
     }
 
     protected void removeSession(

@@ -2,7 +2,7 @@ package com.jagent.desktop.ui.actions;
 
 import com.jagent.desktop.api.BaseAction;
 import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.ui.utils.CurrentPath;
+import com.jagent.desktop.ui.utils.PathUtils;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 
@@ -39,6 +39,6 @@ public final class CopyPathAction extends BaseAction {
     }
 
     private String path() {
-        return CurrentPath.resolve(actionContext.appState());
+        return PathUtils.resolve(actionContext.appState());
     }
 }

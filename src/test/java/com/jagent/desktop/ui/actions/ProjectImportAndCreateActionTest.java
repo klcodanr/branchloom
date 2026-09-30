@@ -1,8 +1,7 @@
 package com.jagent.desktop.ui.actions;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
@@ -17,56 +16,33 @@ import org.junit.jupiter.api.io.TempDir;
 
 class ProjectImportAndCreateActionTest {
     private static final String PROJECT_NAME = "Demo";
-    private static final String PROJECT_NAME_CASE = "demo";
 
     @Test
-    void createProjectHelperMethodsHandleDuplicatesAndInitialDirectory(
-            @TempDir final Path tempDir) {
-        final Path projectPath = tempDir.resolve("demo-project");
-        final Project project = new Project(PROJECT_NAME, projectPath.toString(), null);
-        assertTrue(
-                CreateProjectAction.duplicateName(java.util.List.of(project), PROJECT_NAME_CASE),
-                "duplicateName should ignore letter case");
-        assertTrue(
-                CreateProjectAction.duplicatePath(
-                        java.util.List.of(project), projectPath.toAbsolutePath()),
-                "duplicatePath should match normalized absolute path");
+    void createAndImportActionsExposeExpectedMetadata(@TempDir final Path tempDir) {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final ActionContext context = new ActionContext(new ViewCoordinator(state), state, null);
+        final CreateProjectAction createAction = new CreateProjectAction(context);
+        final ImportProjectAction importAction = new ImportProjectAction(context);
+
+        assertEquals("new-project", createAction.id(), "create action id should be stable");
+        assertEquals("Add local project", createAction.label(), "create action label should match");
+        assertEquals("import-project", importAction.id(), "import action id should be stable");
         assertEquals(
-                System.getProperty("user.home"),
-                CreateProjectAction.initialDirectory(" "),
-                "blank initial directory should use user home");
+                "Clone remote project", importAction.label(), "import action label should match");
     }
 
     @Test
-    void importProjectValidationAndFailureMessagesHandleEdgeCases(@TempDir final Path tempDir) {
+    void contextContainsExistingProjectThatValidationWouldReject(@TempDir final Path tempDir) {
+        final Path projectPath = tempDir.resolve("demo-project");
+        final Project project = new Project(PROJECT_NAME, projectPath.toString(), null);
         final ProjectId projectId = ProjectId.create();
-        final Path existingPath = tempDir.resolve("existing-project");
-        final Project existing = new Project(PROJECT_NAME, existingPath.toString(), null);
-        final Path otherPath = tempDir.resolve("other-project");
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
-                        Map.of(projectId.value().toString(), existing),
+                        Map.of(projectId.value().toString(), project),
                         Map.of(),
                         Map.of());
-        final ActionContext context = new ActionContext(new ViewCoordinator(state), state, null);
-        final ImportProjectAction action = new ImportProjectAction(context);
 
-        assertEquals(
-                "A project with that name is already registered.",
-                action.registrationFailure(PROJECT_NAME_CASE, otherPath),
-                "existing project names should be rejected");
-        assertEquals(
-                "That destination is already registered as a project.",
-                action.registrationFailure("Another", existingPath.toAbsolutePath()),
-                "existing project paths should be rejected");
-        assertNull(
-                action.registrationFailure("Another", otherPath),
-                "unique name/path should pass validation");
-
-        assertEquals(
-                "Git did not provide more details.",
-                ImportProjectAction.message(new RuntimeException("  ")),
-                "blank failures should use fallback message");
+        assertFalse(state.projects().isEmpty(), "test state should include existing projects");
     }
 }

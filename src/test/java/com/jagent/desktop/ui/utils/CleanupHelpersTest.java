@@ -25,7 +25,7 @@ class CleanupHelpersTest {
         state.updateCurrentProject(projectId);
         state.updateCurrentSession(sessionId);
 
-        assertEquals("/worktree", CurrentPath.resolve(state), "session worktree should win");
+        assertEquals("/worktree", PathUtils.resolve(state), "session worktree should win");
     }
 
     @Test
@@ -37,8 +37,7 @@ class CleanupHelpersTest {
         state.updateCurrentProject(projectId);
         state.updateCurrentSession(sessionId);
 
-        assertEquals(
-                PROJECT_PATH, CurrentPath.resolve(state), "project path should be the fallback");
+        assertEquals(PROJECT_PATH, PathUtils.resolve(state), "project path should be the fallback");
     }
 
     @Test

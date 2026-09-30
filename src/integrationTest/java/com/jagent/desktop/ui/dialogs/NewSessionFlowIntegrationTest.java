@@ -10,7 +10,6 @@ import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.Defaults;
@@ -70,7 +69,11 @@ class NewSessionFlowIntegrationTest {
             assertEquals("Run the tests", request.get().prompt(), "prompt should be submitted");
 
             final Path worktree = directory.resolveSibling(directory.getFileName() + "-session");
-            new Git().createWorktree(project, "demo-session", worktree).join();
+            run(
+                    directory,
+                    "git worktree add -q -b demo-session "
+                            + PlatformCommands.shellQuote(worktree.toString())
+                            + " master");
 
             assertTrue(Files.isDirectory(worktree), "successful session should have a worktree");
             assertEquals("demo-session\n", branch(worktree), "worktree branch should match");

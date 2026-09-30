@@ -21,13 +21,14 @@ import java.awt.Container;
 import java.awt.event.WindowEvent;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Enumeration;
 import java.util.Map;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
-import javax.swing.JTextArea;
+import javax.swing.JTextField;
 import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreePath;
@@ -188,8 +189,8 @@ class AppStartupIntegrationTest {
                     });
             GuiActionRunner.execute(
                     () -> {
-                        final JTextArea worktree =
-                                findTextArea(app, Defaults.DEFAULT_WORKTREE_TEMPLATE);
+                        final JTextField worktree =
+                                findTextField(app, Defaults.DEFAULT_WORKTREE_TEMPLATE);
                         assertTrue(worktree != null, "worktree setting should be rendered");
                         worktree.setText(updatedTemplate);
                         final JButton save = findButtonWithText(app, SAVE_BUTTON);
@@ -200,9 +201,12 @@ class AppStartupIntegrationTest {
             close(app);
         }
 
-        assertEquals(
-                updatedTemplate,
-                AppStatePersistence.load(dataDirectory).appSettings().worktreeTemplate(),
+        assertTrue(
+                waitForFile(dataDirectory.resolve("settings.json")),
+                "settings file should be persisted");
+        assertTrue(
+                updatedTemplate.equals(
+                        AppStatePersistence.load(dataDirectory).appSettings().worktreeTemplate()),
                 "settings changed in the application should be persisted");
     }
 
@@ -262,21 +266,56 @@ class AppStartupIntegrationTest {
                     app.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
                     app.dispatchEvent(new WindowEvent(app, WindowEvent.WINDOW_CLOSING));
                 });
+        final long deadline = System.nanoTime() + CLOSE_TIMEOUT_NANOS;
+        while (app.isDisplayable() && System.nanoTime() < deadline) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
     }
 
     private static void selectProject(final JTree tree) {
         final DefaultMutableTreeNode root = (DefaultMutableTreeNode) tree.getModel().getRoot();
-        final DefaultMutableTreeNode group = (DefaultMutableTreeNode) root.getChildAt(2);
-        final DefaultMutableTreeNode project = (DefaultMutableTreeNode) group.getChildAt(0);
+        final DefaultMutableTreeNode project = firstProjectNode(root);
+        assertTrue(project != null, "project should exist in tree");
         tree.setSelectionPath(new TreePath(project.getPath()));
     }
 
     private static void selectSession(final JTree tree) {
         final DefaultMutableTreeNode root = (DefaultMutableTreeNode) tree.getModel().getRoot();
-        final DefaultMutableTreeNode group = (DefaultMutableTreeNode) root.getChildAt(2);
-        final DefaultMutableTreeNode project = (DefaultMutableTreeNode) group.getChildAt(0);
-        final DefaultMutableTreeNode session = (DefaultMutableTreeNode) project.getChildAt(0);
+        final DefaultMutableTreeNode project = firstProjectNode(root);
+        assertTrue(project != null, "project should exist in tree");
+        final DefaultMutableTreeNode session = firstSessionNode(project);
+        assertTrue(session != null, "session should exist in tree");
         tree.setSelectionPath(new TreePath(session.getPath()));
+    }
+
+    private static DefaultMutableTreeNode firstProjectNode(final DefaultMutableTreeNode root) {
+        final Enumeration<?> traversal = root.breadthFirstEnumeration();
+        while (traversal.hasMoreElements()) {
+            final Object current = traversal.nextElement();
+            if (current instanceof DefaultMutableTreeNode node
+                    && node.getUserObject() instanceof Map.Entry<?, ?> entry
+                    && entry.getValue() instanceof Project) {
+                return node;
+            }
+        }
+        return null;
+    }
+
+    private static DefaultMutableTreeNode firstSessionNode(final DefaultMutableTreeNode project) {
+        for (int index = 0; index < project.getChildCount(); index++) {
+            final Object child = project.getChildAt(index);
+            if (child instanceof DefaultMutableTreeNode node
+                    && node.getUserObject() instanceof Map.Entry<?, ?> entry
+                    && entry.getValue() instanceof Session) {
+                return node;
+            }
+        }
+        return null;
     }
 
     private static JButton findButton(final Container root, final String name) {
@@ -380,13 +419,13 @@ class AppStartupIntegrationTest {
         return null;
     }
 
-    private static JTextArea findTextArea(final Container root, final String text) {
+    private static JTextField findTextField(final Container root, final String text) {
         for (final Component child : root.getComponents()) {
-            if (child instanceof JTextArea area && text.equals(area.getText())) {
-                return area;
+            if (child instanceof JTextField field && text.equals(field.getText())) {
+                return field;
             }
             if (child instanceof Container container) {
-                final JTextArea result = findTextArea(container, text);
+                final JTextField result = findTextField(container, text);
                 if (result != null) {
                     return result;
                 }

@@ -1,40 +1,34 @@
 package com.jagent.desktop.ui.layout;
 
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
-import com.jagent.desktop.services.BackgroundTasks;
+import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.models.git.WorktreeStatusSummary;
 import com.jagent.desktop.services.EditorCommands;
-import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.GitHubPullRequest;
-import com.jagent.desktop.services.WorkspaceFiles;
-import com.jagent.desktop.ui.actions.CopyPathAction;
+import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.actions.OpenDirectoryAction;
 import com.jagent.desktop.ui.actions.RunCommandAction;
 import com.jagent.desktop.ui.components.GitStatusPanel;
 import com.jagent.desktop.ui.components.SmIconButton;
-import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiFactory;
 import com.jagent.desktop.ui.components.UiIcons;
-import com.jagent.desktop.ui.components.UiText;
+import com.jagent.desktop.ui.utils.PathUtils;
 import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
 import java.awt.FlowLayout;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletionException;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import javax.swing.AbstractAction;
+import java.util.stream.Stream;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JMenuItem;
@@ -42,25 +36,25 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTree;
-import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
+import javax.swing.event.TreeExpansionEvent;
+import javax.swing.event.TreeWillExpandListener;
 import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.ExpandVetoException;
 import javax.swing.tree.TreePath;
 
 /** Read-only, lazy-loaded workspace navigator. */
+@SuppressWarnings("PMD.GodClass")
 public final class WorkspaceTreePanel extends JPanel {
     private static final String LOADING = "Loading...";
     private static final String EMPTY = "Empty";
     private final transient ActionContext actionContext;
-    private final transient WorkspaceFiles workspaceFiles;
-    private final transient Consumer<Path> openTerminal;
-    private final transient BiConsumer<Path, Boolean> openFile;
     private final Path workspace;
     private final JTree tree;
     private final DefaultMutableTreeNode root;
     private volatile Map<String, String> statuses = Map.of();
+    private volatile Set<String> ignoredPaths = Set.of();
     private GitStatusPanel statusPanel;
     private SmIconButton refreshButton;
     private SmIconButton changedOnlyButton;
@@ -69,6 +63,8 @@ public final class WorkspaceTreePanel extends JPanel {
     private boolean compareSourceBranch;
     private Set<Path> expandedPaths = Set.of();
     private Path selectedPath;
+
+    private record DirectoryLoad(boolean unavailable, List<Path> children) {}
 
     public WorkspaceTreePanel(
             final ActionContext actionContext,
@@ -79,12 +75,56 @@ public final class WorkspaceTreePanel extends JPanel {
         this.actionContext = actionContext;
         setOpaque(false);
         this.workspace = workspace.toAbsolutePath().normalize();
-        this.workspaceFiles = new WorkspaceFiles(this.workspace);
-        this.openTerminal = openTerminal;
-        this.openFile = openFile;
+
         this.root = node(workspace);
         add(header(), BorderLayout.NORTH);
-        this.tree = new WorkspaceTree();
+        this.tree =
+                new WorkspaceTree(
+                        root,
+                        workspace,
+                        actionContext,
+                        new WorkspaceTree.Actions(
+                                path -> {
+                                    if (!PathUtils.directory(path)) {
+                                        openFile.accept(path, changedOnlyButton.isSelected());
+                                    }
+                                },
+                                path -> {
+                                    if (PathUtils.directory(path)) {
+                                        return;
+                                    }
+                                    final Path parent = parentOrSelf(path);
+                                    final var tools =
+                                            actionContext.appState().appSettings().tools();
+                                    if (tools.isEmpty()) {
+                                        OpenDirectoryAction.open(
+                                                parent.toString(), actionContext.window());
+                                        return;
+                                    }
+                                    final var editor = tools.getFirst();
+                                    RunCommandAction.run(
+                                            EditorCommands.openFile(editor, path, 0, 0),
+                                            parent.toString(),
+                                            editor.label(),
+                                            actionContext.window());
+                                },
+                                openTerminal::accept,
+                                this::statusCode));
+        this.tree.addTreeWillExpandListener(
+                new TreeWillExpandListener() {
+                    @Override
+                    public void treeWillExpand(final TreeExpansionEvent event)
+                            throws ExpandVetoException {
+                        final Object node = event.getPath().getLastPathComponent();
+                        if (node instanceof DefaultMutableTreeNode treeNode) {
+                            loadChildren(treeNode);
+                        }
+                    }
+
+                    @Override
+                    public void treeWillCollapse(final TreeExpansionEvent event)
+                            throws ExpandVetoException {}
+                });
         add(new JScrollPane(tree), BorderLayout.CENTER);
         loadChildren(root);
         refreshStatus();
@@ -162,65 +202,27 @@ public final class WorkspaceTreePanel extends JPanel {
 
     private void refreshStatus() {
         final boolean includeSourceBranch = compareSourceBranch;
-        final var projectId = actionContext.appState().currentProjectId();
+        final ProjectId projectId = actionContext.appState().currentProjectId();
         final Project project =
                 projectId == null ? null : actionContext.appState().projects().get(projectId);
         refreshButton.setSelected(false);
         refreshButton.setEnabled(false);
         statusPanel.showRefreshing();
-        BackgroundTasks.submit(
+        BackgroundOperations.submit(
                         "Workspace",
                         "git-status",
                         () -> {
-                            try {
-                                if (!includeSourceBranch || project == null) {
-                                    return Git.worktreeStatus(workspace, includeSourceBranch);
-                                }
-                                try {
-                                    final String baseBranch =
-                                            GitHubPullRequest.baseBranch(
-                                                            projectId,
-                                                            project,
-                                                            workspace,
-                                                            actionContext
-                                                                    .appState()
-                                                                    .githubConnections())
-                                                    .trim();
-                                    if (!baseBranch.isBlank()) {
-                                        return Git.worktreeStatus(
-                                                workspace, true, "origin/" + baseBranch);
-                                    }
-                                } catch (IOException ignored) {
-                                    // Fall back to the repository's configured comparison source.
-                                }
-                                return Git.worktreeStatus(workspace, true);
-                            } catch (IOException failure) {
-                                throw new CompletionException(failure);
-                            } catch (InterruptedException failure) {
-                                Thread.currentThread().interrupt();
-                                throw new CompletionException(failure);
+                            if (!Files.isDirectory(workspace)) {
+                                throw new IOException("Workspace directory is unavailable.");
+                            }
+                            final String sourceRef =
+                                    resolveSourceRef(includeSourceBranch, projectId, project);
+                            try (GitRepository repository = GitRepository.open(workspace)) {
+                                return repository.workspaceStatus(includeSourceBranch, sourceRef);
                             }
                         })
-                .thenAcceptAsync(
-                        updated -> {
-                            statuses = updated.files();
-                            statusPanel.showStatus(updated);
-                            refreshButton.setEnabled(true);
-                            tree.repaint();
-                            reloadWorkspace();
-                        },
-                        SwingUtilities::invokeLater)
-                .exceptionally(
-                        failure -> {
-                            SwingUtilities.invokeLater(
-                                    () -> {
-                                        statuses = Map.of();
-                                        statusPanel.showUnavailable("Git status unavailable");
-                                        refreshButton.setEnabled(true);
-                                        tree.repaint();
-                                    });
-                            return null;
-                        });
+                .thenAccept(this::applyStatusUpdate)
+                .exceptionally(this::handleRefreshFailure);
     }
 
     private void reloadWorkspace() {
@@ -254,65 +256,158 @@ public final class WorkspaceTreePanel extends JPanel {
 
     private DefaultMutableTreeNode node(final Path path) {
         final DefaultMutableTreeNode node = new DefaultMutableTreeNode(path);
-        if (directory(path)) {
+        if (PathUtils.directory(path)) {
             node.add(new DefaultMutableTreeNode(LOADING));
         }
         return node;
     }
 
     private void loadChildren(final DefaultMutableTreeNode parent) {
+        if (!isLoadingPlaceholder(parent)) {
+            return;
+        }
         final Object value = parent.getUserObject();
         if (!(value instanceof Path directory)) {
             return;
         }
         final boolean changedOnly = changedOnlyButton.isSelected();
-        BackgroundTasks.submit(
-                        "Workspace",
-                        "load-files",
-                        () -> {
-                            final List<Path> children;
-                            try {
-                                children = workspaceFiles.children(directory);
-                            } catch (IOException failure) {
-                                SwingUtilities.invokeLater(
-                                        () -> {
-                                            parent.removeAllChildren();
-                                            parent.add(new DefaultMutableTreeNode("Unavailable"));
-                                            ((DefaultTreeModel) tree.getModel()).reload(parent);
-                                        });
-                                return;
-                            } catch (InterruptedException failure) {
-                                Thread.currentThread().interrupt();
-                                return;
+        BackgroundOperations.submit("Workspace", "load-files", () -> loadDirectory(directory))
+                .thenAccept(
+                        result -> {
+                            parent.removeAllChildren();
+                            if (result.unavailable()) {
+                                parent.add(new DefaultMutableTreeNode("Unavailable"));
+                            } else {
+                                final List<DefaultMutableTreeNode> childNodes =
+                                        visibleChildNodes(result.children(), changedOnly);
+                                if (childNodes.isEmpty()) {
+                                    parent.add(new DefaultMutableTreeNode(EMPTY));
+                                } else {
+                                    childNodes.forEach(parent::add);
+                                }
                             }
-                            final List<DefaultMutableTreeNode> childNodes =
-                                    children.stream()
-                                            .filter(path -> !changedOnly || changed(path))
-                                            .map(this::node)
-                                            .toList();
-                            SwingUtilities.invokeLater(
-                                    () -> {
-                                        parent.removeAllChildren();
-                                        if (childNodes.isEmpty()) {
-                                            parent.add(new DefaultMutableTreeNode(EMPTY));
-                                        } else {
-                                            childNodes.forEach(parent::add);
-                                        }
-                                        ((DefaultTreeModel) tree.getModel()).reload(parent);
-                                        tree.expandPath(new TreePath(parent.getPath()));
-                                        restoreTreeState();
-                                    });
+                            ((DefaultTreeModel) tree.getModel()).reload(parent);
+                            tree.expandPath(new TreePath(parent.getPath()));
+                            restoreTreeState();
                         })
                 .exceptionally(
                         failure -> {
-                            SwingUtilities.invokeLater(
-                                    () -> {
-                                        parent.removeAllChildren();
-                                        parent.add(new DefaultMutableTreeNode("Unavailable"));
-                                        ((DefaultTreeModel) tree.getModel()).reload(parent);
-                                    });
+                            parent.removeAllChildren();
+                            parent.add(new DefaultMutableTreeNode("Unavailable"));
+                            ((DefaultTreeModel) tree.getModel()).reload(parent);
                             return null;
                         });
+    }
+
+    private List<DefaultMutableTreeNode> visibleChildNodes(
+            final List<Path> children, final boolean changedOnly) {
+        return children.stream()
+                .filter(path -> !changedOnly || changed(path))
+                .map(this::node)
+                .toList();
+    }
+
+    private DirectoryLoad loadDirectory(final Path directory) {
+        try (Stream<Path> entries = Files.list(directory)) {
+            final List<Path> children =
+                    entries.filter(path -> !".git".equals(fileName(path)))
+                            .filter(path -> !isIgnored(path))
+                            .sorted(pathOrder())
+                            .toList();
+            return new DirectoryLoad(false, children);
+        } catch (IOException failure) {
+            return new DirectoryLoad(true, List.of());
+        }
+    }
+
+    private Comparator<Path> pathOrder() {
+        return Comparator.comparing((Path path) -> !PathUtils.directory(path))
+                .thenComparing(this::fileName, String.CASE_INSENSITIVE_ORDER);
+    }
+
+    private String fileName(final Path path) {
+        final Path fileName = path.getFileName();
+        return fileName == null ? path.toString() : fileName.toString();
+    }
+
+    private boolean isIgnored(final Path path) {
+        final String relative =
+                workspace
+                        .relativize(path.toAbsolutePath().normalize())
+                        .toString()
+                        .replace(java.io.File.separatorChar, '/');
+        return ignoredPaths.contains(relative) || hasIgnoredAncestor(relative);
+    }
+
+    private boolean hasIgnoredAncestor(final String relative) {
+        int separator = relative.lastIndexOf('/');
+        while (separator > 0) {
+            if (ignoredPaths.contains(relative.substring(0, separator))) {
+                return true;
+            }
+            separator = relative.lastIndexOf('/', separator - 1);
+        }
+        return false;
+    }
+
+    private boolean isLoadingPlaceholder(final DefaultMutableTreeNode parent) {
+        if (parent.getChildCount() != 1) {
+            return false;
+        }
+        final Object child = ((DefaultMutableTreeNode) parent.getChildAt(0)).getUserObject();
+        return LOADING.equals(child);
+    }
+
+    private Void handleRefreshFailure(final Throwable ignored) {
+        statuses = Map.of();
+        ignoredPaths = Set.of();
+        SwingUtilities.invokeLater(() -> statusPanel.showUnavailable("Git status unavailable"));
+        refreshButton.setEnabled(true);
+        tree.repaint();
+        return null;
+    }
+
+    private void applyStatusUpdate(final GitRepository.WorkspaceStatus updated) {
+        statuses = updated.files();
+        ignoredPaths = updated.ignoredPaths();
+        final WorktreeStatusSummary summary = updated.summary();
+        statusPanel.showStatus(summary);
+        refreshButton.setEnabled(true);
+        tree.repaint();
+        reloadWorkspace();
+    }
+
+    private String resolveSourceRef(
+            final boolean includeSourceBranch, final ProjectId projectId, final Project project) {
+        if (!includeSourceBranch) {
+            return null;
+        }
+        String sourceRef = "HEAD@{upstream}";
+        if (project == null || projectId == null) {
+            return sourceRef;
+        }
+        try {
+            final String baseBranch =
+                    GitHubPullRequest.baseBranch(
+                                    projectId,
+                                    project,
+                                    workspace,
+                                    actionContext.appState().githubConnections())
+                            .trim();
+            if (!baseBranch.isBlank()) {
+                sourceRef = "origin/" + baseBranch;
+            }
+        } catch (IOException ignored) {
+            // Fall back to the repository's configured comparison source.
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+        }
+        return sourceRef;
+    }
+
+    private static Path parentOrSelf(final Path path) {
+        final Path parent = path.getParent();
+        return parent == null ? path : parent;
     }
 
     private void restoreTreeState() {
@@ -345,44 +440,6 @@ public final class WorkspaceTreePanel extends JPanel {
         return null;
     }
 
-    private void openSelected(final Path path) {
-        if (directory(path)) {
-            return;
-        }
-        openFile.accept(path, changedOnlyButton.isSelected());
-    }
-
-    private void openInEditor(final Path path) {
-        if (directory(path)) {
-            return;
-        }
-        final Path pathParent = path.getParent();
-        final Path parent = pathParent == null ? path : pathParent;
-        final var tools = actionContext.appState().appSettings().tools();
-        if (tools.isEmpty()) {
-            OpenDirectoryAction.open(parent.toString(), actionContext.window());
-            return;
-        }
-        final var editor = tools.getFirst();
-        RunCommandAction.run(
-                EditorCommands.openFile(editor, path, 0, 0),
-                parent.toString(),
-                editor.label(),
-                actionContext.window());
-    }
-
-    private void showMenu(final MouseEvent event) {
-        final TreePath treePath = tree.getPathForLocation(event.getX(), event.getY());
-        if (treePath == null) {
-            return;
-        }
-        showMenuAt(treePath, event.getX(), event.getY());
-    }
-
-    private boolean directory(final Path path) {
-        return Files.isDirectory(path, java.nio.file.LinkOption.NOFOLLOW_LINKS);
-    }
-
     private boolean changed(final Path path) {
         final String relative =
                 workspace
@@ -393,219 +450,19 @@ public final class WorkspaceTreePanel extends JPanel {
                 || statuses.keySet().stream().anyMatch(value -> value.startsWith(relative + "/"));
     }
 
-    private Path parentOrSelf(final Path path) {
-        final Path parent = path.getParent();
-        return parent == null ? path : parent;
-    }
-
-    private final class WorkspaceTree extends JTree {
-        private WorkspaceTree() {
-            super(new DefaultTreeModel(root));
-            setRootVisible(true);
-            setShowsRootHandles(true);
-            setCellRenderer(new WorkspaceRenderer());
-            getAccessibleContext().setAccessibleName("Workspace files");
-            getInputMap(WHEN_FOCUSED)
-                    .put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "open-selected-file");
-            getActionMap()
-                    .put(
-                            "open-selected-file",
-                            new AbstractAction() {
-                                @Override
-                                public void actionPerformed(
-                                        final java.awt.event.ActionEvent event) {
-                                    openSelectedPath();
-                                }
-                            });
-            getInputMap(WHEN_FOCUSED)
-                    .put(KeyStroke.getKeyStroke(KeyEvent.VK_CONTEXT_MENU, 0), "show-context-menu");
-            getInputMap(WHEN_FOCUSED)
-                    .put(
-                            KeyStroke.getKeyStroke(KeyEvent.VK_F10, KeyEvent.SHIFT_DOWN_MASK),
-                            "show-context-menu");
-            getActionMap()
-                    .put(
-                            "show-context-menu",
-                            new AbstractAction() {
-                                @Override
-                                public void actionPerformed(
-                                        final java.awt.event.ActionEvent event) {
-                                    showKeyboardMenu();
-                                }
-                            });
-            installExpansionListener();
-            installMouseListener();
+    private String statusCode(final Path path) {
+        final String relative =
+                workspace
+                        .relativize(path.toAbsolutePath().normalize())
+                        .toString()
+                        .replace(java.io.File.separatorChar, '/');
+        final String code = statuses.get(relative);
+        if (code != null) {
+            return code;
         }
-
-        private void openSelectedPath() {
-            final TreePath selected = getSelectionPath();
-            if (selected == null) {
-                return;
-            }
-            final Object value =
-                    ((DefaultMutableTreeNode) selected.getLastPathComponent()).getUserObject();
-            if (value instanceof Path path) {
-                openSelected(path);
-            }
+        if (changed(path)) {
+            return " M";
         }
-
-        private void showKeyboardMenu() {
-            final TreePath selected = getSelectionPath();
-            if (selected == null) {
-                return;
-            }
-            final java.awt.Rectangle bounds = getPathBounds(selected);
-            if (bounds != null) {
-                showMenuAt(selected, bounds.x, bounds.y + bounds.height);
-            }
-        }
-
-        private void installExpansionListener() {
-            addTreeWillExpandListener(
-                    new javax.swing.event.TreeWillExpandListener() {
-                        @Override
-                        public void treeWillExpand(
-                                final javax.swing.event.TreeExpansionEvent event) {
-                            final DefaultMutableTreeNode node =
-                                    (DefaultMutableTreeNode) event.getPath().getLastPathComponent();
-                            if (node.getChildCount() == 1
-                                    && LOADING.equals(
-                                            ((DefaultMutableTreeNode) node.getChildAt(0))
-                                                    .getUserObject())) {
-                                loadChildren(node);
-                            }
-                        }
-
-                        @Override
-                        public void treeWillCollapse(
-                                final javax.swing.event.TreeExpansionEvent event) {}
-                    });
-        }
-
-        private void installMouseListener() {
-            addMouseListener(
-                    new MouseAdapter() {
-                        @Override
-                        public void mouseClicked(final MouseEvent event) {
-                            if (event.getButton() == MouseEvent.BUTTON1
-                                    && event.getClickCount() == 2) {
-                                final TreePath path =
-                                        getPathForLocation(event.getX(), event.getY());
-                                if (path != null) {
-                                    final Object value =
-                                            ((DefaultMutableTreeNode) path.getLastPathComponent())
-                                                    .getUserObject();
-                                    if (value instanceof Path selected) {
-                                        openSelected(selected);
-                                    }
-                                }
-                            }
-                        }
-
-                        @Override
-                        public void mousePressed(final MouseEvent event) {
-                            if (event.isPopupTrigger()) {
-                                showMenu(event);
-                            }
-                        }
-
-                        @Override
-                        public void mouseReleased(final MouseEvent event) {
-                            if (event.isPopupTrigger()) {
-                                showMenu(event);
-                            }
-                        }
-                    });
-        }
-    }
-
-    private void showMenuAt(final TreePath treePath, final int x, final int y) {
-        tree.setSelectionPath(treePath);
-        final Object value =
-                ((DefaultMutableTreeNode) treePath.getLastPathComponent()).getUserObject();
-        if (!(value instanceof Path path)) {
-            return;
-        }
-        final JPopupMenu menu = new JPopupMenu();
-        if (!directory(path)) {
-            final JMenuItem open = new JMenuItem("Open in editor");
-            open.addActionListener(ignored -> openInEditor(path));
-            menu.add(open);
-        }
-        final JMenuItem reveal = new JMenuItem("Reveal in file manager");
-        reveal.addActionListener(
-                ignored ->
-                        OpenDirectoryAction.open(
-                                directory(path) ? path.toString() : parentOrSelf(path).toString(),
-                                actionContext.window()));
-        menu.add(reveal);
-        final JMenuItem terminal = new JMenuItem("Open terminal here");
-        terminal.addActionListener(
-                ignored -> openTerminal.accept(directory(path) ? path : parentOrSelf(path)));
-        menu.add(terminal);
-        final JMenuItem copy = new JMenuItem("Copy path");
-        copy.addActionListener(ignored -> CopyPathAction.copy(path.toAbsolutePath().toString()));
-        menu.add(copy);
-        UiFactory.showPopupMenu(menu, tree, x, y);
-    }
-
-    private final class WorkspaceRenderer extends DefaultTreeCellRenderer {
-        @Override
-        public Component getTreeCellRendererComponent(
-                final JTree tree,
-                final Object value,
-                final boolean selected,
-                final boolean expanded,
-                final boolean leaf,
-                final int row,
-                final boolean focused) {
-            final Component component =
-                    super.getTreeCellRendererComponent(
-                            tree, value, selected, expanded, leaf, row, focused);
-            final Object item = ((DefaultMutableTreeNode) value).getUserObject();
-            if (item instanceof Path path) {
-                final String status = statusCode(path);
-                setText(
-                        fileName(path)
-                                + UiText.valueOrDefault(
-                                        status == null ? null : " [" + status.trim() + "]", ""));
-                setToolTipText(path.toString());
-                if (!selected && status != null) {
-                    setForeground(statusColor(status));
-                }
-            } else if (LOADING.equals(item)) {
-                setText(LOADING);
-                setIcon(UiIcons.activity());
-            }
-            return component;
-        }
-
-        private String statusCode(final Path path) {
-            final String relative =
-                    workspace
-                            .relativize(path.toAbsolutePath().normalize())
-                            .toString()
-                            .replace(java.io.File.separatorChar, '/');
-            final String code = statuses.get(relative);
-            if (code != null) {
-                return code;
-            }
-            return changed(path) ? " M" : null;
-        }
-
-        private Color statusColor(final String code) {
-            if (code.contains("D") || code.contains("U")) {
-                return Theme.dangerColor();
-            }
-            if (code.contains("A") || code.contains("?")) {
-                return Theme.successColor();
-            }
-            return Theme.warningColor();
-        }
-    }
-
-    private String fileName(final Path path) {
-        final Path fileName = path.getFileName();
-        return fileName == null ? path.toString() : fileName.toString();
+        return null;
     }
 }

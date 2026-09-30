@@ -14,6 +14,7 @@ import com.jagent.desktop.ui.Defaults;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -25,8 +26,9 @@ class BoardsUiTest {
     void emptyPullRequestBoardShowsAndAcceptsFilters() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var context = new ActionContext(new ViewCoordinator(state), state, null);
-        final var board =
-                GuiActionRunner.execute(() -> new PullRequestsBoard(context, java.util.List::of));
+        final PullRequestsBoard board =
+                GuiActionRunner.execute(
+                        () -> new PullRequestsBoard(context, (query, forceRefresh) -> List.of()));
         board.setFilter(null);
         board.setFilter("missing");
         assertTrue(board.isVisible(), "board should remain visible after filter changes");
@@ -40,14 +42,14 @@ class BoardsUiTest {
         final var context = new ActionContext(new ViewCoordinator(state), state, null);
         final var loaded = new CountDownLatch(1);
         final PullRequest request = pullRequest(projectId, 12, "Fix login", "author-one");
-        final var board =
+        final PullRequestsBoard board =
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestsBoard(
                                         context,
-                                        () -> {
+                                        (query, forceRefresh) -> {
                                             loaded.countDown();
-                                            return java.util.List.of(request);
+                                            return List.of(request);
                                         }));
         assertTrue(loaded.await(5, TimeUnit.SECONDS), "board should invoke refresh supplier");
         SwingTestSupport.await(
@@ -62,12 +64,12 @@ class BoardsUiTest {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         state.addProject(new Project("Demo", "/tmp/demo", null));
         final var context = new ActionContext(new ViewCoordinator(state), state, null);
-        final var board =
+        final PullRequestsBoard board =
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestsBoard(
                                         context,
-                                        () -> {
+                                        (query, forceRefresh) -> {
                                             throw new IllegalStateException("fixture failure");
                                         }));
         SwingTestSupport.await(

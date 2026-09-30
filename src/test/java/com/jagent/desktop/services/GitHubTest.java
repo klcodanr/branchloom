@@ -16,11 +16,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class GitHubTest {
+    private static final String GITHUB_EXAMPLE = "github.example";
+
     @Test
     void authFormatsHostAndUser() {
         assertEquals(
                 "alice (github.example)",
-                new GitHub.Auth("github.example", "alice").toString(),
+                new GitHub.Auth(GITHUB_EXAMPLE, "alice").toString(),
                 "auth should format host and user");
     }
 
@@ -28,7 +30,7 @@ class GitHubTest {
     void authFormatsPersonalAccessTokenWithoutExposingToken() {
         assertEquals(
                 "Personal access token (github.example)",
-                new GitHub.Auth("github.example", null, "pat-connection", null).toString(),
+                new GitHub.Auth(GITHUB_EXAMPLE, null, "pat-connection", null).toString(),
                 "auth should not expose the token");
     }
 
@@ -37,6 +39,41 @@ class GitHubTest {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var auths = GitHub.configuredAuths(state);
         assertFalse(auths.isEmpty(), "default auth should be available");
+    }
+
+    @Test
+    void apiEndpointUsesGitHubComForDefaultHostCaseInsensitively() {
+        assertEquals(
+                "https://api.github.com",
+                GitHub.apiEndpoint("github.com"),
+                "default GitHub host should use public API endpoint");
+        assertEquals(
+                "https://api.github.com",
+                GitHub.apiEndpoint("GitHub.Com"),
+                "default host matching should be case-insensitive");
+    }
+
+    @Test
+    void apiEndpointUsesEnterprisePathForCustomHostAndProjectFallback() {
+        assertEquals(
+                "https://github.example/api/v3",
+                GitHub.apiEndpoint(GITHUB_EXAMPLE),
+                "custom host should map to enterprise API path");
+        assertEquals(
+                "https://api.github.com",
+                GitHub.apiEndpoint(new Project("Test", "/tmp/test", null)),
+                "project without host should fall back to github.com endpoint");
+    }
+
+    @Test
+    void authConnectionDistinguishesCliAndPatConnections() {
+        final GitHub.Auth cli =
+                new GitHub.Auth("github.com", "alice", "github-cli:github.com:alice");
+        final GitHub.Auth token =
+                new GitHub.Auth(GITHUB_EXAMPLE, "alice", "corp-token", "Corporate token");
+
+        assertFalse(!cli.isCli(), "CLI-prefixed connection ids should be treated as CLI auth");
+        assertFalse(token.isCli(), "non-CLI connection ids should be treated as PAT auth");
     }
 
     @Test

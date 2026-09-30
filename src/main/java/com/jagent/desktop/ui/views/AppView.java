@@ -3,6 +3,7 @@ package com.jagent.desktop.ui.views;
 import com.jagent.desktop.api.Action;
 import com.jagent.desktop.api.View;
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
@@ -26,7 +27,6 @@ import com.jagent.desktop.ui.components.ProjectTreePanel;
 import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiFactory;
-import com.jagent.desktop.ui.dialogs.ProgressOperation;
 import com.jagent.desktop.ui.layout.BottomBar;
 import com.jagent.desktop.ui.utils.TerminalShortcutDispatcher;
 import java.awt.BorderLayout;
@@ -268,18 +268,21 @@ public final class AppView extends JFrame {
         saveWindowState();
         windowStatePersistence.close();
         ProgressOperation.run(
-                this,
-                "Closing Branchloom",
-                "Stopping terminal processes...",
-                () -> {
-                    TerminalManager.get().disposeAll();
-                    return null;
-                },
-                this::finishClose,
-                failure -> {
-                    LOG.warn("Terminal cleanup failed during application shutdown", failure);
-                    finishClose();
-                });
+                        this.actionContext,
+                        "Closing Branchloom",
+                        "Stopping terminal processes...",
+                        () -> {
+                            TerminalManager.get().disposeAll();
+                            return null;
+                        })
+                .thenAccept((v) -> finishClose())
+                .exceptionally(
+                        failure -> {
+                            LOG.warn(
+                                    "Terminal cleanup failed during application shutdown", failure);
+                            finishClose();
+                            return null;
+                        });
     }
 
     private void finishClose() {

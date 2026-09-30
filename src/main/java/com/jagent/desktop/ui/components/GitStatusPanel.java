@@ -1,6 +1,6 @@
 package com.jagent.desktop.ui.components;
 
-import com.jagent.desktop.services.Git;
+import com.jagent.desktop.models.git.WorktreeStatusSummary;
 import java.awt.FlowLayout;
 import javax.swing.JPanel;
 
@@ -19,7 +19,7 @@ public final class GitStatusPanel extends JPanel {
         showMessage(message);
     }
 
-    public void showStatus(final Git.WorktreeStatus status) {
+    public void showStatus(final WorktreeStatusSummary status) {
         removeAll();
         if (status.additions() == 0 && status.modifications() == 0 && status.deletions() == 0) {
             add(UiFactory.label("Clean", Theme.FontSize.XS));

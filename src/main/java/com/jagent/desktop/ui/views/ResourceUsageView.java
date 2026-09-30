@@ -2,7 +2,7 @@ package com.jagent.desktop.ui.views;
 
 import com.jagent.desktop.api.View;
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.services.BackgroundTasks;
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.services.TerminalResources;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.ui.components.Theme;
@@ -11,6 +11,7 @@ import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.util.concurrent.Executors;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -114,13 +115,13 @@ public final class ResourceUsageView extends JPanel implements View {
 
     @Override
     public void refresh() {
-        final BackgroundTasks.ThreadSummary summary = BackgroundTasks.summary();
+        final BackgroundOperations.ThreadSummary summary = BackgroundOperations.summary();
         virtualThreads.setText(Long.toString(summary.virtualThreads()));
         platformThreads.setText(Long.toString(summary.platformThreads()));
         executorStatus.setText(summary.shutdown() ? "Stopped" : "Running");
 
         clear(threadModel);
-        for (final BackgroundTasks.GroupSummary group : summary.groups()) {
+        for (final BackgroundOperations.GroupSummary group : summary.groups()) {
             threadModel.addRow(
                     new Object[] {
                         group.group(), group.active(), group.submitted(), group.completed()
@@ -141,18 +142,15 @@ public final class ResourceUsageView extends JPanel implements View {
         terminalMemory.setText("Loading...");
         clear(terminalModel);
         terminalModel.addRow(new Object[] {"Loading terminal resources...", "", "", "", ""});
-        BackgroundTasks.submit(
+        BackgroundOperations.submit(
                         "Monitoring",
                         "terminal-resources",
-                        () ->
-                                updateTerminals(
-                                        TerminalResources.sample(
-                                                TerminalManager.get().activeProcesses())))
-                .exceptionally(
-                        failure -> {
-                            SwingUtilities.invokeLater(() -> showTerminalError(failure));
-                            return null;
-                        });
+                        Executors.callable(
+                                () ->
+                                        updateTerminals(
+                                                TerminalResources.sample(
+                                                        TerminalManager.get().activeProcesses()))))
+                .exceptionally(failure -> Executors.callable(() -> showTerminalError(failure)));
     }
 
     protected void updateTerminals(final TerminalResources.Sample sample) {

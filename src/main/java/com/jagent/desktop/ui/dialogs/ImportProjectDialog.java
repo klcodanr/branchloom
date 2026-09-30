@@ -97,7 +97,7 @@ public final class ImportProjectDialog extends JDialog {
     private void validateAndSubmit() {
         final String failure = validationFailure(remote.getText(), destination.getText());
         if (failure != null) {
-            showError(failure);
+            JOptionPane.showMessageDialog(this, failure, TITLE, JOptionPane.ERROR_MESSAGE);
             return;
         }
         final Path path = Path.of(destination.getText().trim()).toAbsolutePath().normalize();
@@ -142,9 +142,5 @@ public final class ImportProjectDialog extends JDialog {
         return path.getFileName() == null
                 ? "Choose a destination directory below the filesystem root."
                 : null;
-    }
-
-    private void showError(final String message) {
-        JOptionPane.showMessageDialog(this, message, TITLE, JOptionPane.ERROR_MESSAGE);
     }
 }

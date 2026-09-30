@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.GitHubUser;
 import com.jagent.desktop.models.Project;
@@ -16,6 +17,7 @@ import java.net.URL;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
@@ -75,16 +77,13 @@ class DialogLogicTest {
     }
 
     @Test
-    void progressOperationRunsHeadlesslyAndReportsSuccess() throws InterruptedException {
+    void progressOperationRunsHeadlesslyAndReportsSuccess()
+            throws InterruptedException, ExecutionException {
         final CountDownLatch completed = new CountDownLatch(1);
 
-        ProgressOperation.run(
-                null,
-                "Test operation",
-                "Working",
-                () -> null,
-                completed::countDown,
-                failure -> completed.countDown());
+        ProgressOperation.run(null, "Test operation", "Working", () -> null)
+                .thenRun(completed::countDown)
+                .get();
 
         assertTrue(
                 completed.await(5, TimeUnit.SECONDS),

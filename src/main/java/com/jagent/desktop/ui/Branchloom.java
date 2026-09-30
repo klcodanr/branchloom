@@ -1,7 +1,7 @@
 package com.jagent.desktop.ui;
 
 import com.formdev.flatlaf.util.SystemInfo;
-import com.jagent.desktop.services.BackgroundTasks;
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.services.JsonLogging;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.ui.components.AppIcon;
@@ -26,7 +26,7 @@ public final class Branchloom {
                         new Thread(
                                 () -> {
                                     TerminalManager.get().disposeAll();
-                                    BackgroundTasks.shutdown();
+                                    BackgroundOperations.shutdown();
                                 }));
         configureMacOs();
         if (Taskbar.isTaskbarSupported()) {

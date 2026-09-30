@@ -1,12 +1,12 @@
 package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Terminal;
-import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.GitHubPullRequest;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewCoordinator;
@@ -15,7 +15,6 @@ import com.jagent.desktop.ui.actions.ImportBranchAction;
 import com.jagent.desktop.ui.dialogs.ReviewDialog;
 import com.jagent.desktop.ui.utils.RelativeTime;
 import java.awt.Dimension;
-import java.io.IOException;
 import java.util.Date;
 import java.util.concurrent.CompletionException;
 import javax.swing.BorderFactory;
@@ -27,7 +26,6 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
-import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +33,7 @@ import org.slf4j.LoggerFactory;
 /** Displays one pull request and its actions. */
 public final class PullRequestCard extends JPanel {
     private static final Logger LOG = LoggerFactory.getLogger(PullRequestCard.class);
+    private static final String PULL_REQUEST_ACTION = "pull-request-action";
     private final transient ActionContext actionContext;
     private final transient Runnable onPullRequestApproved;
     private final transient PullRequestDetails details;
@@ -207,77 +206,83 @@ public final class PullRequestCard extends JPanel {
         if (!confirm(request, "request approval for")) {
             return;
         }
-        runGitHubAction(
-                "Request PR approval",
-                () ->
-                        GitHubPullRequest.markReady(
-                                project,
-                                request.number(),
-                                actionContext.appState().githubConnections()),
-                () -> {});
+        BackgroundOperations.submit(
+                        "Request PR approval",
+                        PULL_REQUEST_ACTION,
+                        () -> {
+                            GitHubPullRequest.markReady(
+                                    project,
+                                    request.number(),
+                                    actionContext.appState().githubConnections());
+                            return null;
+                        })
+                .exceptionally(
+                        failure -> {
+                            LOG.warn("Request PR approval failed: {}", rootMessage(failure));
+                            return null;
+                        });
     }
 
     private void makeDraft(final Project project, final PullRequest request) {
         if (!confirm(request, "make draft")) {
             return;
         }
-        runGitHubAction(
-                "Make PR draft",
-                () ->
-                        GitHubPullRequest.convertToDraft(
-                                project,
-                                request.number(),
-                                actionContext.appState().githubConnections()),
-                () -> {});
+        BackgroundOperations.submit(
+                        "Make PR draft",
+                        PULL_REQUEST_ACTION,
+                        () -> {
+                            GitHubPullRequest.convertToDraft(
+                                    project,
+                                    request.number(),
+                                    actionContext.appState().githubConnections());
+                            return null;
+                        })
+                .exceptionally(
+                        failure -> {
+                            LOG.warn("Make PR draft failed: {}", rootMessage(failure));
+                            return null;
+                        });
     }
 
     private void approve(final Project project, final PullRequest request) {
         if (!confirm(request, "approve")) {
             return;
         }
-        runGitHubAction(
-                "Approve",
-                () ->
-                        GitHubPullRequest.approve(
-                                project,
-                                request.number(),
-                                actionContext.appState().githubConnections()),
-                onPullRequestApproved::run);
+        BackgroundOperations.submit(
+                        "Approve",
+                        PULL_REQUEST_ACTION,
+                        () -> {
+                            GitHubPullRequest.approve(
+                                    project,
+                                    request.number(),
+                                    actionContext.appState().githubConnections());
+                            return null;
+                        })
+                .thenRun(onPullRequestApproved::run)
+                .exceptionally(
+                        failure -> {
+                            LOG.warn("Approve failed: {}", rootMessage(failure));
+                            return null;
+                        });
     }
 
     private void merge(final Project project, final PullRequest request) {
         if (!confirm(request, "merge")) {
             return;
         }
-        runGitHubAction(
-                "Merge PR",
-                () ->
-                        GitHubPullRequest.merge(
-                                project,
-                                request.number(),
-                                actionContext.appState().githubConnections()),
-                () -> {});
-    }
-
-    private void runGitHubAction(
-            final String name, final ThrowingAction action, final Runnable onSuccess) {
-        BackgroundTasks.submit(
-                        name,
-                        "pull-request-action",
+        BackgroundOperations.submit(
+                        "Merge PR",
+                        PULL_REQUEST_ACTION,
                         () -> {
-                            try {
-                                action.run();
-                            } catch (IOException exception) {
-                                throw new CompletionException(exception);
-                            } catch (InterruptedException exception) {
-                                Thread.currentThread().interrupt();
-                                throw new CompletionException(exception);
-                            }
+                            GitHubPullRequest.merge(
+                                    project,
+                                    request.number(),
+                                    actionContext.appState().githubConnections());
+                            return null;
                         })
-                .thenRunAsync(onSuccess, SwingUtilities::invokeLater)
                 .exceptionally(
                         failure -> {
-                            LOG.warn("{} failed: {}", name, rootMessage(failure));
+                            LOG.warn("Merge PR failed: {}", rootMessage(failure));
                             return null;
                         });
     }
@@ -298,11 +303,6 @@ public final class PullRequestCard extends JPanel {
             cause = cause.getCause();
         }
         return cause.getMessage() == null ? cause.toString() : cause.getMessage();
-    }
-
-    @FunctionalInterface
-    private interface ThrowingAction {
-        void run() throws IOException, InterruptedException;
     }
 
     private void startReview(final PullRequest request) {

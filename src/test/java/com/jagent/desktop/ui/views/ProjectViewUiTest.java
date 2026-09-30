@@ -4,9 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.models.GitHubUser;
 import com.jagent.desktop.models.Project;
-import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.services.AppState;
@@ -16,9 +14,7 @@ import com.jagent.desktop.ui.layout.WorkspaceSplitPane;
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.nio.file.Path;
-import java.util.Date;
 import java.util.Map;
 import javax.swing.JTabbedPane;
 import org.assertj.swing.edt.GuiActionRunner;
@@ -48,7 +44,6 @@ class ProjectViewUiTest {
         assertEquals(1, ((JTabbedPane) split.getLeftComponent()).getTabCount(), ASSERTION_MESSAGE);
         assertNotNull(split.getRightComponent(), ASSERTION_MESSAGE);
         assertSame(view, view.render(), ASSERTION_MESSAGE);
-        assertFalse(view.focusPullRequestSearch(), ASSERTION_MESSAGE);
         view.openSummary();
         view.selectTerminal(0);
         view.closeActiveTerminal();
@@ -119,32 +114,15 @@ class ProjectViewUiTest {
     }
 
     @Test
-    void routesPullRequestReviewsAndIgnoresInvalidTerminalSelections()
-            throws MalformedURLException {
+    void ignoresInvalidTerminalSelections() throws MalformedURLException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
-        final var request =
-                new PullRequest(
-                        projectId,
-                        state.projects().get(projectId),
-                        1,
-                        PullRequest.State.OPEN,
-                        "Title",
-                        "",
-                        new URL("https://example.test/pr/1"),
-                        new Date(),
-                        new Date(),
-                        new GitHubUser("author", new URL("https://example.test/author")),
-                        "feature/test",
-                        "abc1234def5678",
-                        "main");
         final ProjectView view =
                 GuiActionRunner.execute(
                         () ->
                                 new ProjectView(
                                         new ActionContext(new ViewCoordinator(state), state, null),
                                         state.projects().get(projectId)));
-        view.reviewPullRequest(request);
         final JTabbedPane tabs =
                 (JTabbedPane) ((WorkspaceSplitPane) view.getComponent(1)).getLeftComponent();
         GuiActionRunner.execute(

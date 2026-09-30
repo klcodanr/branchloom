@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.test.SwingTestSupport;
+import com.jagent.desktop.test.TestGitRepository;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,21 +18,24 @@ import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.junit.jupiter.api.Test;
 
 class FileViewerUiTest {
+    private static final String TRACKED_FILE = "tracked.txt";
+
     @Test
     void loadsTextFileAndShowsDiff() throws IOException, InterruptedException {
         final Path workspace = Files.createTempDirectory("file-viewer-test");
-        final Path file = workspace.resolve("Example.java");
-        Files.writeString(file, "class Example {}\n");
+        TestGitRepository.initialize(workspace);
+        final Path file = workspace.resolve(TRACKED_FILE);
+        Files.writeString(file, "updated\n");
         try {
             final FileViewer viewer =
                     GuiActionRunner.execute(() -> new FileViewer(workspace, file));
             waitForStatus(viewer, "Changed");
             assertEquals(
-                    "class Example {}\n",
+                    "updated\n",
                     source(viewer).getText(),
                     "source viewer should display the file contents");
             assertTrue(
-                    diff(viewer).getText().contains("Example.java"),
+                    diff(viewer).getText().contains(TRACKED_FILE),
                     "diff viewer should display the file header");
         } finally {
             delete(workspace);
@@ -41,8 +45,9 @@ class FileViewerUiTest {
     @Test
     void opensInDiffModeWhenRequested() throws IOException, InterruptedException {
         final Path workspace = Files.createTempDirectory("file-viewer-filtered-test");
-        final Path file = workspace.resolve("Example.java");
-        Files.writeString(file, "class Example {}\n");
+        TestGitRepository.initialize(workspace);
+        final Path file = workspace.resolve(TRACKED_FILE);
+        Files.writeString(file, "updated\n");
         try {
             final FileViewer viewer =
                     GuiActionRunner.execute(() -> new FileViewer(workspace, file, true));
@@ -63,6 +68,7 @@ class FileViewerUiTest {
     @Test
     void reportsBinaryFile() throws IOException, InterruptedException {
         final Path workspace = Files.createTempDirectory("file-viewer-binary-test");
+        TestGitRepository.initialize(workspace);
         final Path file = workspace.resolve("data.bin");
         Files.write(file, new byte[] {1, 0, 2});
         try {
@@ -81,7 +87,8 @@ class FileViewerUiTest {
     @Test
     void searchesCurrentFileWithoutChangingItsContents() throws IOException, InterruptedException {
         final Path workspace = Files.createTempDirectory("file-viewer-search-test");
-        final Path file = workspace.resolve("Example.txt");
+        TestGitRepository.initialize(workspace);
+        final Path file = workspace.resolve(TRACKED_FILE);
         Files.writeString(file, "Alpha\nalpha\nbeta\n");
         try {
             final FileViewer viewer =
@@ -128,8 +135,8 @@ class FileViewerUiTest {
                         .getView();
     }
 
-    private static javax.swing.JTextArea diff(final FileViewer viewer) {
-        return (javax.swing.JTextArea)
+    private static RSyntaxTextArea diff(final FileViewer viewer) {
+        return (RSyntaxTextArea)
                 ((JScrollPane) ((java.awt.Container) viewer.getComponent(1)).getComponent(1))
                         .getViewport()
                         .getView();
