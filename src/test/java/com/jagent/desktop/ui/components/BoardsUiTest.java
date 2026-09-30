@@ -28,7 +28,9 @@ class BoardsUiTest {
         final var context = new ActionContext(new ViewCoordinator(state), state, null);
         final PullRequestsBoard board =
                 GuiActionRunner.execute(
-                        () -> new PullRequestsBoard(context, (query, forceRefresh) -> List.of()));
+                        () ->
+                                new PullRequestsBoard(
+                                        context, (query, forceRefresh) -> List.of(), ""));
         board.setFilter(null);
         board.setFilter("missing");
         assertTrue(board.isVisible(), "board should remain visible after filter changes");
@@ -41,6 +43,7 @@ class BoardsUiTest {
         final ProjectId projectId = state.addProject(new Project("Demo", "/tmp/demo", null));
         final var context = new ActionContext(new ViewCoordinator(state), state, null);
         final var loaded = new CountDownLatch(1);
+        final var initialQuery = new java.util.concurrent.atomic.AtomicReference<String>();
         final PullRequest request = pullRequest(projectId, 12, "Fix login", "author-one");
         final PullRequestsBoard board =
                 GuiActionRunner.execute(
@@ -48,10 +51,15 @@ class BoardsUiTest {
                                 new PullRequestsBoard(
                                         context,
                                         (query, forceRefresh) -> {
+                                            initialQuery.set(query);
                                             loaded.countDown();
                                             return List.of(request);
-                                        }));
+                                        },
+                                        "author:@me"));
         assertTrue(loaded.await(5, TimeUnit.SECONDS), "board should invoke refresh supplier");
+        assertTrue(
+                "author:@me".equals(initialQuery.get()),
+                "board should use the selected filter query on initial refresh");
         SwingTestSupport.await(
                 () -> componentText(board).contains("Fix login"), "PR should render");
         GuiActionRunner.execute(() -> board.setFilter("login"));
@@ -71,7 +79,8 @@ class BoardsUiTest {
                                         context,
                                         (query, forceRefresh) -> {
                                             throw new IllegalStateException("fixture failure");
-                                        }));
+                                        },
+                                        ""));
         SwingTestSupport.await(
                 () -> componentText(board).contains("PR refresh failed"),
                 "refresh failures should be surfaced");

@@ -62,11 +62,13 @@ public final class PullRequestsBoard extends JPanel {
 
     public PullRequestsBoard(
             final ActionContext actionContext,
-            final BiFunction<String, Boolean, List<PullRequest>> onRefresh) {
+            final BiFunction<String, Boolean, List<PullRequest>> onRefresh,
+            final String initialQuery) {
         super();
         this.actionContext = actionContext;
         setLayout(new BorderLayout(0, UiConstants.CONTENT_PADDING));
         this.onRefresh = onRefresh;
+        currentQuery = UiText.valueOrDefault(initialQuery, "").trim();
 
         final var parent = this;
 
