@@ -224,7 +224,7 @@ public final class GitHub {
                                 repository
                                         .queryPullRequests()
                                         .state(GHIssueState.ALL)
-                                        .head(repository.getOwner().getName() + ":" + branch)
+                                        .head(branch)
                                         .list()
                                         .spliterator(),
                                 false)

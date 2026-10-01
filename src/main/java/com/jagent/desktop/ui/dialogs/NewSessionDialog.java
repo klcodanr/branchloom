@@ -36,16 +36,16 @@ public final class NewSessionDialog extends JDialog {
     private final JButton cancel = UiFactory.button("Cancel");
     private final JButton ok = UiFactory.button("OK");
 
+    public record Request(String name, Agent agent, String prompt, String baseBranch) {
+        public Request(final String name, final Agent agent, final String prompt) {
+            this(name, agent, prompt, null);
+        }
+    }
+
     private record BranchChoice(String displayName, String ref) {
         @Override
         public String toString() {
             return displayName;
-        }
-    }
-
-    public record Request(String name, Agent agent, String prompt, String baseBranch) {
-        public Request(final String name, final Agent agent, final String prompt) {
-            this(name, agent, prompt, null);
         }
     }
 
@@ -168,15 +168,13 @@ public final class NewSessionDialog extends JDialog {
         }
         final Agent selectedAgent = (Agent) agent.getSelectedItem();
         dispose();
-        final Object selectedBranch = baseBranch.getSelectedItem();
+        final BranchChoice selectedBranch = (BranchChoice) baseBranch.getSelectedItem();
         onValid.accept(
                 new Request(
                         name.getText().trim(),
                         selectedAgent,
                         prompt.getText().trim(),
-                        selectedBranch instanceof BranchChoice branchChoice
-                                ? branchChoice.ref()
-                                : null));
+                        selectedBranch == null ? null : selectedBranch.ref()));
     }
 
     /* default */ static String validationFailure(

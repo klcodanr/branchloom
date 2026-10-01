@@ -98,7 +98,7 @@ public final class CreateSessionAction extends BaseAction {
     }
 
     private int branchPriority(final Branch branch) {
-        return switch (branch.name()) {
+        return switch (branch.displayName()) {
             case "origin/main" -> 0;
             case "main" -> 1;
             case "origin/master" -> 2;
