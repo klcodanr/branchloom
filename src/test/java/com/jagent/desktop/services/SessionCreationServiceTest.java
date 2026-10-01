@@ -37,11 +37,12 @@ class SessionCreationServiceTest {
                         directory.toString(),
                         null,
                         null,
-                        null,
                         WORKTREE_TEMPLATE,
                         null,
                         java.util.List.of(),
-                        java.util.List.of());
+                        java.util.List.of(),
+                        null,
+                        null);
         final ProjectId projectId = state.addProject(project);
         final Agent agent = new Agent(AGENT_NAME, AGENT_COMMAND + " --prompt {prompt}");
 
@@ -91,11 +92,12 @@ class SessionCreationServiceTest {
                         directory.toString(),
                         null,
                         null,
-                        null,
                         WORKTREE_TEMPLATE,
                         null,
                         java.util.List.of(),
-                        java.util.List.of());
+                        java.util.List.of(),
+                        null,
+                        null);
         final ProjectId projectId = state.addProject(project);
 
         final IOException exception =
@@ -128,11 +130,12 @@ class SessionCreationServiceTest {
                         directory.toString(),
                         null,
                         null,
-                        null,
                         WORKTREE_TEMPLATE,
                         null,
                         java.util.List.of(),
-                        java.util.List.of());
+                        java.util.List.of(),
+                        null,
+                        null);
         final ProjectId projectId = state.addProject(project);
 
         final SessionCreationService.CreatedSession created =
@@ -164,11 +167,12 @@ class SessionCreationServiceTest {
                         directory.toString(),
                         null,
                         null,
-                        null,
                         WORKTREE_TEMPLATE,
                         null,
                         java.util.List.of(),
-                        java.util.List.of());
+                        java.util.List.of(),
+                        null,
+                        null);
         final ProjectId projectId = state.addProject(project);
         Files.createDirectories(directory.resolve("worktrees/fix-login"));
 
@@ -201,11 +205,12 @@ class SessionCreationServiceTest {
                         directory.toString(),
                         null,
                         null,
-                        null,
                         WORKTREE_TEMPLATE,
                         null,
                         java.util.List.of(),
-                        java.util.List.of());
+                        java.util.List.of(),
+                        null,
+                        null);
         final ProjectId projectId = state.addProject(project);
         state.addSession(
                 projectId,

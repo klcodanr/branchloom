@@ -11,7 +11,6 @@ import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.PullRequestCache;
 import com.jagent.desktop.services.git.GitRepository;
-import com.jagent.desktop.ui.components.GitHubAuthAlert;
 import com.jagent.desktop.ui.components.ProjectActions;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
@@ -44,10 +43,7 @@ public final class ProjectView extends AbstractWorkspaceView {
     public ProjectView(final ActionContext actionContext, final Project project) {
         super(actionContext, ViewId.PROJECT);
         this.project = project;
-        this.pullRequestCache =
-                PullRequestCache.get(
-                        actionContext.appState(),
-                        exception -> GitHubAuthAlert.show(this, exception));
+        this.pullRequestCache = PullRequestCache.get(actionContext.appState());
         this.projectId =
                 actionContext.appState().projects().entrySet().stream()
                         .filter(entry -> entry.getValue().equals(project))

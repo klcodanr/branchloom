@@ -1,4 +1,4 @@
-package com.jagent.desktop.services;
+package com.jagent.desktop.services.github;
 
 import com.github.javakeyring.Keyring;
 import com.github.javakeyring.PasswordAccessException;

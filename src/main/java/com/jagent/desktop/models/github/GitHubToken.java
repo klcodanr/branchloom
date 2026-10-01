@@ -1,4 +1,4 @@
-package com.jagent.desktop.services;
+package com.jagent.desktop.models.github;
 
 import java.time.Instant;
 import org.jetbrains.annotations.Nullable;

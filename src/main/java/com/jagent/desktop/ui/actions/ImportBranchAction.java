@@ -11,12 +11,12 @@ import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.git.Branch;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.SessionCreationService;
 import com.jagent.desktop.services.SessionCreationService.SessionDetails;
 import com.jagent.desktop.services.SessionCreationService.WorktreeRequest;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.services.git.GitRepository;
+import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.ui.components.SearchableList;
 import com.jagent.desktop.ui.utils.ErrorDialogs;
 import com.jagent.desktop.ui.utils.ErrorMessages;
@@ -142,6 +142,7 @@ public final class ImportBranchAction extends BaseAction {
         if (project == null) {
             return;
         }
+        final GitHub gitHub = GitHub.forProject(state, projectId);
 
         ProgressOperation.run(
                         actionContext,
@@ -149,13 +150,8 @@ public final class ImportBranchAction extends BaseAction {
                         "Loading pull request branch...",
                         () -> {
                             final String headBranch =
-                                    GitHub.nativePullRequest(
-                                                    project,
-                                                    request.number(),
-                                                    state.githubConnections())
-                                            .getHead()
-                                            .getRef();
-                            if (headBranch == null || headBranch.isBlank()) {
+                                    gitHub.getPullRequest(request.number()).headBranch();
+                            if (headBranch.isBlank()) {
                                 throw new IOException("Could not determine pull request branch.");
                             }
                             return headBranch;

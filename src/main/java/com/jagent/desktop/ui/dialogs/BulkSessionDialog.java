@@ -2,7 +2,7 @@ package com.jagent.desktop.ui.dialogs;
 
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
-import com.jagent.desktop.services.GitHub.Issue;
+import com.jagent.desktop.models.github.Issue;
 import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;

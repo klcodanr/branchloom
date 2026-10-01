@@ -1,7 +1,7 @@
 package com.jagent.desktop.models;
 
+import com.jagent.desktop.models.github.Credential;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.ui.Defaults;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,86 +13,29 @@ public record Project(
         String name,
         String path,
         @Nullable String group,
-        @Nullable String githubHost,
-        @Nullable String githubUser,
+        @Nullable Credential credential,
         @Nullable String worktreeTemplate,
         @Nullable String worktreeCommand,
         List<String> startupCommands,
         List<SessionId> sessionIds,
         @Nullable String agentContextPath,
-        @Nullable String agentContextText,
-        @Nullable String githubConnectionId) {
+        @Nullable String agentContextText) {
 
     public Project {
         sessionIds = sessionIds == null ? List.of() : List.copyOf(sessionIds);
     }
 
-    public Project(final String name, final String path, final GitHub.Auth auth) {
+    public Project(final String name, final String path, final Credential credential) {
         this(
                 name,
                 path,
                 Defaults.DEFAULT_GROUP,
-                auth == null ? null : auth.host(),
-                auth == null ? null : auth.user(),
+                credential,
                 null,
                 null,
                 List.of(),
                 List.of(),
                 null,
-                null,
-                auth == null ? null : auth.connectionId());
-    }
-
-    public Project(
-            final String name,
-            final String path,
-            final String group,
-            final String githubHost,
-            final String githubUser,
-            final String worktreeTemplate,
-            final String worktreeCommand,
-            final List<String> startupCommands,
-            final List<SessionId> sessionIds) {
-        this(
-                name,
-                path,
-                group,
-                githubHost,
-                githubUser,
-                worktreeTemplate,
-                worktreeCommand,
-                startupCommands,
-                sessionIds,
-                null,
-                null,
-                null);
-    }
-
-    @SuppressWarnings("PMD.ExcessiveParameterList")
-    public Project(
-            final String name,
-            final String path,
-            final String group,
-            final String githubHost,
-            final String githubUser,
-            final String worktreeTemplate,
-            final String worktreeCommand,
-            final List<String> startupCommands,
-            final List<SessionId> sessionIds,
-            final String agentContextPath,
-            final String agentContextText) {
-        this(
-                name,
-                path,
-                group,
-                githubHost,
-                githubUser,
-                worktreeTemplate,
-                worktreeCommand,
-                startupCommands,
-                sessionIds,
-                agentContextPath,
-                agentContextText,
                 null);
     }
 
@@ -107,15 +50,13 @@ public record Project(
                 name,
                 this.path,
                 this.group,
-                this.githubHost,
-                this.githubUser,
+                this.credential,
                 this.worktreeTemplate,
                 this.worktreeCommand,
                 this.startupCommands,
                 this.sessionIds,
                 this.agentContextPath,
-                this.agentContextText,
-                this.githubConnectionId);
+                this.agentContextText);
     }
 
     public Project withGroup(final String group) {
@@ -123,15 +64,13 @@ public record Project(
                 this.name,
                 this.path,
                 group,
-                this.githubHost,
-                this.githubUser,
+                this.credential,
                 this.worktreeTemplate,
                 this.worktreeCommand,
                 this.startupCommands,
                 this.sessionIds,
                 this.agentContextPath,
-                this.agentContextText,
-                this.githubConnectionId);
+                this.agentContextText);
     }
 
     public Project withNewSession(final SessionId sessionId) {
@@ -141,15 +80,13 @@ public record Project(
                 this.name,
                 this.path,
                 this.group,
-                this.githubHost,
-                this.githubUser,
+                this.credential,
                 this.worktreeTemplate,
                 this.worktreeCommand,
                 this.startupCommands,
                 List.copyOf(newSessions),
                 this.agentContextPath,
-                this.agentContextText,
-                this.githubConnectionId);
+                this.agentContextText);
     }
 
     public Project withRemovedSession(final SessionId sessionId) {
@@ -157,14 +94,12 @@ public record Project(
                 this.name,
                 this.path,
                 this.group,
-                this.githubHost,
-                this.githubUser,
+                this.credential,
                 this.worktreeTemplate,
                 this.worktreeCommand,
                 this.startupCommands,
                 this.sessionIds.stream().filter(id -> !id.equals(sessionId)).toList(),
                 this.agentContextPath,
-                this.agentContextText,
-                this.githubConnectionId);
+                this.agentContextText);
     }
 }

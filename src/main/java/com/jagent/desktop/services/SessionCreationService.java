@@ -9,6 +9,7 @@ import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.models.git.Branch;
 import com.jagent.desktop.services.git.GitRepository;
+import com.jagent.desktop.services.github.GitHub;
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.nio.file.Files;
@@ -211,7 +212,9 @@ public final class SessionCreationService {
             throws InvalidObjectException {
         final Session session = new Session(projectId, sessionName, agent, prompt, worktreePath);
         try {
-            AgentContext.write(project, session, state.appSettings().agentContextPath());
+            final String githubUser = GitHub.forProject(state, projectId).getLogin();
+            AgentContext.write(
+                    project, session, state.appSettings().agentContextPath(), githubUser);
         } catch (IOException exception) {
             LOG.warn("Could not write agent context", exception);
         }

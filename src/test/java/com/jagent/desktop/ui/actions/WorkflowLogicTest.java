@@ -3,14 +3,17 @@ package com.jagent.desktop.ui.actions;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.jagent.desktop.services.GitHub.Issue;
+import com.jagent.desktop.models.github.Issue;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class WorkflowLogicTest {
     @Test
-    void bulkIssueCandidatesContainBranchNamesLabelsAndPrompts() {
-        final Issue issue = new Issue(42, "Fix Login Flow", "Use OAuth", "https://example.test/42");
+    void bulkIssueCandidatesContainBranchNamesLabelsAndPrompts() throws MalformedURLException {
+        final Issue issue =
+                new Issue(42, "Fix Login Flow", "Use OAuth", new URL("https://example.test/42"));
 
         final var candidate = BulkCreateSessionsAction.candidates(List.of(issue)).get(0);
 

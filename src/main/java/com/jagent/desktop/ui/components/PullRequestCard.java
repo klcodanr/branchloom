@@ -7,14 +7,15 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Terminal;
-import com.jagent.desktop.services.GitHubPullRequest;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.actions.ImportBranchAction;
 import com.jagent.desktop.ui.dialogs.ReviewDialog;
 import com.jagent.desktop.ui.utils.RelativeTime;
 import java.awt.Dimension;
+import java.io.IOException;
 import java.util.Date;
 import java.util.concurrent.CompletionException;
 import javax.swing.BorderFactory;
@@ -37,6 +38,9 @@ public final class PullRequestCard extends JPanel {
     private final transient Runnable onPullRequestApproved;
     private final transient PullRequestDetails details;
     private final JLabel metadata;
+    private final transient PullRequest request;
+    private final transient Project project;
+    private final transient GitHub gitHub;
 
     public PullRequestCard(
             final ActionContext actionContext,
@@ -44,10 +48,13 @@ public final class PullRequestCard extends JPanel {
             final PullRequestDetails details,
             final Runnable onPullRequestApproved) {
         super();
+        this.request = request;
         this.actionContext = actionContext;
         this.onPullRequestApproved = onPullRequestApproved;
         this.details = details;
-        final JPopupMenu contextMenu = menu(request);
+        this.project = actionContext.appState().projects().get(request.projectId());
+        this.gitHub = GitHub.forProject(actionContext.appState(), request.projectId());
+        final JPopupMenu contextMenu = menu();
         setBackground(Theme.Colors.textareaBackground());
         setBorder(
                 BorderFactory.createCompoundBorder(
@@ -85,18 +92,20 @@ public final class PullRequestCard extends JPanel {
         statusRow.add(metadata);
         statusRow.setComponentPopupMenu(contextMenu);
         add(statusRow);
-        add(timestamps(request, contextMenu));
+        add(timestamps(contextMenu));
         setComponentPopupMenu(contextMenu);
     }
 
-    private static JPanel timestamps(final PullRequest request, final JPopupMenu contextMenu) {
+    private JPanel timestamps(final JPopupMenu contextMenu) {
         final JPanel row = new JPanel();
         row.setOpaque(false);
         row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
         row.setAlignmentX(LEFT_ALIGNMENT);
-        addTimestamp(row, UiIcons.pullRequestCreate(), "Opened", request.createdAt(), contextMenu);
+        addTimestamp(
+                row, UiIcons.pullRequestCreate(), "Opened", this.request.createdAt(), contextMenu);
         row.add(Box.createHorizontalStrut(UiConstants.SPACING_SM));
-        addTimestamp(row, UiIcons.rotateCwClock(), "Updated", request.updatedAt(), contextMenu);
+        addTimestamp(
+                row, UiIcons.rotateCwClock(), "Updated", this.request.updatedAt(), contextMenu);
         return row;
     }
 
@@ -120,16 +129,15 @@ public final class PullRequestCard extends JPanel {
         row.add(value);
     }
 
-    private JPopupMenu menu(final PullRequest request) {
+    private JPopupMenu menu() {
         final JPopupMenu menu = new JPopupMenu();
-        addCommonActions(menu, request);
-        final Project project = actionContext.appState().projects().get(request.projectId());
+        addCommonActions(menu);
         addReviewerActions(menu, project, request, details);
         addMergeAndCloseActions(menu, project, request, details);
         return menu;
     }
 
-    private void addCommonActions(final JPopupMenu menu, final PullRequest request) {
+    private void addCommonActions(final JPopupMenu menu) {
         final JMenuItem open = new JMenuItem("Open PR");
         open.addActionListener(event -> PlatformCommands.openUrl(request.url().toExternalForm()));
         final JMenuItem copyUrl = new JMenuItem("Copy URL");
@@ -154,7 +162,12 @@ public final class PullRequestCard extends JPanel {
         if (project == null) {
             return;
         }
-        final String githubUser = project.githubUser();
+        String githubUser = null;
+        try {
+            githubUser = this.gitHub.getLogin();
+        } catch (IOException e) {
+            LOG.warn("Failed to get GitHub login", e);
+        }
         if (githubUser == null || githubUser.isBlank()) {
             return;
         }
@@ -162,17 +175,17 @@ public final class PullRequestCard extends JPanel {
             menu.addSeparator();
             if (isDraft(requestDetails)) {
                 final JMenuItem requestApproval = new JMenuItem("Request approval");
-                requestApproval.addActionListener(event -> requestApproval(project, request));
+                requestApproval.addActionListener(event -> requestApproval(request));
                 menu.add(requestApproval);
             } else {
                 final JMenuItem makeDraft = new JMenuItem("Make draft");
-                makeDraft.addActionListener(event -> makeDraft(project, request));
+                makeDraft.addActionListener(event -> makeDraft(request));
                 menu.add(makeDraft);
             }
             return;
         }
         final JMenuItem approveItem = new JMenuItem("Approve");
-        approveItem.addActionListener(event -> approve(project, request));
+        approveItem.addActionListener(event -> approve(request));
         menu.add(approveItem);
     }
 
@@ -192,12 +205,12 @@ public final class PullRequestCard extends JPanel {
                 && requestDetails.status() == PullRequestDetails.Status.READY
                 && request.state() == PullRequest.State.OPEN) {
             final JMenuItem mergeItem = new JMenuItem("Merge PR");
-            mergeItem.addActionListener(event -> merge(project, request));
+            mergeItem.addActionListener(event -> merge(request));
             menu.add(mergeItem);
         }
     }
 
-    private void requestApproval(final Project project, final PullRequest request) {
+    private void requestApproval(final PullRequest request) {
         if (!confirm(request, "request approval for")) {
             return;
         }
@@ -205,10 +218,7 @@ public final class PullRequestCard extends JPanel {
                         "Request PR approval",
                         PULL_REQUEST_ACTION,
                         () -> {
-                            GitHubPullRequest.markReady(
-                                    project,
-                                    request.number(),
-                                    actionContext.appState().githubConnections());
+                            this.gitHub.markReady(request);
                             return null;
                         })
                 .exceptionally(
@@ -218,7 +228,7 @@ public final class PullRequestCard extends JPanel {
                         });
     }
 
-    private void makeDraft(final Project project, final PullRequest request) {
+    private void makeDraft(final PullRequest request) {
         if (!confirm(request, "make draft")) {
             return;
         }
@@ -226,10 +236,7 @@ public final class PullRequestCard extends JPanel {
                         "Make PR draft",
                         PULL_REQUEST_ACTION,
                         () -> {
-                            GitHubPullRequest.convertToDraft(
-                                    project,
-                                    request.number(),
-                                    actionContext.appState().githubConnections());
+                            this.gitHub.convertToDraft(request);
                             return null;
                         })
                 .exceptionally(
@@ -239,7 +246,7 @@ public final class PullRequestCard extends JPanel {
                         });
     }
 
-    private void approve(final Project project, final PullRequest request) {
+    private void approve(final PullRequest request) {
         if (!confirm(request, "approve")) {
             return;
         }
@@ -247,10 +254,7 @@ public final class PullRequestCard extends JPanel {
                         "Approve",
                         PULL_REQUEST_ACTION,
                         () -> {
-                            GitHubPullRequest.approve(
-                                    project,
-                                    request.number(),
-                                    actionContext.appState().githubConnections());
+                            this.gitHub.approve(request);
                             return null;
                         })
                 .thenRun(onPullRequestApproved::run)
@@ -261,7 +265,7 @@ public final class PullRequestCard extends JPanel {
                         });
     }
 
-    private void merge(final Project project, final PullRequest request) {
+    private void merge(final PullRequest request) {
         if (!confirm(request, "merge")) {
             return;
         }
@@ -269,10 +273,7 @@ public final class PullRequestCard extends JPanel {
                         "Merge PR",
                         PULL_REQUEST_ACTION,
                         () -> {
-                            GitHubPullRequest.merge(
-                                    project,
-                                    request.number(),
-                                    actionContext.appState().githubConnections());
+                            this.gitHub.merge(request);
                             return null;
                         })
                 .exceptionally(

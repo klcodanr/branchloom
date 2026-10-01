@@ -5,6 +5,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestFilter;
+import com.jagent.desktop.services.github.GitHub;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
@@ -29,17 +30,11 @@ public final class PullRequestCache {
                     .expireAfterWrite(CACHE_EXPIRATION)
                     .build();
 
-    // @SuppressFBWarnings("EI_EXPOSE_REP")
     public static PullRequestCache get(final AppState appState) {
-        return get(appState, exception -> {});
-    }
-
-    public static PullRequestCache get(final AppState appState, final Consumer<Exception> failure) {
         synchronized (INSTANCE_LOCK) {
             if (instance == null) {
                 instance = new PullRequestCache(appState);
             }
-            instance.failure = failure;
             return instance;
         }
     }
@@ -62,12 +57,7 @@ public final class PullRequestCache {
                 .flatMap(
                         entry -> {
                             try {
-                                return load(
-                                        entry.getKey(),
-                                        entry.getValue(),
-                                        query(filter),
-                                        forceRefresh)
-                                        .stream();
+                                return load(entry.getKey(), query(filter), forceRefresh).stream();
                             } catch (InterruptedException exception) {
                                 Thread.currentThread().interrupt();
                                 reportFailure(entry.getKey(), exception);
@@ -100,7 +90,7 @@ public final class PullRequestCache {
             return List.of();
         }
         try {
-            return load(projectId, project, query(filter), forceRefresh);
+            return load(projectId, query(filter), forceRefresh);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             reportFailure(projectId, exception);
@@ -114,10 +104,7 @@ public final class PullRequestCache {
     }
 
     private List<PullRequest> load(
-            final ProjectId projectId,
-            final com.jagent.desktop.models.Project project,
-            final String query,
-            final boolean forceRefresh)
+            final ProjectId projectId, final String query, final boolean forceRefresh)
             throws IOException, InterruptedException {
         final CacheKey key = new CacheKey(projectId, query);
         if (forceRefresh) {
@@ -127,8 +114,8 @@ public final class PullRequestCache {
         if (cached != null) {
             return cached;
         }
-        final List<PullRequest> loaded =
-                GitHub.loadForProject(projectId, project, query, appState.githubConnections());
+        final GitHub gitHub = GitHub.forProject(appState, projectId);
+        final List<PullRequest> loaded = gitHub.listPullRequests(query);
         results.put(key, loaded);
         clearFailures(projectId);
         return loaded;

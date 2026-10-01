@@ -4,7 +4,7 @@ import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestDetails;
-import com.jagent.desktop.services.GitHub;
+import com.jagent.desktop.services.github.GitHub;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.util.HashSet;
@@ -43,7 +43,7 @@ public final class PullRequestsBoard extends JPanel {
     private final SearchInput query;
     private final JComponent loading = UiFactory.loading("Loading pull requests...");
     private final JPanel list = new JPanel();
-    private final PullRequestSummaryPanel summary = new PullRequestSummaryPanel();
+    private final PullRequestSummaryPanel summary;
     private final JScrollPane listScroll;
     private final JScrollPane summaryScroll;
     private final JSplitPane splitPane;
@@ -67,6 +67,7 @@ public final class PullRequestsBoard extends JPanel {
         this.actionContext = actionContext;
         setLayout(new BorderLayout(0, UiConstants.CONTENT_PADDING));
         this.onRefresh = onRefresh;
+        this.summary = new PullRequestSummaryPanel(actionContext.appState());
         currentQuery = UiText.valueOrDefault(initialQuery, "").trim();
 
         final var parent = this;
@@ -317,7 +318,6 @@ public final class PullRequestsBoard extends JPanel {
             list.add(cardRow);
             list.add(Box.createVerticalStrut(UiConstants.CONTENT_PADDING));
         }
-        summary.setConfiguredConnections(actionContext.appState().githubConnections());
         summary.render(
                 selectedRequest,
                 detailsByKey.get(PullRequestPresentation.detailKey(selectedRequest)));
@@ -347,11 +347,8 @@ public final class PullRequestsBoard extends JPanel {
                     0);
         }
         try {
-            return GitHub.pullRequestDetails(
-                    request.projectId(),
-                    project,
-                    request.number(),
-                    actionContext.appState().githubConnections());
+            return GitHub.forProject(this.actionContext.appState(), request.projectId())
+                    .getPullRequestDetails(request);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("PR detail loading was interrupted", exception);
@@ -381,15 +378,7 @@ public final class PullRequestsBoard extends JPanel {
                         SwingUtilities::invokeLater)
                 .exceptionally(
                         failure -> {
-                            SwingUtilities.invokeLater(
-                                    () -> {
-                                        loadingDetailKeys.remove(detailKey);
-                                        GitHubAuthAlert.show(
-                                                this,
-                                                failure.getCause() instanceof Exception exception
-                                                        ? exception
-                                                        : new IllegalStateException(failure));
-                                    });
+                            SwingUtilities.invokeLater(() -> loadingDetailKeys.remove(detailKey));
                             return null;
                         });
     }

@@ -9,8 +9,9 @@ import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
-import com.jagent.desktop.services.GitHub;
+import com.jagent.desktop.models.github.Credential;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.services.github.GitHubAuth;
 import com.jagent.desktop.ui.components.GitHubAuthSelector;
 import com.jagent.desktop.ui.components.UiText;
 import java.awt.Dimension;
@@ -57,7 +58,7 @@ public class CreateProjectAction extends BaseAction {
                         this.actionContext,
                         ADD_PROJECT_TITLE,
                         "Loading GitHub accounts...",
-                        () -> GitHub.configuredAuths(this.actionContext.appState()))
+                        () -> new GitHubAuth().listCredentials(this.actionContext.appState()))
                 .thenAccept(this::showDialog)
                 .exceptionally(
                         failure -> {
@@ -66,11 +67,11 @@ public class CreateProjectAction extends BaseAction {
                         });
     }
 
-    private void showDialog(final java.util.List<GitHub.Auth> configuredAuths) {
+    private void showDialog(final java.util.List<Credential> configuredAuths) {
         final var appState = this.actionContext.appState();
         final JTextField name = new JTextField(35);
         final JTextField path = new JTextField(35);
-        final JComboBox<GitHub.Auth> githubAuth =
+        final JComboBox<Credential> githubAuth =
                 GitHubAuthSelector.renderConfigured(configuredAuths);
         githubAuth.setPreferredSize(new Dimension(350, githubAuth.getPreferredSize().height));
         final JButton browse = button("Browse...");
@@ -134,8 +135,8 @@ public class CreateProjectAction extends BaseAction {
             LOG.error("Add local project: That project is already registered.");
             return;
         }
-        final GitHub.Auth auth =
-                githubAuth.getSelectedItem() instanceof GitHub.Auth selected ? selected : null;
+        final Credential auth =
+                githubAuth.getSelectedItem() instanceof Credential selected ? selected : null;
         final Project project = new Project(projectName, projectPath.toString(), auth);
         final ProjectId projectId =
                 appState.addProject(targetGroup == null ? project : project.withGroup(targetGroup));

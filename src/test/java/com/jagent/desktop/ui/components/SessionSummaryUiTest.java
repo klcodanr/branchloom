@@ -6,8 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.Project;
+import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.test.SwingTestSupport;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.test.TestGitRepository;
 import java.awt.Component;
 import java.awt.Container;
@@ -33,10 +36,16 @@ class SessionSummaryUiTest {
     @Test
     void rendersSessionDetailsWithoutAWindow() {
         final Project project = new Project(DEMO_PROJECT, "/tmp/demo", null);
+        final AppState state = TestAppState.empty();
+        final ProjectId projectId = state.addProject(project);
+        state.updateCurrentProject(projectId);
         final Session session =
-                new Session(null, FEATURE_SESSION, AGENT, "Implement feature", "/tmp/worktree");
+                new Session(
+                        projectId, FEATURE_SESSION, AGENT, "Implement feature", "/tmp/worktree");
 
-        final var summary = GuiActionRunner.execute(() -> new SessionSummary(project, session));
+        final SessionSummary summary =
+                GuiActionRunner.execute(
+                        () -> new SessionSummary(project, session, state, "", List.of(), () -> {}));
         final var text = new ArrayList<String>();
         collectText(summary, new ArrayList<>(), text);
 
@@ -53,10 +62,15 @@ class SessionSummaryUiTest {
     @Test
     void keepsStatusRenderingSafeForUnavailableWorktree() throws InterruptedException {
         final Project project = new Project(DEMO_PROJECT, "/tmp/demo", null);
+        final AppState state = TestAppState.empty();
+        final ProjectId projectId = state.addProject(project);
+        state.updateCurrentProject(projectId);
         final Session session =
-                new Session(null, FEATURE_SESSION, null, null, "/path/that/does/not/exist");
+                new Session(projectId, FEATURE_SESSION, null, null, "/path/that/does/not/exist");
 
-        final var summary = GuiActionRunner.execute(() -> new SessionSummary(project, session));
+        final SessionSummary summary =
+                GuiActionRunner.execute(
+                        () -> new SessionSummary(project, session, state, "", List.of(), () -> {}));
         waitForText(summary, "Unavailable");
 
         assertNotNull(summary.getBorder(), "summary should retain its border after status failure");
@@ -68,12 +82,20 @@ class SessionSummaryUiTest {
     @Test
     void buildsFallbackStatusPanelsForUnavailableWorkspace() {
         final Project project = new Project(DEMO_PROJECT, "/tmp/demo", null);
+        final AppState state = TestAppState.empty();
+        final ProjectId projectId = state.addProject(project);
+        state.updateCurrentProject(projectId);
         final Session session =
                 new Session(
-                        null, FEATURE_SESSION, AGENT, "Investigate login", "/path/does/not/exist");
+                        projectId,
+                        FEATURE_SESSION,
+                        AGENT,
+                        "Investigate login",
+                        "/path/does/not/exist");
 
         final SessionSummary summary =
-                GuiActionRunner.execute(() -> new SessionSummary(project, session));
+                GuiActionRunner.execute(
+                        () -> new SessionSummary(project, session, state, "", List.of(), () -> {}));
 
         assertEquals(1, summary.getComponentCount(), "summary should render one details panel");
         final Component details = summary.getComponent(0);
@@ -94,10 +116,15 @@ class SessionSummaryUiTest {
         TestGitRepository.initialize(directory);
         TestGitRepository.run(directory, "git commit --allow-empty -qm second");
         final Project project = new Project(DEMO_PROJECT, directory.toString(), null);
+        final AppState state = TestAppState.empty();
+        final ProjectId projectId = state.addProject(project);
+        state.updateCurrentProject(projectId);
         final Session session =
-                new Session(null, FEATURE_SESSION, AGENT, null, directory.toString());
+                new Session(projectId, FEATURE_SESSION, AGENT, null, directory.toString());
 
-        final var summary = GuiActionRunner.execute(() -> new SessionSummary(project, session));
+        final SessionSummary summary =
+                GuiActionRunner.execute(
+                        () -> new SessionSummary(project, session, state, "", List.of(), () -> {}));
         waitForText(summary, "master");
         waitForText(summary, "No changes in worktree");
 
@@ -117,13 +144,20 @@ class SessionSummaryUiTest {
                         null,
                         null,
                         null,
-                        null,
                         List.of(),
                         List.of(),
                         ".branchloom/context.md",
                         "Use shared notes.");
+        final AppState state = TestAppState.empty();
+        final ProjectId projectId = state.addProject(project);
+        state.updateCurrentProject(projectId);
         final Session session =
-                new Session(null, FEATURE_SESSION, AGENT, "Implement feature", worktree.toString());
+                new Session(
+                        projectId,
+                        FEATURE_SESSION,
+                        AGENT,
+                        "Implement feature",
+                        worktree.toString());
         final Path contextPath = worktree.resolve(".branchloom/context.md");
         final Path contextParent = contextPath.getParent();
         if (contextParent != null) {
@@ -131,7 +165,9 @@ class SessionSummaryUiTest {
         }
         Files.writeString(contextPath, "initial notes");
 
-        final var summary = GuiActionRunner.execute(() -> new SessionSummary(project, session));
+        final SessionSummary summary =
+                GuiActionRunner.execute(
+                        () -> new SessionSummary(project, session, state, "", List.of(), () -> {}));
         waitForText(summary, "initial notes");
         waitForText(summary, contextPath.toString());
 

@@ -5,8 +5,9 @@ import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.models.github.Issue;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.GitHub;
+import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.ui.components.BulkSessionCreator;
 import com.jagent.desktop.ui.dialogs.BulkSessionDialog;
 import com.jagent.desktop.ui.utils.ErrorDialogs;
@@ -53,7 +54,8 @@ public class BulkCreateSessionsAction extends BaseAction {
             return;
         }
         final Project project = state.projects().get(projectId);
-        BackgroundOperations.submit("GitHub", "issues", () -> GitHub.loadIssuesForProject(project))
+        final GitHub gitHub = GitHub.forProject(state, projectId);
+        BackgroundOperations.submit("GitHub", "issues", gitHub::listIssues)
                 .thenAcceptAsync(
                         issues -> {
                             if (issues.isEmpty()) {
@@ -90,8 +92,7 @@ public class BulkCreateSessionsAction extends BaseAction {
                         });
     }
 
-    protected static List<BulkSessionCreator.Candidate> candidates(
-            final List<GitHub.Issue> issues) {
+    protected static List<BulkSessionCreator.Candidate> candidates(final List<Issue> issues) {
         return issues.stream()
                 .map(
                         issue ->

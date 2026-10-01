@@ -162,9 +162,10 @@ class SessionLauncherTest {
                         null,
                         null,
                         null,
-                        null,
                         startupCommands,
-                        List.of());
+                        List.of(),
+                        null,
+                        null);
         final var projectId = state.addProject(project);
         final var session = new Session(projectId, "Feature", "agent", "prompt", null);
         final var sessionId = state.addSession(projectId, session);

@@ -4,9 +4,12 @@ import com.jagent.desktop.api.View;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
+import com.jagent.desktop.models.github.CliCredential;
+import com.jagent.desktop.models.github.Credential;
+import com.jagent.desktop.models.github.PatCredential;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.services.github.GitHubAuth;
 import com.jagent.desktop.ui.Defaults;
 import com.jagent.desktop.ui.actions.OpenDirectoryAction;
 import com.jagent.desktop.ui.components.GitHubAuthSelector;
@@ -16,6 +19,7 @@ import com.jagent.desktop.ui.components.UiFactory;
 import com.jagent.desktop.ui.components.UiText;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import javax.swing.Box;
@@ -77,25 +81,27 @@ public final class ProjectSettingsView extends JPanel implements View {
         final JTextField template = new JTextField(project.worktreeTemplate(), 45);
         final JTextArea startup =
                 new JTextArea(String.join("\n", project.startupCommands()), 4, 45);
-        final JTextField agentContextPath = new JTextField(agentContextPath(project), 45);
-        final JTextArea agentContextText = new JTextArea(agentContextText(project), 6, 45);
+        final JTextField agentContextPath =
+                new JTextField(UiText.valueOrDefault(project.agentContextPath(), ""), 45);
+        final JTextArea agentContextText =
+                new JTextArea(UiText.valueOrDefault(project.agentContextText(), ""), 6, 45);
         UiFactory.configureTextAreaTraversal(agentContextText);
         UiFactory.configureTextAreaTraversal(startup);
         template.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
         startup.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
         agentContextPath.setToolTipText(
                 "Blank disables context generation. Relative paths are created in each worktree.");
-        final java.util.List<GitHub.Auth> configuredAuths = GitHub.configuredAuths(state);
-        final java.util.List<GitHub.Auth> cliAuths =
-                configuredAuths.stream().filter(GitHub.Auth::isCli).toList();
-        final java.util.List<GitHub.Auth> patAuths =
-                configuredAuths.stream().filter(auth -> !auth.isCli()).toList();
+        final List<Credential> configuredAuths = new GitHubAuth().listCredentials(state);
+        final List<Credential> cliAuths =
+                configuredAuths.stream().filter(CliCredential.class::isInstance).toList();
+        final List<Credential> patAuths =
+                configuredAuths.stream().filter(PatCredential.class::isInstance).toList();
         final JRadioButton cliSource = new JRadioButton("GitHub CLI");
         final JRadioButton patSource = new JRadioButton("Personal access token");
         final ButtonGroup sourceGroup = new ButtonGroup();
         sourceGroup.add(cliSource);
         sourceGroup.add(patSource);
-        final JComboBox<GitHub.Auth> githubAuth = GitHubAuthSelector.renderConfigured(cliAuths);
+        final JComboBox<Credential> githubAuth = GitHubAuthSelector.renderConfigured(cliAuths);
         final JPanel githubAuthInput = new JPanel();
         githubAuthInput.setLayout(new BoxLayout(githubAuthInput, BoxLayout.Y_AXIS));
         githubAuthInput.setOpaque(false);
@@ -105,9 +111,7 @@ public final class ProjectSettingsView extends JPanel implements View {
         sources.add(patSource);
         githubAuthInput.add(sources);
         githubAuthInput.add(githubAuth);
-        final String storedConnectionId = project.githubConnectionId();
-        final boolean storedPat =
-                storedConnectionId != null && !storedConnectionId.startsWith("github-cli");
+        final boolean storedPat = project.credential() instanceof PatCredential;
         (storedPat ? patSource : cliSource).setSelected(true);
         populateAuths(githubAuth, storedPat ? patAuths : cliAuths);
         final java.awt.event.ActionListener sourceListener =
@@ -143,8 +147,11 @@ public final class ProjectSettingsView extends JPanel implements View {
         final String initialGroup = UiText.valueOrDefault(groupValue, Defaults.DEFAULT_GROUP);
         final String initialTemplate = UiText.valueOrDefault(project.worktreeTemplate(), "");
         final String initialStartup = String.join("\n", project.startupCommands());
-        final String initialAgentContextPath = agentContextPath(project);
-        final String initialAgentContextText = agentContextText(project);
+        final String initialAgentContextPath =
+                UiText.valueOrDefault(project.agentContextPath(), "");
+        final String initialAgentContextText =
+                UiText.valueOrDefault(project.agentContextText(), "");
+        final Credential initialCredential = project.credential();
         return SettingsPanel.render(
                 TITLE,
                 "Overrides for " + project.name(),
@@ -170,7 +177,7 @@ public final class ProjectSettingsView extends JPanel implements View {
                                 initialStartup,
                                 initialAgentContextPath,
                                 initialAgentContextText,
-                                project.githubConnectionId(),
+                                initialCredential == null ? null : initialCredential.id(),
                                 name,
                                 group,
                                 template,
@@ -181,8 +188,8 @@ public final class ProjectSettingsView extends JPanel implements View {
     }
 
     private static void populateAuths(
-            final JComboBox<GitHub.Auth> selector, final java.util.List<GitHub.Auth> auths) {
-        final GitHub.Auth selected = (GitHub.Auth) selector.getSelectedItem();
+            final JComboBox<Credential> selector, final List<Credential> auths) {
+        final Credential selected = (Credential) selector.getSelectedItem();
         selector.removeAllItems();
         auths.forEach(selector::addItem);
         if (selected != null) {
@@ -194,8 +201,12 @@ public final class ProjectSettingsView extends JPanel implements View {
     }
 
     private static void selectStoredAuth(
-            final JComboBox<GitHub.Auth> githubAuth, final Project project) {
-        if (project.githubHost() == null && project.githubConnectionId() == null) {
+            final JComboBox<Credential> githubAuth, final Project project) {
+        if (githubAuth.getItemCount() == 0) {
+            githubAuth.setSelectedItem(null);
+            return;
+        }
+        if (project.credential() == null) {
             githubAuth.setSelectedIndex(0);
             return;
         }
@@ -204,17 +215,21 @@ public final class ProjectSettingsView extends JPanel implements View {
             githubAuth.setSelectedIndex(storedIndex);
             return;
         }
-        githubAuth.setSelectedIndex(0);
+        if (githubAuth.getItemCount() > 0) {
+            githubAuth.setSelectedIndex(0);
+        }
     }
 
     private static int storedAuthIndex(
-            final JComboBox<GitHub.Auth> githubAuth, final Project project) {
+            final JComboBox<Credential> githubAuth, final Project project) {
+        final Credential stored = project.credential();
         for (int index = 0; index < githubAuth.getItemCount(); index++) {
-            final GitHub.Auth auth = githubAuth.getItemAt(index);
+            final Credential auth = githubAuth.getItemAt(index);
             if (auth != null
-                    && Objects.equals(auth.connectionId(), project.githubConnectionId())
-                    && Objects.equals(auth.host(), project.githubHost())
-                    && Objects.equals(auth.user(), project.githubUser())) {
+                    && stored != null
+                    && auth.getClass().equals(stored.getClass())
+                    && Objects.equals(auth.id(), stored.id())
+                    && Objects.equals(auth.host(), stored.host())) {
                 return index;
             }
         }
@@ -233,14 +248,6 @@ public final class ProjectSettingsView extends JPanel implements View {
         return repository;
     }
 
-    private static String agentContextPath(final Project project) {
-        return UiText.valueOrDefault(project.agentContextPath(), "");
-    }
-
-    private static String agentContextText(final Project project) {
-        return UiText.valueOrDefault(project.agentContextText(), "");
-    }
-
     /* package */ static void saveProject(
             final AppState state,
             final Project project,
@@ -250,7 +257,7 @@ public final class ProjectSettingsView extends JPanel implements View {
             final JTextArea startup,
             final JTextField agentContextPath,
             final JTextArea agentContextText,
-            final JComboBox<GitHub.Auth> githubAuth,
+            final JComboBox<Credential> githubAuth,
             final Runnable close) {
         final String updatedName = name.getText().trim();
         if (updatedName.isBlank()) {
@@ -272,21 +279,19 @@ public final class ProjectSettingsView extends JPanel implements View {
         }
         final String updatedGroup =
                 group.getText().isBlank() ? Defaults.DEFAULT_GROUP : group.getText().trim();
-        final GitHub.Auth selected = (GitHub.Auth) githubAuth.getSelectedItem();
+        final Credential selected = (Credential) githubAuth.getSelectedItem();
         final Project updated =
                 new Project(
                         updatedName,
                         project.path(),
                         updatedGroup,
-                        selected == null ? null : selected.host(),
-                        selected == null ? null : selected.user(),
+                        selected,
                         template.getText().trim(),
                         project.worktreeCommand(),
                         GlobalSettingsView.lines(startup.getText()),
                         project.sessionIds(),
                         agentContextPath.getText().trim(),
-                        agentContextText.getText(),
-                        selected == null ? null : selected.connectionId());
+                        agentContextText.getText());
         state.projects().entrySet().stream()
                 .filter(entry -> entry.getValue().equals(project))
                 .map(Map.Entry::getKey)
@@ -313,7 +318,7 @@ public final class ProjectSettingsView extends JPanel implements View {
             final JTextArea startup,
             final JTextField agentContextPath,
             final JTextArea agentContextText,
-            final JComboBox<GitHub.Auth> githubAuth) {
+            final JComboBox<Credential> githubAuth) {
         return !initialName.equals(name.getText().trim())
                 || !initialGroup.equals(
                         group.getText().isBlank() ? Defaults.DEFAULT_GROUP : group.getText().trim())
@@ -325,6 +330,6 @@ public final class ProjectSettingsView extends JPanel implements View {
                         initialConnectionId,
                         githubAuth.getSelectedItem() == null
                                 ? null
-                                : ((GitHub.Auth) githubAuth.getSelectedItem()).connectionId());
+                                : ((Credential) githubAuth.getSelectedItem()).id());
     }
 }

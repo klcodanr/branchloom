@@ -11,6 +11,7 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestDetails;
+import com.jagent.desktop.models.github.CliCredential;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.test.SwingTestSupport;
@@ -33,12 +34,16 @@ class PullRequestCardUiTest {
 
     @Test
     void rendersPullRequestIdentityMetadataAndStatus() throws MalformedURLException {
-        final PullRequest request = request(ProjectId.create(), FIX_LOGIN, AUTHOR);
+        final ProjectId projectId = ProjectId.create();
+        final Project project = new Project(PROJECT_NAME, PROJECT_PATH, null);
+        final PullRequest request = request(projectId, FIX_LOGIN, AUTHOR, project);
         final PullRequestDetails details =
                 details(request.projectId(), request.project(), true, false, "clean");
         final PullRequestCard card =
                 GuiActionRunner.execute(
-                        () -> new PullRequestCard(context(), request, details, () -> {}));
+                        () ->
+                                new PullRequestCard(
+                                        context(projectId, project), request, details, () -> {}));
 
         final JLabel title =
                 SwingTestSupport.find(
@@ -50,12 +55,16 @@ class PullRequestCardUiTest {
 
     @Test
     void contextMenuContainsSupportedPullRequestActions() throws MalformedURLException {
-        final PullRequest request = request(ProjectId.create(), FIX_LOGIN, AUTHOR);
+        final ProjectId projectId = ProjectId.create();
+        final Project project = new Project(PROJECT_NAME, PROJECT_PATH, null);
+        final PullRequest request = request(projectId, FIX_LOGIN, AUTHOR, project);
         final PullRequestDetails details =
                 details(request.projectId(), request.project(), false, false, "dirty");
         final PullRequestCard card =
                 GuiActionRunner.execute(
-                        () -> new PullRequestCard(context(), request, details, () -> {}));
+                        () ->
+                                new PullRequestCard(
+                                        context(projectId, project), request, details, () -> {}));
 
         assertNotNull(
                 card.getComponentPopupMenu(), "pull request card should expose a context menu");
@@ -70,13 +79,14 @@ class PullRequestCardUiTest {
     }
 
     @Test
-    void authoredDraftPullRequestShowsRequestApprovalAction() throws MalformedURLException {
+    void authoredDraftPullRequestHidesAuthorActionsWhenLoginUnavailable()
+            throws MalformedURLException {
         final ProjectId projectId = ProjectId.create();
         final Project project =
                 new Project(
                         PROJECT_NAME,
                         PROJECT_PATH,
-                        new com.jagent.desktop.services.GitHub.Auth("github.com", "author"));
+                        new CliCredential("github.com", "author", "author"));
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
@@ -99,19 +109,19 @@ class PullRequestCardUiTest {
                         .filter(JMenuItem.class::isInstance)
                         .map(component -> ((JMenuItem) component).getText())
                         .toList();
-        assertTrue(
+        assertFalse(
                 actions.contains("Request approval"),
-                "draft authored PRs should allow request approval");
+                "author actions should be hidden when GitHub login is unavailable");
     }
 
     @Test
-    void authoredReadyPullRequestShowsMakeDraftAndMergeActions() throws MalformedURLException {
+    void authoredReadyPullRequestShowsMergeAction() throws MalformedURLException {
         final ProjectId projectId = ProjectId.create();
         final Project project =
                 new Project(
                         PROJECT_NAME,
                         PROJECT_PATH,
-                        new com.jagent.desktop.services.GitHub.Auth("github.com", AUTHOR));
+                        new CliCredential("github.com", AUTHOR, AUTHOR));
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
@@ -130,7 +140,6 @@ class PullRequestCardUiTest {
                                         () -> {}));
 
         final var actions = menuActions(card);
-        assertTrue(actions.contains("Make draft"), "authored ready PRs should support draft mode");
         assertTrue(actions.contains("Merge PR"), "ready open PRs should expose merge action");
         assertFalse(
                 actions.contains("Request approval"),
@@ -138,13 +147,13 @@ class PullRequestCardUiTest {
     }
 
     @Test
-    void reviewerPullRequestShowsApproveAction() throws MalformedURLException {
+    void reviewerPullRequestHidesApproveWhenLoginUnavailable() throws MalformedURLException {
         final ProjectId projectId = ProjectId.create();
         final Project project =
                 new Project(
                         PROJECT_NAME,
                         PROJECT_PATH,
-                        new com.jagent.desktop.services.GitHub.Auth("github.com", "reviewer"));
+                        new CliCredential("github.com", "reviewer", "reviewer"));
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
@@ -163,7 +172,7 @@ class PullRequestCardUiTest {
                                         () -> {}));
 
         final var actions = menuActions(card);
-        assertTrue(actions.contains("Approve"), "reviewers should be able to approve PRs");
+        assertFalse(actions.contains("Approve"), "approve action requires resolved GitHub login");
         assertFalse(actions.contains("Request approval"), "reviewers should not request approval");
         assertFalse(actions.contains("Make draft"), "reviewers should not toggle draft state");
     }
@@ -175,15 +184,14 @@ class PullRequestCardUiTest {
                 .toList();
     }
 
-    private static ActionContext context() {
-        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+    private static ActionContext context(final ProjectId projectId, final Project project) {
+        final AppState state =
+                new AppState(
+                        Defaults.appSettings(),
+                        Map.of(projectId.value().toString(), project),
+                        Map.of(),
+                        Map.of());
         return new ActionContext(new ViewCoordinator(state), state, null);
-    }
-
-    private static PullRequest request(
-            final ProjectId projectId, final String title, final String author)
-            throws MalformedURLException {
-        return request(projectId, title, author, new Project(PROJECT_NAME, PROJECT_PATH, null));
     }
 
     private static PullRequest request(

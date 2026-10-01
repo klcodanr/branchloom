@@ -1,12 +1,12 @@
 package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.async.BackgroundOperations;
-import com.jagent.desktop.models.GitHubConnection;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
-import com.jagent.desktop.services.GitHub;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
+import com.jagent.desktop.services.github.GitHub;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
@@ -42,10 +42,11 @@ public final class PullRequestSummaryPanel extends JPanel {
     private final transient Map<String, String> bodyByRequest = new HashMap<>();
     private final transient Set<String> loadingBodies = new HashSet<>();
     private transient PullRequest displayedRequest;
-    private transient Map<String, GitHubConnection> configuredConnections = Map.of();
+    private final transient AppState appState;
 
-    public PullRequestSummaryPanel() {
+    public PullRequestSummaryPanel(final AppState appState) {
         super(new BorderLayout(0, UiConstants.SPACING_MD));
+        this.appState = appState;
         setOpaque(false);
         setBorder(
                 new EmptyBorder(
@@ -53,12 +54,6 @@ public final class PullRequestSummaryPanel extends JPanel {
                         UiConstants.SPACING_XS,
                         UiConstants.SPACING_XS,
                         UiConstants.SPACING_XS));
-    }
-
-    public void setConfiguredConnections(
-            final Map<String, GitHubConnection> configuredConnections) {
-        this.configuredConnections =
-                configuredConnections == null ? Map.of() : Map.copyOf(configuredConnections);
     }
 
     public void render(final PullRequest request, final PullRequestDetails details) {
@@ -102,7 +97,7 @@ public final class PullRequestSummaryPanel extends JPanel {
         center.add(bodyPanel);
         add(center, BorderLayout.CENTER);
         loadBodyAsync(request, generation, bodyKey, bodyPanel, body);
-        loadChecksAsync(request, generation, checksKey);
+        loadChecksAsync(appState, request, generation, checksKey);
     }
 
     private JPanel top(final PullRequest request, final PullRequestDetails details) {
@@ -300,7 +295,10 @@ public final class PullRequestSummaryPanel extends JPanel {
     }
 
     private void loadChecksAsync(
-            final PullRequest request, final long generation, final String checksKey) {
+            final AppState appState,
+            final PullRequest request,
+            final long generation,
+            final String checksKey) {
         if (checksByRequest.containsKey(checksKey) || loadingChecks.contains(checksKey)) {
             return;
         }
@@ -308,7 +306,7 @@ public final class PullRequestSummaryPanel extends JPanel {
         BackgroundOperations.submit(
                         "Pull Requests",
                         "load-pr-checks",
-                        () -> GitHub.getChecks(request, configuredConnections))
+                        () -> GitHub.forProject(appState, request.projectId()).getChecks(request))
                 .thenAcceptAsync(
                         pullRequestChecks -> {
                             loadingChecks.remove(checksKey);

@@ -2,10 +2,8 @@ package com.jagent.desktop.models;
 
 import com.jagent.desktop.ui.components.Theme;
 import java.awt.Color;
-import java.io.IOException;
 import java.util.List;
 import org.jetbrains.annotations.NotNull;
-import org.kohsuke.github.GHPullRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,27 +18,6 @@ public record PullRequestDetails(
         @NotNull int deletions,
         @NotNull int changedFiles) {
     private static final Logger LOG = LoggerFactory.getLogger(PullRequestDetails.class);
-
-    public static PullRequestDetails fromPullRequest(
-            @NotNull final ProjectId projectId,
-            @NotNull final Project project,
-            @NotNull final GHPullRequest request) {
-        try {
-            return new PullRequestDetails(
-                    projectId,
-                    project,
-                    request.getNumber(),
-                    request.isDraft(),
-                    Boolean.TRUE.equals(request.getMergeable()),
-                    request.getMergeableState() == null ? "" : request.getMergeableState(),
-                    request.getAdditions(),
-                    request.getDeletions(),
-                    request.getChangedFiles());
-        } catch (IOException exception) {
-            throw new IllegalStateException(
-                    "Could not load pull request details " + request.getNumber(), exception);
-        }
-    }
 
     public enum Status {
         READY,

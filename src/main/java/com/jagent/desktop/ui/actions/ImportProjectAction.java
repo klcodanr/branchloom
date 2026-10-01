@@ -5,9 +5,9 @@ import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
-import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.services.git.GitRepository;
+import com.jagent.desktop.services.github.GitHubAuth;
 import com.jagent.desktop.ui.dialogs.ImportProjectDialog;
 import com.jagent.desktop.ui.utils.ErrorDialogs;
 import com.jagent.desktop.ui.utils.ErrorMessages;
@@ -44,7 +44,7 @@ public final class ImportProjectAction extends BaseAction {
                         actionContext,
                         TITLE,
                         "Loading GitHub accounts...",
-                        () -> GitHub.configuredAuths(actionContext.appState()))
+                        () -> new GitHubAuth().listCredentials(actionContext.appState()))
                 .thenAccept(
                         configuredAuths ->
                                 new ImportProjectDialog(
