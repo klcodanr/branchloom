@@ -259,7 +259,7 @@ public final class GitRepository implements AutoCloseable {
         final String remote = ref.substring(0, separator);
         final String branch = ref.substring(separator + 1);
 
-        GitNative.run(this.repositoryPath, FETCH, remote, branch + ":" + branch);
+        GitNative.run(this.repositoryPath, FETCH, remote, branch);
     }
 
     public boolean isPruneableWorktree() throws IOException {
