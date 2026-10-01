@@ -7,7 +7,6 @@ import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
 import com.jagent.desktop.services.terminal.TerminalState;
-import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.utils.ClipboardImagePaster;
 import com.jediterm.core.Color;
 import com.jediterm.terminal.CursorShape;
@@ -40,13 +39,14 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import javax.swing.BoundedRangeModel;
-import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollBar;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 import org.jetbrains.annotations.Nullable;
 
 /** UI attachment for a managed terminal runtime. */
@@ -393,7 +393,8 @@ public final class TerminalPanel extends JPanel {
     }
 
     private static final class AppJediTermWidget extends JediTermWidget {
-        private boolean linkActivationAllowed;
+        private boolean modifiedClickLinkActivationAllowed;
+        private boolean contextMenuLinkActivationAllowed;
 
         private AppJediTermWidget(
                 final int columns,
@@ -438,7 +439,7 @@ public final class TerminalPanel extends JPanel {
         }
 
         private boolean isLinkActivationAllowed() {
-            return linkActivationAllowed;
+            return modifiedClickLinkActivationAllowed || contextMenuLinkActivationAllowed;
         }
 
         @Override
@@ -454,7 +455,11 @@ public final class TerminalPanel extends JPanel {
                 final StyleState styleState,
                 final TerminalTextBuffer textBuffer) {
             return new AppTerminalPanel(
-                    settings, textBuffer, styleState, allowed -> linkActivationAllowed = allowed);
+                    settings,
+                    textBuffer,
+                    styleState,
+                    allowed -> modifiedClickLinkActivationAllowed = allowed,
+                    allowed -> contextMenuLinkActivationAllowed = allowed);
         }
     }
 
@@ -463,18 +468,27 @@ public final class TerminalPanel extends JPanel {
                 && (event.isControlDown() || event.isShiftDown());
     }
 
+    protected static boolean isModifiedLinkActivationEvent(final java.awt.event.MouseEvent event) {
+        return event.getID() == java.awt.event.MouseEvent.MOUSE_CLICKED
+                && event.getButton() == java.awt.event.MouseEvent.BUTTON1
+                && (event.isControlDown() || event.isMetaDown());
+    }
+
     private static final class AppTerminalPanel extends com.jediterm.terminal.ui.TerminalPanel {
         private transient TerminalStarter terminalStarter;
         private transient Point lastMousePoint;
-        private final transient Consumer<Boolean> linkActivationChanged;
+        private final transient Consumer<Boolean> modifiedClickLinkActivationChanged;
+        private final transient Consumer<Boolean> contextMenuLinkActivationChanged;
 
         private AppTerminalPanel(
                 final com.jediterm.terminal.ui.settings.SettingsProvider settings,
                 final TerminalTextBuffer textBuffer,
                 final StyleState styleState,
-                final Consumer<Boolean> linkActivationChanged) {
+                final Consumer<Boolean> modifiedClickLinkActivationChanged,
+                final Consumer<Boolean> contextMenuLinkActivationChanged) {
             super(settings, textBuffer, styleState);
-            this.linkActivationChanged = linkActivationChanged;
+            this.modifiedClickLinkActivationChanged = modifiedClickLinkActivationChanged;
+            this.contextMenuLinkActivationChanged = contextMenuLinkActivationChanged;
             setTransferHandler(
                     new TransferHandler() {
                         @Override
@@ -513,24 +527,37 @@ public final class TerminalPanel extends JPanel {
         @Override
         protected void processMouseEvent(final java.awt.event.MouseEvent event) {
             lastMousePoint = event.getPoint();
-            linkActivationChanged.accept(
-                    event.getID() == java.awt.event.MouseEvent.MOUSE_CLICKED
-                            && event.getButton() == java.awt.event.MouseEvent.BUTTON1
-                            && (event.isControlDown() || event.isMetaDown()));
+            modifiedClickLinkActivationChanged.accept(isModifiedLinkActivationEvent(event));
             super.processMouseEvent(event);
-            linkActivationChanged.accept(false);
+            modifiedClickLinkActivationChanged.accept(false);
         }
 
         @Override
         protected JPopupMenu createPopupMenu(
                 final com.jediterm.terminal.ui.TerminalActionProvider actionProvider) {
-            final JPopupMenu menu = super.createPopupMenu(actionProvider);
             final String link = linkAt(lastMousePoint);
+            contextMenuLinkActivationChanged.accept(link != null);
+            final JPopupMenu menu = super.createPopupMenu(actionProvider);
             if (link != null) {
-                final JMenuItem copyLink = new JMenuItem("Copy Link");
-                copyLink.addActionListener(ignored -> CopyPathAction.copy(link));
-                menu.addSeparator();
-                menu.add(copyLink);
+                menu.addPopupMenuListener(
+                        new PopupMenuListener() {
+                            @Override
+                            public void popupMenuWillBecomeVisible(final PopupMenuEvent event) {
+                                contextMenuLinkActivationChanged.accept(true);
+                            }
+
+                            @Override
+                            public void popupMenuWillBecomeInvisible(final PopupMenuEvent event) {
+                                contextMenuLinkActivationChanged.accept(false);
+                            }
+
+                            @Override
+                            public void popupMenuCanceled(final PopupMenuEvent event) {
+                                contextMenuLinkActivationChanged.accept(false);
+                            }
+                        });
+            } else {
+                contextMenuLinkActivationChanged.accept(false);
             }
             return menu;
         }

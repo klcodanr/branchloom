@@ -17,6 +17,7 @@ import com.jediterm.terminal.TtyConnector;
 import com.jediterm.terminal.emulator.ColorPalette;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -193,6 +194,69 @@ class TerminalPanelUiTest {
         assertTrue(
                 !TerminalPanel.isLiteralNewlineShortcut(plainEnter),
                 "plain enter should keep default terminal behavior");
+    }
+
+    @Test
+    void onlyTreatsModifiedLeftClickAsLinkActivationEvent() {
+        final JPanel source = new JPanel();
+
+        final MouseEvent controlLeftClick =
+                new MouseEvent(
+                        source,
+                        MouseEvent.MOUSE_CLICKED,
+                        System.currentTimeMillis(),
+                        InputEvent.CTRL_DOWN_MASK,
+                        10,
+                        10,
+                        1,
+                        false,
+                        MouseEvent.BUTTON1);
+        final MouseEvent metaLeftClick =
+                new MouseEvent(
+                        source,
+                        MouseEvent.MOUSE_CLICKED,
+                        System.currentTimeMillis(),
+                        InputEvent.META_DOWN_MASK,
+                        10,
+                        10,
+                        1,
+                        false,
+                        MouseEvent.BUTTON1);
+        final MouseEvent plainLeftClick =
+                new MouseEvent(
+                        source,
+                        MouseEvent.MOUSE_CLICKED,
+                        System.currentTimeMillis(),
+                        0,
+                        10,
+                        10,
+                        1,
+                        false,
+                        MouseEvent.BUTTON1);
+        final MouseEvent rightClick =
+                new MouseEvent(
+                        source,
+                        MouseEvent.MOUSE_CLICKED,
+                        System.currentTimeMillis(),
+                        InputEvent.CTRL_DOWN_MASK,
+                        10,
+                        10,
+                        1,
+                        false,
+                        MouseEvent.BUTTON3);
+
+        assertTrue(
+                TerminalPanel.isModifiedLinkActivationEvent(controlLeftClick),
+                "control+left click should activate links directly");
+        assertTrue(
+                TerminalPanel.isModifiedLinkActivationEvent(metaLeftClick),
+                "meta+left click should activate links directly");
+        assertTrue(
+                !TerminalPanel.isModifiedLinkActivationEvent(plainLeftClick),
+                "plain left click should not activate links directly");
+        assertTrue(
+                !TerminalPanel.isModifiedLinkActivationEvent(rightClick),
+                "right click should not be treated as direct link activation");
     }
 
     @Test
