@@ -1,8 +1,8 @@
 package com.jagent.desktop.ui.components;
 
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
-import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
@@ -10,6 +10,8 @@ import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.utils.ClipboardImagePaster;
 import com.jediterm.core.Color;
+import com.jediterm.terminal.CursorShape;
+import com.jediterm.terminal.HyperlinkStyle;
 import com.jediterm.terminal.TerminalColor;
 import com.jediterm.terminal.TerminalCopyPasteHandler;
 import com.jediterm.terminal.TerminalStarter;
@@ -35,6 +37,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import javax.swing.BoundedRangeModel;
 import javax.swing.JMenuItem;
@@ -44,7 +47,6 @@ import javax.swing.JPopupMenu;
 import javax.swing.JScrollBar;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
-import javax.swing.UIManager;
 import org.jetbrains.annotations.Nullable;
 
 /** UI attachment for a managed terminal runtime. */
@@ -195,8 +197,10 @@ public final class TerminalPanel extends JPanel {
                 () -> {
                     terminal.setTtyConnector(connector);
                     terminal.start();
-                    BackgroundTasks.submit(
-                            "Terminals", "agent-terminal-submit-command", runtime::submitCommand);
+                    BackgroundOperations.submit(
+                            "Terminals",
+                            "agent-terminal-submit-command",
+                            Executors.callable(runtime::submitCommand));
                 });
     }
 
@@ -214,26 +218,29 @@ public final class TerminalPanel extends JPanel {
                 });
     }
 
-    private static final class AppTerminalSettings extends DefaultSettingsProvider {
-        private static final String FOCUS_COLOR = "Component.focusColor";
-        private static final String LABEL_FOREGROUND = "Label.foreground";
-        private static final String PANEL_BACKGROUND = "Panel.background";
+    protected static final class AppTerminalSettings extends DefaultSettingsProvider {
         private static final ColorPalette PALETTE =
                 new ColorPalette() {
                     @Override
                     protected Color getForegroundByColorIndex(final int index) {
-                        return index == 7
-                                ? toTerminalColor(UIManager.getColor(LABEL_FOREGROUND))
-                                : ColorPaletteImpl.XTERM_PALETTE.getForeground(
-                                        TerminalColor.index(index));
+                        return terminalColorByIndex(index, false);
                     }
 
                     @Override
                     protected Color getBackgroundByColorIndex(final int index) {
-                        return index == 0
-                                ? toTerminalColor(UIManager.getColor(PANEL_BACKGROUND))
-                                : ColorPaletteImpl.XTERM_PALETTE.getBackground(
-                                        TerminalColor.index(index));
+                        return terminalColorByIndex(index, true);
+                    }
+
+                    private Color terminalColorByIndex(final int index, final boolean background) {
+                        final java.awt.Color defaultColor =
+                                background
+                                        ? fromTerminalColor(
+                                                ColorPaletteImpl.XTERM_PALETTE.getBackground(
+                                                        TerminalColor.index(index)))
+                                        : fromTerminalColor(
+                                                ColorPaletteImpl.XTERM_PALETTE.getForeground(
+                                                        TerminalColor.index(index)));
+                        return toTerminalColor(ansiColor(index, defaultColor, background));
                     }
                 };
 
@@ -254,28 +261,134 @@ public final class TerminalPanel extends JPanel {
 
         @Override
         public TerminalColor getDefaultForeground() {
-            return terminalColor(UIManager.getColor(LABEL_FOREGROUND));
+            return terminalColor(Theme.Colors.foreground());
         }
 
         @Override
         public TerminalColor getDefaultBackground() {
-            return terminalColor(UIManager.getColor(PANEL_BACKGROUND));
+            return terminalColor(Theme.Colors.background());
+        }
+
+        @Override
+        public TextStyle getDefaultStyle() {
+            return new TextStyle(getDefaultForeground(), getDefaultBackground());
         }
 
         @Override
         public TextStyle getSelectionColor() {
+            final java.awt.Color selectionBackground = Theme.Colors.focus();
             return new TextStyle(
-                    terminalColor(UIManager.getColor(LABEL_FOREGROUND)),
-                    terminalColor(UIManager.getColor(FOCUS_COLOR)));
+                    terminalColor(contrastingForeground(selectionBackground)),
+                    terminalColor(selectionBackground));
+        }
+
+        @Override
+        public boolean useInverseSelectionColor() {
+            return false;
+        }
+
+        @Override
+        public TextStyle getFoundPatternColor() {
+            final java.awt.Color foundPatternBackground = Theme.Colors.warning();
+            return new TextStyle(
+                    terminalColor(contrastingForeground(foundPatternBackground)),
+                    terminalColor(foundPatternBackground));
         }
 
         @Override
         public TextStyle getHyperlinkColor() {
-            final var focusColor = UIManager.getColor(FOCUS_COLOR);
             return new TextStyle(
-                    terminalColor(
-                            focusColor == null ? UIManager.getColor(LABEL_FOREGROUND) : focusColor),
-                    terminalColor(UIManager.getColor(PANEL_BACKGROUND)));
+                    terminalColor(Theme.Colors.focus()), terminalColor(Theme.Colors.background()));
+        }
+
+        @Override
+        public HyperlinkStyle.HighlightMode getHyperlinkHighlightingMode() {
+            return HyperlinkStyle.HighlightMode.ALWAYS;
+        }
+
+        @Override
+        public int caretBlinkingMs() {
+            return 650;
+        }
+
+        private static java.awt.Color ansiColor(
+                final int index, final java.awt.Color fallback, final boolean background) {
+            final java.awt.Color panelBackground = Theme.Colors.background();
+            final java.awt.Color labelForeground = Theme.Colors.foreground();
+            final java.awt.Color disabledForeground = Theme.Colors.muted();
+
+            final java.awt.Color blue = Theme.Colors.focus();
+            final java.awt.Color magenta = Theme.Colors.merge();
+            final java.awt.Color cyan = blend(Theme.Colors.success(), blue, 0.45f);
+            final java.awt.Color black = blend(panelBackground, labelForeground, 0.22f);
+            final java.awt.Color white = labelForeground;
+            final java.awt.Color[] ansi = {
+                background ? panelBackground : black,
+                Theme.Colors.danger(),
+                Theme.Colors.success(),
+                Theme.Colors.warning(),
+                blue,
+                magenta,
+                cyan,
+                white,
+                disabledForeground,
+                lift(Theme.Colors.danger(), 0.22f),
+                lift(Theme.Colors.success(), 0.22f),
+                lift(Theme.Colors.warning(), 0.12f),
+                lift(blue, 0.22f),
+                lift(magenta, 0.18f),
+                lift(cyan, 0.16f),
+                lift(white, 0.08f)
+            };
+            if (index < 0 || index >= ansi.length) {
+                return fallback;
+            }
+            return ansi[index];
+        }
+
+        private static java.awt.Color contrastingForeground(final java.awt.Color background) {
+            final java.awt.Color panelBackground = Theme.Colors.background();
+            final java.awt.Color labelForeground = Theme.Colors.foreground();
+            final double labelContrast = contrastRatio(background, labelForeground);
+            final double panelContrast = contrastRatio(background, panelBackground);
+            return labelContrast >= panelContrast ? labelForeground : panelBackground;
+        }
+
+        private static java.awt.Color blend(
+                final java.awt.Color first, final java.awt.Color second, final float ratio) {
+            final float clampedRatio = Math.max(0f, Math.min(1f, ratio));
+            final float inverseRatio = 1f - clampedRatio;
+            return new java.awt.Color(
+                    Math.round(first.getRed() * inverseRatio + second.getRed() * clampedRatio),
+                    Math.round(first.getGreen() * inverseRatio + second.getGreen() * clampedRatio),
+                    Math.round(first.getBlue() * inverseRatio + second.getBlue() * clampedRatio));
+        }
+
+        private static java.awt.Color lift(final java.awt.Color color, final float amount) {
+            return blend(color, java.awt.Color.WHITE, amount);
+        }
+
+        private static double contrastRatio(
+                final java.awt.Color background, final java.awt.Color foreground) {
+            final double backgroundLuminance = relativeLuminance(background);
+            final double foregroundLuminance = relativeLuminance(foreground);
+            final double lighter = Math.max(backgroundLuminance, foregroundLuminance);
+            final double darker = Math.min(backgroundLuminance, foregroundLuminance);
+            return (lighter + 0.05d) / (darker + 0.05d);
+        }
+
+        private static double relativeLuminance(final java.awt.Color color) {
+            final double red = linearize(color.getRed() / 255d);
+            final double green = linearize(color.getGreen() / 255d);
+            final double blue = linearize(color.getBlue() / 255d);
+            return 0.2126d * red + 0.7152d * green + 0.0722d * blue;
+        }
+
+        private static double linearize(final double component) {
+            if (component <= 0.039_28d) {
+                return component / 12.92d;
+            }
+            return Math.pow((component + 0.055d) / 1.055d, 2.4d);
         }
     }
 
@@ -299,6 +412,7 @@ public final class TerminalPanel extends JPanel {
                             directory,
                             link -> TerminalFileLinkOpener.open(link, directory, owner),
                             this::isLinkActivationAllowed));
+            getTerminalPanel().setDefaultCursorShape(CursorShape.STEADY_BLOCK);
             getTerminalPanel()
                     .addCustomKeyListener(
                             new KeyAdapter() {
@@ -432,7 +546,7 @@ public final class TerminalPanel extends JPanel {
                 return null;
             }
             final var style = getTerminalTextBuffer().getStyleAt(column, row);
-            if (!(style instanceof com.jediterm.terminal.HyperlinkStyle hyperlink)) {
+            if (!(style instanceof HyperlinkStyle hyperlink)) {
                 return null;
             }
             return hyperlink.getLinkInfo() instanceof TerminalLinkInfo linkInfo
@@ -502,5 +616,9 @@ public final class TerminalPanel extends JPanel {
 
     private static Color toTerminalColor(final java.awt.Color color) {
         return new Color(color.getRed(), color.getGreen(), color.getBlue());
+    }
+
+    private static java.awt.Color fromTerminalColor(final Color color) {
+        return new java.awt.Color(color.getRed(), color.getGreen(), color.getBlue());
     }
 }

@@ -1,24 +1,27 @@
 package com.jagent.desktop.ui.dialogs;
 
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
-import com.jagent.desktop.services.Git;
+import com.jagent.desktop.models.git.Worktree;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.services.git.GitRepository;
+import com.jagent.desktop.ui.components.UiText;
 import java.awt.Window;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletionException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Offers recovery when an imported session points to a missing worktree. */
 public final class MissingWorktreeRecovery {
-    private static final Logger LOG = Logger.getLogger(MissingWorktreeRecovery.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(MissingWorktreeRecovery.class);
 
     private MissingWorktreeRecovery() {}
 
@@ -32,25 +35,39 @@ public final class MissingWorktreeRecovery {
         if (Files.isDirectory(worktree)) {
             return;
         }
-        final Git git = new Git();
-        git.checkPrunableWorktree(project, worktree)
-                .whenCompleteAsync(
-                        (prunable, failure) -> {
-                            if (failure != null) {
-                                LOG.log(Level.WARNING, "Check missing worktree", failure);
-                                return;
+        BackgroundOperations.submit(
+                        "Git",
+                        "check-missing-worktree",
+                        () -> {
+                            try (GitRepository repository =
+                                    GitRepository.open(Path.of(project.path()))) {
+                                final Path normalizedWorktree =
+                                        worktree.toAbsolutePath().normalize();
+                                return repository.listWorktrees().stream()
+                                        .filter(Worktree::prunable)
+                                        .filter(
+                                                candidate ->
+                                                        candidate
+                                                                .path()
+                                                                .toAbsolutePath()
+                                                                .normalize()
+                                                                .equals(normalizedWorktree))
+                                        .findFirst();
                             }
-                            showRecovery(actionContext, project, session, prunable, git);
-                        },
-                        SwingUtilities::invokeLater);
+                        })
+                .thenAccept(prunable -> showRecovery(actionContext, project, session, prunable))
+                .exceptionally(
+                        failure -> {
+                            LOG.warn("Check missing worktree", failure);
+                            return null;
+                        });
     }
 
     private static void showRecovery(
             final ActionContext actionContext,
             final Project project,
             final Session session,
-            final Optional<Git.Worktree> prunable,
-            final Git git) {
+            final Optional<Worktree> prunable) {
         final Object[] options =
                 prunable.isPresent()
                         ? new Object[] {"Fix worktree", "Remove session", "Cancel"}
@@ -69,9 +86,9 @@ public final class MissingWorktreeRecovery {
             return;
         }
         if (prunable.isPresent() && choice == 0) {
-            restore(actionContext, project, prunable.get(), git);
+            restore(actionContext, project, prunable.get());
         } else {
-            remove(actionContext, project, session, git);
+            remove(actionContext, project, session);
         }
     }
 
@@ -84,17 +101,19 @@ public final class MissingWorktreeRecovery {
     }
 
     private static void restore(
-            final ActionContext actionContext,
-            final Project project,
-            final Git.Worktree worktree,
-            final Git git) {
-        git.restoreWorktree(project, worktree)
-                .whenCompleteAsync(
-                        (ignored, failure) -> {
-                            if (failure != null) {
-                                showError(actionContext.window(), "Fix worktree", failure);
-                                return;
+            final ActionContext actionContext, final Project project, final Worktree worktree) {
+        BackgroundOperations.submit(
+                        "Git",
+                        "restore-missing-worktree",
+                        () -> {
+                            try (GitRepository repository =
+                                    GitRepository.open(Path.of(project.path()))) {
+                                repository.restoreWorktree(worktree);
+                                return null;
                             }
+                        })
+                .thenAccept(
+                        ignored -> {
                             actionContext
                                     .viewCoordinator()
                                     .updateView(
@@ -102,33 +121,56 @@ public final class MissingWorktreeRecovery {
                                             ViewState.session(
                                                     actionContext.appState().currentProjectId(),
                                                     actionContext.appState().currentSessionId()));
-                        },
-                        SwingUtilities::invokeLater);
+                        })
+                .exceptionally(
+                        failure -> {
+                            showError(actionContext.window(), "Fix worktree", failure);
+                            return null;
+                        });
     }
 
     private static void remove(
-            final ActionContext actionContext,
-            final Project project,
-            final Session session,
-            final Git git) {
-        git.pruneWorktrees(project)
-                .whenCompleteAsync(
-                        (ignored, failure) -> {
-                            if (failure != null) {
-                                showError(actionContext.window(), "Remove session", failure);
+            final ActionContext actionContext, final Project project, final Session session) {
+        BackgroundOperations.submit(
+                        "Git",
+                        "prune-worktrees",
+                        () -> {
+                            try (GitRepository repository =
+                                    GitRepository.open(Path.of(project.path()))) {
+                                repository.pruneWorktrees(Path.of(project.path()));
+                                return null;
+                            }
+                        })
+                .thenAccept(
+                        ignored -> {
+                            final SessionId sessionId = actionContext.appState().currentSessionId();
+                            if (sessionId == null) {
                                 return;
                             }
-                            final SessionId sessionId = actionContext.appState().currentSessionId();
-                            if (sessionId != null) {
-                                actionContext.appState().removeSession(sessionId);
-                                actionContext
-                                        .viewCoordinator()
-                                        .updateView(
-                                                com.jagent.desktop.api.ViewId.PROJECT,
-                                                ViewState.project(session.projectId()));
+                            final var currentProjectId =
+                                    actionContext.appState().currentProjectId();
+                            final Session currentSession =
+                                    actionContext.appState().currentSession();
+                            if (currentProjectId == null
+                                    || currentSession == null
+                                    || !currentProjectId.equals(session.projectId())
+                                    || !Objects.equals(
+                                            currentSession.worktreePath(),
+                                            session.worktreePath())) {
+                                return;
                             }
-                        },
-                        SwingUtilities::invokeLater);
+                            actionContext.appState().removeSession(sessionId);
+                            actionContext
+                                    .viewCoordinator()
+                                    .updateView(
+                                            com.jagent.desktop.api.ViewId.PROJECT,
+                                            ViewState.project(session.projectId()));
+                        })
+                .exceptionally(
+                        failure -> {
+                            showError(actionContext.window(), "Remove session", failure);
+                            return null;
+                        });
     }
 
     private static void showError(final Window owner, final String title, final Throwable failure) {
@@ -138,7 +180,7 @@ public final class MissingWorktreeRecovery {
                         : failure;
         JOptionPane.showMessageDialog(
                 owner,
-                cause.getMessage() == null ? "Git operation failed." : cause.getMessage(),
+                UiText.valueOrDefault(cause.getMessage(), "Git operation failed."),
                 title,
                 JOptionPane.ERROR_MESSAGE);
     }

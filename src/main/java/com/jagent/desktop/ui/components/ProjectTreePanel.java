@@ -1,15 +1,16 @@
 package com.jagent.desktop.ui.components;
 
-import com.jagent.desktop.api.PullRequestInfo;
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
-import com.jagent.desktop.services.BackgroundTasks;
-import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
@@ -24,7 +25,6 @@ import java.awt.Rectangle;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
@@ -48,7 +48,7 @@ public final class ProjectTreePanel extends JPanel {
     private final JTree tree;
     private final DefaultMutableTreeNode root = new DefaultMutableTreeNode("Projects");
     private final transient Map<Session, TerminalState> sessionStates = new HashMap<>();
-    private final transient Map<Session, PullRequestInfo> pullRequestStatuses = new HashMap<>();
+    private final transient Map<Session, PullRequestDetails> pullRequestStatuses = new HashMap<>();
     private final transient ProjectTreeSynchronizer treeSynchronizer;
     private final SearchInput search;
     private Map<ProjectId, Project> renderedProjects = Map.of();
@@ -297,11 +297,11 @@ public final class ProjectTreePanel extends JPanel {
         final String agent = session.agent();
         final String promptValue = session.prompt();
         final String worktreePath = session.worktreePath();
-        String prompt = promptValue == null ? "" : promptValue.trim();
+        String prompt = UiText.valueOrDefault(promptValue, "").trim();
         if (prompt.length() > 140) {
             prompt = prompt.substring(0, 137) + "...";
         }
-        final PullRequestInfo pullRequest = pullRequestStatuses.get(session);
+        final PullRequestDetails pullRequest = pullRequestStatuses.get(session);
         final String pullRequestHtml =
                 pullRequest == null ? "" : "<br>" + GitFormatter.statusHtml(pullRequest);
         return "<html><b>"
@@ -317,22 +317,27 @@ public final class ProjectTreePanel extends JPanel {
     }
 
     private void loadPullRequestStatus(final Project project, final Session session) {
-        BackgroundTasks.submit(
+        BackgroundOperations.submit(
                 "Pull requests",
                 "left-nav-pr-status",
                 () -> {
-                    try {
-                        final GitHub.PullRequestDetails details =
-                                GitHub.loadCurrent(project, Path.of(session.worktreePath()));
-                        final PullRequestInfo status = details;
-                        SwingUtilities.invokeLater(
-                                () -> {
-                                    pullRequestStatuses.put(session, status);
-                                    tree.repaint();
-                                });
-                    } catch (IOException | InterruptedException | RuntimeException ignored) {
-                        // A branch without a pull request has no PR tooltip details.
-                    }
+                    final ProjectId projectId = session.projectId();
+                    final GitHub github = GitHub.forProject(actionContext.appState(), projectId);
+                    final String sessionWorktreePath = session.worktreePath();
+                    final String worktreePath =
+                            sessionWorktreePath == null || sessionWorktreePath.isBlank()
+                                    ? project.path()
+                                    : sessionWorktreePath;
+                    final PullRequest pullRequest = github.getPullRequest(Path.of(worktreePath));
+                    final PullRequestDetails pullRequestDetails =
+                            github.getPullRequestDetails(pullRequest);
+
+                    SwingUtilities.invokeLater(
+                            () -> {
+                                pullRequestStatuses.put(session, pullRequestDetails);
+                                tree.repaint();
+                            });
+                    return null;
                 });
     }
 
@@ -367,7 +372,6 @@ public final class ProjectTreePanel extends JPanel {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private void showContextMenu(final MouseEvent event) {
         final TreePath path = contextMenuPath(event.getX(), event.getY());
         if (path == null) {

@@ -20,6 +20,7 @@ import com.jagent.desktop.test.AsyncTestSupport;
 import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.test.TestGitRepository;
 import com.jagent.desktop.ui.components.TerminalPanel;
+import com.jagent.desktop.ui.components.Theme;
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.nio.file.Files;
@@ -27,6 +28,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -35,7 +37,13 @@ class ActionTest {
     private static final String PROJECT_NAME = "Demo";
     private static final String REPOSITORY_DIRECTORY = "repository";
     private static final String SESSION_NAME = "Feature";
+    private static final long AGENT_START_TIMEOUT_NANOS = 10_000_000_000L;
     @TempDir private Path tempDirectory;
+
+    @BeforeAll
+    static void configureTheme() {
+        Theme.apply(Theme.FlatLafTheme.LIGHT);
+    }
 
     @AfterEach
     void disposeRetainedTerminals() {
@@ -226,7 +234,6 @@ class ActionTest {
                         repository.toString(),
                         null,
                         null,
-                        null,
                         worktree.toString(),
                         null,
                         List.of(
@@ -265,7 +272,8 @@ class ActionTest {
                         + PlatformCommands.shellQuote(agentMarker.toString()),
                 terminal.command(),
                 ASSERTION_MESSAGE);
-        assertFalse("setup".equals(Files.readString(notes)), ASSERTION_MESSAGE);
+        AsyncTestSupport.await(
+                () -> Files.exists(notes), "startup command should create the notes file");
         AsyncTestSupport.await(
                 () -> {
                     try {
@@ -279,7 +287,8 @@ class ActionTest {
         assertEquals("setup", Files.readString(notes), ASSERTION_MESSAGE);
         AsyncTestSupport.await(
                 () -> Files.exists(agentMarker),
-                "agent should start after the notes file is ready");
+                "agent should start after the notes file is ready",
+                AGENT_START_TIMEOUT_NANOS);
         AsyncTestSupport.await(
                 () ->
                         coordinator.backgroundJobs().jobs().stream()

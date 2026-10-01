@@ -1,5 +1,6 @@
 package com.jagent.desktop.services;
 
+import com.jagent.desktop.ui.components.UiText;
 import java.awt.Desktop;
 import java.io.IOException;
 import java.net.URI;
@@ -9,13 +10,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Platform-specific command construction shared by process and UI services. */
-@SuppressWarnings("PMD.GodClass")
 public final class PlatformCommands {
-    private static final Logger LOG = Logger.getLogger(PlatformCommands.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(PlatformCommands.class);
     private static volatile String discoveredPath;
 
     private PlatformCommands() {}
@@ -37,10 +37,10 @@ public final class PlatformCommands {
     public static String userShell() {
         if (isWindows()) {
             final String commandShell = System.getenv("ComSpec");
-            return commandShell == null || commandShell.isBlank() ? "cmd" : commandShell;
+            return UiText.valueOrDefault(commandShell, "cmd");
         }
         final String shell = System.getenv("SHELL");
-        return shell == null || shell.isBlank() ? "/bin/sh" : shell;
+        return UiText.valueOrDefault(shell, "/bin/sh");
     }
 
     public static String terminalCommand() {
@@ -57,7 +57,7 @@ public final class PlatformCommands {
         try {
             Desktop.getDesktop().browse(URI.create(url));
         } catch (IOException e) {
-            LOG.log(Level.SEVERE, "Failed to open URL: " + url, e);
+            LOG.error("Failed to open URL: {}", url, e);
         }
     }
 
@@ -81,22 +81,21 @@ public final class PlatformCommands {
 
     public static void logFailure(
             final ProcessBuilder builder, final int exitCode, final String output) {
-        LOG.warning(
+        LOG.warn(
                 "Command failed (exit code "
                         + exitCode
                         + "): "
                         + describe(builder)
                         + System.lineSeparator()
                         + "Output: "
-                        + (output == null || output.isBlank() ? "<none>" : output.trim())
+                        + UiText.valueOrDefault(output, "<none>").trim()
                         + System.lineSeparator()
                         + "Reproduce: "
                         + reproduce(builder));
     }
 
     public static void logStartFailure(final ProcessBuilder builder, final IOException exception) {
-        LOG.log(
-                Level.WARNING,
+        LOG.warn(
                 "Could not start command: "
                         + describe(builder)
                         + System.lineSeparator()
@@ -168,10 +167,13 @@ public final class PlatformCommands {
             final int markerIndex = output.lastIndexOf(marker);
             if (exitCode == 0 && markerIndex >= 0) {
                 final String path = output.substring(markerIndex + marker.length()).trim();
-                LOG.info("Shell environment discovered using login shell " + shell);
+                JsonLogging.info(
+                        PlatformCommands.class,
+                        "Shell environment discovered",
+                        java.util.Map.of("shell", shell));
                 return path;
             }
-            LOG.warning(
+            LOG.warn(
                     "Shell environment discovery failed for "
                             + shell
                             + " (exit code "
@@ -179,15 +181,14 @@ public final class PlatformCommands {
                             + "); using fallback PATH. Output: "
                             + output.trim());
         } catch (IOException exception) {
-            LOG.log(
-                    Level.WARNING,
+            LOG.warn(
                     "Shell environment discovery could not start for "
                             + shell
                             + "; using fallback PATH",
                     exception);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            LOG.log(Level.WARNING, "Shell environment discovery was interrupted", exception);
+            LOG.warn("Shell environment discovery was interrupted", exception);
         }
         return null;
     }

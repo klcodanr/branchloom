@@ -1,7 +1,7 @@
 package com.jagent.desktop.models;
 
+import com.jagent.desktop.models.github.Credential;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.ui.Defaults;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,8 +13,7 @@ public record Project(
         String name,
         String path,
         @Nullable String group,
-        @Nullable String githubHost,
-        @Nullable String githubUser,
+        @Nullable Credential credential,
         @Nullable String worktreeTemplate,
         @Nullable String worktreeCommand,
         List<String> startupCommands,
@@ -26,41 +25,16 @@ public record Project(
         sessionIds = sessionIds == null ? List.of() : List.copyOf(sessionIds);
     }
 
-    public Project(final String name, final String path, final GitHub.Auth auth) {
+    public Project(final String name, final String path, final Credential credential) {
         this(
                 name,
                 path,
                 Defaults.DEFAULT_GROUP,
-                auth != null ? auth.host() : null,
-                auth != null ? auth.user() : null,
+                credential,
                 null,
                 null,
                 List.of(),
                 List.of(),
-                null,
-                null);
-    }
-
-    public Project(
-            final String name,
-            final String path,
-            final String group,
-            final String githubHost,
-            final String githubUser,
-            final String worktreeTemplate,
-            final String worktreeCommand,
-            final List<String> startupCommands,
-            final List<SessionId> sessionIds) {
-        this(
-                name,
-                path,
-                group,
-                githubHost,
-                githubUser,
-                worktreeTemplate,
-                worktreeCommand,
-                startupCommands,
-                sessionIds,
                 null,
                 null);
     }
@@ -76,8 +50,7 @@ public record Project(
                 name,
                 this.path,
                 this.group,
-                this.githubHost,
-                this.githubUser,
+                this.credential,
                 this.worktreeTemplate,
                 this.worktreeCommand,
                 this.startupCommands,
@@ -91,8 +64,7 @@ public record Project(
                 this.name,
                 this.path,
                 group,
-                this.githubHost,
-                this.githubUser,
+                this.credential,
                 this.worktreeTemplate,
                 this.worktreeCommand,
                 this.startupCommands,
@@ -108,8 +80,7 @@ public record Project(
                 this.name,
                 this.path,
                 this.group,
-                this.githubHost,
-                this.githubUser,
+                this.credential,
                 this.worktreeTemplate,
                 this.worktreeCommand,
                 this.startupCommands,
@@ -123,8 +94,7 @@ public record Project(
                 this.name,
                 this.path,
                 this.group,
-                this.githubHost,
-                this.githubUser,
+                this.credential,
                 this.worktreeTemplate,
                 this.worktreeCommand,
                 this.startupCommands,

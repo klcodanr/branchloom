@@ -15,7 +15,6 @@ import com.jagent.desktop.ui.actions.RenameSessionAction;
 import com.jagent.desktop.ui.actions.RunCommandAction;
 import com.jagent.desktop.ui.actions.UpdateBranchAction;
 import java.awt.Container;
-import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.JSeparator;
@@ -56,39 +55,48 @@ public final class SessionActions {
                         actionContext, sessionId, new RenameSessionAction(actionContext)));
         final JMenuItem removeSession =
                 sessionActionItem(actionContext, sessionId, new RemoveSessionAction(actionContext));
-        removeSession.setForeground(Theme.dangerColor());
+        removeSession.setForeground(Theme.Colors.danger());
         menu.add(removeSession);
     }
 
     private static void addAgents(
             final Container menu, final ActionContext actionContext, final SessionId sessionId) {
-        final JMenu agents = new JMenu("Agents");
+        boolean added = false;
         for (final Agent agent : actionContext.appState().appSettings().agents()) {
-            agents.add(
+            if (!added) {
+                addSectionHeading(menu, "Agents");
+                added = true;
+            }
+            menu.add(
                     sessionActionItem(
                             actionContext,
                             sessionId,
                             new CreateTerminalAction(
                                     actionContext, agent.name, agent.openCommand)));
         }
-        if (agents.getItemCount() > 0) {
-            menu.add(agents);
-        }
     }
 
     private static void addEditors(
             final Container menu, final ActionContext actionContext, final SessionId sessionId) {
-        final JMenu editors = new JMenu("Editors");
+        boolean added = false;
         for (final Tool editor : actionContext.appState().appSettings().tools()) {
-            editors.add(
+            if (!added) {
+                addSectionHeading(menu, "Editors");
+                added = true;
+            }
+            menu.add(
                     sessionActionItem(
                             actionContext,
                             sessionId,
                             new RunCommandAction(actionContext, editor.label(), editor.command())));
         }
-        if (editors.getItemCount() > 0) {
-            menu.add(editors);
-        }
+    }
+
+    private static void addSectionHeading(final Container menu, final String label) {
+        menu.add(new JSeparator());
+        final JMenuItem heading = new JMenuItem(label);
+        heading.setEnabled(false);
+        menu.add(heading);
     }
 
     private static JMenuItem sessionActionItem(

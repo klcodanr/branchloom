@@ -5,30 +5,31 @@ import static com.jagent.desktop.ui.components.UiFactory.form;
 
 import com.jagent.desktop.api.BaseAction;
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
-import com.jagent.desktop.services.BackgroundTasks;
-import com.jagent.desktop.services.GitHub;
+import com.jagent.desktop.models.github.Credential;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.services.github.GitHubAuth;
 import com.jagent.desktop.ui.components.GitHubAuthSelector;
-import com.jagent.desktop.ui.dialogs.ProgressOperation;
+import com.jagent.desktop.ui.components.UiText;
 import java.awt.Dimension;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.logging.Logger;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Starts the workflow for adding an existing local project. */
 public class CreateProjectAction extends BaseAction {
 
-    private static final Logger LOG = Logger.getLogger(CreateProjectAction.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(CreateProjectAction.class);
     private static final String ADD_PROJECT_TITLE = "Add local project";
     private final String targetGroup;
 
@@ -53,55 +54,34 @@ public class CreateProjectAction extends BaseAction {
 
     @Override
     public void execute() {
-        final ProgressOperation progress =
-                ProgressOperation.start(
-                        this.actionContext.window(),
+        ProgressOperation.run(
+                        this.actionContext,
                         ADD_PROJECT_TITLE,
-                        "Loading GitHub accounts...");
-        BackgroundTasks.submit("Operations", "Load GitHub accounts", GitHub::configuredAuths)
-                .whenComplete(
-                        (configuredAuths, failure) ->
-                                SwingUtilities.invokeLater(
-                                        () -> {
-                                            progress.close();
-                                            if (failure != null) {
-                                                LOG.severe(
-                                                        "Add local project: Failed to load GitHub accounts.");
-                                                return;
-                                            }
-                                            showDialog(configuredAuths);
-                                        }));
+                        "Loading GitHub accounts...",
+                        () -> new GitHubAuth().listCredentials(this.actionContext.appState()))
+                .thenAccept(this::showDialog)
+                .exceptionally(
+                        failure -> {
+                            LOG.error("Add local project: Failed to load GitHub accounts.");
+                            return null;
+                        });
     }
 
-    protected static boolean duplicateName(
-            final java.util.Collection<Project> projects, final String name) {
-        return projects.stream().anyMatch(project -> project.name().equalsIgnoreCase(name));
-    }
-
-    protected static boolean duplicatePath(
-            final java.util.Collection<Project> projects, final Path path) {
-        return projects.stream()
-                .anyMatch(
-                        project ->
-                                path.equals(Path.of(project.path()).toAbsolutePath().normalize()));
-    }
-
-    protected static String initialDirectory(final String folderPath) {
-        final String trimmedPath = folderPath.trim();
-        return trimmedPath.isBlank() ? System.getProperty("user.home") : trimmedPath;
-    }
-
-    private void showDialog(final java.util.List<GitHub.Auth> configuredAuths) {
+    private void showDialog(final java.util.List<Credential> configuredAuths) {
         final var appState = this.actionContext.appState();
         final JTextField name = new JTextField(35);
         final JTextField path = new JTextField(35);
-        final JComboBox<GitHub.Auth> githubAuth =
+        final JComboBox<Credential> githubAuth =
                 GitHubAuthSelector.renderConfigured(configuredAuths);
         githubAuth.setPreferredSize(new Dimension(350, githubAuth.getPreferredSize().height));
         final JButton browse = button("Browse...");
         browse.addActionListener(
                 event -> {
-                    final JFileChooser chooser = new JFileChooser(initialDirectory(path.getText()));
+                    final JFileChooser chooser =
+                            new JFileChooser(
+                                    UiText.valueOrDefault(
+                                            path.getText().trim(),
+                                            System.getProperty("user.home")));
                     chooser.setDialogTitle("Select project folder");
                     chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
                     chooser.setAcceptAllFileFilterUsed(false);
@@ -121,7 +101,7 @@ public class CreateProjectAction extends BaseAction {
                         name,
                         "Project folder",
                         pathInput,
-                        "GitHub CLI auth",
+                        "GitHub connection",
                         githubAuth);
         if (JOptionPane.showConfirmDialog(
                         this.actionContext.window(),
@@ -134,12 +114,12 @@ public class CreateProjectAction extends BaseAction {
         final String projectName = name.getText().trim();
         final Path projectPath = Path.of(path.getText().trim()).toAbsolutePath().normalize();
         if (projectName.isBlank()) {
-            LOG.severe("Add local project: Project name is required.");
+            LOG.error("Add local project: Project name is required.");
             return;
         }
         if (!Files.isDirectory(projectPath)) {
             final String message = "The selected path is not a folder.";
-            LOG.severe("Add local project: " + message);
+            LOG.error("Add local project: {}", message);
             JOptionPane.showMessageDialog(
                     this.actionContext.window(),
                     message,
@@ -147,16 +127,16 @@ public class CreateProjectAction extends BaseAction {
                     JOptionPane.ERROR_MESSAGE);
             return;
         }
-        if (duplicatePath(appState.projects().values(), projectPath)) {
-            LOG.severe("Add local project: That project is already registered.");
+        if (appState.projects().values().stream()
+                .anyMatch(
+                        project ->
+                                project.name().equalsIgnoreCase(projectName)
+                                        || project.path().equals(projectPath.toString()))) {
+            LOG.error("Add local project: That project is already registered.");
             return;
         }
-        if (duplicateName(appState.projects().values(), projectName)) {
-            LOG.severe("Add local project: A project with that name already exists.");
-            return;
-        }
-        final GitHub.Auth auth =
-                githubAuth.getSelectedItem() instanceof GitHub.Auth selected ? selected : null;
+        final Credential auth =
+                githubAuth.getSelectedItem() instanceof Credential selected ? selected : null;
         final Project project = new Project(projectName, projectPath.toString(), auth);
         final ProjectId projectId =
                 appState.addProject(targetGroup == null ? project : project.withGroup(targetGroup));

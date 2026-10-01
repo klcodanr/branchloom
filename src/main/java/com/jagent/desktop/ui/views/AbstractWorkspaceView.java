@@ -12,9 +12,9 @@ import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiFactory;
 import com.jagent.desktop.ui.components.UiIcons;
-import com.jagent.desktop.ui.components.WorkspaceSplitPane;
 import com.jagent.desktop.ui.components.WorkspaceTerminalTabs;
-import com.jagent.desktop.ui.components.WorkspaceTreePanel;
+import com.jagent.desktop.ui.layout.WorkspaceSplitPane;
+import com.jagent.desktop.ui.layout.WorkspaceTreePanel;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -22,6 +22,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -29,6 +31,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 import javax.swing.JToolBar;
+import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
 abstract class AbstractWorkspaceView extends JPanel implements View {
@@ -36,6 +39,8 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
     protected final transient ViewCoordinator viewCoordinator;
     protected final JTabbedPane tabs = new JTabbedPane();
     protected WorkspaceSplitPane contentSplit = new WorkspaceSplitPane(tabs);
+    private final transient WorkspaceTreeSidebarController workspaceTreeSidebar =
+            new WorkspaceTreeSidebarController();
     private transient WorkspaceTerminalTabs terminalTabs;
     protected Map<TerminalPanel, TerminalId> terminalIds;
     private final ViewId viewId;
@@ -62,7 +67,12 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         tabs.putClientProperty("JTabbedPane.trailingComponent", trailingComponent);
         tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
         contentSplit = new WorkspaceSplitPane(tabs);
+        contentSplit.setResizeWeight(1.0);
+        contentSplit.setOpaque(false);
+        contentSplit.setBorder(null);
         add(contentSplit, BorderLayout.CENTER);
+        workspaceTreeSidebar.configure(
+                contentSplit, workspacePath(), actionContext, this::openTerminal, this::openFile);
         terminalTabs =
                 new WorkspaceTerminalTabs(
                         tabs,
@@ -103,11 +113,6 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
             header.add(actionArea, BorderLayout.EAST);
         }
         return header;
-    }
-
-    public final WorkspaceTreePanel workspaceTreePanel() {
-        return new WorkspaceTreePanel(
-                actionContext, workspacePath(), this::openTerminal, this::openFile);
     }
 
     protected abstract Path workspacePath();
@@ -279,6 +284,74 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
             if (tabs.getComponentAt(i) instanceof TerminalPanel terminal) {
                 terminal.dispose();
             }
+        }
+    }
+
+    private static final class WorkspaceTreeSidebarController {
+        private static final int EXPANDED_WORKSPACE_TREE_WIDTH = 220;
+        private static final int COLLAPSED_WORKSPACE_TREE_WIDTH = 32;
+        private static final int WORKSPACE_TREE_DIVIDER_SIZE = 8;
+        private final JPanel workspaceTreeContainer = new JPanel(new BorderLayout());
+        private WorkspaceSplitPane contentSplit;
+
+        private WorkspaceTreeSidebarController() {
+            super();
+            workspaceTreeContainer.setOpaque(false);
+        }
+
+        private void configure(
+                final WorkspaceSplitPane splitPane,
+                final Path workspacePath,
+                final ActionContext actionContext,
+                final Consumer<Path> openTerminal,
+                final BiConsumer<Path, Boolean> openFile) {
+            workspaceTreeContainer.removeAll();
+            contentSplit = splitPane;
+            if (!Files.isDirectory(workspacePath)) {
+                contentSplit.setRightComponent(null);
+                return;
+            }
+            final WorkspaceTreePanel treePanel =
+                    new WorkspaceTreePanel(actionContext, workspacePath, openTerminal, openFile);
+            treePanel.setBorder(UiFactory.contentAreaBorder());
+            treePanel.setHideAction(() -> hideWorkspaceTree(treePanel));
+            contentSplit.setRightComponent(workspaceTreeContainer);
+            hideWorkspaceTree(treePanel);
+        }
+
+        private void showWorkspaceTree(final WorkspaceTreePanel treePanel) {
+            workspaceTreeContainer.removeAll();
+            workspaceTreeContainer.add(treePanel, BorderLayout.CENTER);
+            workspaceTreeContainer.setMinimumSize(new Dimension(EXPANDED_WORKSPACE_TREE_WIDTH, 0));
+            workspaceTreeContainer.setPreferredSize(
+                    new Dimension(EXPANDED_WORKSPACE_TREE_WIDTH, 0));
+            contentSplit.setDividerSize(WORKSPACE_TREE_DIVIDER_SIZE);
+            contentSplit.setDividerLocation(0.75);
+            workspaceTreeContainer.revalidate();
+            workspaceTreeContainer.repaint();
+        }
+
+        private void hideWorkspaceTree(final WorkspaceTreePanel treePanel) {
+            final JPanel dock = new JPanel(new BorderLayout());
+            dock.setOpaque(false);
+            dock.setMinimumSize(new Dimension(COLLAPSED_WORKSPACE_TREE_WIDTH, 0));
+            dock.setPreferredSize(new Dimension(COLLAPSED_WORKSPACE_TREE_WIDTH, 0));
+            final JButton filesButton = UiFactory.iconButton(UiIcons.folderOpen(), "Show files");
+            filesButton.setName("show-files-button");
+            filesButton.addActionListener(ignored -> showWorkspaceTree(treePanel));
+            dock.add(filesButton, BorderLayout.NORTH);
+            workspaceTreeContainer.removeAll();
+            workspaceTreeContainer.add(dock, BorderLayout.CENTER);
+            workspaceTreeContainer.setMinimumSize(new Dimension(COLLAPSED_WORKSPACE_TREE_WIDTH, 0));
+            workspaceTreeContainer.setPreferredSize(
+                    new Dimension(COLLAPSED_WORKSPACE_TREE_WIDTH, 0));
+            contentSplit.setDividerSize(0);
+            workspaceTreeContainer.revalidate();
+            workspaceTreeContainer.repaint();
+            SwingUtilities.invokeLater(
+                    () ->
+                            contentSplit.setDividerLocation(
+                                    contentSplit.getWidth() - dock.getPreferredSize().width));
         }
     }
 }

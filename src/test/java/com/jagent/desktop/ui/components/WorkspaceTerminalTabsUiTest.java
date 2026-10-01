@@ -13,6 +13,7 @@ import java.util.function.Consumer;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 import org.assertj.swing.edt.GuiActionRunner;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class WorkspaceTerminalTabsUiTest {
@@ -23,6 +24,11 @@ class WorkspaceTerminalTabsUiTest {
             "12345678901234567890123456789012345678901234567890123456789012345";
     private static final String TRUNCATED_LONG_TITLE =
             "1234567890123456789012345678901234567890123456789012345678901...";
+
+    @BeforeAll
+    static void configureTheme() {
+        Theme.apply(Theme.FlatLafTheme.LIGHT);
+    }
 
     @Test
     void mountsWithoutStartingUnselectedTerminal() {

@@ -1,17 +1,18 @@
 package com.jagent.desktop.ui.components;
 
-import com.jagent.desktop.api.PullRequestInfo;
-import com.jagent.desktop.services.Git;
+import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestChecks;
+import com.jagent.desktop.models.PullRequestDetails;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
-import javax.swing.UIManager;
-import javax.swing.text.BadLocationException;
-import javax.swing.text.DefaultHighlighter;
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 
 /** Shared presentation formatting for pull-request status values. */
 public final class GitFormatter {
@@ -19,78 +20,40 @@ public final class GitFormatter {
 
     private GitFormatter() {}
 
-    public static String detailsHtml(final PullRequestInfo request) {
-        final String lifecycle = request.draft() ? "Draft" : UiText.titleCase(request.state());
+    public static String detailsHtml(final PullRequest request, final PullRequestDetails details) {
+        final String lifecycle =
+                details != null && details.draft()
+                        ? "Draft"
+                        : UiText.titleCase(request.state().toString());
         return "<html><b>#"
                 + request.number()
                 + "</b>  "
                 + UiText.escapeHtml(request.title())
                 + "<br>"
                 + "<font color='"
-                + UiText.colorHex(UIManager.getColor(UiConstants.DISABLED_FOREGROUND))
+                + UiText.colorHex(Theme.Colors.muted())
                 + "'>"
                 + lifecycle
-                + "  ·  "
-                + reviewStatus(request.reviewDecision())
-                + "  ·  "
-                + mergeStatus(request)
-                + "  ·  "
-                + checksSummary(
-                        request.checksPassed(), request.checksTotal(), request.checksStatus())
                 + "</font>"
                 + "</html>";
     }
 
-    public static String statusHtml(final PullRequestInfo request) {
+    public static String statusHtml(final PullRequestDetails details) {
+        final String status =
+                details == null ? "Loading" : UiText.titleCase(details.status().toString());
         final String color =
-                UiText.colorHex(
-                        UiText.pullRequestIndicatorColor(
-                                request.mergeState(), request.checksStatus()));
-        return "PR: <font color='"
-                + color
-                + "'>&#9679;</font> "
-                + mergeStatus(request)
-                + "  ·  Checks: "
-                + request.checksPassed()
-                + "/"
-                + request.checksTotal()
-                + " "
-                + UiText.titleCase(request.checksStatus());
+                UiText.colorHex(details == null ? Theme.Colors.muted() : details.indicatorColor());
+        return "PR: <font color='" + color + "'>&#9679;</font> " + status;
     }
 
-    public static String mergeStatus(final String value) {
-        if ("CLEAN".equals(value) || "MERGEABLE".equals(value)) {
-            return "Can merge";
-        }
-        if ("CONFLICTING".equals(value) || "DIRTY".equals(value)) {
-            return "Cannot merge";
-        }
-        if ("QUEUED".equals(value)) {
-            return "In merge queue";
-        }
-        return "Mergeability unknown";
+    public static String checksSummary(final PullRequestChecks checks) {
+        return checksPassed(checks)
+                + " checks "
+                + UiText.titleCase(checks.checksStatus().toString());
     }
 
-    private static String mergeStatus(final PullRequestInfo request) {
-        if ("MERGED".equals(request.state())) {
-            return "Merged";
-        }
-        if ("CLOSED".equals(request.state())) {
-            return "Closed";
-        }
-        return mergeStatus(request.mergeState());
-    }
-
-    public static String checksSummary(final int passed, final int total, final String status) {
-        return passed + "/" + total + " checks " + UiText.titleCase(status);
-    }
-
-    public static String statusSummary(final Git.WorktreeStatus status) {
-        final StringBuilder summary = new StringBuilder();
-        appendStatus(summary, '+', status.additions());
-        appendStatus(summary, '~', status.modifications());
-        appendStatus(summary, '-', status.deletions());
-        return summary.isEmpty() ? "Clean" : summary.toString();
+    public static String checksPassed(final PullRequestChecks checks) {
+        return checks.passed() + "/" + checks.total() + " passed";
     }
 
     public static void renderDiff(final JPanel diff, final String output) {
@@ -112,11 +75,11 @@ public final class GitFormatter {
                 constraints.insets = new Insets(0, 0, 0, UiConstants.COMPONENT_GAP);
                 constraints.gridx = 0;
                 final JLabel additions = UiFactory.label("+" + fields[0], Theme.FontSize.XS);
-                additions.setForeground(Theme.successColor());
+                additions.setForeground(Theme.Colors.success());
                 change.add(additions, constraints);
                 constraints.gridx = 1;
                 final JLabel deletions = UiFactory.label("-" + fields[1], Theme.FontSize.XS);
-                deletions.setForeground(Theme.dangerColor());
+                deletions.setForeground(Theme.Colors.danger());
                 change.add(deletions, constraints);
                 constraints.gridx = 2;
                 constraints.weightx = 1;
@@ -129,75 +92,31 @@ public final class GitFormatter {
         diff.repaint();
     }
 
-    public static void renderDiff(final JTextArea diff, final String output) {
+    public static void renderDiff(final RSyntaxTextArea diff, final String output) {
         diff.setText(output.isBlank() ? "No changes from HEAD." : output);
-        diff.getHighlighter().removeAllHighlights();
-        int offset = 0;
-        for (final String line : diff.getText().split("\\R", -1)) {
-            highlightDiffLine(diff, line, offset);
-            offset += line.length() + 1;
-        }
         diff.setCaretPosition(0);
     }
 
-    private static void highlightDiffLine(
-            final JTextArea diff, final String line, final int offset) {
-        final java.awt.Color color = diffLineColor(line);
-        if (color == null || line.isEmpty()) {
-            return;
+    /* default */ static List<Integer> changedLines(final String output) {
+        final List<Integer> changedLines = new ArrayList<>();
+        if (output.isBlank()) {
+            return changedLines;
         }
-        try {
-            diff.getHighlighter()
-                    .addHighlight(
-                            offset,
-                            offset + line.length(),
-                            new DefaultHighlighter.DefaultHighlightPainter(color));
-        } catch (BadLocationException ignored) {
-            // The text area can be updated while an asynchronous file load is completing.
+        final String[] lines = output.split("\\R", -1);
+        for (int line = 0; line < lines.length; line++) {
+            final String text = lines[line].stripLeading();
+            if (text.startsWith("+") && !text.startsWith("+++")) {
+                changedLines.add(line + 1);
+            } else if (text.startsWith("-") && !text.startsWith("---")) {
+                changedLines.add(-(line + 1));
+            }
         }
-    }
-
-    private static java.awt.Color diffLineColor(final String line) {
-        if (line.startsWith("+++") || line.startsWith("---")) {
-            return null;
-        }
-        if (line.startsWith("+")) {
-            return highlightColor(Theme.successColor(), new java.awt.Color(46, 125, 50));
-        }
-        if (line.startsWith("-")) {
-            return highlightColor(Theme.dangerColor(), new java.awt.Color(198, 40, 40));
-        }
-        if (line.startsWith("@@")) {
-            return highlightColor(Theme.warningColor(), new java.awt.Color(173, 80, 0));
-        }
-        return null;
-    }
-
-    private static java.awt.Color highlightColor(
-            final java.awt.Color color, final java.awt.Color fallback) {
-        final java.awt.Color value = color == null ? fallback : color;
-        return new java.awt.Color(value.getRGB() & 0x00FFFFFF | 0x30000000, true);
+        return List.copyOf(changedLines);
     }
 
     private static JTextArea value(final String text) {
         final var area = UiFactory.selectableText(text, Theme.FontSize.MD);
         area.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         return area;
-    }
-
-    private static void appendStatus(
-            final StringBuilder summary, final char marker, final int count) {
-        if (count > 0) {
-            if (!summary.isEmpty()) {
-                summary.append(' ');
-            }
-            summary.append(marker).append(count);
-        }
-    }
-
-    private static String reviewStatus(final String reviewDecision) {
-        return reviewDecision.isBlank()
-                ? "Review pending"
-                : "Review: " + UiText.titleCase(reviewDecision);
     }
 }

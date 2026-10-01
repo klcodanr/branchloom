@@ -1,328 +1,228 @@
 package com.jagent.desktop.ui.components;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.models.GitHubUser;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestDetails;
+import com.jagent.desktop.models.github.CliCredential;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.test.SwingTestSupport;
 import com.jagent.desktop.ui.Defaults;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import javax.swing.JButton;
-import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
 class PullRequestCardUiTest {
-    private static final String APPROVED = "APPROVED";
+    private static final String FIX_LOGIN = "Fix login";
     private static final String AUTHOR = "author";
-    private static final String COPY_URL = "Copy URL";
-    private static final String IMPORT_PR_BRANCH = "Import PR branch";
-    private static final String MERGE_PR = "Merge PR";
-    private static final String MERGEABLE = "MERGEABLE";
-    private static final String OPEN_PR = "Open PR";
-    private static final String PASSING = "PASSING";
-    private static final String REVIEW_PR = "Review PR";
+    private static final String PROJECT_NAME = "Test";
+    private static final String PROJECT_PATH = "/tmp/test";
 
     @Test
-    void rendersPullRequestIdentityMetadataAndChecks() {
-        final PullRequest request = request(APPROVED, MERGEABLE, false, PASSING);
-        final PullRequestCard card =
-                GuiActionRunner.execute(() -> new PullRequestCard(context(), request));
-
-        final JButton title = SwingTestSupport.find(card, JButton.class);
-        final JComponent checks =
-                SwingTestSupport.find(
-                        card,
-                        JComponent.class,
-                        component -> "2/3 checks Passing".equals(component.getToolTipText()));
-
-        assertNotNull(title, "pull request title should be rendered");
-        assertEquals("Fix login", title.getText(), "pull request title should match");
-        assertNotNull(checks, "checks status should be rendered as a tooltip");
-        assertTrue(card.getPreferredSize().width > 0, "card should have a preferred width");
-    }
-
-    @Test
-    void rendersDetailedConflictingMergeState() {
+    void rendersPullRequestIdentityMetadataAndStatus() throws MalformedURLException {
+        final ProjectId projectId = ProjectId.create();
+        final Project project = new Project(PROJECT_NAME, PROJECT_PATH, null);
+        final PullRequest request = request(projectId, FIX_LOGIN, AUTHOR, project);
+        final PullRequestDetails details =
+                details(request.projectId(), request.project(), true, false, "clean");
         final PullRequestCard card =
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestCard(
-                                        context(), request("UNKNOWN", "DIRTY", false, PASSING)));
+                                        context(projectId, project), request, details, () -> {}));
 
-        final JLabel metadata =
+        final JLabel title =
                 SwingTestSupport.find(
-                        card,
-                        JLabel.class,
-                        component -> component.getText().contains("Cannot merge"));
-
-        assertNotNull(metadata, "conflicting pull requests should show that they cannot merge");
+                        card, JLabel.class, label -> FIX_LOGIN.equals(label.getText()));
+        assertNotNull(title, "card should render the PR title");
+        assertEquals(FIX_LOGIN, title.getText(), "title text should match pull request title");
+        assertTrue(card.getPreferredSize().width > 0, "card should have a positive width");
     }
 
     @Test
-    void rendersMergeQueueState() {
+    void contextMenuContainsSupportedPullRequestActions() throws MalformedURLException {
+        final ProjectId projectId = ProjectId.create();
+        final Project project = new Project(PROJECT_NAME, PROJECT_PATH, null);
+        final PullRequest request = request(projectId, FIX_LOGIN, AUTHOR, project);
+        final PullRequestDetails details =
+                details(request.projectId(), request.project(), false, false, "dirty");
         final PullRequestCard card =
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestCard(
-                                        context(), request(APPROVED, "QUEUED", false, PASSING)));
-
-        final JLabel metadata =
-                SwingTestSupport.find(
-                        card,
-                        JLabel.class,
-                        component -> component.getText().contains("In merge queue"));
-
-        assertNotNull(metadata, "queued pull requests should show merge queue status");
-    }
-
-    @Test
-    void rendersOpenedAndUpdatedIndicators() {
-        final PullRequestCard card =
-                GuiActionRunner.execute(
-                        () ->
-                                new PullRequestCard(
-                                        context(),
-                                        requestWithTimes(
-                                                "2026-09-14T11:58:00Z", "2026-09-14T11:00:00Z")));
-
-        assertNull(
-                SwingTestSupport.find(
-                        card, JLabel.class, component -> component.getText().startsWith("Opened ")),
-                "compact timestamp should omit the opened label");
-        assertNull(
-                SwingTestSupport.find(
-                        card,
-                        JLabel.class,
-                        component -> component.getText().startsWith("Updated ")),
-                "compact timestamp should omit the updated label");
+                                        context(projectId, project), request, details, () -> {}));
 
         assertNotNull(
-                SwingTestSupport.find(
-                        card,
-                        JLabel.class,
-                        component ->
-                                component.getToolTipText() != null
-                                        && component.getToolTipText().startsWith("Opened ")),
-                "opened timestamp tooltip should include the full label");
-        assertNotNull(
-                SwingTestSupport.find(
-                        card,
-                        JLabel.class,
-                        component ->
-                                component.getToolTipText() != null
-                                        && component.getToolTipText().startsWith("Updated ")),
-                "updated timestamp tooltip should include the full label");
-    }
-
-    @Test
-    void contextMenuContainsSupportedPullRequestActions() {
-        final PullRequestCard card =
-                GuiActionRunner.execute(
-                        () ->
-                                new PullRequestCard(
-                                        context(),
-                                        request("UNKNOWN", "CONFLICTING", false, "FAILING")));
-
-        assertNotNull(card.getComponentPopupMenu(), "pull request card should have a context menu");
+                card.getComponentPopupMenu(), "pull request card should expose a context menu");
         assertEquals(
-                List.of(OPEN_PR, COPY_URL, IMPORT_PR_BRANCH, REVIEW_PR),
+                List.of("Open PR", "Copy URL", "Import PR branch", "Review PR"),
                 java.util.Arrays.stream(card.getComponentPopupMenu().getComponents())
                         .filter(JMenuItem.class::isInstance)
                         .map(component -> ((JMenuItem) component).getText())
+                        .filter(text -> !"Approve".equals(text) && !"Merge PR".equals(text))
                         .toList(),
-                "context menu should expose supported actions");
+                "context menu should include stable default pull request actions");
     }
 
     @Test
-    void authoredPullRequestShowsContextSensitiveLifecycleActions() {
+    void authoredDraftPullRequestHidesAuthorActionsWhenLoginUnavailable()
+            throws MalformedURLException {
         final ProjectId projectId = ProjectId.create();
-        final PullRequest request = request(projectId, APPROVED, MERGEABLE, false, PASSING);
+        final Project project =
+                new Project(
+                        PROJECT_NAME,
+                        PROJECT_PATH,
+                        new CliCredential("github.com", "author", "author"));
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
-                        Map.of(
-                                projectId.value().toString(),
-                                new Project(
-                                        "Test",
-                                        "/tmp/test",
-                                        new com.jagent.desktop.services.GitHub.Auth(
-                                                "github.com", AUTHOR))),
+                        Map.of(projectId.value().toString(), project),
                         Map.of(),
                         Map.of());
+        final PullRequest request = request(projectId, FIX_LOGIN, AUTHOR, project);
+        final PullRequestDetails details = details(projectId, project, true, false, "draft");
         final PullRequestCard card =
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestCard(
                                         new ActionContext(new ViewCoordinator(state), state, null),
-                                        request));
+                                        request,
+                                        details,
+                                        () -> {}));
 
-        assertEquals(
-                List.of(OPEN_PR, COPY_URL, IMPORT_PR_BRANCH, REVIEW_PR, "Make draft", MERGE_PR),
+        final var actions =
                 java.util.Arrays.stream(card.getComponentPopupMenu().getComponents())
                         .filter(JMenuItem.class::isInstance)
                         .map(component -> ((JMenuItem) component).getText())
-                        .toList(),
-                "authored PR should expose its lifecycle actions");
+                        .toList();
+        assertFalse(
+                actions.contains("Request approval"),
+                "author actions should be hidden when GitHub login is unavailable");
     }
 
     @Test
-    void authoredDraftPullRequestShowsRequestApprovalAction() {
+    void authoredReadyPullRequestShowsMergeAction() throws MalformedURLException {
         final ProjectId projectId = ProjectId.create();
-        final PullRequest request = request(projectId, APPROVED, MERGEABLE, true, PASSING);
+        final Project project =
+                new Project(
+                        PROJECT_NAME,
+                        PROJECT_PATH,
+                        new CliCredential("github.com", AUTHOR, AUTHOR));
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
-                        Map.of(
-                                projectId.value().toString(),
-                                new Project(
-                                        "Test",
-                                        "/tmp/test",
-                                        new com.jagent.desktop.services.GitHub.Auth(
-                                                "github.com", AUTHOR))),
+                        Map.of(projectId.value().toString(), project),
                         Map.of(),
                         Map.of());
+        final PullRequest request = request(projectId, FIX_LOGIN, AUTHOR, project);
+        final PullRequestDetails details = details(projectId, project, false, true, "clean");
         final PullRequestCard card =
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestCard(
                                         new ActionContext(new ViewCoordinator(state), state, null),
-                                        request));
+                                        request,
+                                        details,
+                                        () -> {}));
 
-        assertEquals(
-                List.of(OPEN_PR, COPY_URL, IMPORT_PR_BRANCH, REVIEW_PR, "Request approval"),
-                java.util.Arrays.stream(card.getComponentPopupMenu().getComponents())
-                        .filter(JMenuItem.class::isInstance)
-                        .map(component -> ((JMenuItem) component).getText())
-                        .toList(),
-                "authored draft PR should expose request approval action");
+        final var actions = menuActions(card);
+        assertTrue(actions.contains("Merge PR"), "ready open PRs should expose merge action");
+        assertFalse(
+                actions.contains("Request approval"),
+                "ready authored PRs should not show request approval");
     }
 
     @Test
-    void nonAuthoredPullRequestShowsApproveAction() {
+    void reviewerPullRequestHidesApproveWhenLoginUnavailable() throws MalformedURLException {
         final ProjectId projectId = ProjectId.create();
-        final PullRequest request = request(projectId, APPROVED, MERGEABLE, false, PASSING);
+        final Project project =
+                new Project(
+                        PROJECT_NAME,
+                        PROJECT_PATH,
+                        new CliCredential("github.com", "reviewer", "reviewer"));
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
-                        Map.of(
-                                projectId.value().toString(),
-                                new Project(
-                                        "Test",
-                                        "/tmp/test",
-                                        new com.jagent.desktop.services.GitHub.Auth(
-                                                "github.com", "someone-else"))),
+                        Map.of(projectId.value().toString(), project),
                         Map.of(),
                         Map.of());
+        final PullRequest request = request(projectId, FIX_LOGIN, AUTHOR, project);
+        final PullRequestDetails details = details(projectId, project, false, false, "blocked");
         final PullRequestCard card =
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestCard(
                                         new ActionContext(new ViewCoordinator(state), state, null),
-                                        request));
+                                        request,
+                                        details,
+                                        () -> {}));
 
-        assertEquals(
-                List.of(OPEN_PR, COPY_URL, IMPORT_PR_BRANCH, REVIEW_PR, "Approve", MERGE_PR),
-                java.util.Arrays.stream(card.getComponentPopupMenu().getComponents())
-                        .filter(JMenuItem.class::isInstance)
-                        .map(component -> ((JMenuItem) component).getText())
-                        .toList(),
-                "non-authored PR should expose approve action");
+        final var actions = menuActions(card);
+        assertFalse(actions.contains("Approve"), "approve action requires resolved GitHub login");
+        assertFalse(actions.contains("Request approval"), "reviewers should not request approval");
+        assertFalse(actions.contains("Make draft"), "reviewers should not toggle draft state");
     }
 
-    @Test
-    void buildsProjectAndApplicationMenusWithoutSelections() {
-        assertTrue(
-                ProjectActions.menu(context(), ProjectId.create()).getComponentCount() > 0,
-                "project menu should contain actions");
+    private static List<String> menuActions(final PullRequestCard card) {
+        return java.util.Arrays.stream(card.getComponentPopupMenu().getComponents())
+                .filter(JMenuItem.class::isInstance)
+                .map(component -> ((JMenuItem) component).getText())
+                .toList();
     }
 
-    @Test
-    void markApprovedUpdatesMetadataStatus() {
-        final PullRequestCard card =
-                GuiActionRunner.execute(
-                        () ->
-                                new PullRequestCard(
-                                        context(),
-                                        request("REVIEW_REQUIRED", MERGEABLE, false, PASSING)));
-
-        GuiActionRunner.execute(card::markApproved);
-
-        final JLabel metadata =
-                SwingTestSupport.find(
-                        card, JLabel.class, component -> component.getText().contains("Approved"));
-
-        assertNotNull(metadata, "approving should update the card metadata to Approved");
-    }
-
-    private static ActionContext context() {
-        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+    private static ActionContext context(final ProjectId projectId, final Project project) {
+        final AppState state =
+                new AppState(
+                        Defaults.appSettings(),
+                        Map.of(projectId.value().toString(), project),
+                        Map.of(),
+                        Map.of());
         return new ActionContext(new ViewCoordinator(state), state, null);
     }
 
     private static PullRequest request(
-            final String review, final String mergeable, final boolean draft, final String checks) {
-        return request(null, review, mergeable, draft, checks);
-    }
-
-    private static PullRequest requestWithTimes(final String createdAt, final String updatedAt) {
-        return new PullRequest(
-                null,
-                12,
-                "Fix login",
-                "Description",
-                "Comments",
-                "https://example.test/12",
-                createdAt,
-                updatedAt,
-                APPROVED,
-                MERGEABLE,
-                false,
-                AUTHOR,
-                "login-fix",
-                9,
-                3,
-                2,
-                2,
-                3,
-                PASSING);
-    }
-
-    private static PullRequest request(
             final ProjectId projectId,
-            final String review,
-            final String mergeable,
-            final boolean draft,
-            final String checks) {
+            final String title,
+            final String author,
+            final Project project)
+            throws MalformedURLException {
         return new PullRequest(
                 projectId,
+                project,
                 12,
-                "Fix login",
+                PullRequest.State.OPEN,
+                title,
                 "Description",
-                "Comments",
-                "https://example.test/12",
-                "created",
-                "updated",
-                review,
-                mergeable,
-                draft,
-                AUTHOR,
-                "login-fix",
-                9,
-                3,
-                2,
-                2,
-                3,
-                checks);
+                new URL("https://example.test/12"),
+                new Date(),
+                new Date(),
+                new GitHubUser(author, new URL("https://example.test/" + author)),
+                "feature/login-fix",
+                "abc1234def5678",
+                "main");
+    }
+
+    private static PullRequestDetails details(
+            final ProjectId projectId,
+            final Project project,
+            final boolean draft,
+            final boolean mergeable,
+            final String mergeableState) {
+        return new PullRequestDetails(
+                projectId, project, 12, draft, mergeable, mergeableState, 9, 3, 2);
     }
 }

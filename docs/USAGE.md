@@ -7,7 +7,7 @@ To start a session:
 1. Select a project and choose **New session**.
 2. Enter a session name and prompt, then select an agent.
 3. Branchloom creates a branch and worktree using the configured path template.
-4. Project startup commands run in order inside the new worktree.
+4. Project startup command files or commands run in order inside the new worktree.
 5. The selected agent starts in a terminal tab in that worktree.
 
 Clipboard images can be pasted into an embedded terminal using any of the terminal's paste actions,
@@ -27,9 +27,13 @@ and color output are supported.
 
 ## Pull Requests
 
-Each project has **My PRs** and **Review requests** views. Pull requests can be:
+Branchloom provides a global **Pull Requests** view and a project-level **Pull
+Requests** tab. Each view can use the configured pull-request filters. The
+default filters are **My PRs**, **Reviewable**, and **My Reviews**. Pull requests
+can be:
 
-- Filtered by number, title, author, or branch.
+- Filtered with a configured GitHub search query and searched locally by number,
+  title, author, description, or branch.
 - Grouped by draft/readiness, requested changes, readiness, and approval.
 - Opened in the system browser.
 - Imported into a new session through a fetched pull-request branch.
@@ -44,14 +48,15 @@ and requires an accessible GitHub remote and authentication.
 Open **Settings** to configure global defaults:
 
 - Default worktree path template.
-- Global startup commands, one command or script path per line.
 - Appearance theme.
 - Agent names, new-session commands, and open commands.
 - External editor names and commands.
 - Pull-request review prompt.
 
-Project settings can override the worktree path, startup commands, project group,
-and GitHub CLI account. A blank project override uses the global default.
+Project settings configure the repository path, startup command files or commands
+(one command or script path per line), agent context, project group, and GitHub
+connection. They can override the worktree path and use a blank worktree override
+to keep the global default.
 
 Worktree and startup command templates support:
 
@@ -84,8 +89,9 @@ The application stores data under `~/.branchloom`:
 
 - `settings.json`: global settings, agents, editors, theme, and review prompt.
 - `projects.json`: registered projects, sessions, and terminal tab metadata.
-- `logs.jsonl`: recorded command, terminal, pull-request, and persistence problems.
-- `settings.json.bak` and `projects.json.bak`: previous versions kept during saves.
+- `branchloom.log`: application events and errors in JSON-lines format.
+- `terminal-history/`: history files for retained terminal sessions.
 
-Settings and projects are written atomically where supported. The application can
-recover from the most recent JSON backup if a primary file cannot be read.
+Settings and projects are written through temporary files and atomically replaced
+where supported. If a settings or projects file cannot be read, the application
+logs the problem and loads defaults for that file.

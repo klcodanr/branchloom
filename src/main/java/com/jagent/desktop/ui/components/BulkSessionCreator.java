@@ -1,12 +1,11 @@
 package com.jagent.desktop.ui.components;
 
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.services.BackgroundJobs.Handle;
-import com.jagent.desktop.services.BackgroundTasks;
-import com.jagent.desktop.services.Git;
 import com.jagent.desktop.services.SessionCreationService;
 import com.jagent.desktop.services.SessionCreationService.CreatedSession;
 import com.jagent.desktop.ui.utils.ErrorMessages;
@@ -29,7 +28,7 @@ public final class BulkSessionCreator {
 
     public BulkSessionCreator(final ActionContext actionContext) {
         this.actionContext = actionContext;
-        sessionCreator = new SessionCreationService(actionContext.appState(), new Git());
+        sessionCreator = new SessionCreationService(actionContext.appState());
         sessionLauncher = new SessionLauncher(actionContext);
     }
 
@@ -44,7 +43,7 @@ public final class BulkSessionCreator {
                         .viewCoordinator()
                         .backgroundJobs()
                         .start(title, project.name(), "Multiple sessions");
-        BackgroundTasks.submit(
+        BackgroundOperations.submit(
                         "Sessions",
                         "bulk-create",
                         () -> createAll(projectId, project, agent, candidates, job))

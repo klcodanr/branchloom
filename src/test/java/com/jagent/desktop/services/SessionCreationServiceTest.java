@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.test.TestGitRepository;
 import java.io.IOException;
@@ -23,6 +24,7 @@ class SessionCreationServiceTest {
     private static final String SESSION_NAME = "Fix login";
     private static final String PROMPT = "prompt";
     private static final String WORKTREE_TEMPLATE = "worktrees/{sessionSlug}";
+    private static final String WORKTREE_DIRECTORY = "worktree";
 
     @Test
     void createsConfiguredWorktreeSessionAndTerminal(@TempDir final Path directory)
@@ -35,16 +37,17 @@ class SessionCreationServiceTest {
                         directory.toString(),
                         null,
                         null,
-                        null,
                         WORKTREE_TEMPLATE,
                         null,
                         java.util.List.of(),
-                        java.util.List.of());
+                        java.util.List.of(),
+                        null,
+                        null);
         final ProjectId projectId = state.addProject(project);
         final Agent agent = new Agent(AGENT_NAME, AGENT_COMMAND + " --prompt {prompt}");
 
         final SessionCreationService.CreatedSession created =
-                new SessionCreationService(state, new Git())
+                new SessionCreationService(state)
                         .create(projectId, project, agent, SESSION_NAME, "Investigate login", null);
 
         final Path worktree = Path.of(created.worktreePath());
@@ -89,18 +92,19 @@ class SessionCreationServiceTest {
                         directory.toString(),
                         null,
                         null,
-                        null,
                         WORKTREE_TEMPLATE,
                         null,
                         java.util.List.of(),
-                        java.util.List.of());
+                        java.util.List.of(),
+                        null,
+                        null);
         final ProjectId projectId = state.addProject(project);
 
         final IOException exception =
                 assertThrows(
                         IOException.class,
                         () ->
-                                new SessionCreationService(state, new Git())
+                                new SessionCreationService(state)
                                         .create(
                                                 projectId,
                                                 project,
@@ -126,15 +130,16 @@ class SessionCreationServiceTest {
                         directory.toString(),
                         null,
                         null,
-                        null,
                         WORKTREE_TEMPLATE,
                         null,
                         java.util.List.of(),
-                        java.util.List.of());
+                        java.util.List.of(),
+                        null,
+                        null);
         final ProjectId projectId = state.addProject(project);
 
         final SessionCreationService.CreatedSession created =
-                new SessionCreationService(state, new Git())
+                new SessionCreationService(state)
                         .create(
                                 projectId,
                                 project,
@@ -162,11 +167,12 @@ class SessionCreationServiceTest {
                         directory.toString(),
                         null,
                         null,
-                        null,
                         WORKTREE_TEMPLATE,
                         null,
                         java.util.List.of(),
-                        java.util.List.of());
+                        java.util.List.of(),
+                        null,
+                        null);
         final ProjectId projectId = state.addProject(project);
         Files.createDirectories(directory.resolve("worktrees/fix-login"));
 
@@ -174,7 +180,7 @@ class SessionCreationServiceTest {
                 assertThrows(
                         IOException.class,
                         () ->
-                                new SessionCreationService(state, new Git())
+                                new SessionCreationService(state)
                                         .create(
                                                 projectId,
                                                 project,
@@ -199,11 +205,12 @@ class SessionCreationServiceTest {
                         directory.toString(),
                         null,
                         null,
-                        null,
                         WORKTREE_TEMPLATE,
                         null,
                         java.util.List.of(),
-                        java.util.List.of());
+                        java.util.List.of(),
+                        null,
+                        null);
         final ProjectId projectId = state.addProject(project);
         state.addSession(
                 projectId,
@@ -218,7 +225,7 @@ class SessionCreationServiceTest {
                 assertThrows(
                         IOException.class,
                         () ->
-                                new SessionCreationService(state, new Git())
+                                new SessionCreationService(state)
                                         .create(
                                                 projectId,
                                                 project,
@@ -244,7 +251,7 @@ class SessionCreationServiceTest {
                 assertThrows(
                         IOException.class,
                         () ->
-                                new SessionCreationService(state, new Git())
+                                new SessionCreationService(state)
                                         .create(
                                                 projectId,
                                                 project,
@@ -256,5 +263,127 @@ class SessionCreationServiceTest {
         assertTrue(
                 exception.getCause() != null || exception.getMessage() != null,
                 "Git failures should retain an explanatory cause or message");
+    }
+
+    @Test
+    void checkCreateSessionRejectsMissingWorktreeDirectory(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+        final AppState state = TestAppState.empty();
+        final Project project = new Project(PROJECT_NAME, directory.toString(), null);
+
+        final IOException exception =
+                assertThrows(
+                        IOException.class,
+                        () ->
+                                new SessionCreationService(state)
+                                        .checkCreateSession(
+                                                project,
+                                                SESSION_NAME,
+                                                directory.resolve("missing-worktree")));
+
+        assertTrue(
+                exception.getMessage().contains("does not exist"),
+                "missing directory should be rejected");
+    }
+
+    @Test
+    void createSessionRegistersSessionUsingNormalizedPath(@TempDir final Path directory)
+            throws IOException, InterruptedException, java.io.InvalidObjectException {
+        TestGitRepository.initialize(directory);
+        final AppState state = TestAppState.empty();
+        final Project project = new Project(PROJECT_NAME, directory.toString(), null);
+        final ProjectId projectId = state.addProject(project);
+        final SessionCreationService service = new SessionCreationService(state);
+
+        final SessionId sessionId =
+                service.createSession(
+                        projectId,
+                        SESSION_NAME,
+                        AGENT_NAME,
+                        PROMPT,
+                        directory.resolve(".").resolve(WORKTREE_DIRECTORY));
+
+        assertEquals(
+                directory.resolve(WORKTREE_DIRECTORY).toAbsolutePath().normalize().toString(),
+                state.sessions().get(sessionId).worktreePath(),
+                "session should be registered with a normalized absolute path");
+    }
+
+    @Test
+    void checkCreateWorktreeAndSessionRejectsBlankLocalBranch(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+        final AppState state = TestAppState.empty();
+        final Project project = new Project(PROJECT_NAME, directory.toString(), null);
+        final SessionCreationService service = new SessionCreationService(state);
+
+        final IOException exception =
+                assertThrows(
+                        IOException.class,
+                        () ->
+                                service.checkCreateWorktreeAndSession(
+                                        project,
+                                        new SessionCreationService.SessionDetails(
+                                                SESSION_NAME, AGENT_NAME, PROMPT),
+                                        new SessionCreationService.WorktreeRequest(
+                                                directory.resolve(WORKTREE_DIRECTORY),
+                                                "HEAD",
+                                                " ")));
+
+        assertTrue(
+                exception.getMessage().contains("cannot be blank"),
+                "blank local branch should be rejected");
+    }
+
+    @Test
+    void checkFetchBranchCreateWorktreeAndSessionRejectsInvalidRemoteRef(
+            @TempDir final Path directory) throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+        final AppState state = TestAppState.empty();
+        final Project project = new Project(PROJECT_NAME, directory.toString(), null);
+        final SessionCreationService service = new SessionCreationService(state);
+
+        final IOException exception =
+                assertThrows(
+                        IOException.class,
+                        () ->
+                                service.checkFetchBranchCreateWorktreeAndSession(
+                                        project,
+                                        new SessionCreationService.SessionDetails(
+                                                SESSION_NAME, AGENT_NAME, PROMPT),
+                                        new SessionCreationService.WorktreeRequest(
+                                                directory.resolve(WORKTREE_DIRECTORY),
+                                                "feature",
+                                                null)));
+
+        assertTrue(
+                exception.getMessage().contains("Invalid remote branch reference"),
+                "source ref without remote prefix should be rejected");
+    }
+
+    @Test
+    void createWorktreeAndSessionCreatesWorktreeAndRegistersSession(@TempDir final Path directory)
+            throws IOException, InterruptedException, java.io.InvalidObjectException {
+        TestGitRepository.initialize(directory);
+        final AppState state = TestAppState.empty();
+        final Project project = new Project(PROJECT_NAME, directory.toString(), null);
+        final ProjectId projectId = state.addProject(project);
+        final SessionCreationService service = new SessionCreationService(state);
+        final Path worktree = directory.resolve("imported-worktree");
+        final SessionCreationService.SessionDetails details =
+                new SessionCreationService.SessionDetails(SESSION_NAME, AGENT_NAME, PROMPT);
+        final SessionCreationService.WorktreeRequest request =
+                new SessionCreationService.WorktreeRequest(worktree, "HEAD", "fix-login-import");
+
+        service.checkCreateWorktreeAndSession(project, details, request);
+        final SessionId sessionId =
+                service.createWorktreeAndSession(projectId, project, details, request);
+
+        assertTrue(Files.isDirectory(worktree), "worktree should be created on disk");
+        assertEquals(
+                worktree.toAbsolutePath().normalize().toString(),
+                state.sessions().get(sessionId).worktreePath(),
+                "session should point to the created worktree path");
     }
 }

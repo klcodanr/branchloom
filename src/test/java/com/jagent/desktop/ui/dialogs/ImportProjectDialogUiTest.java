@@ -11,6 +11,7 @@ import java.awt.GraphicsEnvironment;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.JFrame;
@@ -87,6 +88,7 @@ class ImportProjectDialogUiTest {
                         () ->
                                 new ImportProjectDialog(
                                         new ActionContext(new ViewCoordinator(state), state, owner),
+                                        List.of(),
                                         request::set));
         final DialogFixture fixture = new DialogFixture(robot, dialog);
 

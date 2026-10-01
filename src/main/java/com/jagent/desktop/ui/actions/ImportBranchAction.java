@@ -4,52 +4,40 @@ import static com.jagent.desktop.ui.components.UiFactory.form;
 
 import com.jagent.desktop.api.BaseAction;
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
-import com.jagent.desktop.models.Session;
+import com.jagent.desktop.models.git.Branch;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.Git;
-import com.jagent.desktop.services.Template;
+import com.jagent.desktop.services.SessionCreationService;
+import com.jagent.desktop.services.SessionCreationService.SessionDetails;
+import com.jagent.desktop.services.SessionCreationService.WorktreeRequest;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.services.git.GitRepository;
+import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.ui.components.SearchableList;
-import com.jagent.desktop.ui.dialogs.ProgressOperation;
-import com.jagent.desktop.ui.utils.GitUtils;
+import com.jagent.desktop.ui.utils.ErrorDialogs;
+import com.jagent.desktop.ui.utils.ErrorMessages;
 import com.jagent.desktop.ui.utils.SessionNames;
-import java.awt.Cursor;
-import java.io.InvalidObjectException;
-import java.nio.file.Files;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
 
 /** Starts importing a branch into the selected project. */
-public class ImportBranchAction extends BaseAction {
+public final class ImportBranchAction extends BaseAction {
     private static final String TITLE = "Import branch";
     private static final String EMPTY_MESSAGE = "No branches are available to import.";
-    private static final Logger LOG = Logger.getLogger(ImportBranchAction.class.getName());
 
-    protected record BranchChoice(String displayName, String ref, boolean remote) {
+    private record BranchChoice(String displayName, String ref, boolean remote, String localName) {
         @Override
         public String toString() {
             return displayName;
-        }
-
-        protected String localName() {
-            if (!remote) {
-                return ref;
-            }
-            final int separator = ref.indexOf('/');
-            return separator < 0 ? ref : ref.substring(separator + 1);
         }
     }
 
@@ -81,30 +69,21 @@ public class ImportBranchAction extends BaseAction {
             return;
         }
 
-        final ProgressOperation progress =
-                ProgressOperation.start(actionContext.window(), TITLE, "Loading branches...");
-        actionContext.window().setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-        new Git()
-                .listBranches(project)
-                .whenCompleteAsync(
-                        (branches, failure) -> {
-                            if (failure != null) {
-                                progress.close();
-                                actionContext.window().setCursor(Cursor.getDefaultCursor());
-                                LOG.log(Level.SEVERE, "Git query", failure);
-                                return;
+        ProgressOperation.run(
+                        actionContext,
+                        TITLE,
+                        "Loading branches...",
+                        () -> {
+                            try (GitRepository repository =
+                                    GitRepository.open(Path.of(project.path()))) {
+                                return repository.listBranches();
                             }
-                            progress.close();
-                            actionContext.window().setCursor(Cursor.getDefaultCursor());
+                        })
+                .thenAccept(
+                        branches -> {
                             final List<BranchChoice> choices =
                                     branches.stream()
-                                            .map(
-                                                    branch ->
-                                                            new BranchChoice(
-                                                                    branch.name(),
-                                                                    branch.name(),
-                                                                    branch.remote()))
-                                            .distinct()
+                                            .map(ImportBranchAction::choice)
                                             .sorted(Comparator.comparing(BranchChoice::displayName))
                                             .toList();
                             if (choices.isEmpty()) {
@@ -116,11 +95,12 @@ public class ImportBranchAction extends BaseAction {
                                 return;
                             }
 
-                            final SearchableList<BranchChoice> branch =
+                            final SearchableList<BranchChoice> branchList =
                                     new SearchableList<>(
                                             choices, "import-branches", "Search branches");
-                            branch.setVisibleRowCount(Math.min(12, Math.max(4, choices.size())));
-                            final var branchForm = form("Existing branches", branch);
+                            branchList.setVisibleRowCount(
+                                    Math.min(12, Math.max(4, choices.size())));
+                            final var branchForm = form("Existing branches", branchList);
                             if (JOptionPane.showConfirmDialog(
                                             actionContext.window(),
                                             branchForm,
@@ -130,139 +110,164 @@ public class ImportBranchAction extends BaseAction {
                                 return;
                             }
 
-                            final List<BranchChoice> selected = branch.selectedValues();
+                            final List<BranchChoice> selected = branchList.selectedValues();
                             if (selected.isEmpty()) {
                                 return;
                             }
                             final Set<String> names =
                                     SessionNames.existing(actionContext.appState(), project);
-                            for (final BranchChoice choice : selected) {
-                                final String name = SessionNames.unique(choice.localName(), names);
+                            for (final BranchChoice selectedBranch : selected) {
+                                final String name =
+                                        SessionNames.unique(selectedBranch.localName(), names);
                                 names.add(name.toLowerCase(Locale.ROOT));
-                                importBranch(actionContext, projectId, choice, name);
+                                importBranch(actionContext, projectId, selectedBranch, name);
                             }
-                        },
-                        SwingUtilities::invokeLater);
-    }
-
-    protected static String uniqueName(final String base, final Set<String> names) {
-        return SessionNames.unique(base, names);
-    }
-
-    public static void importBranch(
-            final ActionContext actionContext,
-            final ProjectId projectId,
-            final BranchChoice branch,
-            final String sessionName) {
-        final Git git = new Git();
-        final String description = "Imported branch " + branch.displayName();
-        importWorktree(
-                actionContext,
-                projectId,
-                sessionName,
-                description,
-                worktree -> {
-                    final Project project = actionContext.appState().projects().get(projectId);
-                    return git.addWorktree(
-                            project, branch.ref(), worktree, branch.remote(), branch.localName());
-                });
+                        })
+                .exceptionally(
+                        failure -> {
+                            ErrorDialogs.show(
+                                    actionContext.window(),
+                                    TITLE,
+                                    ErrorMessages.deepestCause(
+                                            failure, "Could not load branches."));
+                            return null;
+                        });
     }
 
     public static void importPullRequest(
             final ActionContext actionContext, final PullRequest request) {
-        final Git git = new Git();
+        final AppState state = actionContext.appState();
         final ProjectId projectId = request.projectId();
-        final String sessionName = request.title();
-        final String description = "Imported pull request #" + request.number();
-        importWorktree(
-                actionContext,
-                projectId,
-                sessionName,
-                description,
-                worktree -> {
-                    final Project project = actionContext.appState().projects().get(projectId);
-                    final String branch = "pr-" + request.number();
-                    return git.fetchPullRequest(project, request.number())
-                            .thenCompose(
-                                    ignored ->
-                                            git.addWorktree(
-                                                    project, branch, worktree, true, branch))
-                            .whenCompleteAsync(
-                                    (ignored, failure) -> {
-                                        if (failure != null) {
-                                            LOG.log(Level.SEVERE, "Import pull request", failure);
-                                        }
-                                    },
-                                    SwingUtilities::invokeLater);
-                });
+        final Project project = state.projects().get(projectId);
+        if (project == null) {
+            return;
+        }
+        final GitHub gitHub = GitHub.forProject(state, projectId);
+
+        ProgressOperation.run(
+                        actionContext,
+                        TITLE,
+                        "Loading pull request branch...",
+                        () -> {
+                            final String headBranch =
+                                    gitHub.getPullRequest(request.number()).headBranch();
+                            if (headBranch.isBlank()) {
+                                throw new IOException("Could not determine pull request branch.");
+                            }
+                            return headBranch;
+                        })
+                .thenAccept(
+                        headBranch -> {
+                            final String sessionName =
+                                    request.title().isBlank()
+                                            ? "pr-" + request.number()
+                                            : request.title();
+                            final String branchRef = "origin/" + headBranch;
+                            final BranchChoice branch =
+                                    new BranchChoice(
+                                            branchRef, branchRef, true, "pr-" + request.number());
+                            importBranch(actionContext, projectId, branch, sessionName);
+                        })
+                .exceptionally(
+                        failure -> {
+                            ErrorDialogs.show(
+                                    actionContext.window(),
+                                    TITLE,
+                                    ErrorMessages.deepestCause(
+                                            failure, "Could not load pull request branch."));
+                            return null;
+                        });
     }
 
-    private static void importWorktree(
+    private static BranchChoice choice(final Branch branch) {
+        final String name = branch.name();
+        if (name.startsWith("refs/remotes/")) {
+            final String remoteRef = name.substring("refs/remotes/".length());
+            final int separator = remoteRef.indexOf('/');
+            final String localName =
+                    separator >= 0 ? remoteRef.substring(separator + 1) : remoteRef;
+            return new BranchChoice(remoteRef, remoteRef, true, localName);
+        }
+        if (name.startsWith("refs/heads/")) {
+            final String local = name.substring("refs/heads/".length());
+            return new BranchChoice(local, local, false, local);
+        }
+        return new BranchChoice(name, name, false, name);
+    }
+
+    private static void importBranch(
             final ActionContext actionContext,
             final ProjectId projectId,
-            final String sessionName,
-            final String description,
-            final Function<Path, CompletableFuture<Void>> createWorktree) {
+            final BranchChoice branch,
+            final String sessionName) {
         final AppState state = actionContext.appState();
         final Project project = state.projects().get(projectId);
         if (project == null) {
             return;
         }
-        if (project.sessionIds().stream()
-                .map(state.sessions()::get)
-                .anyMatch(
-                        session ->
-                                session != null && session.name().equalsIgnoreCase(sessionName))) {
-            LOG.severe("Import worktree: A session with that name already exists.");
+
+        final Path worktree;
+        final SessionCreationService sessionCreator = new SessionCreationService(state);
+        try {
+            worktree =
+                    sessionCreator.prepareWorktreePath(
+                            projectId,
+                            project,
+                            sessionName,
+                            "Imported branch " + branch.displayName(),
+                            "");
+        } catch (IOException exception) {
+            ErrorDialogs.show(
+                    actionContext.window(),
+                    TITLE,
+                    ErrorMessages.deepestCause(exception, "Could not prepare worktree."));
             return;
         }
 
-        final Session draft = new Session(projectId, sessionName, description, "", "");
-        final Path worktree =
-                Path.of(
-                        Template.resolvePath(
-                                Template.expand(
-                                        Template.worktree(project, state.appSettings()),
-                                        project,
-                                        draft,
-                                        false),
-                                project));
-        if (GitUtils.isWorktreeRegistered(state.sessions(), worktree) || Files.exists(worktree)) {
-            LOG.severe("Import worktree: The worktree path is already in use.");
-            return;
-        }
-
-        final ProgressOperation progress =
-                ProgressOperation.start(actionContext.window(), TITLE, "Importing worktree...");
-        actionContext.window().setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-        createWorktree
-                .apply(worktree)
-                .whenCompleteAsync(
-                        (ignored, failure) -> {
-                            progress.close();
-                            actionContext.window().setCursor(Cursor.getDefaultCursor());
-                            if (failure != null) {
-                                LOG.log(Level.SEVERE, TITLE, failure);
-                                return;
-                            }
-                            final Session session =
-                                    new Session(
-                                            projectId,
+        ProgressOperation.run(
+                        actionContext,
+                        TITLE,
+                        "Importing worktree...",
+                        () -> {
+                            final SessionDetails sessionDetails =
+                                    new SessionDetails(
                                             sessionName,
-                                            description,
-                                            "",
-                                            worktree.toString());
-                            try {
-                                final var sessionId = state.addSession(projectId, session);
-                                actionContext
-                                        .viewCoordinator()
-                                        .updateView(
-                                                ViewId.SESSION,
-                                                ViewState.session(projectId, sessionId));
-                            } catch (InvalidObjectException exception) {
-                                LOG.log(Level.SEVERE, TITLE, exception);
+                                            "Imported branch " + branch.displayName(),
+                                            "");
+                            final WorktreeRequest worktreeRequest =
+                                    new WorktreeRequest(worktree, branch.ref(), branch.localName());
+                            if (branch.remote()) {
+                                sessionCreator.checkFetchBranchCreateWorktreeAndSession(
+                                        project, sessionDetails, worktreeRequest);
+                                return sessionCreator.fetchBranchCreateWorktreeAndSession(
+                                        projectId, project, sessionDetails, worktreeRequest);
                             }
-                        },
-                        SwingUtilities::invokeLater);
+                            sessionCreator.checkCreateWorktreeAndSession(
+                                    project,
+                                    sessionDetails,
+                                    new WorktreeRequest(worktree, branch.ref(), null));
+                            return sessionCreator.createWorktreeAndSession(
+                                    projectId,
+                                    project,
+                                    sessionDetails,
+                                    new WorktreeRequest(worktree, branch.ref(), null));
+                        })
+                .thenAccept(
+                        sessionId -> {
+                            actionContext
+                                    .viewCoordinator()
+                                    .updateView(
+                                            ViewId.SESSION,
+                                            ViewState.session(projectId, sessionId));
+                        })
+                .exceptionally(
+                        failure -> {
+                            ErrorDialogs.show(
+                                    actionContext.window(),
+                                    TITLE,
+                                    ErrorMessages.deepestCause(
+                                            failure, "Could not import branch."));
+                            return null;
+                        });
     }
 }

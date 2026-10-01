@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Test;
 
 class ContextMenuAndThemeTest {
     private static final String VALUE_MESSAGE = "theme value should be available";
+    private static final String AGENTS_LABEL = "Agents";
+    private static final String EDITORS_LABEL = "Editors";
     private static final String AGENT_NAME = "Agent";
     private static final String AGENT_COMMAND = "agent";
 
@@ -50,16 +52,50 @@ class ContextMenuAndThemeTest {
         final var sessionMenu =
                 GuiActionRunner.execute(() -> SessionActions.menu(context, sessionId));
 
-        assertTrue(findMenu(projectMenu, "Agents") != null, "project agents menu should exist");
-        assertTrue(findMenu(projectMenu, "Editors") != null, "project editors menu should exist");
+        assertTrue(
+                findMenu(projectMenu, AGENTS_LABEL) == null,
+                "project should not use agents submenu");
+        assertTrue(
+                findMenu(projectMenu, EDITORS_LABEL) == null,
+                "project should not use editors submenu");
+        final var projectAgentsHeading = findItem(projectMenu, AGENTS_LABEL);
+        final var projectEditorsHeading = findItem(projectMenu, EDITORS_LABEL);
+        assertNotNull(projectAgentsHeading, "project agents heading should exist");
+        assertTrue(!projectAgentsHeading.isEnabled(), "project agents heading should be disabled");
+        assertNotNull(projectEditorsHeading, "project editors heading should exist");
+        assertTrue(
+                !projectEditorsHeading.isEnabled(), "project editors heading should be disabled");
+        assertNotNull(findItem(projectMenu, AGENT_NAME), "project agent action should exist");
+        assertNotNull(findItem(projectMenu, "Editor"), "project editor action should exist");
         final var importMenu = findMenu(projectMenu, "Import from");
         assertNotNull(importMenu, "project import menu should exist");
-        assertEquals("Branches", importMenu.getItem(0).getText(), "branch import should exist");
-        assertEquals("Worktrees", importMenu.getItem(1).getText(), "worktree import should exist");
-        assertEquals("GitHub issues", importMenu.getItem(2).getText(), "issue import should exist");
-        assertEquals("Pasted lines", importMenu.getItem(3).getText(), "paste import should exist");
-        assertTrue(findMenu(sessionMenu, "Agents") != null, "session agents menu should exist");
-        assertTrue(findMenu(sessionMenu, "Editors") != null, "session editors menu should exist");
+        assertEquals(
+                "Import branch", importMenu.getItem(0).getText(), "branch import should exist");
+        assertEquals(
+                "Import worktree", importMenu.getItem(1).getText(), "worktree import should exist");
+        assertEquals(
+                "Start sessions from GitHub issues",
+                importMenu.getItem(2).getText(),
+                "issue import should exist");
+        assertEquals(
+                "Start sessions from pasted lines",
+                importMenu.getItem(3).getText(),
+                "paste import should exist");
+        assertTrue(
+                findMenu(sessionMenu, AGENTS_LABEL) == null,
+                "session should not use agents submenu");
+        assertTrue(
+                findMenu(sessionMenu, EDITORS_LABEL) == null,
+                "session should not use editors submenu");
+        final var sessionAgentsHeading = findItem(sessionMenu, AGENTS_LABEL);
+        final var sessionEditorsHeading = findItem(sessionMenu, EDITORS_LABEL);
+        assertNotNull(sessionAgentsHeading, "session agents heading should exist");
+        assertTrue(!sessionAgentsHeading.isEnabled(), "session agents heading should be disabled");
+        assertNotNull(sessionEditorsHeading, "session editors heading should exist");
+        assertTrue(
+                !sessionEditorsHeading.isEnabled(), "session editors heading should be disabled");
+        assertNotNull(findItem(sessionMenu, AGENT_NAME), "session agent action should exist");
+        assertNotNull(findItem(sessionMenu, "Editor"), "session editor action should exist");
 
         final var updateBranch = findItem(sessionMenu, "Update branch");
         assertNotNull(updateBranch, "session update branch action should exist");
@@ -104,11 +140,13 @@ class ContextMenuAndThemeTest {
         final var menu = GuiActionRunner.execute(() -> SessionActions.menu(context, sessionId));
 
         assertEquals(projectId, state.currentProjectId(), "menu should select the session project");
-        final javax.swing.JMenu agentsMenu = findMenu(menu, "Agents");
-        assertNotNull(agentsMenu, "session agents menu should exist");
-        assertNotNull(agentsMenu.getItem(0), "configured agent action should exist");
+        final javax.swing.JMenuItem agentsHeading = findItem(menu, AGENTS_LABEL);
+        assertNotNull(agentsHeading, "session agents heading should exist");
+        assertTrue(!agentsHeading.isEnabled(), "session agents heading should be disabled");
+        final javax.swing.JMenuItem agentAction = findItem(menu, AGENT_NAME);
+        assertNotNull(agentAction, "configured agent action should exist");
         assertTrue(
-                agentsMenu.getItem(0).isEnabled(),
+                agentAction.isEnabled(),
                 "session agent action should be enabled for the target project");
     }
 
@@ -122,13 +160,49 @@ class ContextMenuAndThemeTest {
         assertEquals(Font.BOLD, Theme.boldFont(Theme.FontSize.SM).getStyle(), VALUE_MESSAGE);
         assertEquals(
                 Font.MONOSPACED, Theme.terminalFont(Theme.FontSize.SM).getFamily(), VALUE_MESSAGE);
-        Theme.successColor();
-        Theme.warningColor();
-        Theme.dangerColor();
-        Theme.mutedColor();
+        Theme.Colors.success();
+        Theme.Colors.warning();
+        Theme.Colors.danger();
+        Theme.Colors.muted();
         assertNotNull(Theme.sectionBorder(1, 2, 3, 4), VALUE_MESSAGE);
         Theme.applySwingDefaults();
         assertTrue(Theme.FontSize.values().length > 0, "font sizes should be defined");
+    }
+
+    @Test
+    void themeColorsResolveForEveryTheme() {
+        for (final Theme.FlatLafTheme theme : Theme.FlatLafTheme.values()) {
+            Theme.apply(theme);
+            assertNotNull(Theme.Colors.success(), "success should resolve for " + theme);
+            assertNotNull(Theme.Colors.warning(), "warning should resolve for " + theme);
+            assertNotNull(Theme.Colors.danger(), "danger should resolve for " + theme);
+            assertNotNull(Theme.Colors.focus(), "focus should resolve for " + theme);
+            assertNotNull(Theme.Colors.merge(), "merge should resolve for " + theme);
+            assertNotNull(Theme.Colors.muted(), "muted should resolve for " + theme);
+            assertNotNull(Theme.Colors.border(), "border should resolve for " + theme);
+            assertNotNull(Theme.Colors.background(), "background should resolve for " + theme);
+            assertNotNull(Theme.Colors.foreground(), "foreground should resolve for " + theme);
+            assertNotNull(
+                    Theme.Colors.textareaBackground(),
+                    "textarea background should resolve for " + theme);
+            assertNotNull(
+                    Theme.Colors.textareaForeground(),
+                    "textarea foreground should resolve for " + theme);
+            assertNotNull(
+                    Theme.Colors.textSelectionBackground(),
+                    "text selection background should resolve for " + theme);
+            assertNotNull(
+                    Theme.Colors.textSelectionForeground(),
+                    "text selection foreground should resolve for " + theme);
+            assertNotNull(
+                    Theme.Colors.textCaretForeground(),
+                    "text caret foreground should resolve for " + theme);
+            assertNotNull(Theme.Colors.purple(), "purple should resolve for " + theme);
+            assertNotNull(Theme.Colors.green(), "green should resolve for " + theme);
+            assertNotNull(Theme.Colors.grey(), "grey should resolve for " + theme);
+            assertNotNull(Theme.Colors.blue(), "blue should resolve for " + theme);
+            assertNotNull(Theme.Colors.darkYellow(), "dark yellow should resolve for " + theme);
+        }
     }
 
     private static javax.swing.JMenu findMenu(

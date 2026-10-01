@@ -10,7 +10,11 @@ import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.test.SwingTestSupport;
+import com.jediterm.terminal.HyperlinkStyle;
+import com.jediterm.terminal.TerminalColor;
+import com.jediterm.terminal.TextStyle;
 import com.jediterm.terminal.TtyConnector;
+import com.jediterm.terminal.emulator.ColorPalette;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.nio.file.Path;
@@ -19,12 +23,19 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
+import javax.swing.UIManager;
 import org.assertj.swing.edt.GuiActionRunner;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class TerminalPanelUiTest {
     private static final String TRUE_COMMAND = "true";
     private static final Path TEMP_DIRECTORY = Path.of(System.getProperty("java.io.tmpdir"));
+
+    @BeforeAll
+    static void configureTheme() {
+        Theme.apply(Theme.FlatLafTheme.LIGHT);
+    }
 
     @Test
     void constructsWithTerminalWidgetAndInitialState() {
@@ -213,6 +224,82 @@ class TerminalPanelUiTest {
 
         assertEquals("Original", title.get(), "blank or null titles should be ignored");
         panel.dispose();
+    }
+
+    @Test
+    void terminalSettingsUseThemeDefaultsForColorsAndStyles() {
+        final TerminalPanel.AppTerminalSettings settings = new TerminalPanel.AppTerminalSettings();
+
+        final TextStyle defaultStyle = settings.getDefaultStyle();
+        assertEquals(
+                settings.getDefaultForeground(),
+                defaultStyle.getForeground(),
+                "default style should use configured foreground");
+        assertEquals(
+                settings.getDefaultBackground(),
+                defaultStyle.getBackground(),
+                "default style should use configured background");
+
+        final TextStyle selectionStyle = settings.getSelectionColor();
+        assertTrue(
+                selectionStyle.getForeground() != null,
+                "selection color should define a foreground");
+        assertTrue(
+                selectionStyle.getBackground() != null,
+                "selection color should define a background");
+        assertTrue(
+                !settings.useInverseSelectionColor(),
+                "terminal selection should use configured colors instead of inversion");
+
+        final TextStyle foundPatternStyle = settings.getFoundPatternColor();
+        assertTrue(
+                foundPatternStyle.getForeground() != null,
+                "find highlight should define a foreground");
+        assertTrue(
+                foundPatternStyle.getBackground() != null,
+                "find highlight should define a background");
+
+        assertEquals(
+                HyperlinkStyle.HighlightMode.ALWAYS,
+                settings.getHyperlinkHighlightingMode(),
+                "hyperlinks should always be visibly styled");
+        assertEquals(
+                650, settings.caretBlinkingMs(), "cursor blinking should use the tuned period");
+    }
+
+    @Test
+    void terminalSettingsProvideCompleteAnsiPaletteOverrides() {
+        final TerminalPanel.AppTerminalSettings settings = new TerminalPanel.AppTerminalSettings();
+        final ColorPalette palette = settings.getTerminalColorPalette();
+
+        final java.awt.Color panelBackground =
+                UIManager.getColor("Panel.background") == null
+                        ? java.awt.Color.BLACK
+                        : UIManager.getColor("Panel.background");
+
+        for (int index = 0; index <= 15; index++) {
+            final TerminalColor color = ColorPalette.getIndexedTerminalColor(index);
+            assertNotNull(color, "indexed terminal color should resolve: " + index);
+            assertTrue(
+                    palette.getForeground(color) != null,
+                    "foreground color index should resolve: " + index);
+            assertTrue(
+                    palette.getBackground(color) != null,
+                    "background color index should resolve: " + index);
+        }
+
+        assertEquals(
+                panelBackground.getRed(),
+                palette.getBackground(TerminalColor.index(0)).getRed(),
+                "ANSI background index 0 should match panel background red channel");
+        assertEquals(
+                panelBackground.getGreen(),
+                palette.getBackground(TerminalColor.index(0)).getGreen(),
+                "ANSI background index 0 should match panel background green channel");
+        assertEquals(
+                panelBackground.getBlue(),
+                palette.getBackground(TerminalColor.index(0)).getBlue(),
+                "ANSI background index 0 should match panel background blue channel");
     }
 
     private static void waitForState(final TerminalPanel panel, final TerminalState expected)

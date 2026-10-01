@@ -46,12 +46,11 @@ public final class ProjectActions {
     public static void populate(
             final Container menu, final ActionContext actionContext, final ProjectId projectId) {
         actionContext.appState().updateCurrentProject(projectId);
+
+        final var createSession = new CreateSessionAction(actionContext);
         menu.add(
-                projectActionItem(
-                        actionContext,
-                        projectId,
-                        new CreateSessionAction(actionContext),
-                        UiIcons.hatGlasses()));
+                projectActionItem(actionContext, projectId, createSession, UiIcons.hatGlasses()),
+                null);
         menu.add(
                 projectActionItem(
                         actionContext,
@@ -61,35 +60,29 @@ public final class ProjectActions {
         menu.add(new JSeparator());
         menu.add(
                 projectActionItem(
-                        actionContext, projectId, new OpenDirectoryAction(actionContext)));
-        menu.add(projectActionItem(actionContext, projectId, new CopyPathAction(actionContext)));
+                        actionContext, projectId, new OpenDirectoryAction(actionContext), null));
         menu.add(
-                projectActionItem(actionContext, projectId, new UpdateBranchAction(actionContext)));
+                projectActionItem(
+                        actionContext, projectId, new CopyPathAction(actionContext), null));
+        menu.add(
+                projectActionItem(
+                        actionContext, projectId, new UpdateBranchAction(actionContext), null));
         final JMenu importFrom = new JMenu("Import from");
         importFrom.add(
                 projectActionItem(
-                        actionContext,
-                        projectId,
-                        new ImportBranchAction(actionContext),
-                        "Branches"));
+                        actionContext, projectId, new ImportBranchAction(actionContext), null));
         importFrom.add(
                 projectActionItem(
-                        actionContext,
-                        projectId,
-                        new ImportWorktreeAction(actionContext),
-                        "Worktrees"));
+                        actionContext, projectId, new ImportWorktreeAction(actionContext), null));
         importFrom.add(
                 projectActionItem(
                         actionContext,
                         projectId,
                         new BulkCreateSessionsAction(actionContext),
-                        "GitHub issues"));
+                        null));
         importFrom.add(
                 projectActionItem(
-                        actionContext,
-                        projectId,
-                        new PasteSessionsAction(actionContext),
-                        "Pasted lines"));
+                        actionContext, projectId, new PasteSessionsAction(actionContext), null));
         menu.add(importFrom);
 
         addAgents(menu, actionContext, projectId);
@@ -97,49 +90,57 @@ public final class ProjectActions {
         menu.add(new JSeparator());
         menu.add(
                 projectActionItem(
-                        actionContext, projectId, new OpenProjectSettingsAction(actionContext)));
+                        actionContext,
+                        projectId,
+                        new OpenProjectSettingsAction(actionContext),
+                        null));
         menu.add(new JSeparator());
         final JMenuItem removeProject =
-                projectActionItem(actionContext, projectId, new RemoveProjectAction(actionContext));
-        removeProject.setForeground(Theme.dangerColor());
+                projectActionItem(
+                        actionContext, projectId, new RemoveProjectAction(actionContext), null);
+        removeProject.setForeground(Theme.Colors.danger());
         menu.add(removeProject);
     }
 
     private static void addAgents(
             final Container menu, final ActionContext actionContext, final ProjectId projectId) {
-        final JMenu agents = new JMenu("Agents");
+        boolean added = false;
         for (final Agent agent : actionContext.appState().appSettings().agents()) {
-            agents.add(
+            if (!added) {
+                addSectionHeading(menu, "Agents");
+                added = true;
+            }
+            menu.add(
                     projectActionItem(
                             actionContext,
                             projectId,
-                            new CreateTerminalAction(
-                                    actionContext, agent.name, agent.openCommand)));
-        }
-        if (agents.getItemCount() > 0) {
-            menu.add(agents);
+                            new CreateTerminalAction(actionContext, agent.name, agent.openCommand),
+                            null));
         }
     }
 
     private static void addEditors(
             final Container menu, final ActionContext actionContext, final ProjectId projectId) {
-        final JMenu editors = new JMenu("Editors");
+        boolean added = false;
         for (final Tool editor : actionContext.appState().appSettings().tools()) {
-            editors.add(
+            if (!added) {
+                addSectionHeading(menu, "Editors");
+                added = true;
+            }
+            menu.add(
                     projectActionItem(
                             actionContext,
                             projectId,
-                            new RunCommandAction(actionContext, editor.label(), editor.command())));
-        }
-        if (editors.getItemCount() > 0) {
-            menu.add(editors);
+                            new RunCommandAction(actionContext, editor.label(), editor.command()),
+                            null));
         }
     }
 
-    private static JMenuItem projectActionItem(
-            final ActionContext actionContext, final ProjectId projectId, final Action action) {
-        return projectActionItem(
-                actionContext, projectId, action, action.label(), (javax.swing.Icon) null);
+    private static void addSectionHeading(final Container menu, final String label) {
+        menu.add(new JSeparator());
+        final JMenuItem heading = new JMenuItem(label);
+        heading.setEnabled(false);
+        menu.add(heading);
     }
 
     private static JMenuItem projectActionItem(
@@ -147,24 +148,7 @@ public final class ProjectActions {
             final ProjectId projectId,
             final Action action,
             final javax.swing.Icon icon) {
-        return projectActionItem(actionContext, projectId, action, action.label(), icon);
-    }
-
-    private static JMenuItem projectActionItem(
-            final ActionContext actionContext,
-            final ProjectId projectId,
-            final Action action,
-            final String label) {
-        return projectActionItem(actionContext, projectId, action, label, null);
-    }
-
-    private static JMenuItem projectActionItem(
-            final ActionContext actionContext,
-            final ProjectId projectId,
-            final Action action,
-            final String label,
-            final javax.swing.Icon icon) {
-        final JMenuItem item = new JMenuItem(label, icon);
+        final JMenuItem item = new JMenuItem(action.label(), icon);
         item.setEnabled(action.enabled());
         item.addActionListener(
                 event -> {

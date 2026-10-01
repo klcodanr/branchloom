@@ -32,10 +32,7 @@ public final class MyPullRequestsView extends JPanel implements View {
                                 .appSettings()
                                 .pullRequestFilters()
                                 .toArray(PullRequestFilter[]::new));
-        final PullRequestFilter defaultFilter =
-                actionContext.appState().appSettings().filterNamed(DEFAULT_FILTER);
-        filters.setSelectedItem(defaultFilter);
-        board = new PullRequestsBoard(actionContext, defaultFilter.query(), this::pullRequests);
+        board = new PullRequestsBoard(actionContext, this::pullRequests, selectedFilter().query());
         filters.addActionListener(
                 event -> {
                     board.setQuery(selectedFilter().query());
@@ -72,9 +69,11 @@ public final class MyPullRequestsView extends JPanel implements View {
     @Override
     public void detach() {}
 
-    private List<PullRequest> pullRequests(final String query) {
-        return pullRequestCache.loadForFilter(
-                new PullRequestFilter(selectedFilter().name(), query));
+    private List<PullRequest> pullRequests(final String query, final boolean forceRefresh) {
+        final PullRequestFilter filter = new PullRequestFilter(selectedFilter().name(), query);
+        return forceRefresh
+                ? pullRequestCache.refreshForFilter(filter)
+                : pullRequestCache.loadForFilter(filter);
     }
 
     private PullRequestFilter selectedFilter() {

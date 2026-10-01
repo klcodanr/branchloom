@@ -4,8 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.jagent.desktop.api.View;
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.LogEntry;
-import com.jagent.desktop.services.BackgroundTasks;
 import com.jagent.desktop.services.JsonLogging;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
@@ -19,7 +19,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JOptionPane;
@@ -28,7 +28,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.ScrollPaneConstants;
-import javax.swing.SwingUtilities;
 import javax.swing.table.AbstractTableModel;
 
 public final class ProblemsView extends JPanel implements View {
@@ -39,14 +38,16 @@ public final class ProblemsView extends JPanel implements View {
     private final ProblemTableModel tableModel;
     private final JTable table;
     private JButton showAllButton;
+    private final transient Function<Integer, List<LogEntry>> logLoader;
 
     public ProblemsView() {
-        this(() -> JsonLogging.load(INITIAL_PROBLEM_LIMIT));
+        this(JsonLogging::load);
     }
 
-    protected ProblemsView(final Supplier<List<LogEntry>> problemLoader) {
+    protected ProblemsView(final Function<Integer, List<LogEntry>> loader) {
         super();
         this.problems = new ArrayList<>();
+        this.logLoader = loader;
         setLayout(new BorderLayout(0, UiConstants.SECTION_PADDING));
         add(header(), BorderLayout.NORTH);
         tableModel = new ProblemTableModel(problems);
@@ -74,16 +75,14 @@ public final class ProblemsView extends JPanel implements View {
         scroll.setPreferredSize(new Dimension(0, 260));
         add(scroll, BorderLayout.CENTER);
         refresh();
-        BackgroundTasks.submit(
+        BackgroundOperations.submit(
                 TITLE,
                 "load-log",
                 () -> {
-                    final List<LogEntry> loaded = problemLoader.get();
-                    SwingUtilities.invokeLater(
-                            () -> {
-                                problems.addAll(loaded);
-                                refresh();
-                            });
+                    final List<LogEntry> loaded = loader.apply(INITIAL_PROBLEM_LIMIT);
+                    problems.addAll(loaded);
+                    refresh();
+                    return null;
                 });
     }
 
@@ -172,18 +171,16 @@ public final class ProblemsView extends JPanel implements View {
 
     private void loadAllLogs() {
         showAllButton.setEnabled(false);
-        BackgroundTasks.submit(
+        BackgroundOperations.submit(
                 TITLE,
                 "load-all-log",
                 () -> {
-                    final List<LogEntry> loaded = JsonLogging.load();
-                    SwingUtilities.invokeLater(
-                            () -> {
-                                problems.clear();
-                                problems.addAll(loaded);
-                                showAllButton.setVisible(false);
-                                refresh();
-                            });
+                    final List<LogEntry> loaded = logLoader.apply(Integer.MAX_VALUE);
+                    problems.clear();
+                    problems.addAll(loaded);
+                    showAllButton.setVisible(false);
+                    refresh();
+                    return null;
                 });
     }
 

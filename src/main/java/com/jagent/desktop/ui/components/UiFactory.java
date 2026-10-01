@@ -32,7 +32,6 @@ import javax.swing.KeyStroke;
 import javax.swing.MenuElement;
 import javax.swing.MenuSelectionManager;
 import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.PopupMenuEvent;
@@ -63,7 +62,7 @@ public final class UiFactory {
     }
 
     public static Border contentAreaBorder() {
-        final Color borderColor = UIManager.getColor("Component.borderColor");
+        final Color borderColor = Theme.Colors.border();
         final Insets padding =
                 new Insets(
                         UiConstants.SPACING_SM,
@@ -112,7 +111,7 @@ public final class UiFactory {
     }
 
     public static JTextArea selectableText(final String text, final Theme.FontSize size) {
-        final JTextArea area = new JTextArea(text == null ? "" : text);
+        final JTextArea area = new JTextArea(UiText.valueOrDefault(text, ""));
         configureTextAreaTraversal(area);
         area.setFont(Theme.font(size));
         area.setEditable(false);
@@ -189,6 +188,8 @@ public final class UiFactory {
     public static JButton button(final String text, final Icon icon) {
         final JButton button = button(text);
         button.setIcon(icon);
+        button.getAccessibleContext().setAccessibleName(text);
+        configureButtonEnter(button);
         return button;
     }
 
@@ -197,7 +198,7 @@ public final class UiFactory {
         metric.setOpaque(false);
         metric.setLayout(new BoxLayout(metric, BoxLayout.Y_AXIS));
         final JLabel title = label(name, Theme.FontSize.XS);
-        title.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+        title.setForeground(Theme.Colors.muted());
         final JTextArea content = selectableText(value, Theme.FontSize.MD);
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -232,15 +233,11 @@ public final class UiFactory {
         panel.add(titleLabel);
         panel.add(Box.createVerticalStrut(UiConstants.CONTENT_PADDING));
         final JLabel detailLabel = label(detail, Theme.FontSize.MD);
-        detailLabel.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+        detailLabel.setForeground(Theme.Colors.muted());
         detailLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.add(detailLabel);
         panel.add(Box.createVerticalGlue());
         return panel;
-    }
-
-    public static JButton iconButton(final Icon icon) {
-        return iconButton(icon, null);
     }
 
     public static JButton iconButton(final Icon icon, final String accessibleName) {

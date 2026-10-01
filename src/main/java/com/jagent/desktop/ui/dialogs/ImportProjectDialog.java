@@ -4,7 +4,7 @@ import static com.jagent.desktop.ui.components.UiFactory.button;
 import static com.jagent.desktop.ui.components.UiFactory.form;
 
 import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.services.GitHub;
+import com.jagent.desktop.models.github.Credential;
 import com.jagent.desktop.ui.components.GitHubAuthSelector;
 import java.awt.BorderLayout;
 import java.awt.ContainerOrderFocusTraversalPolicy;
@@ -28,19 +28,15 @@ public final class ImportProjectDialog extends JDialog {
     private final Consumer<Request> onValid;
     private final JTextField remote = new JTextField(35);
     private final JTextField destination = new JTextField(35);
-    private final JComboBox<GitHub.Auth> githubAuth;
+    private final JComboBox<Credential> githubAuth;
     private final JButton cancel = new JButton("Cancel");
     private final JButton ok = new JButton("OK");
 
-    public record Request(String remote, Path destination, GitHub.Auth auth) {}
-
-    public ImportProjectDialog(final ActionContext actionContext, final Consumer<Request> onValid) {
-        this(actionContext, GitHub.configuredAuths(), onValid);
-    }
+    public record Request(String remote, Path destination, Credential auth) {}
 
     public ImportProjectDialog(
             final ActionContext actionContext,
-            final java.util.List<GitHub.Auth> configuredAuths,
+            final java.util.List<Credential> configuredAuths,
             final Consumer<Request> onValid) {
         super(actionContext.window(), TITLE, ModalityType.APPLICATION_MODAL);
         this.onValid = onValid;
@@ -64,7 +60,7 @@ public final class ImportProjectDialog extends JDialog {
                         remote,
                         "Destination directory",
                         destinationInput,
-                        "GitHub CLI auth",
+                        "GitHub connection",
                         githubAuth),
                 BorderLayout.CENTER);
         final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -97,14 +93,14 @@ public final class ImportProjectDialog extends JDialog {
     private void validateAndSubmit() {
         final String failure = validationFailure(remote.getText(), destination.getText());
         if (failure != null) {
-            showError(failure);
+            JOptionPane.showMessageDialog(this, failure, TITLE, JOptionPane.ERROR_MESSAGE);
             return;
         }
         final Path path = Path.of(destination.getText().trim()).toAbsolutePath().normalize();
         dispose();
         onValid.accept(
                 new Request(
-                        remote.getText().trim(), path, (GitHub.Auth) githubAuth.getSelectedItem()));
+                        remote.getText().trim(), path, (Credential) githubAuth.getSelectedItem()));
     }
 
     @SuppressWarnings("PMD.CommentDefaultAccessModifier")
@@ -142,9 +138,5 @@ public final class ImportProjectDialog extends JDialog {
         return path.getFileName() == null
                 ? "Choose a destination directory below the filesystem root."
                 : null;
-    }
-
-    private void showError(final String message) {
-        JOptionPane.showMessageDialog(this, message, TITLE, JOptionPane.ERROR_MESSAGE);
     }
 }

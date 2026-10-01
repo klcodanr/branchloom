@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.test.SwingTestSupport;
+import com.jagent.desktop.test.TestGitRepository;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,25 +15,47 @@ import javax.swing.JScrollPane;
 import org.assertj.swing.edt.GuiActionRunnable;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class FileViewerUiTest {
+    private static final String TRACKED_FILE = "tracked.txt";
+
+    @BeforeAll
+    static void configureTheme() {
+        Theme.apply(Theme.FlatLafTheme.LIGHT);
+    }
+
     @Test
     void loadsTextFileAndShowsDiff() throws IOException, InterruptedException {
         final Path workspace = Files.createTempDirectory("file-viewer-test");
-        final Path file = workspace.resolve("Example.java");
-        Files.writeString(file, "class Example {}\n");
+        TestGitRepository.initialize(workspace);
+        final Path file = workspace.resolve(TRACKED_FILE);
+        Files.writeString(file, "updated\n");
         try {
             final FileViewer viewer =
-                    GuiActionRunner.execute(() -> new FileViewer(workspace, file));
+                    GuiActionRunner.execute(() -> new FileViewer(workspace, file, false));
             waitForStatus(viewer, "Changed");
             assertEquals(
-                    "class Example {}\n",
+                    "updated\n",
                     source(viewer).getText(),
                     "source viewer should display the file contents");
             assertTrue(
-                    diff(viewer).getText().contains("Example.java"),
+                    diff(viewer).getText().contains(TRACKED_FILE),
                     "diff viewer should display the file header");
+            assertTrue(
+                    diff(viewer).getHighlightCurrentLine(),
+                    "diff viewer should retain current-line selection");
+            assertTrue(
+                    contrastRatio(diff(viewer).getForeground(), diff(viewer).getBackground())
+                            >= 4.5d,
+                    "diff text should meet readable contrast against the editor background");
+            assertTrue(
+                    contrastRatio(
+                                    diff(viewer).getForeground(),
+                                    diff(viewer).getCurrentLineHighlightColor())
+                            >= 4.5d,
+                    "diff text should meet readable contrast against the current-line highlight");
         } finally {
             delete(workspace);
         }
@@ -41,8 +64,9 @@ class FileViewerUiTest {
     @Test
     void opensInDiffModeWhenRequested() throws IOException, InterruptedException {
         final Path workspace = Files.createTempDirectory("file-viewer-filtered-test");
-        final Path file = workspace.resolve("Example.java");
-        Files.writeString(file, "class Example {}\n");
+        TestGitRepository.initialize(workspace);
+        final Path file = workspace.resolve(TRACKED_FILE);
+        Files.writeString(file, "updated\n");
         try {
             final FileViewer viewer =
                     GuiActionRunner.execute(() -> new FileViewer(workspace, file, true));
@@ -63,11 +87,12 @@ class FileViewerUiTest {
     @Test
     void reportsBinaryFile() throws IOException, InterruptedException {
         final Path workspace = Files.createTempDirectory("file-viewer-binary-test");
+        TestGitRepository.initialize(workspace);
         final Path file = workspace.resolve("data.bin");
         Files.write(file, new byte[] {1, 0, 2});
         try {
             final FileViewer viewer =
-                    GuiActionRunner.execute(() -> new FileViewer(workspace, file));
+                    GuiActionRunner.execute(() -> new FileViewer(workspace, file, false));
             waitForStatus(viewer, "Binary");
             assertEquals(
                     "Binary file cannot be displayed.",
@@ -81,11 +106,12 @@ class FileViewerUiTest {
     @Test
     void searchesCurrentFileWithoutChangingItsContents() throws IOException, InterruptedException {
         final Path workspace = Files.createTempDirectory("file-viewer-search-test");
-        final Path file = workspace.resolve("Example.txt");
+        TestGitRepository.initialize(workspace);
+        final Path file = workspace.resolve(TRACKED_FILE);
         Files.writeString(file, "Alpha\nalpha\nbeta\n");
         try {
             final FileViewer viewer =
-                    GuiActionRunner.execute(() -> new FileViewer(workspace, file));
+                    GuiActionRunner.execute(() -> new FileViewer(workspace, file, false));
             waitForStatus(viewer, "Changed");
             final SearchInput search = GuiActionRunner.execute(() -> searchInput(viewer));
             assertTrue(
@@ -128,8 +154,8 @@ class FileViewerUiTest {
                         .getView();
     }
 
-    private static javax.swing.JTextArea diff(final FileViewer viewer) {
-        return (javax.swing.JTextArea)
+    private static RSyntaxTextArea diff(final FileViewer viewer) {
+        return (RSyntaxTextArea)
                 ((JScrollPane) ((java.awt.Container) viewer.getComponent(1)).getComponent(1))
                         .getViewport()
                         .getView();
@@ -175,6 +201,27 @@ class FileViewerUiTest {
         SwingTestSupport.await(
                 () -> expected.equals(source(viewer).getSelectedText()),
                 "file search selection did not render: " + expected);
+    }
+
+    private static double contrastRatio(
+            final java.awt.Color foreground, final java.awt.Color background) {
+        final double foregroundLuminance = luminance(foreground);
+        final double backgroundLuminance = luminance(background);
+        return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05d)
+                / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05d);
+    }
+
+    private static double luminance(final java.awt.Color color) {
+        return 0.2126d * channel(color.getRed())
+                + 0.7152d * channel(color.getGreen())
+                + 0.0722d * channel(color.getBlue());
+    }
+
+    private static double channel(final int value) {
+        final double normalized = value / 255d;
+        return normalized <= 0.039_28d
+                ? normalized / 12.92d
+                : Math.pow((normalized + 0.055d) / 1.055d, 2.4d);
     }
 
     private static JButton nextButton(final FileViewer viewer) {

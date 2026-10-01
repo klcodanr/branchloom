@@ -7,6 +7,7 @@ import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
+import com.jagent.desktop.models.github.PatCredential;
 import com.jagent.desktop.ui.Defaults;
 import java.io.InvalidObjectException;
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ public class AppState {
     private SessionId currentSession;
     private TerminalId currentTerminal;
     private final Map<ProjectId, Project> projects;
+    private final Map<String, PatCredential> githubConnections;
     private final Map<SessionId, Session> sessions;
     private final Map<TerminalId, Terminal> terminals;
     private final List<TerminalEvent> terminalEvents = new ArrayList<>();
@@ -43,6 +45,7 @@ public class AppState {
             Map<ProjectId, Project> projects,
             Map<SessionId, Session> sessions,
             Map<TerminalId, Terminal> terminals,
+            Map<String, PatCredential> githubConnections,
             List<TerminalEvent> terminalEvents) {}
 
     public AppState(
@@ -50,6 +53,15 @@ public class AppState {
             final Map<String, Project> projects,
             final Map<String, Session> sessions,
             final Map<String, Terminal> terminals) {
+        this(appSettings, projects, sessions, terminals, Map.of());
+    }
+
+    public AppState(
+            final AppSettings appSettings,
+            final Map<String, Project> projects,
+            final Map<String, Session> sessions,
+            final Map<String, Terminal> terminals,
+            final Map<String, PatCredential> githubConnections) {
         this.appSettings = appSettings == null ? Defaults.appSettings() : appSettings;
         this.projects =
                 projects.entrySet().stream()
@@ -75,6 +87,10 @@ public class AppState {
                                                 new TerminalId(UUID.fromString(e.getKey())),
                                                 e.getValue()))
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        this.githubConnections =
+                githubConnections == null
+                        ? new java.util.LinkedHashMap<>()
+                        : new java.util.LinkedHashMap<>(githubConnections);
     }
 
     public AppSettings appSettings() {
@@ -105,6 +121,40 @@ public class AppState {
         return Map.copyOf(this.projects);
     }
 
+    public Map<String, PatCredential> githubConnections() {
+        return Map.copyOf(this.githubConnections);
+    }
+
+    public void addGitHubConnection(final PatCredential connection) {
+
+        this.githubConnections.put(connection.id(), connection);
+        this.projectsUpdated = true;
+    }
+
+    public void removeGitHubConnection(final String connectionId) {
+        if (this.githubConnections.remove(connectionId) != null) {
+            this.projects.replaceAll(
+                    (projectId, project) -> {
+                        final var credential = project.credential();
+                        if (credential == null || !connectionId.equals(credential.id())) {
+                            return project;
+                        }
+                        return new Project(
+                                project.name(),
+                                project.path(),
+                                project.group(),
+                                null,
+                                project.worktreeTemplate(),
+                                project.worktreeCommand(),
+                                project.startupCommands(),
+                                project.sessionIds(),
+                                project.agentContextPath(),
+                                project.agentContextText());
+                    });
+            this.projectsUpdated = true;
+        }
+    }
+
     public Map<SessionId, Session> sessions() {
         return Map.copyOf(this.sessions);
     }
@@ -131,6 +181,7 @@ public class AppState {
                         Map.copyOf(projects),
                         Map.copyOf(sessions),
                         Map.copyOf(terminals),
+                        Map.copyOf(githubConnections),
                         List.copyOf(terminalEvents));
         appSettingsUpdated = false;
         projectsUpdated = false;

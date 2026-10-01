@@ -2,6 +2,7 @@ package com.jagent.desktop.ui.components;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.ActionContext;
@@ -10,11 +11,13 @@ import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.test.SwingTestSupport;
 import com.jagent.desktop.test.TestGitRepository;
 import com.jagent.desktop.ui.Defaults;
+import com.jagent.desktop.ui.layout.WorkspaceTreePanel;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.JLabel;
 import javax.swing.JScrollPane;
 import javax.swing.JToggleButton;
@@ -28,6 +31,7 @@ import org.junit.jupiter.api.Test;
 class WorkspaceTreePanelUiTest {
     private static final String NESTED = "nested";
     private static final String FILE = "file.txt";
+    private static final String OPEN_SELECTED_FILE = "open-selected-file";
 
     @Test
     void exposesKeyboardActionsForSelectedWorkspaceItems() {
@@ -35,7 +39,7 @@ class WorkspaceTreePanelUiTest {
         final JTree tree = tree(panel);
 
         assertEquals(
-                "open-selected-file",
+                OPEN_SELECTED_FILE,
                 tree.getInputMap(JTree.WHEN_FOCUSED)
                         .get(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ENTER, 0)),
                 "Enter should open the selected file");
@@ -159,6 +163,81 @@ class WorkspaceTreePanelUiTest {
         }
     }
 
+    @Test
+    void enterOpensSelectedFileWithCurrentFilterFlag() throws IOException, InterruptedException {
+        final Path workspace = Files.createTempDirectory("workspace-tree-open-test");
+        final AtomicReference<Path> openedPath = new AtomicReference<>();
+        final AtomicReference<Boolean> openedFiltered = new AtomicReference<>();
+        try {
+            TestGitRepository.initialize(workspace);
+            TestGitRepository.run(
+                    workspace,
+                    "printf 'content' > file.txt && git add file.txt && git commit -qm file");
+            TestGitRepository.run(workspace, "printf 'changed' >> file.txt");
+            final var panel =
+                    GuiActionRunner.execute(
+                            () ->
+                                    create(
+                                            workspace,
+                                            ignored -> {},
+                                            (path, filtered) -> {
+                                                openedPath.set(path);
+                                                openedFiltered.set(filtered);
+                                            }));
+            waitForFile(panel, FILE);
+            waitForLabel(panel, "~1");
+            final var node = findNode(root(panel), FILE);
+            GuiActionRunner.execute(
+                    () -> tree(panel).setSelectionPath(new TreePath(node.getPath())));
+            waitForSelection(panel, FILE);
+            GuiActionRunner.execute(
+                    () -> tree(panel).getActionMap().get(OPEN_SELECTED_FILE).actionPerformed(null));
+
+            assertEquals(
+                    workspace.resolve(FILE).toAbsolutePath().normalize(),
+                    openedPath.get(),
+                    "enter should open the selected file");
+            assertEquals(
+                    Boolean.FALSE, openedFiltered.get(), "filter flag should be false by default");
+        } finally {
+            try (var paths = Files.walk(workspace)) {
+                paths.sorted(Comparator.reverseOrder()).forEach(WorkspaceTreePanelUiTest::delete);
+            }
+        }
+    }
+
+    @Test
+    void enterIgnoresDirectorySelection() throws IOException, InterruptedException {
+        final Path workspace = Files.createTempDirectory("workspace-tree-open-dir-test");
+        final AtomicReference<Path> openedPath = new AtomicReference<>();
+        try {
+            TestGitRepository.initialize(workspace);
+            TestGitRepository.run(
+                    workspace,
+                    "mkdir nested && printf 'value' > nested/file.txt"
+                            + " && git add nested/file.txt && git commit -qm nested");
+            final var panel =
+                    GuiActionRunner.execute(
+                            () ->
+                                    create(
+                                            workspace,
+                                            ignored -> {},
+                                            (path, filtered) -> openedPath.set(path)));
+            waitForFile(panel, NESTED);
+            final var node = findNode(root(panel), NESTED);
+            GuiActionRunner.execute(
+                    () -> tree(panel).setSelectionPath(new TreePath(node.getPath())));
+            GuiActionRunner.execute(
+                    () -> tree(panel).getActionMap().get(OPEN_SELECTED_FILE).actionPerformed(null));
+
+            assertNull(openedPath.get(), "directories should not trigger file open actions");
+        } finally {
+            try (var paths = Files.walk(workspace)) {
+                paths.sorted(Comparator.reverseOrder()).forEach(WorkspaceTreePanelUiTest::delete);
+            }
+        }
+    }
+
     private static WorkspaceTreePanel create(final Path workspace) {
         final var state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         return new WorkspaceTreePanel(
@@ -166,6 +245,18 @@ class WorkspaceTreePanelUiTest {
                 workspace,
                 ignored -> {},
                 (ignored, filtered) -> {});
+    }
+
+    private static WorkspaceTreePanel create(
+            final Path workspace,
+            final java.util.function.Consumer<Path> openTerminal,
+            final java.util.function.BiConsumer<Path, Boolean> openFile) {
+        final var state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        return new WorkspaceTreePanel(
+                new ActionContext(new ViewCoordinator(state), state, null),
+                workspace,
+                openTerminal,
+                openFile);
     }
 
     private static JTree tree(final WorkspaceTreePanel panel) {

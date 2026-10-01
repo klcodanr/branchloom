@@ -2,19 +2,21 @@ package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestCheck;
+import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.services.PlatformCommands;
 import java.awt.FlowLayout;
-import java.util.Locale;
+import java.util.List;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.UIManager;
 
 /** Renders checks summary and optional per-check details for a pull request. */
 public final class PullRequestChecksPanel extends JPanel {
     private transient PullRequest request;
+    private transient PullRequestChecks checks;
+    private boolean loading;
     private boolean expanded;
 
     public PullRequestChecksPanel() {
@@ -24,17 +26,20 @@ public final class PullRequestChecksPanel extends JPanel {
         setBorder(UiFactory.contentAreaBorder());
     }
 
-    public void render(final PullRequest request) {
+    public void render(
+            final PullRequest request, final PullRequestChecks checks, final boolean loading) {
         this.request = request;
+        this.checks = checks == null ? new PullRequestChecks(List.of()) : checks;
+        this.loading = loading;
         removeAll();
         if (request == null) {
             return;
         }
         add(summaryLine(request));
-        if (expanded && !request.checks().isEmpty()) {
+        if (expanded && !this.checks.checks().isEmpty()) {
             add(Box.createVerticalStrut(UiConstants.SPACING_XS));
-            for (final PullRequestCheck check : request.checks()) {
-                add(checkLine(check, request.url()));
+            for (final PullRequestCheck check : this.checks.checks()) {
+                add(checkLine(check, request.url().toExternalForm()));
             }
         }
     }
@@ -44,17 +49,23 @@ public final class PullRequestChecksPanel extends JPanel {
         row.setOpaque(false);
         final JLabel summary =
                 UiFactory.label(
-                        UiText.titleCase(request.checksStatus())
+                        UiText.titleCase(request.state().toString())
                                 + " "
-                                + request.checksPassed()
+                                + checks.passed()
                                 + " / "
-                                + request.checksTotal(),
+                                + checks.total(),
                         Theme.FontSize.SM);
-        summary.setForeground(UiText.checksColor(request.checksStatus()));
+        summary.setForeground(Theme.Colors.muted());
         row.add(summary);
-        if (request.checks().isEmpty()) {
+        if (loading) {
+            final JLabel loadingLabel = UiFactory.label("Loading checks...", Theme.FontSize.SM);
+            loadingLabel.setForeground(Theme.Colors.muted());
+            row.add(loadingLabel);
+            return row;
+        }
+        if (checks.checks().isEmpty()) {
             final JLabel none = UiFactory.label("(no check details)", Theme.FontSize.SM);
-            none.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+            none.setForeground(Theme.Colors.muted());
             row.add(none);
             return row;
         }
@@ -69,30 +80,29 @@ public final class PullRequestChecksPanel extends JPanel {
         row.setOpaque(false);
         final String status = displayStatus(check);
         final JLabel statusLabel = UiFactory.label(status, Theme.FontSize.SM);
-        statusLabel.setForeground(UiText.checksColor(status.toUpperCase(Locale.ROOT)));
+        statusLabel.setForeground(check.indicatorColor());
         row.add(statusLabel);
-        final String linkUrl = check.detailsUrl().isBlank() ? fallbackUrl : check.detailsUrl();
+        final String linkUrl =
+                check.detailsUrl() == null ? fallbackUrl : check.detailsUrl().toExternalForm();
         final JButton link = UiFactory.link(check.name(), () -> PlatformCommands.openUrl(linkUrl));
-        if (!check.details().isBlank()) {
-            link.setToolTipText(check.details());
-        }
+
         row.add(link);
         return row;
     }
 
     private void toggle() {
         expanded = !expanded;
-        render(request);
+        render(request, checks, loading);
         revalidate();
         repaint();
     }
 
     private static String displayStatus(final PullRequestCheck check) {
-        if (!check.conclusion().isBlank()) {
-            return UiText.titleCase(check.conclusion());
+        if (check.conclusion() != null) {
+            return UiText.titleCase(check.conclusion().toString());
         }
-        if (!check.status().isBlank()) {
-            return UiText.titleCase(check.status());
+        if (check.status() != null) {
+            return UiText.titleCase(check.status().toString());
         }
         return "Unknown";
     }

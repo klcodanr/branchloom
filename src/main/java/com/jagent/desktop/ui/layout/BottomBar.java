@@ -1,11 +1,19 @@
-package com.jagent.desktop.ui.components;
+package com.jagent.desktop.ui.layout;
 
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
+import com.jagent.desktop.models.git.WorktreeStatusSummary;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundJobs;
-import com.jagent.desktop.services.BackgroundTasks;
-import com.jagent.desktop.services.Git;
+import com.jagent.desktop.services.git.GitRepository;
+import com.jagent.desktop.ui.components.GitStatusPanel;
+import com.jagent.desktop.ui.components.RotatingIcon;
+import com.jagent.desktop.ui.components.Theme;
+import com.jagent.desktop.ui.components.UiConstants;
+import com.jagent.desktop.ui.components.UiFactory;
+import com.jagent.desktop.ui.components.UiIcons;
+import com.jagent.desktop.ui.components.UiText;
 import com.jagent.desktop.ui.dialogs.BackgroundJobDialog;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -26,7 +34,6 @@ import javax.swing.JPopupMenu;
 import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import javax.swing.UIManager;
 
 /** Compact bottom bar for problems, workspace status, and background jobs. */
 public final class BottomBar extends JPanel {
@@ -50,6 +57,8 @@ public final class BottomBar extends JPanel {
     private int refreshAnimationTicks;
     private List<BackgroundJobs.Job> jobs = List.of();
 
+    private record StatusUpdate(WorktreeStatusSummary worktreeStatusSummary, String branchName) {}
+
     public BottomBar(
             final AppState appState,
             final BackgroundJobs backgroundJobs,
@@ -63,8 +72,7 @@ public final class BottomBar extends JPanel {
         refreshCurrentViewAction = refreshCurrentView;
         setBorder(
                 BorderFactory.createCompoundBorder(
-                        BorderFactory.createMatteBorder(
-                                1, 0, 0, 0, UIManager.getColor("Separator.foreground")),
+                        BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.Colors.border()),
                         BorderFactory.createEmptyBorder(
                                 UiConstants.SPACING_XS,
                                 UiConstants.CONTENT_PADDING,
@@ -91,7 +99,7 @@ public final class BottomBar extends JPanel {
                             refreshButton.repaint();
                             refreshAnimationTicks++;
                             final boolean active =
-                                    !BackgroundTasks.summary().activeTasks().isEmpty();
+                                    !BackgroundOperations.summary().activeTasks().isEmpty();
                             refreshWorkObserved |= active;
                             if ((refreshWorkObserved && !active) || refreshAnimationTicks >= 20) {
                                 stopRefreshAnimation();
@@ -127,7 +135,7 @@ public final class BottomBar extends JPanel {
                     }
                 });
         jobsStatus.setName("jobs-status-label");
-        jobsStatus.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+        jobsStatus.setForeground(Theme.Colors.muted());
         jobsStatus.setAlignmentX(CENTER_ALIGNMENT);
         jobsStatus.setVisible(false);
         final JPanel jobsStatusPanel = new JPanel();
@@ -160,38 +168,33 @@ public final class BottomBar extends JPanel {
                         ? Path.of(currentProject.path())
                         : Path.of(currentSession.worktreePath());
         project.setText(currentProject.name());
-        BackgroundTasks.submit(
-                "Status bar",
-                "git-status",
-                () -> {
-                    try {
-                        final String currentBranch = Git.currentBranch(worktree).trim();
-                        final Git.WorktreeStatus status = Git.worktreeStatus(worktree, false);
-                        SwingUtilities.invokeLater(
-                                () ->
-                                        updateGitStatusIfCurrent(
-                                                generation,
-                                                currentProject.name(),
-                                                currentBranch,
-                                                status));
-                    } catch (java.io.IOException exception) {
-                        SwingUtilities.invokeLater(
-                                () ->
-                                        updateGitStatusIfCurrent(
-                                                generation, currentProject.name(), "", null));
-                    } catch (InterruptedException exception) {
-                        Thread.currentThread().interrupt();
-                        SwingUtilities.invokeLater(
-                                () ->
-                                        updateGitStatusIfCurrent(
-                                                generation, currentProject.name(), "", null));
-                    }
-                });
+        BackgroundOperations.submit(
+                        "Status bar",
+                        "git-status",
+                        () -> {
+                            try (GitRepository gitRepository = GitRepository.open(worktree)) {
+                                final String currentBranch = gitRepository.currentBranch();
+                                final WorktreeStatusSummary status = gitRepository.statusSummary();
+                                return new StatusUpdate(status, currentBranch);
+                            }
+                        })
+                .thenAccept(
+                        (statusUpdate) ->
+                                updateGitStatusIfCurrent(
+                                        generation,
+                                        currentProject.name(),
+                                        statusUpdate.branchName(),
+                                        statusUpdate.worktreeStatusSummary()))
+                .exceptionally(
+                        (ex) -> {
+                            updateGitStatusIfCurrent(generation, currentProject.name(), "", null);
+                            return null;
+                        });
     }
 
     public void setRefreshVisible(final boolean visible) {
         refreshButton.setVisible(visible);
-        if (visible && !BackgroundTasks.summary().activeTasks().isEmpty()) {
+        if (visible && !BackgroundOperations.summary().activeTasks().isEmpty()) {
             startRefreshAnimation();
         }
         if (!visible) {
@@ -227,8 +230,8 @@ public final class BottomBar extends JPanel {
     }
 
     private void updateGitStatus(
-            final String projectName, final String branchName, final Git.WorktreeStatus status) {
-        project.setText(projectName == null ? "" : projectName);
+            final String projectName, final String branchName, final WorktreeStatusSummary status) {
+        project.setText(UiText.valueOrDefault(projectName, ""));
         final boolean hasBranch = branchName != null && !branchName.isBlank();
         branchIcon.setVisible(hasBranch);
         branch.setText(hasBranch ? branchName : "");
@@ -245,7 +248,7 @@ public final class BottomBar extends JPanel {
             final long generation,
             final String projectName,
             final String branchName,
-            final Git.WorktreeStatus status) {
+            final WorktreeStatusSummary status) {
         if (generation == refreshGeneration.get()) {
             updateGitStatus(projectName, branchName, status);
         }
@@ -317,7 +320,8 @@ public final class BottomBar extends JPanel {
     }
 
     private JMenuItem jobSelector(final BackgroundJobs.Job job) {
-        final JMenuItem item = new JMenuItem(job.title() + "  ·  " + jobStatusText(job.status()));
+        final JMenuItem item =
+                new JMenuItem(job.title() + "  ·  " + UiText.titleCase(job.status().name()));
         item.setToolTipText(jobSelectorTooltip(job));
         item.addActionListener(event -> BackgroundJobDialog.show(this, job));
         return item;
@@ -331,13 +335,5 @@ public final class BottomBar extends JPanel {
                                 + job.project()
                                 + (job.session().isBlank() ? "" : "  ·  Session: " + job.session());
         return context.isBlank() ? job.message() : context + "  ·  " + job.message();
-    }
-
-    private String jobStatusText(final BackgroundJobs.Status status) {
-        return switch (status) {
-            case RUNNING -> "Running";
-            case SUCCEEDED -> "Completed";
-            case FAILED -> "Failed";
-        };
     }
 }

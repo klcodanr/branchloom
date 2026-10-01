@@ -5,6 +5,7 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
+import com.jagent.desktop.models.github.PatCredential;
 import com.jagent.desktop.services.AgentDetection;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.EditorDetection;
@@ -17,14 +18,15 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class AppStatePersistence extends PersistenceSupport implements AutoCloseable {
-    private static final Logger LOG = Logger.getLogger(AppStatePersistence.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(AppStatePersistence.class);
     private static final long PERIOD_SECONDS = 1;
 
     private final AppState appState;
@@ -32,6 +34,7 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
     private final Path projectsFile;
     private final Path settingsFile;
     private final ScheduledExecutorService executor;
+    private final ScheduledFuture<?> scheduledPersist;
 
     public AppStatePersistence(final AppState appState, final Path directory) {
         super();
@@ -46,8 +49,9 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
                             thread.setDaemon(true);
                             return thread;
                         });
-        this.executor.scheduleWithFixedDelay(
-                this::persist, PERIOD_SECONDS, PERIOD_SECONDS, TimeUnit.SECONDS);
+        this.scheduledPersist =
+                this.executor.scheduleWithFixedDelay(
+                        this::persist, PERIOD_SECONDS, PERIOD_SECONDS, TimeUnit.SECONDS);
     }
 
     public static AppState load(final Path directory) {
@@ -59,7 +63,12 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
         final AppSettings loadedSettings =
                 readOrDefault(settingsFile, AppSettings.class, Defaults.appSettings());
         final AppSettings settings = settings(settingsExist, loadedSettings);
-        return new AppState(settings, projects.projects, projects.sessions, projects.terminals);
+        return new AppState(
+                settings,
+                projects.projects,
+                projects.sessions,
+                projects.terminals,
+                projects.githubConnections);
     }
 
     private static AppSettings settings(
@@ -87,7 +96,7 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
             Thread.currentThread().interrupt();
             return;
         } catch (RuntimeException exception) {
-            LOG.log(Level.WARNING, "Failed to snapshot application state", exception);
+            LOG.warn("Failed to snapshot application state", exception);
             return;
         }
         if (snapshot == null) {
@@ -127,6 +136,7 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
                         .forEach(
                                 (id, terminal) ->
                                         projects.terminals.put(id.value().toString(), terminal));
+                projects.githubConnections.putAll(snapshot.githubConnections());
                 writeAtomically(projectsFile, projects);
                 snapshot.terminalEvents().forEach(this::updateTerminalHistory);
             }
@@ -134,7 +144,7 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
                 writeAtomically(settingsFile, snapshot.appSettings());
             }
         } catch (IOException exception) {
-            LOG.log(Level.WARNING, "Failed to persist application state", exception);
+            LOG.warn("Failed to persist application state", exception);
             SwingUtilities.invokeLater(
                     () ->
                             appState.restorePersistenceUpdates(
@@ -177,25 +187,43 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
         try {
             return read(path, type, fallback);
         } catch (IOException | RuntimeException exception) {
-            LOG.log(Level.WARNING, "Failed to load " + path + "; using defaults.", exception);
+            LOG.warn("Failed to load {}; using defaults.", path, exception);
             return fallback;
         }
     }
 
     @Override
     public void close() {
+        scheduledPersist.cancel(false);
+        if (SwingUtilities.isEventDispatchThread()) {
+            executor.shutdownNow();
+            final AppState.PersistenceSnapshot snapshot = snapshotOnEdtUnchecked();
+            if (snapshot != null) {
+                write(snapshot);
+            }
+            return;
+        }
         persist();
         executor.shutdown();
         try {
             if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
-                LOG.warning("Application state persistence did not finish before shutdown.");
+                LOG.warn("Application state persistence did not finish before shutdown.");
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            LOG.log(
-                    Level.WARNING,
-                    "Interrupted while closing application state persistence",
-                    exception);
+            LOG.warn("Interrupted while closing application state persistence", exception);
+        }
+    }
+
+    private AppState.PersistenceSnapshot snapshotOnEdtUnchecked() {
+        try {
+            return snapshotOnEdt();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (RuntimeException exception) {
+            LOG.warn("Failed to snapshot application state", exception);
+            return null;
         }
     }
 
@@ -203,5 +231,6 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
         private final Map<String, Project> projects = new LinkedHashMap<>();
         private final Map<String, Session> sessions = new LinkedHashMap<>();
         private final Map<String, Terminal> terminals = new LinkedHashMap<>();
+        private final Map<String, PatCredential> githubConnections = new LinkedHashMap<>();
     }
 }

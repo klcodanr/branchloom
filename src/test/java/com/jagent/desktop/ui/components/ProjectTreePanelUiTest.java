@@ -632,7 +632,7 @@ class ProjectTreePanelUiTest {
     }
 
     private static Project project(final String name, final String path, final String group) {
-        return new Project(name, path, group, null, null, null, null, List.of(), List.of());
+        return new Project(name, path, group, null, null, null, List.of(), List.of(), null, null);
     }
 
     private static String projectName(final Object node) {

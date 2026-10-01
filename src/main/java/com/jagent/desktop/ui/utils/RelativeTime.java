@@ -6,19 +6,20 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.FormatStyle;
+import java.util.Date;
 import java.util.Locale;
 
 /** Formats timestamps as compact relative offsets. */
 public final class RelativeTime {
     private RelativeTime() {}
 
-    public static String offsetTime(final String timestamp, final Instant now) {
-        if (timestamp == null || timestamp.isBlank()) {
+    public static String offsetTime(final Date timestamp) {
+        if (timestamp == null) {
             return "unknown";
         }
         try {
             final long seconds =
-                    Math.max(0, Duration.between(Instant.parse(timestamp), now).toSeconds());
+                    Math.max(0, Duration.between(timestamp.toInstant(), Instant.now()).toSeconds());
             if (seconds < 60) {
                 return "now";
             }
@@ -37,19 +38,19 @@ public final class RelativeTime {
         }
     }
 
-    public static String localDateTime(
-            final String timestamp, final ZoneId zone, final Locale locale) {
-        if (timestamp == null || timestamp.isBlank()) {
-            return timestamp;
+    public static String localDateTime(final Date timestamp) {
+        if (timestamp == null) {
+            return null;
         }
         try {
-            return Instant.parse(timestamp)
-                    .atZone(zone)
+            return timestamp
+                    .toInstant()
+                    .atZone(ZoneId.systemDefault())
                     .format(
                             DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)
-                                    .withLocale(locale));
+                                    .withLocale(Locale.getDefault()));
         } catch (DateTimeParseException exception) {
-            return timestamp;
+            return null;
         }
     }
 }

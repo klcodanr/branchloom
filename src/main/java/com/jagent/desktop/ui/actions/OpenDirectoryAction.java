@@ -2,7 +2,7 @@ package com.jagent.desktop.ui.actions;
 
 import com.jagent.desktop.api.BaseAction;
 import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.ui.utils.CurrentPath;
+import com.jagent.desktop.ui.utils.PathUtils;
 import java.awt.Component;
 import java.awt.Desktop;
 import java.nio.file.Path;
@@ -43,11 +43,11 @@ public final class OpenDirectoryAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return CurrentPath.resolve(actionContext.appState()) != null;
+        return PathUtils.resolve(actionContext.appState()) != null;
     }
 
     @Override
     public void execute() {
-        open(CurrentPath.resolve(actionContext.appState()), actionContext.window());
+        open(PathUtils.resolve(actionContext.appState()), actionContext.window());
     }
 }

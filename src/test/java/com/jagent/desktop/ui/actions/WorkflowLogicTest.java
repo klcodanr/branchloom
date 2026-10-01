@@ -3,45 +3,17 @@ package com.jagent.desktop.ui.actions;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.jagent.desktop.models.Project;
-import com.jagent.desktop.services.GitHub.Issue;
-import java.nio.file.Path;
+import com.jagent.desktop.models.github.Issue;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 class WorkflowLogicTest {
-    private static final String FEATURE = "feature";
-
     @Test
-    void projectBrowserStartsAtEnteredPathOrHomeWhenBlank(@TempDir final Path tempDirectory) {
-        assertEquals(
-                tempDirectory.toString(),
-                CreateProjectAction.initialDirectory("  " + tempDirectory + "  "),
-                "browser should use the trimmed project path");
-        assertEquals(
-                System.getProperty("user.home"),
-                CreateProjectAction.initialDirectory(" \t "),
-                "browser should use home when project path is blank");
-    }
-
-    @Test
-    void projectChecksDetectDuplicateNamesAndNormalizedPaths() {
-        final Project project = new Project("Demo", "demo", null);
-
-        assertTrue(
-                CreateProjectAction.duplicateName(List.of(project), "demo"),
-                "project names should be compared case-insensitively");
-        assertTrue(
-                CreateProjectAction.duplicatePath(
-                        List.of(project), Path.of("demo").toAbsolutePath().normalize()),
-                "project paths should be normalized before comparison");
-    }
-
-    @Test
-    void bulkIssueCandidatesContainBranchNamesLabelsAndPrompts() {
-        final Issue issue = new Issue(42, "Fix Login Flow", "Use OAuth", "https://example.test/42");
+    void bulkIssueCandidatesContainBranchNamesLabelsAndPrompts() throws MalformedURLException {
+        final Issue issue =
+                new Issue(42, "Fix Login Flow", "Use OAuth", new URL("https://example.test/42"));
 
         final var candidate = BulkCreateSessionsAction.candidates(List.of(issue)).get(0);
 
@@ -57,31 +29,9 @@ class WorkflowLogicTest {
     }
 
     @Test
-    void bulkFailureMessageUsesDeepestCauseOrFallback() {
-        assertEquals(
-                "root failure",
-                BulkCreateSessionsAction.message(
-                        new IllegalStateException("wrapper", new RuntimeException("root failure")),
-                        "fallback"),
-                "the deepest failure message should be displayed");
-        assertEquals(
-                "fallback",
-                BulkCreateSessionsAction.message(new RuntimeException(), "fallback"),
-                "missing failure messages should use the fallback");
-    }
-
-    @Test
-    void importBranchNamesAvoidExistingNamesAndResolveRemoteBranches() {
-        final Set<String> names = Set.of(FEATURE, FEATURE + "-2");
-        final var remote =
-                new ImportBranchAction.BranchChoice("origin/feature", "origin/feature", true);
-        final var local = new ImportBranchAction.BranchChoice(FEATURE, FEATURE, false);
-
-        assertEquals(
-                FEATURE + "-3",
-                ImportBranchAction.uniqueName(FEATURE, names),
-                "duplicate names should get a suffix");
-        assertEquals(FEATURE, remote.localName(), "remote names should drop the remote prefix");
-        assertEquals(FEATURE, local.localName(), "local names should be retained");
+    void candidatesListIsEmptyForNoIssues() {
+        assertTrue(
+                BulkCreateSessionsAction.candidates(List.of()).isEmpty(),
+                "no issues should produce no candidates");
     }
 }

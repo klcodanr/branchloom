@@ -2,16 +2,21 @@ package com.jagent.desktop.services;
 
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
+import com.jagent.desktop.models.github.Credential;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 
 /** Writes the optional project context supplied to a new agent session. */
 public final class AgentContext {
     private AgentContext() {}
 
     public static void write(
-            final Project project, final Session session, final String globalContextPath)
+            final Project project,
+            final Session session,
+            final String globalContextPath,
+            final String githubUser)
             throws IOException {
         final Path target = path(project, session, globalContextPath);
         if (target == null) {
@@ -21,13 +26,15 @@ public final class AgentContext {
         if (parent != null) {
             Files.createDirectories(parent);
         }
-        Files.writeString(target, generatedContent(project, session));
+        Files.writeString(target, generatedContent(project, session, githubUser));
     }
 
-    public static String generatedContent(final Project project, final Session session) {
-        final String githubHost = project.githubHost();
-        final String githubUser = project.githubUser();
+    public static String generatedContent(
+            final Project project, final Session session, final String githubUser) {
         final String additionalText = project.agentContextText();
+        final Credential credential = project.credential();
+        final String githubHost = Optional.ofNullable(credential).map(Credential::host).orElse("");
+
         final StringBuilder content =
                 new StringBuilder(384)
                         .append("# Agent context\n\n## Project\n\n- Name: ")
@@ -41,7 +48,7 @@ public final class AgentContext {
                                         + "- Read this file at the start of each session before making changes.\n"
                                         + "- Keep ongoing notes in this file as you work so future sessions share the same context.\n");
         if (hasText(githubHost) || hasText(githubUser)) {
-            content.append("\n\n## GitHub CLI\n\n");
+            content.append("\n\n## GitHub\n\n");
             if (hasText(githubHost)) {
                 content.append("- Host: ").append(githubHost).append('\n');
             }
@@ -56,14 +63,17 @@ public final class AgentContext {
     }
 
     public static String read(
-            final Project project, final Session session, final String globalContextPath)
+            final Project project,
+            final Session session,
+            final String globalContextPath,
+            final String githubUser)
             throws IOException {
         final Path target = path(project, session, globalContextPath);
         if (target == null) {
             return "";
         }
         if (!Files.exists(target)) {
-            return generatedContent(project, session);
+            return generatedContent(project, session, githubUser);
         }
         return Files.readString(target);
     }
@@ -86,11 +96,6 @@ public final class AgentContext {
     }
 
     public static Path path(
-            final Project project, final Session session, final String globalContextPath) {
-        return targetPath(project, session, globalContextPath);
-    }
-
-    private static Path targetPath(
             final Project project, final Session session, final String globalContextPath) {
         final String configuredContextPath = configuredContextPath(project, globalContextPath);
         if (configuredContextPath == null || configuredContextPath.isBlank()) {

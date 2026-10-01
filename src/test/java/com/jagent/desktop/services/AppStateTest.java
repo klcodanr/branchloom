@@ -10,6 +10,7 @@ import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.TerminalId;
+import com.jagent.desktop.models.github.PatCredential;
 import com.jagent.desktop.ui.Defaults;
 import java.io.InvalidObjectException;
 import java.util.List;
@@ -177,5 +178,33 @@ class AppStateTest {
         assertNull(state.currentProjectId(), "current project should be cleared");
         assertNull(state.currentSessionId(), "current session should be cleared");
         assertNull(state.currentTerminalId(), "current terminal should be cleared");
+    }
+
+    @Test
+    void removingGitHubConnectionClearsProjectConnectionReference() {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final String connectionId = "connection-id";
+        state.addGitHubConnection(
+                new PatCredential(connectionId, "github.com", "GitHub connection"));
+        final Project project =
+                new Project(
+                        DEMO,
+                        DEMO_PATH,
+                        null,
+                        new PatCredential(connectionId, "github.com", "GitHub connection"),
+                        null,
+                        null,
+                        List.of(),
+                        List.of(),
+                        null,
+                        null);
+        final ProjectId projectId = state.addProject(project);
+
+        state.removeGitHubConnection(connectionId);
+
+        assertTrue(state.githubConnections().isEmpty(), "connection should be removed");
+        assertNull(
+                state.projects().get(projectId).credential(),
+                "project credential should be cleared");
     }
 }

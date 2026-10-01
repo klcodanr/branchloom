@@ -4,32 +4,29 @@ import static com.jagent.desktop.ui.components.UiFactory.form;
 
 import com.jagent.desktop.api.BaseAction;
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
-import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.Git;
+import com.jagent.desktop.services.SessionCreationService;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.components.SearchableList;
-import com.jagent.desktop.ui.dialogs.ProgressOperation;
-import com.jagent.desktop.ui.utils.GitUtils;
+import com.jagent.desktop.ui.utils.ErrorDialogs;
+import com.jagent.desktop.ui.utils.ErrorMessages;
 import com.jagent.desktop.ui.utils.SessionNames;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
 
 /** Starts importing a worktree into the selected project. */
 public final class ImportWorktreeAction extends BaseAction {
     private static final String TITLE = "Import worktree";
     private static final String EMPTY_MESSAGE = "No worktrees are available to import.";
-    private static final Logger LOG = Logger.getLogger(ImportWorktreeAction.class.getName());
-    private final Git git = new Git();
 
     public ImportWorktreeAction(final ActionContext actionContext) {
         super(actionContext);
@@ -59,25 +56,34 @@ public final class ImportWorktreeAction extends BaseAction {
             return;
         }
 
-        final ProgressOperation progress =
-                ProgressOperation.start(actionContext.window(), TITLE, "Loading worktrees...");
-        git.listWorktrees(project)
-                .whenCompleteAsync(
-                        (paths, failure) -> {
-                            progress.close();
-                            if (failure != null) {
-                                LOG.log(Level.SEVERE, "Git query", failure);
-                            } else {
-                                importWorktree(projectId, project, paths);
+        ProgressOperation.run(
+                        actionContext,
+                        TITLE,
+                        "Loading worktrees...",
+                        () -> {
+                            try (GitRepository repository =
+                                    GitRepository.open(Path.of(project.path()))) {
+                                return repository.listWorktrees().stream()
+                                        .map(com.jagent.desktop.models.git.Worktree::path)
+                                        .toList();
                             }
-                        },
-                        SwingUtilities::invokeLater);
+                        })
+                .thenAccept(paths -> importWorktree(projectId, project, paths))
+                .exceptionally(
+                        failure -> {
+                            ErrorDialogs.show(
+                                    actionContext.window(),
+                                    TITLE,
+                                    ErrorMessages.deepestCause(
+                                            failure, "Could not load worktrees."));
+                            return null;
+                        });
     }
 
     private void importWorktree(
             final ProjectId projectId, final Project project, final List<Path> paths) {
         final var state = this.actionContext.appState();
-        final List<String> worktrees = availableWorktrees(project, state, paths);
+        final List<String> worktrees = availableWorktrees(project, paths);
         if (worktrees.isEmpty()) {
             JOptionPane.showMessageDialog(
                     actionContext.window(), EMPTY_MESSAGE, TITLE, JOptionPane.INFORMATION_MESSAGE);
@@ -107,33 +113,37 @@ public final class ImportWorktreeAction extends BaseAction {
         }
     }
 
-    private List<String> availableWorktrees(
-            final Project project, final AppState state, final List<Path> paths) {
+    private List<String> availableWorktrees(final Project project, final List<Path> paths) {
         final Path repository = Path.of(project.path()).toAbsolutePath().normalize();
         return paths.stream()
                 .map(path -> path.toAbsolutePath().normalize())
                 .filter(path -> !path.equals(repository))
-                .filter(path -> !GitUtils.isWorktreeRegistered(state.sessions(), path))
                 .map(Path::toString)
                 .toList();
     }
 
     private void addSession(
             final ProjectId projectId, final String sessionName, final String worktreePath) {
-        final Session session =
-                new Session(
-                        projectId,
-                        sessionName,
-                        "Imported worktree",
-                        "",
-                        Path.of(worktreePath).toAbsolutePath().normalize().toString());
+        final AppState state = this.actionContext.appState();
+        final Project project = state.projects().get(projectId);
+        if (project == null) {
+            return;
+        }
+        final SessionCreationService sessionCreationService = new SessionCreationService(state);
+        final Path normalizedPath = Path.of(worktreePath).toAbsolutePath().normalize();
         try {
-            final var sessionId = this.actionContext.appState().addSession(projectId, session);
+            sessionCreationService.checkCreateSession(project, sessionName, normalizedPath);
+            final var sessionId =
+                    sessionCreationService.createSession(
+                            projectId, sessionName, "Imported worktree", "", normalizedPath);
             actionContext
                     .viewCoordinator()
                     .updateView(ViewId.SESSION, ViewState.session(projectId, sessionId));
-        } catch (java.io.InvalidObjectException exception) {
-            LOG.log(Level.SEVERE, TITLE, exception);
+        } catch (IOException exception) {
+            ErrorDialogs.show(
+                    actionContext.window(),
+                    TITLE,
+                    ErrorMessages.deepestCause(exception, "Could not import worktree."));
         }
     }
 }

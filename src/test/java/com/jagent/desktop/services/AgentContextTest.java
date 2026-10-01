@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
+import com.jagent.desktop.models.github.CliCredential;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,6 +19,7 @@ class AgentContextTest {
     private static final String SESSION_NAME = "Fix login";
     private static final String FIX_PROMPT = "Fix it";
     private static final String CONTEXT_PATH = ".branchloom/context.md";
+    private static final String DEV_USER = "dev";
 
     @Test
     void writesConfiguredContextIntoTheWorktree(
@@ -27,18 +29,17 @@ class AgentContextTest {
                         PROJECT_NAME,
                         worktree.toString(),
                         null,
-                        "github.example",
-                        "dev",
+                        new CliCredential("github.example", DEV_USER, DEV_USER),
                         null,
                         null,
-                        List.of("./gradlew test"),
+                        List.of(),
                         List.of(),
                         CONTEXT_PATH,
                         "Use the repository conventions.");
         final Session session =
                 new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
-        AgentContext.write(project, session, "");
+        AgentContext.write(project, session, "", DEV_USER);
 
         final Path context = worktree.resolve(CONTEXT_PATH);
         final String content = Files.readString(context);
@@ -46,7 +47,7 @@ class AgentContextTest {
         assertFalse(
                 content.contains("./gradlew test"), "context should not include startup commands");
         assertTrue(content.contains("github.example"), "context should include the GitHub host");
-        assertTrue(content.contains("dev"), "context should include the GitHub user");
+        assertTrue(content.contains(DEV_USER), "context should include the GitHub user");
         assertTrue(
                 content.contains("Use the repository conventions."),
                 "context should include custom context text");
@@ -69,7 +70,7 @@ class AgentContextTest {
         final Session session =
                 new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
-        AgentContext.write(project, session, "");
+        AgentContext.write(project, session, "", null);
 
         assertFalse(
                 Files.exists(worktree.resolve(CONTEXT_PATH)),
@@ -87,7 +88,6 @@ class AgentContextTest {
                         null,
                         null,
                         null,
-                        null,
                         List.of(),
                         List.of(),
                         ".cursor-notes/agent-start.md",
@@ -97,7 +97,7 @@ class AgentContextTest {
         final Path context = worktree.resolve(".cursor-notes");
         Files.writeString(context, "old agent start content");
 
-        AgentContext.write(project, session, "");
+        AgentContext.write(project, session, "", null);
 
         final String content = Files.readString(context);
         assertTrue(content.contains("# Agent context"), "context should be written");
@@ -117,8 +117,7 @@ class AgentContextTest {
                         PROJECT_NAME,
                         worktree.toString(),
                         null,
-                        "github.example",
-                        "dev",
+                        new CliCredential("github.example", DEV_USER, DEV_USER),
                         null,
                         null,
                         List.of(),
@@ -128,7 +127,7 @@ class AgentContextTest {
         final Session session =
                 new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
-        final String content = AgentContext.read(project, session, "");
+        final String content = AgentContext.read(project, session, "", DEV_USER);
 
         assertTrue(content.contains("# Agent context"), "context should include heading");
         assertFalse(
@@ -142,7 +141,6 @@ class AgentContextTest {
                 new Project(
                         PROJECT_NAME,
                         worktree.toString(),
-                        null,
                         null,
                         null,
                         null,
@@ -170,7 +168,9 @@ class AgentContextTest {
                 new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
         assertEquals(
-                "", AgentContext.read(project, session, ""), "blank paths should read as blank");
+                "",
+                AgentContext.read(project, session, "", null),
+                "blank paths should read as blank");
     }
 
     @Test
@@ -180,7 +180,7 @@ class AgentContextTest {
         final Session session =
                 new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
-        AgentContext.write(project, session, CONTEXT_PATH);
+        AgentContext.write(project, session, CONTEXT_PATH, null);
 
         assertTrue(
                 Files.exists(worktree.resolve(CONTEXT_PATH)),
@@ -198,7 +198,6 @@ class AgentContextTest {
                         null,
                         null,
                         null,
-                        null,
                         List.of(),
                         List.of(),
                         ".project-context.md",
@@ -206,7 +205,7 @@ class AgentContextTest {
         final Session session =
                 new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
-        AgentContext.write(project, session, CONTEXT_PATH);
+        AgentContext.write(project, session, CONTEXT_PATH, null);
 
         assertTrue(
                 Files.exists(worktree.resolve(".project-context.md")),
