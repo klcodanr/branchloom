@@ -16,9 +16,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.Normalizer;
 import java.util.Locale;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Creates a session, its worktree, and its initial terminal. */
 public final class SessionCreationService {
+    private static final Logger LOG = LoggerFactory.getLogger(SessionCreationService.class);
     private final AppState state;
 
     public SessionCreationService(final AppState state) {
@@ -208,7 +211,12 @@ public final class SessionCreationService {
             final String commandTemplate)
             throws IOException, InvalidObjectException {
         final Session session = new Session(projectId, sessionName, agent, prompt, worktreePath);
-        final String githubUser = GitHub.forProject(state, projectId).getLogin();
+        String githubUser = null;
+        try {
+            githubUser = GitHub.forProject(state, projectId).getLogin();
+        } catch (IOException exception) {
+            LOG.warn("Could not resolve GitHub login for agent context", exception);
+        }
         AgentContext.write(project, session, state.appSettings().agentContextPath(), githubUser);
         final SessionId sessionId = state.addSession(projectId, session);
         final TerminalId terminalId =
