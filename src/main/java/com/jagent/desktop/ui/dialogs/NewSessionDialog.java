@@ -149,19 +149,12 @@ public final class NewSessionDialog extends JDialog {
     }
 
     private void validateAndCheckBranch() {
-        if (name.getText().isBlank()) {
+        final String validationMessage =
+                validationFailure(
+                        name.getText(), (Agent) agent.getSelectedItem(), prompt.getText());
+        if (validationMessage != null) {
             JOptionPane.showMessageDialog(
-                    this, "Session name is required.", TITLE, JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-        if (agent.getSelectedItem() == null) {
-            JOptionPane.showMessageDialog(
-                    this, "Select an agent.", TITLE, JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-        if (prompt.getText().isBlank()) {
-            JOptionPane.showMessageDialog(
-                    this, "Prompt is required.", TITLE, JOptionPane.ERROR_MESSAGE);
+                    this, validationMessage, TITLE, JOptionPane.ERROR_MESSAGE);
             return;
         }
         final Agent selectedAgent = (Agent) agent.getSelectedItem();
@@ -173,5 +166,19 @@ public final class NewSessionDialog extends JDialog {
                         selectedAgent,
                         prompt.getText().trim(),
                         branchNames.contains(selectedBranch) ? selectedBranch : null));
+    }
+
+    /* default */ static String validationFailure(
+            final String name, final Agent agent, final String prompt) {
+        if (name == null || name.isBlank()) {
+            return "Session name is required.";
+        }
+        if (agent == null) {
+            return "Select an agent.";
+        }
+        if (prompt == null || prompt.isBlank()) {
+            return "Prompt is required.";
+        }
+        return null;
     }
 }
