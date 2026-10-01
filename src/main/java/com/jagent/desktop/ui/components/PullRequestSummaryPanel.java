@@ -7,6 +7,7 @@ import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.services.PlatformCommands;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.util.HashMap;
@@ -29,7 +30,7 @@ import javax.swing.border.EmptyBorder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public final class PullRequestSummaryPanel extends JPanel {
+public final class PullRequestSummaryPanel extends ScrollablePanel {
     private final PullRequestChecksPanel checks = new PullRequestChecksPanel();
     private final AtomicLong renderGeneration = new AtomicLong();
     private final transient Map<String, String> bodyByRequest = new HashMap<>();
@@ -75,6 +76,7 @@ public final class PullRequestSummaryPanel extends JPanel {
         final JPanel bodyPanel = new JPanel(new BorderLayout());
         bodyPanel.setOpaque(false);
         bodyPanel.setAlignmentX(LEFT_ALIGNMENT);
+        bodyPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
         bodyPanel.setBorder(UiFactory.contentAreaBorder());
         final String bodyKey = PullRequestPresentation.bodyKey(request);
         final String cachedBody = bodyByRequest.get(bodyKey);
@@ -289,6 +291,7 @@ public final class PullRequestSummaryPanel extends JPanel {
         body.setEditable(false);
         body.setOpaque(false);
         body.setFocusable(true);
+        body.setMinimumSize(new Dimension(0, 0));
         body.setBorder(new EmptyBorder(0, 0, 0, 0));
         body.setCaretPosition(0);
         return body;

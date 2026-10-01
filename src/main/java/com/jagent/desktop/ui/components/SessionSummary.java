@@ -35,7 +35,7 @@ import javax.swing.JTextArea;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class SessionSummary extends JPanel {
+public final class SessionSummary extends ScrollablePanel {
     private static final String TASK_GROUP = "Session summary";
     private static final Logger LOG = LoggerFactory.getLogger(SessionSummary.class);
     private static final String UNAVAILABLE = "Unavailable";

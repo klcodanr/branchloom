@@ -128,8 +128,7 @@ public final class PullRequestsBoard extends JPanel {
         summaryScroll = new JScrollPane(summary);
         summaryScroll.setOpaque(false);
         summaryScroll.getViewport().setOpaque(false);
-        summaryScroll.setHorizontalScrollBarPolicy(
-                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        summaryScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         summaryScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
         splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, listScroll, summaryScroll);
         splitPane.setBorder(null);

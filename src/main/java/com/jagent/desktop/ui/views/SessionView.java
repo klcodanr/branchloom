@@ -100,6 +100,7 @@ public final class SessionView extends AbstractWorkspaceView {
                         () -> new RemoveSessionAction(actionContext).execute());
         final JScrollPane summaryScroll = new JScrollPane(summary);
         summaryScroll.setBorder(null);
+        summaryScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         summaryScroll.getVerticalScrollBar().setUnitIncrement(14);
         tabs.addTab("Summary", summaryScroll);
     }
