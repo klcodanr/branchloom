@@ -422,4 +422,44 @@ class SessionCreationServiceTest {
                 state.sessions().get(sessionId).worktreePath(),
                 "session should point to the created worktree path");
     }
+
+    @Test
+    void fetchesRemoteBranchBeforeCreatingWorktree(@TempDir final Path directory)
+            throws IOException, InterruptedException, java.io.InvalidObjectException {
+        TestGitRepository.initialize(directory);
+        TestGitRepository.run(directory, "git clone -q --bare . remote.git");
+        TestGitRepository.run(directory, "git remote add origin remote.git");
+        TestGitRepository.run(
+                directory,
+                "git clone -q remote.git remote-update && "
+                        + "git -C remote-update config user.name test && "
+                        + "git -C remote-update config user.email test && "
+                        + "printf 'updated' > remote-update/tracked.txt && "
+                        + "git -C remote-update add tracked.txt && "
+                        + "git -C remote-update commit -qm updated && "
+                        + "git -C remote-update push -q origin master");
+
+        final AppState state = TestAppState.empty();
+        final Project project = new Project(PROJECT_NAME, directory.toString(), null);
+        final ProjectId projectId = state.addProject(project);
+        final Path worktree = directory.resolve("imported-remote-worktree");
+        final SessionCreationService.SessionDetails details =
+                new SessionCreationService.SessionDetails(SESSION_NAME, AGENT_NAME, PROMPT);
+        final SessionCreationService.WorktreeRequest request =
+                new SessionCreationService.WorktreeRequest(
+                        worktree, "origin/master", "imported-remote");
+
+        final SessionId sessionId =
+                new SessionCreationService(state)
+                        .fetchBranchCreateWorktreeAndSession(projectId, project, details, request);
+
+        assertEquals(
+                "updated",
+                Files.readString(worktree.resolve("tracked.txt")),
+                "worktree should be created from the fetched remote branch");
+        assertEquals(
+                worktree.toAbsolutePath().normalize().toString(),
+                state.sessions().get(sessionId).worktreePath(),
+                "session should point to the fetched remote worktree");
+    }
 }
