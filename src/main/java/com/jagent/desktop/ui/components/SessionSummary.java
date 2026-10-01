@@ -52,7 +52,9 @@ public final class SessionSummary extends JPanel {
     private final JButton pullRequest =
             UiFactory.link("Loading pull request status...", this::openPullRequest);
     private final StatusDot pullRequestStatusDot = new StatusDot(Theme.Colors.muted());
-    private final JPanel pullRequestDetails = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+    private final JPanel pullRequestDetails = new JPanel();
+    private final JPanel pullRequestHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+    private final JPanel pullRequestMeta = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
     private final JLabel pullRequestStatus =
             UiFactory.label("Status: Loading...", Theme.FontSize.SM);
     private final JLabel pullRequestChecks =
@@ -92,10 +94,15 @@ public final class SessionSummary extends JPanel {
         setBorder(UiFactory.sectionBorder());
         setLayout(new BorderLayout(0, UiConstants.SPACING_XL));
         pullRequestDetails.setOpaque(false);
-        pullRequestDetails.add(pullRequestStatusDot);
-        pullRequestDetails.add(pullRequest);
-        pullRequestDetails.add(pullRequestStatus);
-        pullRequestDetails.add(pullRequestChecks);
+        pullRequestDetails.setLayout(new BoxLayout(pullRequestDetails, BoxLayout.Y_AXIS));
+        pullRequestHeader.setOpaque(false);
+        pullRequestHeader.add(pullRequestStatusDot);
+        pullRequestHeader.add(pullRequest);
+        pullRequestMeta.setOpaque(false);
+        pullRequestMeta.add(pullRequestStatus);
+        pullRequestMeta.add(pullRequestChecks);
+        pullRequestDetails.add(pullRequestHeader);
+        pullRequestDetails.add(pullRequestMeta);
         cleanupAlert =
                 new Alert(
                         new Alert.Content(
