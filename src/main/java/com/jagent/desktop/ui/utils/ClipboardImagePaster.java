@@ -50,7 +50,7 @@ public final class ClipboardImagePaster {
         return paste(contents, pasteText, reportError);
     }
 
-    /* default */ static boolean paste(
+    public static boolean paste(
             final Transferable contents,
             final Consumer<String> pasteText,
             final Consumer<String> reportError) {
