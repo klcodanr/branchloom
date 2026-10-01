@@ -18,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.SwingUtilities;
@@ -33,6 +34,7 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
     private final Path projectsFile;
     private final Path settingsFile;
     private final ScheduledExecutorService executor;
+    private final ScheduledFuture<?> scheduledPersist;
 
     public AppStatePersistence(final AppState appState, final Path directory) {
         super();
@@ -47,8 +49,9 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
                             thread.setDaemon(true);
                             return thread;
                         });
-        this.executor.scheduleWithFixedDelay(
-                this::persist, PERIOD_SECONDS, PERIOD_SECONDS, TimeUnit.SECONDS);
+        this.scheduledPersist =
+                this.executor.scheduleWithFixedDelay(
+                        this::persist, PERIOD_SECONDS, PERIOD_SECONDS, TimeUnit.SECONDS);
     }
 
     public static AppState load(final Path directory) {
@@ -191,6 +194,15 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
 
     @Override
     public void close() {
+        scheduledPersist.cancel(false);
+        if (SwingUtilities.isEventDispatchThread()) {
+            executor.shutdownNow();
+            final AppState.PersistenceSnapshot snapshot = snapshotOnEdtUnchecked();
+            if (snapshot != null) {
+                write(snapshot);
+            }
+            return;
+        }
         persist();
         executor.shutdown();
         try {
@@ -200,6 +212,18 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             LOG.warn("Interrupted while closing application state persistence", exception);
+        }
+    }
+
+    private AppState.PersistenceSnapshot snapshotOnEdtUnchecked() {
+        try {
+            return snapshotOnEdt();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (RuntimeException exception) {
+            LOG.warn("Failed to snapshot application state", exception);
+            return null;
         }
     }
 

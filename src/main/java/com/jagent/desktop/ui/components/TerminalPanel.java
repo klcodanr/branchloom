@@ -47,7 +47,6 @@ import javax.swing.JPopupMenu;
 import javax.swing.JScrollBar;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
-import javax.swing.UIManager;
 import org.jetbrains.annotations.Nullable;
 
 /** UI attachment for a managed terminal runtime. */
@@ -220,10 +219,6 @@ public final class TerminalPanel extends JPanel {
     }
 
     protected static final class AppTerminalSettings extends DefaultSettingsProvider {
-        private static final String FOCUS_COLOR = "Component.focusColor";
-        private static final String LABEL_FOREGROUND = "Label.foreground";
-        private static final String PANEL_BACKGROUND = "Panel.background";
-        private static final String DISABLED_LABEL_FOREGROUND = "Label.disabledForeground";
         private static final ColorPalette PALETTE =
                 new ColorPalette() {
                     @Override
@@ -266,12 +261,12 @@ public final class TerminalPanel extends JPanel {
 
         @Override
         public TerminalColor getDefaultForeground() {
-            return terminalColor(UIManager.getColor(LABEL_FOREGROUND));
+            return terminalColor(Theme.Colors.foreground());
         }
 
         @Override
         public TerminalColor getDefaultBackground() {
-            return terminalColor(UIManager.getColor(PANEL_BACKGROUND));
+            return terminalColor(Theme.Colors.background());
         }
 
         @Override
@@ -281,8 +276,7 @@ public final class TerminalPanel extends JPanel {
 
         @Override
         public TextStyle getSelectionColor() {
-            final java.awt.Color selectionBackground =
-                    color(FOCUS_COLOR, new java.awt.Color(82, 109, 165));
+            final java.awt.Color selectionBackground = Theme.Colors.focus();
             return new TextStyle(
                     terminalColor(contrastingForeground(selectionBackground)),
                     terminalColor(selectionBackground));
@@ -295,7 +289,7 @@ public final class TerminalPanel extends JPanel {
 
         @Override
         public TextStyle getFoundPatternColor() {
-            final java.awt.Color foundPatternBackground = Theme.warningColor();
+            final java.awt.Color foundPatternBackground = Theme.Colors.warning();
             return new TextStyle(
                     terminalColor(contrastingForeground(foundPatternBackground)),
                     terminalColor(foundPatternBackground));
@@ -303,11 +297,8 @@ public final class TerminalPanel extends JPanel {
 
         @Override
         public TextStyle getHyperlinkColor() {
-            final var focusColor = UIManager.getColor(FOCUS_COLOR);
             return new TextStyle(
-                    terminalColor(
-                            focusColor == null ? UIManager.getColor(LABEL_FOREGROUND) : focusColor),
-                    terminalColor(UIManager.getColor(PANEL_BACKGROUND)));
+                    terminalColor(Theme.Colors.focus()), terminalColor(Theme.Colors.background()));
         }
 
         @Override
@@ -322,35 +313,28 @@ public final class TerminalPanel extends JPanel {
 
         private static java.awt.Color ansiColor(
                 final int index, final java.awt.Color fallback, final boolean background) {
-            final java.awt.Color panelBackground = color(PANEL_BACKGROUND, java.awt.Color.BLACK);
-            final java.awt.Color labelForeground = color(LABEL_FOREGROUND, java.awt.Color.WHITE);
-            final java.awt.Color disabledForeground =
-                    color(DISABLED_LABEL_FOREGROUND, labelForeground.darker());
-            final java.awt.Color red =
-                    fallbackColor(Theme.dangerColor(), new java.awt.Color(205, 49, 49));
-            final java.awt.Color green =
-                    fallbackColor(Theme.successColor(), new java.awt.Color(19, 161, 14));
-            final java.awt.Color yellow =
-                    fallbackColor(Theme.warningColor(), new java.awt.Color(229, 229, 16));
-            final java.awt.Color blue = color(FOCUS_COLOR, fallback);
-            final java.awt.Color magenta =
-                    fallbackColor(Theme.mergeColor(), new java.awt.Color(188, 63, 188));
-            final java.awt.Color cyan = blend(green, blue, 0.45f);
+            final java.awt.Color panelBackground = Theme.Colors.background();
+            final java.awt.Color labelForeground = Theme.Colors.foreground();
+            final java.awt.Color disabledForeground = Theme.Colors.muted();
+
+            final java.awt.Color blue = Theme.Colors.focus();
+            final java.awt.Color magenta = Theme.Colors.merge();
+            final java.awt.Color cyan = blend(Theme.Colors.success(), blue, 0.45f);
             final java.awt.Color black = blend(panelBackground, labelForeground, 0.22f);
             final java.awt.Color white = labelForeground;
             final java.awt.Color[] ansi = {
                 background ? panelBackground : black,
-                red,
-                green,
-                yellow,
+                Theme.Colors.danger(),
+                Theme.Colors.success(),
+                Theme.Colors.warning(),
                 blue,
                 magenta,
                 cyan,
                 white,
                 disabledForeground,
-                lift(red, 0.22f),
-                lift(green, 0.22f),
-                lift(yellow, 0.12f),
+                lift(Theme.Colors.danger(), 0.22f),
+                lift(Theme.Colors.success(), 0.22f),
+                lift(Theme.Colors.warning(), 0.12f),
                 lift(blue, 0.22f),
                 lift(magenta, 0.18f),
                 lift(cyan, 0.16f),
@@ -362,19 +346,9 @@ public final class TerminalPanel extends JPanel {
             return ansi[index];
         }
 
-        private static java.awt.Color color(final String key, final java.awt.Color fallback) {
-            final java.awt.Color resolved = UIManager.getColor(key);
-            return resolved == null ? fallback : resolved;
-        }
-
-        private static java.awt.Color fallbackColor(
-                final java.awt.Color candidate, final java.awt.Color fallback) {
-            return candidate == null ? fallback : candidate;
-        }
-
         private static java.awt.Color contrastingForeground(final java.awt.Color background) {
-            final java.awt.Color panelBackground = color(PANEL_BACKGROUND, java.awt.Color.BLACK);
-            final java.awt.Color labelForeground = color(LABEL_FOREGROUND, java.awt.Color.WHITE);
+            final java.awt.Color panelBackground = Theme.Colors.background();
+            final java.awt.Color labelForeground = Theme.Colors.foreground();
             final double labelContrast = contrastRatio(background, labelForeground);
             final double panelContrast = contrastRatio(background, panelBackground);
             return labelContrast >= panelContrast ? labelForeground : panelBackground;

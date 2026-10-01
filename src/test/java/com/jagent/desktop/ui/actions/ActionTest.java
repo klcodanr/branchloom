@@ -20,6 +20,7 @@ import com.jagent.desktop.test.AsyncTestSupport;
 import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.test.TestGitRepository;
 import com.jagent.desktop.ui.components.TerminalPanel;
+import com.jagent.desktop.ui.components.Theme;
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.nio.file.Files;
@@ -27,6 +28,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -37,6 +39,11 @@ class ActionTest {
     private static final String SESSION_NAME = "Feature";
     private static final long AGENT_START_TIMEOUT_NANOS = 10_000_000_000L;
     @TempDir private Path tempDirectory;
+
+    @BeforeAll
+    static void configureTheme() {
+        Theme.apply(Theme.FlatLafTheme.LIGHT);
+    }
 
     @AfterEach
     void disposeRetainedTerminals() {

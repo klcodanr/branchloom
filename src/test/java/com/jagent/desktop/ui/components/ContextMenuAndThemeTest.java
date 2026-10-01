@@ -69,10 +69,18 @@ class ContextMenuAndThemeTest {
         assertNotNull(findItem(projectMenu, "Editor"), "project editor action should exist");
         final var importMenu = findMenu(projectMenu, "Import from");
         assertNotNull(importMenu, "project import menu should exist");
-        assertEquals("Branches", importMenu.getItem(0).getText(), "branch import should exist");
-        assertEquals("Worktrees", importMenu.getItem(1).getText(), "worktree import should exist");
-        assertEquals("GitHub issues", importMenu.getItem(2).getText(), "issue import should exist");
-        assertEquals("Pasted lines", importMenu.getItem(3).getText(), "paste import should exist");
+        assertEquals(
+                "Import branch", importMenu.getItem(0).getText(), "branch import should exist");
+        assertEquals(
+                "Import worktree", importMenu.getItem(1).getText(), "worktree import should exist");
+        assertEquals(
+                "Start sessions from GitHub issues",
+                importMenu.getItem(2).getText(),
+                "issue import should exist");
+        assertEquals(
+                "Start sessions from pasted lines",
+                importMenu.getItem(3).getText(),
+                "paste import should exist");
         assertTrue(
                 findMenu(sessionMenu, AGENTS_LABEL) == null,
                 "session should not use agents submenu");
@@ -152,13 +160,49 @@ class ContextMenuAndThemeTest {
         assertEquals(Font.BOLD, Theme.boldFont(Theme.FontSize.SM).getStyle(), VALUE_MESSAGE);
         assertEquals(
                 Font.MONOSPACED, Theme.terminalFont(Theme.FontSize.SM).getFamily(), VALUE_MESSAGE);
-        Theme.successColor();
-        Theme.warningColor();
-        Theme.dangerColor();
-        Theme.mutedColor();
+        Theme.Colors.success();
+        Theme.Colors.warning();
+        Theme.Colors.danger();
+        Theme.Colors.muted();
         assertNotNull(Theme.sectionBorder(1, 2, 3, 4), VALUE_MESSAGE);
         Theme.applySwingDefaults();
         assertTrue(Theme.FontSize.values().length > 0, "font sizes should be defined");
+    }
+
+    @Test
+    void themeColorsResolveForEveryTheme() {
+        for (final Theme.FlatLafTheme theme : Theme.FlatLafTheme.values()) {
+            Theme.apply(theme);
+            assertNotNull(Theme.Colors.success(), "success should resolve for " + theme);
+            assertNotNull(Theme.Colors.warning(), "warning should resolve for " + theme);
+            assertNotNull(Theme.Colors.danger(), "danger should resolve for " + theme);
+            assertNotNull(Theme.Colors.focus(), "focus should resolve for " + theme);
+            assertNotNull(Theme.Colors.merge(), "merge should resolve for " + theme);
+            assertNotNull(Theme.Colors.muted(), "muted should resolve for " + theme);
+            assertNotNull(Theme.Colors.border(), "border should resolve for " + theme);
+            assertNotNull(Theme.Colors.background(), "background should resolve for " + theme);
+            assertNotNull(Theme.Colors.foreground(), "foreground should resolve for " + theme);
+            assertNotNull(
+                    Theme.Colors.textareaBackground(),
+                    "textarea background should resolve for " + theme);
+            assertNotNull(
+                    Theme.Colors.textareaForeground(),
+                    "textarea foreground should resolve for " + theme);
+            assertNotNull(
+                    Theme.Colors.textSelectionBackground(),
+                    "text selection background should resolve for " + theme);
+            assertNotNull(
+                    Theme.Colors.textSelectionForeground(),
+                    "text selection foreground should resolve for " + theme);
+            assertNotNull(
+                    Theme.Colors.textCaretForeground(),
+                    "text caret foreground should resolve for " + theme);
+            assertNotNull(Theme.Colors.purple(), "purple should resolve for " + theme);
+            assertNotNull(Theme.Colors.green(), "green should resolve for " + theme);
+            assertNotNull(Theme.Colors.grey(), "grey should resolve for " + theme);
+            assertNotNull(Theme.Colors.blue(), "blue should resolve for " + theme);
+            assertNotNull(Theme.Colors.darkYellow(), "dark yellow should resolve for " + theme);
+        }
     }
 
     private static javax.swing.JMenu findMenu(

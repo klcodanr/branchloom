@@ -10,8 +10,7 @@ import com.jagent.desktop.services.github.GitHub;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
-import java.io.IOException;
-import java.io.StringReader;
+import java.awt.GridLayout;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -28,22 +27,19 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
-import javax.swing.text.BadLocationException;
-import javax.swing.text.html.HTMLDocument;
-import javax.swing.text.html.HTMLEditorKit;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class PullRequestSummaryPanel extends JPanel {
     private static final Logger LOG = LoggerFactory.getLogger(PullRequestSummaryPanel.class);
-    private static final String LABEL_FOREGROUND = "Label.foreground";
     private final PullRequestChecksPanel checks = new PullRequestChecksPanel();
     private final AtomicLong renderGeneration = new AtomicLong();
     private final transient Set<String> loadingChecks = new HashSet<>();
     private final transient Map<String, PullRequestChecks> checksByRequest = new HashMap<>();
-    private final transient Map<String, HTMLDocument> bodyByRequest = new HashMap<>();
+    private final transient Map<String, String> bodyByRequest = new HashMap<>();
     private final transient Set<String> loadingBodies = new HashSet<>();
     private transient PullRequest displayedRequest;
     private final transient AppState appState;
@@ -67,77 +63,12 @@ public final class PullRequestSummaryPanel extends JPanel {
         if (request == null) {
             final JLabel empty =
                     UiFactory.label("Select a pull request to see details.", Theme.FontSize.MD);
-            empty.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+            empty.setForeground(Theme.Colors.muted());
             add(empty, BorderLayout.NORTH);
             return;
         }
 
-        final JPanel top = new JPanel();
-        top.setOpaque(false);
-        top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
-        top.setAlignmentX(LEFT_ALIGNMENT);
-        final JPanel header = new JPanel();
-        header.setOpaque(false);
-        header.setLayout(new FlowLayout(FlowLayout.LEFT, UiConstants.SPACING_SM, 0));
-        header.setAlignmentX(LEFT_ALIGNMENT);
-        final JLabel number = UiFactory.label("#" + request.number(), Theme.FontSize.SM);
-        number.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
-        header.add(number);
-        final JButton title =
-                UiFactory.link(
-                        request.title(),
-                        () -> PlatformCommands.openUrl(request.url().toExternalForm()));
-        title.setFont(Theme.boldFont(Theme.FontSize.XL));
-        header.add(title);
-        top.add(header);
-        top.add(Box.createVerticalStrut(UiConstants.SPACING_MD));
-
-        final JPanel facts = new JPanel(new java.awt.GridLayout(0, 1, 0, UiConstants.SPACING_XS));
-        facts.setOpaque(false);
-        facts.setAlignmentX(LEFT_ALIGNMENT);
-        facts.add(
-                factsLine(
-                        iconLinkValue(
-                                UiIcons.userRoundArrowLeft(),
-                                "@" + PullRequestPresentation.authorLogin(request),
-                                "Author",
-                                PullRequestPresentation.authorUrl(request)),
-                        iconLinkValue(
-                                UiIcons.gitBranch(),
-                                PullRequestPresentation.blankAsNone(request.headBranch()),
-                                "Branch",
-                                request.url().toExternalForm())));
-        facts.add(
-                factsLine(
-                        iconValue(
-                                UiIcons.messageSquareDiff(),
-                                formatReviewStatus(request, details),
-                                "Review status"),
-                        iconValue(
-                                UiIcons.gitCompareArrows(),
-                                details == null
-                                        ? "Loading"
-                                        : UiText.titleCase(details.status().toString()),
-                                "Merge status",
-                                PullRequestPresentation.mergeStatusColor(details))));
-        facts.add(
-                factsLine(
-                        iconValue(
-                                UiIcons.gitCompare(),
-                                PullRequestPresentation.changesHtml(details),
-                                "Changes",
-                                null,
-                                PullRequestPresentation.changesTooltip(details)),
-                        iconValue(
-                                UiIcons.pullRequestCreate(),
-                                PullRequestPresentation.offsetOnly(request.createdAt()),
-                                "Opened"),
-                        iconValue(
-                                UiIcons.rotateCwClock(),
-                                PullRequestPresentation.offsetOnly(request.updatedAt()),
-                                "Updated")));
-        top.add(facts);
-        add(top, BorderLayout.NORTH);
+        add(top(request, details), BorderLayout.NORTH);
 
         final JPanel center = new JPanel();
         center.setOpaque(false);
@@ -157,7 +88,7 @@ public final class PullRequestSummaryPanel extends JPanel {
         bodyPanel.setAlignmentX(LEFT_ALIGNMENT);
         bodyPanel.setBorder(UiFactory.contentAreaBorder());
         final String bodyKey = PullRequestPresentation.bodyKey(request);
-        final HTMLDocument cachedBody = bodyByRequest.get(bodyKey);
+        final String cachedBody = bodyByRequest.get(bodyKey);
         final JEditorPane body =
                 cachedBody == null
                         ? createBodyEditor(PullRequestPresentation.loadingBodyHtml())
@@ -166,7 +97,107 @@ public final class PullRequestSummaryPanel extends JPanel {
         center.add(bodyPanel);
         add(center, BorderLayout.CENTER);
         loadBodyAsync(request, generation, bodyKey, bodyPanel, body);
-        loadChecksAsync(request, generation, checksKey);
+        loadChecksAsync(appState, request, generation, checksKey);
+    }
+
+    private JPanel top(final PullRequest request, final PullRequestDetails details) {
+
+        final JPanel top = new JPanel();
+        top.setOpaque(false);
+        top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
+        top.setAlignmentX(LEFT_ALIGNMENT);
+
+        final JPanel header = new JPanel();
+        header.setOpaque(false);
+        header.setLayout(new FlowLayout(FlowLayout.LEFT, UiConstants.SPACING_SM, 0));
+        header.setAlignmentX(LEFT_ALIGNMENT);
+
+        final JLabel number = UiFactory.label("#" + request.number(), Theme.FontSize.SM);
+        number.setForeground(Theme.Colors.muted());
+        header.add(number);
+
+        final JButton title =
+                UiFactory.link(
+                        request.title(),
+                        () -> PlatformCommands.openUrl(request.url().toExternalForm()));
+        title.setFont(Theme.boldFont(Theme.FontSize.XL));
+        header.add(title);
+
+        top.add(header);
+        top.add(Box.createVerticalStrut(UiConstants.SPACING_MD));
+
+        final JPanel facts = new JPanel(new GridLayout(0, 1, 0, UiConstants.SPACING_XS));
+        facts.setOpaque(false);
+        facts.setAlignmentX(LEFT_ALIGNMENT);
+        facts.add(
+                factsLine(
+                        iconValue(
+                                UiIcons.userRoundArrowLeft(),
+                                "Author",
+                                link(
+                                        "@" + request.author().login(),
+                                        "Author: " + "@" + request.author().login(),
+                                        request.author().url().toExternalForm())),
+                        iconValue(
+                                UiIcons.gitBranch(),
+                                "Branch",
+                                smallLabel(
+                                        "Branch",
+                                        "Branch: "
+                                                + UiText.valueOrDefault(
+                                                        request.headBranch(), "None"),
+                                        null))));
+        facts.add(
+                factsLine(
+                        iconValue(
+                                UiIcons.messageSquareDiff(),
+                                formatReviewStatus(request, details),
+                                smallLabel(
+                                        "Review status",
+                                        "Review Status: " + formatReviewStatus(request, details),
+                                        null)),
+                        iconValue(
+                                UiIcons.gitCompareArrows(),
+                                "Merge status",
+                                smallLabel(
+                                        details == null
+                                                ? "Loading"
+                                                : UiText.titleCase(details.status().toString()),
+                                        "Merge Status: "
+                                                + (details == null
+                                                        ? "Loading"
+                                                        : UiText.titleCase(
+                                                                details.status().toString())),
+                                        PullRequestPresentation.mergeStatusColor(details)))));
+        facts.add(
+                factsLine(
+                        iconValue(
+                                UiIcons.gitCompare(),
+                                "Changes",
+                                smallLabel(
+                                        PullRequestPresentation.changesHtml(details),
+                                        PullRequestPresentation.changesTooltip(details),
+                                        null)),
+                        iconValue(
+                                UiIcons.pullRequestCreate(),
+                                "Opened",
+                                smallLabel(
+                                        PullRequestPresentation.offsetOnly(request.createdAt()),
+                                        "Opened: "
+                                                + PullRequestPresentation.offsetOnly(
+                                                        request.createdAt()),
+                                        null)),
+                        iconValue(
+                                UiIcons.rotateCwClock(),
+                                "Updated",
+                                smallLabel(
+                                        PullRequestPresentation.offsetOnly(request.updatedAt()),
+                                        "Updated: "
+                                                + PullRequestPresentation.offsetOnly(
+                                                        request.updatedAt()),
+                                        null))));
+        top.add(facts);
+        return top;
     }
 
     private void loadBodyAsync(
@@ -182,7 +213,7 @@ public final class PullRequestSummaryPanel extends JPanel {
         BackgroundOperations.submit(
                         "Pull Requests",
                         "render-pr-description",
-                        () -> parseBody(PullRequestPresentation.bodyHtml(request.description())))
+                        () -> PullRequestPresentation.bodyHtml(request.description()))
                 .thenAcceptAsync(
                         document -> {
                             loadingBodies.remove(bodyKey);
@@ -212,39 +243,29 @@ public final class PullRequestSummaryPanel extends JPanel {
                         });
     }
 
-    private static JPanel iconValue(final Icon icon, final String value, final String tooltip) {
-        return iconValue(icon, value, tooltip, UIManager.getColor(LABEL_FOREGROUND));
-    }
-
-    private static JPanel iconValue(
-            final Icon icon, final String value, final String tooltip, final Color color) {
-        return iconValue(icon, value, tooltip, color, value);
-    }
-
-    private static JPanel iconValue(
-            final Icon icon,
-            final String value,
-            final String tooltip,
-            final Color color,
-            final String tooltipValue) {
-        final JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, UiConstants.SPACING_XS, 0));
-        row.setOpaque(false);
-        row.setToolTipText(tooltip);
-        final JLabel iconLabel = new JLabel(icon);
-        iconLabel.setToolTipText(tooltip);
-        iconLabel.setVerticalAlignment(SwingConstants.TOP);
-        row.add(iconLabel);
-        final JLabel text = UiFactory.label(value, Theme.FontSize.SM);
-        text.setToolTipText(tooltip + ": " + tooltipValue);
-        if (color != null) {
-            text.setForeground(color);
+    private static JLabel smallLabel(
+            @NotNull final String text,
+            @NotNull final String tooltip,
+            @Nullable final Color color) {
+        final JLabel label = UiFactory.label(text, Theme.FontSize.SM);
+        label.setForeground(Theme.Colors.foreground());
+        if (tooltip != null) {
+            label.setToolTipText(tooltip);
         }
-        row.add(text);
-        return row;
+        if (color != null) {
+            label.setForeground(color);
+        }
+        return label;
     }
 
-    private static JPanel iconLinkValue(
-            final Icon icon, final String value, final String tooltip, final String url) {
+    private static JButton link(
+            @NotNull final String value, @NotNull final String tooltip, @NotNull final String url) {
+        final JButton link = UiFactory.link(value, () -> PlatformCommands.openUrl(url));
+        link.setToolTipText(tooltip);
+        return link;
+    }
+
+    private static JPanel iconValue(final Icon icon, final String tooltip, final JComponent value) {
         final JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, UiConstants.SPACING_XS, 0));
         row.setOpaque(false);
         row.setToolTipText(tooltip);
@@ -252,9 +273,7 @@ public final class PullRequestSummaryPanel extends JPanel {
         iconLabel.setToolTipText(tooltip);
         iconLabel.setVerticalAlignment(SwingConstants.TOP);
         row.add(iconLabel);
-        final JButton link = UiFactory.link(value, () -> PlatformCommands.openUrl(url));
-        link.setToolTipText(tooltip + ": " + value);
-        row.add(link);
+        row.add(value);
         return row;
     }
 
@@ -276,12 +295,18 @@ public final class PullRequestSummaryPanel extends JPanel {
     }
 
     private void loadChecksAsync(
-            final PullRequest request, final long generation, final String checksKey) {
+            final AppState appState,
+            final PullRequest request,
+            final long generation,
+            final String checksKey) {
         if (checksByRequest.containsKey(checksKey) || loadingChecks.contains(checksKey)) {
             return;
         }
         loadingChecks.add(checksKey);
-        BackgroundOperations.submit("Pull Requests", "load-pr-checks", () -> loadChecks(request))
+        BackgroundOperations.submit(
+                        "Pull Requests",
+                        "load-pr-checks",
+                        () -> GitHub.forProject(appState, request.projectId()).getChecks(request))
                 .thenAcceptAsync(
                         pullRequestChecks -> {
                             loadingChecks.remove(checksKey);
@@ -305,47 +330,15 @@ public final class PullRequestSummaryPanel extends JPanel {
                         });
     }
 
-    private PullRequestChecks loadChecks(final PullRequest request) {
-        try {
-            return GitHub.forProject(this.appState, request.projectId()).getChecks(request);
-        } catch (IOException exception) {
-            throw new IllegalStateException("Could not load pull request checks", exception);
-        }
-    }
-
     private static JEditorPane createBodyEditor(final String html) {
         final JEditorPane body = new JEditorPane("text/html", html);
-        configureBodyEditor(body);
-        body.setCaretPosition(0);
-        return body;
-    }
-
-    private static JEditorPane createBodyEditor(final HTMLDocument document) {
-        final JEditorPane body = new JEditorPane();
-        body.setEditorKit(new HTMLEditorKit());
-        body.setDocument(document);
-        configureBodyEditor(body);
-        body.setCaretPosition(0);
-        return body;
-    }
-
-    private static void configureBodyEditor(final JEditorPane body) {
         body.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, true);
         body.setFont(Theme.font(Theme.FontSize.SM));
         body.setEditable(false);
         body.setOpaque(false);
         body.setFocusable(true);
         body.setBorder(new EmptyBorder(0, 0, 0, 0));
-    }
-
-    private static HTMLDocument parseBody(final String html) {
-        final HTMLEditorKit kit = new HTMLEditorKit();
-        final HTMLDocument document = (HTMLDocument) kit.createDefaultDocument();
-        try {
-            kit.read(new StringReader(html), document, 0);
-            return document;
-        } catch (IOException | BadLocationException exception) {
-            throw new IllegalStateException("Could not parse pull request description", exception);
-        }
+        body.setCaretPosition(0);
+        return body;
     }
 }

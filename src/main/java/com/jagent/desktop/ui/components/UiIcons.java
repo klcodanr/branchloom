@@ -5,7 +5,6 @@ import com.jagent.desktop.api.Action;
 import java.awt.Color;
 import java.util.Map;
 import javax.swing.Icon;
-import javax.swing.UIManager;
 
 /** Shared Lucide icons used by the Swing UI. */
 public final class UiIcons {
@@ -148,7 +147,7 @@ public final class UiIcons {
     }
 
     private static Icon icon(final String name) {
-        final Color foreground = UIManager.getColor("Label.foreground");
+        final Color foreground = Theme.Colors.foreground();
         return new FlatSVGIcon("icons/" + name + ".svg", 16, 16)
                 .setColorFilter(new FlatSVGIcon.ColorFilter(ignored -> foreground));
     }

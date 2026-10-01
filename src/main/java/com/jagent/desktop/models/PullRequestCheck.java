@@ -1,5 +1,7 @@
 package com.jagent.desktop.models;
 
+import com.jagent.desktop.ui.components.Theme;
+import java.awt.Color;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -143,5 +145,24 @@ public record PullRequestCheck(
                         PullRequestCheck.Conclusion.FAILURE,
                         PullRequestCheck.Conclusion.TIMED_OUT)
                 .contains(conclusion());
+    }
+
+    public Color indicatorColor() {
+        if (status() == Status.UNKNOWN) {
+            return Theme.Colors.muted();
+        } else if (status() == Status.IN_PROGRESS) {
+            return Theme.Colors.warning();
+        } else if (status() == Status.QUEUED) {
+            return Theme.Colors.merge();
+        }
+
+        final var c = conclusion();
+        if (c == PullRequestCheck.Conclusion.SUCCESS) {
+            return Theme.Colors.success();
+        } else if (failing()) {
+            return Theme.Colors.danger();
+        } else {
+            return Theme.Colors.muted();
+        }
     }
 }

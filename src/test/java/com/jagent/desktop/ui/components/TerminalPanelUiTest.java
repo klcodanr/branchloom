@@ -25,11 +25,17 @@ import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 import javax.swing.UIManager;
 import org.assertj.swing.edt.GuiActionRunner;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class TerminalPanelUiTest {
     private static final String TRUE_COMMAND = "true";
     private static final Path TEMP_DIRECTORY = Path.of(System.getProperty("java.io.tmpdir"));
+
+    @BeforeAll
+    static void configureTheme() {
+        Theme.apply(Theme.FlatLafTheme.LIGHT);
+    }
 
     @Test
     void constructsWithTerminalWidgetAndInitialState() {

@@ -34,7 +34,6 @@ import javax.swing.JPopupMenu;
 import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import javax.swing.UIManager;
 
 /** Compact bottom bar for problems, workspace status, and background jobs. */
 public final class BottomBar extends JPanel {
@@ -73,8 +72,7 @@ public final class BottomBar extends JPanel {
         refreshCurrentViewAction = refreshCurrentView;
         setBorder(
                 BorderFactory.createCompoundBorder(
-                        BorderFactory.createMatteBorder(
-                                1, 0, 0, 0, UIManager.getColor("Separator.foreground")),
+                        BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.Colors.border()),
                         BorderFactory.createEmptyBorder(
                                 UiConstants.SPACING_XS,
                                 UiConstants.CONTENT_PADDING,
@@ -137,7 +135,7 @@ public final class BottomBar extends JPanel {
                     }
                 });
         jobsStatus.setName("jobs-status-label");
-        jobsStatus.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+        jobsStatus.setForeground(Theme.Colors.muted());
         jobsStatus.setAlignmentX(CENTER_ALIGNMENT);
         jobsStatus.setVisible(false);
         final JPanel jobsStatusPanel = new JPanel();

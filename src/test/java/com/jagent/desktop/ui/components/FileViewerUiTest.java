@@ -15,10 +15,16 @@ import javax.swing.JScrollPane;
 import org.assertj.swing.edt.GuiActionRunnable;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class FileViewerUiTest {
     private static final String TRACKED_FILE = "tracked.txt";
+
+    @BeforeAll
+    static void configureTheme() {
+        Theme.apply(Theme.FlatLafTheme.LIGHT);
+    }
 
     @Test
     void loadsTextFileAndShowsDiff() throws IOException, InterruptedException {
@@ -28,7 +34,7 @@ class FileViewerUiTest {
         Files.writeString(file, "updated\n");
         try {
             final FileViewer viewer =
-                    GuiActionRunner.execute(() -> new FileViewer(workspace, file));
+                    GuiActionRunner.execute(() -> new FileViewer(workspace, file, false));
             waitForStatus(viewer, "Changed");
             assertEquals(
                     "updated\n",
@@ -37,6 +43,19 @@ class FileViewerUiTest {
             assertTrue(
                     diff(viewer).getText().contains(TRACKED_FILE),
                     "diff viewer should display the file header");
+            assertTrue(
+                    diff(viewer).getHighlightCurrentLine(),
+                    "diff viewer should retain current-line selection");
+            assertTrue(
+                    contrastRatio(diff(viewer).getForeground(), diff(viewer).getBackground())
+                            >= 4.5d,
+                    "diff text should meet readable contrast against the editor background");
+            assertTrue(
+                    contrastRatio(
+                                    diff(viewer).getForeground(),
+                                    diff(viewer).getCurrentLineHighlightColor())
+                            >= 4.5d,
+                    "diff text should meet readable contrast against the current-line highlight");
         } finally {
             delete(workspace);
         }
@@ -73,7 +92,7 @@ class FileViewerUiTest {
         Files.write(file, new byte[] {1, 0, 2});
         try {
             final FileViewer viewer =
-                    GuiActionRunner.execute(() -> new FileViewer(workspace, file));
+                    GuiActionRunner.execute(() -> new FileViewer(workspace, file, false));
             waitForStatus(viewer, "Binary");
             assertEquals(
                     "Binary file cannot be displayed.",
@@ -92,7 +111,7 @@ class FileViewerUiTest {
         Files.writeString(file, "Alpha\nalpha\nbeta\n");
         try {
             final FileViewer viewer =
-                    GuiActionRunner.execute(() -> new FileViewer(workspace, file));
+                    GuiActionRunner.execute(() -> new FileViewer(workspace, file, false));
             waitForStatus(viewer, "Changed");
             final SearchInput search = GuiActionRunner.execute(() -> searchInput(viewer));
             assertTrue(
@@ -182,6 +201,27 @@ class FileViewerUiTest {
         SwingTestSupport.await(
                 () -> expected.equals(source(viewer).getSelectedText()),
                 "file search selection did not render: " + expected);
+    }
+
+    private static double contrastRatio(
+            final java.awt.Color foreground, final java.awt.Color background) {
+        final double foregroundLuminance = luminance(foreground);
+        final double backgroundLuminance = luminance(background);
+        return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05d)
+                / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05d);
+    }
+
+    private static double luminance(final java.awt.Color color) {
+        return 0.2126d * channel(color.getRed())
+                + 0.7152d * channel(color.getGreen())
+                + 0.0722d * channel(color.getBlue());
+    }
+
+    private static double channel(final int value) {
+        final double normalized = value / 255d;
+        return normalized <= 0.039_28d
+                ? normalized / 12.92d
+                : Math.pow((normalized + 0.055d) / 1.055d, 2.4d);
     }
 
     private static JButton nextButton(final FileViewer viewer) {

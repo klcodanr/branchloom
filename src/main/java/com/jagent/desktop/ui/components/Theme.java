@@ -7,6 +7,7 @@ import com.formdev.flatlaf.themes.FlatMacDarkLaf;
 import com.jagent.desktop.services.PlatformCommands;
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.Insets;
 import java.awt.Toolkit;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -16,6 +17,7 @@ import javax.swing.BorderFactory;
 import javax.swing.UIManager;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
+import org.eclipse.jgit.annotations.NonNull;
 
 /** FlatLaf theme selection and typography helpers. */
 public final class Theme {
@@ -199,48 +201,90 @@ public final class Theme {
         return new Font(Font.MONOSPACED, base.getStyle(), size.points);
     }
 
-    public static Color successColor() {
-        return color("Actions.Green", "Component.focusColor");
-    }
+    public static final class Colors {
+        private Colors() {}
 
-    public static Color warningColor() {
-        final Color yellow = UIManager.getColor("Actions.Yellow");
-        if (yellow != null) {
-            return yellow;
+        public static @NonNull Color success() {
+            return UIManager.getColor("Actions.Green");
         }
-        final Color orange = UIManager.getColor("Actions.Orange");
-        return orange == null ? new Color(255, 152, 0) : orange;
-    }
 
-    public static Color mergeColor() {
-        return new Color(156, 39, 176);
-    }
+        public static @NonNull Color warning() {
+            return UIManager.getColor("Actions.Yellow");
+        }
 
-    public static Color mergeQueueColor() {
-        return new Color(255, 152, 0);
-    }
+        public static @NonNull Color danger() {
+            return UIManager.getColor("Actions.Red");
+        }
 
-    public static Color dangerColor() {
-        return color("Actions.Red", "Component.focusColor");
-    }
+        public static @NonNull Color focus() {
+            return UIManager.getColor("Component.focusColor");
+        }
 
-    public static Color mutedColor() {
-        return color(UiConstants.DISABLED_FOREGROUND, "Label.foreground");
-    }
+        public static @NonNull Color merge() {
+            return UIManager.getColor("Objects.Purple");
+        }
 
-    private static Color color(final String key, final String fallbackKey) {
-        final Color color = UIManager.getColor(key);
-        return color == null ? UIManager.getColor(fallbackKey) : color;
+        public static @NonNull Color muted() {
+            return UIManager.getColor("Label.disabledForeground");
+        }
+
+        public static @NonNull Color border() {
+            return UIManager.getColor("Component.borderColor");
+        }
+
+        public static @NonNull Color background() {
+            return UIManager.getColor("Panel.background");
+        }
+
+        public static @NonNull Color foreground() {
+            return UIManager.getColor("Label.foreground");
+        }
+
+        public static @NonNull Color textareaBackground() {
+            return UIManager.getColor("TextArea.background");
+        }
+
+        public static @NonNull Color textareaForeground() {
+            return UIManager.getColor("TextArea.foreground");
+        }
+
+        public static @NonNull Color textSelectionBackground() {
+            return UIManager.getColor("TextArea.selectionBackground");
+        }
+
+        public static @NonNull Color textSelectionForeground() {
+            return UIManager.getColor("TextArea.selectionForeground");
+        }
+
+        public static @NonNull Color textCaretForeground() {
+            return UIManager.getColor("TextArea.caretForeground");
+        }
+
+        public static @NonNull Color purple() {
+            return UIManager.getColor("Objects.Purple");
+        }
+
+        public static @NonNull Color green() {
+            return UIManager.getColor("Objects.Green");
+        }
+
+        public static @NonNull Color grey() {
+            return UIManager.getColor("Objects.Grey");
+        }
+
+        public static @NonNull Color blue() {
+            return UIManager.getColor("Objects.Blue");
+        }
+
+        public static @NonNull Color darkYellow() {
+            return UIManager.getColor("Objects.YellowDark");
+        }
     }
 
     public static Border sectionBorder(
             final int top, final int left, final int bottom, final int right) {
-        Color borderColor = UIManager.getColor("Component.borderColor");
-        if (borderColor == null) {
-            borderColor = UIManager.getColor("Separator.foreground");
-        }
         return BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(borderColor),
+                BorderFactory.createLineBorder(Theme.Colors.border()),
                 new EmptyBorder(top, left, bottom, right));
     }
 
@@ -256,10 +300,10 @@ public final class Theme {
         UIManager.put("Component.arc", 10);
         UIManager.put("Button.arc", 8);
         UIManager.put("Button.minimumHeight", 30);
-        UIManager.put("Button.margin", new java.awt.Insets(5, 12, 5, 12));
+        UIManager.put("Button.margin", new Insets(5, 12, 5, 12));
         UIManager.put("TextComponent.arc", 8);
-        UIManager.put("TextField.margin", new java.awt.Insets(6, 10, 6, 10));
-        UIManager.put("TextArea.margin", new java.awt.Insets(8, 10, 8, 10));
+        UIManager.put("TextField.margin", new Insets(6, 10, 6, 10));
+        UIManager.put("TextArea.margin", new Insets(8, 10, 8, 10));
         UIManager.put("ScrollBar.width", 10);
         UIManager.put(
                 "OptionPane.border",

@@ -4,13 +4,14 @@ import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.ui.utils.RelativeTime;
 import java.awt.Color;
-import java.net.URL;
 import java.util.Date;
 import java.util.Locale;
-import javax.swing.UIManager;
+import org.commonmark.parser.Parser;
+import org.commonmark.renderer.html.HtmlRenderer;
 
 final class PullRequestPresentation {
-    private static final String LABEL_FOREGROUND = "Label.foreground";
+    private static final Parser PARSER = Parser.builder().build();
+    private static final HtmlRenderer RENDERER = HtmlRenderer.builder().build();
 
     private PullRequestPresentation() {}
 
@@ -26,41 +27,35 @@ final class PullRequestPresentation {
                 + request.updatedAt().getTime();
     }
 
+    private static String wrapMessage(final String message) {
+        return wrapHtml("<p style='margin:0;'>" + message + "</p>");
+    }
+
+    private static String wrapHtml(final String content) {
+        final java.awt.Font font = Theme.font(Theme.FontSize.SM);
+        return "<html><body style='font-family:"
+                + escapeHtml(font.getFamily())
+                + "; font-size:"
+                + font.getSize()
+                + "px; margin:0;'>"
+                + content
+                + "</body></html>";
+    }
+
     public static String bodyHtml(final String value) {
         if (value == null || value.isBlank()) {
-            return bodyPrefix() + "<p style='margin:0;'>No description provided.</p></body></html>";
+            return wrapMessage("No description provided.");
         }
-        return bodyPrefix() + MarkdownRenderer.toHtml(value) + "</body></html>";
+        return wrapHtml(RENDERER.render(PARSER.parse(UiText.valueOrDefault(value, ""))));
     }
 
     public static String loadingBodyHtml() {
-        return bodyPrefix() + "<p style='margin:0;'>Loading description...</p></body></html>";
+        return wrapMessage("Loading description...");
     }
 
     public static String errorBodyHtml(final Throwable failure) {
         final Throwable cause = failure.getCause() == null ? failure : failure.getCause();
-        return bodyPrefix()
-                + "<p style='margin:0;'>Description could not be rendered: "
-                + escapeHtml(cause.getMessage())
-                + "</p></body></html>";
-    }
-
-    public static String authorLogin(final PullRequest request) {
-        return request.author().login() == null || request.author().login().isBlank()
-                ? "unknown"
-                : request.author().login();
-    }
-
-    public static String authorUrl(final PullRequest request) {
-        final URL authorUrl = request.author().url();
-        if (authorUrl != null) {
-            return authorUrl.toExternalForm();
-        }
-        return request.url().toExternalForm();
-    }
-
-    public static String blankAsNone(final String value) {
-        return UiText.valueOrDefault(value, "None");
+        return wrapMessage("Description could not be rendered: " + escapeHtml(cause.getMessage()));
     }
 
     public static String changesHtml(final PullRequestDetails details) {
@@ -68,13 +63,9 @@ final class PullRequestPresentation {
             return "Loading...";
         }
         final Color additionsColor =
-                Theme.successColor() == null
-                        ? UIManager.getColor(LABEL_FOREGROUND)
-                        : Theme.successColor();
+                Theme.Colors.success() == null ? Theme.Colors.foreground() : Theme.Colors.success();
         final Color deletionsColor =
-                Theme.dangerColor() == null
-                        ? UIManager.getColor(LABEL_FOREGROUND)
-                        : Theme.dangerColor();
+                Theme.Colors.danger() == null ? Theme.Colors.foreground() : Theme.Colors.danger();
         return "<html><font color='"
                 + UiText.colorHex(additionsColor)
                 + "'>+"
@@ -107,8 +98,12 @@ final class PullRequestPresentation {
         if (color != null) {
             return color;
         }
-        final Color fallback = UIManager.getColor(LABEL_FOREGROUND);
-        return fallback == null ? Color.GRAY : fallback;
+        return Theme.Colors.foreground();
+    }
+
+    public static Color selectionColor() {
+        final Color color = Theme.Colors.textSelectionBackground();
+        return color == null ? Theme.Colors.foreground() : color;
     }
 
     public static String offsetOnly(final Date timestamp) {
@@ -126,26 +121,8 @@ final class PullRequestPresentation {
         return request.projectId() + ":" + request.number();
     }
 
-    public static Color selectionColor() {
-        final Color color = UIManager.getColor("Component.focusColor");
-        if (color != null) {
-            return color;
-        }
-        final Color borderColor = UIManager.getColor("Component.borderColor");
-        return borderColor == null ? Color.GRAY : borderColor;
-    }
-
     public static boolean contains(final String value, final String query) {
         return value != null && value.toLowerCase(Locale.ROOT).contains(query);
-    }
-
-    private static String bodyPrefix() {
-        final java.awt.Font font = Theme.font(Theme.FontSize.SM);
-        return "<html><body style='font-family:"
-                + escapeHtml(font.getFamily())
-                + "; font-size:"
-                + font.getSize()
-                + "px; margin:0;'>";
     }
 
     private static String escapeHtml(final String value) {

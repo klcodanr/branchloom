@@ -3,6 +3,7 @@ package com.jagent.desktop.ui.components;
 import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Tool;
@@ -27,6 +28,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
@@ -49,8 +51,12 @@ public final class SessionSummary extends JPanel {
     private final JTextArea branch = value("Loading branch status...");
     private final JButton pullRequest =
             UiFactory.link("Loading pull request status...", this::openPullRequest);
-    private final StatusDot pullRequestStatusDot = new StatusDot(Theme.mutedColor());
+    private final StatusDot pullRequestStatusDot = new StatusDot(Theme.Colors.muted());
     private final JPanel pullRequestDetails = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+    private final JLabel pullRequestStatus =
+            UiFactory.label("Status: Loading...", Theme.FontSize.SM);
+    private final JLabel pullRequestChecks =
+            UiFactory.label("Checks: Loading...", Theme.FontSize.SM);
     private final JPanel diff = new JPanel();
     private final JTextArea contextFile = textArea("Loading context file...");
     private final JTextArea contextText = textArea("Loading context...");
@@ -64,7 +70,11 @@ public final class SessionSummary extends JPanel {
 
     private record BranchStatus(String branch, boolean clean) {}
 
-    private record PullRequestStatus(PullRequest request, PullRequestDetails details) {}
+    private record PullRequestStatus(
+            PullRequest request,
+            PullRequestDetails details,
+            PullRequestChecks checks,
+            boolean checksAvailable) {}
 
     public SessionSummary(
             final Project project,
@@ -84,12 +94,14 @@ public final class SessionSummary extends JPanel {
         pullRequestDetails.setOpaque(false);
         pullRequestDetails.add(pullRequestStatusDot);
         pullRequestDetails.add(pullRequest);
+        pullRequestDetails.add(pullRequestStatus);
+        pullRequestDetails.add(pullRequestChecks);
         cleanupAlert =
                 new Alert(
                         new Alert.Content(
                                 "Ready for clean up! The pull request is finished and this "
                                         + "worktree has no uncommitted changes.",
-                                Theme.successColor(),
+                                Theme.Colors.success(),
                                 "Remove session and worktree",
                                 removeSessionAndWorktree));
         cleanupAlert.setVisible(false);
@@ -327,7 +339,8 @@ public final class SessionSummary extends JPanel {
                             final PullRequest request = gitHub.getPullRequest(path);
                             final PullRequestDetails pullRequestDetails =
                                     gitHub.getPullRequestDetails(request);
-                            return new PullRequestStatus(request, pullRequestDetails);
+                            final PullRequestChecks checks = gitHub.getChecks(request);
+                            return new PullRequestStatus(request, pullRequestDetails, checks, true);
                         })
                 .thenAccept(
                         status -> {
@@ -340,6 +353,14 @@ public final class SessionSummary extends JPanel {
                             pullRequest.setToolTipText(pullRequestUrl);
                             pullRequestClosed =
                                     status.request().state() == PullRequest.State.CLOSED;
+                            pullRequestStatus.setText(
+                                    "Status: "
+                                            + UiText.titleCase(status.details().status().name()));
+                            pullRequestChecks.setText(
+                                    status.checksAvailable()
+                                            ? "Checks: "
+                                                    + GitFormatter.checksPassed(status.checks())
+                                            : "Checks: Unavailable");
                             updatePullRequestDot(status.details());
                             updateCleanupSuggestion();
                         })
@@ -351,7 +372,9 @@ public final class SessionSummary extends JPanel {
                                 pullRequest.setText("No pull request associated with this branch");
                                 pullRequest.setToolTipText(null);
                                 pullRequestClosed = false;
-                                pullRequestStatusDot.update(Theme.mutedColor(), null);
+                                pullRequestStatusDot.update(Theme.Colors.muted(), null);
+                                pullRequestStatus.setText("Status: Unavailable");
+                                pullRequestChecks.setText("Checks: Unavailable");
                                 pullRequestDetails.revalidate();
                                 pullRequestDetails.repaint();
                                 updateCleanupSuggestion();
@@ -359,6 +382,8 @@ public final class SessionSummary extends JPanel {
                             }
                             LOG.error("Session PR status", failure);
                             pullRequest.setText(UNAVAILABLE + ": " + message);
+                            pullRequestStatus.setText("Status: Unavailable");
+                            pullRequestChecks.setText("Checks: Unavailable");
                             return null;
                         });
     }

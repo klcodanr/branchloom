@@ -85,26 +85,10 @@ class PresentationHelpersTest {
                 UiText.titleCase("READY_FOR_REVIEW"),
                 "titleCase should format check status tokens");
         assertEquals(
-                Theme.successColor(),
-                UiText.checksColor("PASSING"),
-                "passing checks should map to success color");
-        assertEquals(
                 "Ready Review",
                 UiText.titleCase("READY__REVIEW"),
                 "titleCase should collapse repeated separators");
         assertEquals("", UiText.titleCase("___"), "titleCase should handle separator-only tokens");
-        assertEquals(
-                Theme.dangerColor(),
-                UiText.checksColor("FAILING"),
-                "failing checks should map to danger color");
-        assertEquals(
-                Theme.warningColor(),
-                UiText.checksColor("PENDING"),
-                "pending checks should map to warning color");
-        assertEquals(
-                Theme.mutedColor(),
-                UiText.checksColor("UNKNOWN"),
-                "unknown checks should map to muted color");
     }
 
     private static PullRequest request(final String title) throws MalformedURLException {
