@@ -15,6 +15,7 @@ jobs:
   release:
     name: Create release
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       value: ${{ steps.version.outputs.value }}
@@ -58,6 +59,7 @@ jobs:
     needs: release
     name: Build ${{ matrix.platform }} installer
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -117,6 +119,7 @@ jobs:
     needs: [release, build]
     name: Publish Homebrew cask
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Download macOS installer
         env:

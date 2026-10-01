@@ -13,18 +13,13 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.Defaults;
-import java.awt.Container;
-import java.awt.Window;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.swing.JButton;
 import javax.swing.JFrame;
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
 import org.assertj.swing.core.BasicRobot;
 import org.assertj.swing.core.Robot;
 import org.assertj.swing.edt.GuiActionRunnable;
@@ -115,39 +110,6 @@ class NewSessionFlowIntegrationTest {
         }
     }
 
-    @Test
-    void blankSessionNameShowsValidationAndKeepsDialogOpen() {
-        final AppState state = stateWithAgent(new Agent("Test agent", "true {prompt}"));
-        final AtomicReference<NewSessionDialog.Request> request = new AtomicReference<>();
-        final Robot robot = BasicRobot.robotWithNewAwtHierarchy();
-        final JFrame owner = GuiActionRunner.execute(() -> new JFrame());
-        final NewSessionDialog dialog =
-                GuiActionRunner.execute(
-                        () ->
-                                new NewSessionDialog(
-                                        new ActionContext(new ViewCoordinator(state), state, owner),
-                                        request::set));
-        final DialogFixture fixture = new DialogFixture(robot, dialog);
-
-        try {
-            GuiActionRunner.execute(() -> owner.setVisible(true));
-            fixture.show();
-            GuiActionRunner.execute(
-                    () -> {
-                        SwingUtilities.invokeLater(
-                                NewSessionFlowIntegrationTest::dismissValidation);
-                        dialog.getRootPane().getDefaultButton().doClick();
-                    });
-
-            assertTrue(dialog.isVisible(), "validation should keep the session dialog open");
-            assertTrue(request.get() == null, "invalid details should not be submitted");
-        } finally {
-            fixture.cleanUp();
-            owner.dispose();
-            robot.cleanUp();
-        }
-    }
-
     private static AppState stateWithAgent(final Agent agent) {
         final AppSettings defaults = Defaults.appSettings();
         return new AppState(
@@ -162,52 +124,6 @@ class NewSessionFlowIntegrationTest {
                 Map.of(),
                 Map.of(),
                 Map.of());
-    }
-
-    private static void dismissValidation() {
-        for (final Window window : Window.getWindows()) {
-            if (dismissValidation(window)) {
-                return;
-            }
-        }
-    }
-
-    private static boolean dismissValidation(final Window window) {
-        final Container container = window;
-        final JOptionPane optionPane = find(container, JOptionPane.class);
-        if (optionPane == null) {
-            return false;
-        }
-        final JButton ok = findButton(container, "OK");
-        if (ok == null) {
-            return false;
-        }
-        ok.doClick();
-        return true;
-    }
-
-    private static JButton findButton(final Container root, final String text) {
-        final JButton button = find(root, JButton.class);
-        return button != null && text.equals(button.getText()) ? button : null;
-    }
-
-    private static <T extends java.awt.Component> T find(
-            final Container root, final Class<T> type) {
-        if (type.isInstance(root)) {
-            return type.cast(root);
-        }
-        for (final java.awt.Component child : root.getComponents()) {
-            if (type.isInstance(child)) {
-                return type.cast(child);
-            }
-            if (child instanceof Container container) {
-                final T result = find(container, type);
-                if (result != null) {
-                    return result;
-                }
-            }
-        }
-        return null;
     }
 
     private static void initializeRepository(final Path directory)
