@@ -243,14 +243,9 @@ public final class ImportBranchAction extends BaseAction {
                                         projectId, project, sessionDetails, worktreeRequest);
                             }
                             sessionCreator.checkCreateWorktreeAndSession(
-                                    project,
-                                    sessionDetails,
-                                    new WorktreeRequest(worktree, branch.ref(), null));
+                                    project, sessionDetails, worktreeRequest);
                             return sessionCreator.createWorktreeAndSession(
-                                    projectId,
-                                    project,
-                                    sessionDetails,
-                                    new WorktreeRequest(worktree, branch.ref(), null));
+                                    projectId, project, sessionDetails, worktreeRequest);
                         })
                 .thenAccept(
                         sessionId -> {

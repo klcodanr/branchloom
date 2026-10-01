@@ -2,6 +2,7 @@ package com.jagent.desktop.services;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.Project;
@@ -64,6 +65,37 @@ class AgentContextTest {
     }
 
     @Test
+    void writesConfiguredCursorContextFileInsideItsDirectory(
+            @org.junit.jupiter.api.io.TempDir final Path worktree) throws IOException {
+        final Project project =
+                new Project(
+                        PROJECT_NAME,
+                        worktree.toString(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        List.of(),
+                        "./.cursor-notes/BRANCHLOOM_CONTEXT.md",
+                        null);
+        final Session session =
+                new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
+
+        AgentContext.write(project, session, "", null);
+
+        assertTrue(
+                Files.isDirectory(worktree.resolve(".cursor-notes")),
+                "configured parent should be created as a directory");
+        assertTrue(
+                Files.isRegularFile(worktree.resolve(".cursor-notes/BRANCHLOOM_CONTEXT.md")),
+                "context should be written to the configured file");
+        assertFalse(
+                Files.isRegularFile(worktree.resolve(".cursor-notes")),
+                "context should not replace the configured parent with a file");
+    }
+
+    @Test
     void doesNotWriteWhenContextPathIsBlank(@org.junit.jupiter.api.io.TempDir final Path worktree)
             throws IOException {
         final Project project = new Project(PROJECT_NAME, worktree.toString(), null);
@@ -78,7 +110,7 @@ class AgentContextTest {
     }
 
     @Test
-    void writesToAnExistingFileWhenItConflictsWithAConfiguredParent(
+    void doesNotRedirectContextToAConflictingParentFile(
             @org.junit.jupiter.api.io.TempDir final Path worktree) throws IOException {
         final Project project =
                 new Project(
@@ -97,16 +129,16 @@ class AgentContextTest {
         final Path context = worktree.resolve(".cursor-notes");
         Files.writeString(context, "old agent start content");
 
-        AgentContext.write(project, session, "", null);
+        assertThrows(
+                IOException.class,
+                () -> AgentContext.write(project, session, "", null),
+                "a conflicting parent must not replace the configured path");
 
         final String content = Files.readString(context);
-        assertTrue(content.contains("# Agent context"), "context should be written");
-        assertFalse(
-                content.contains("old agent start content"),
-                "old conflicting file content should be replaced");
+        assertEquals("old agent start content", content, "parent file must remain unchanged");
         assertFalse(
                 Files.exists(worktree.resolve(".cursor-notes/agent-start.md")),
-                "conflicting file should not become a directory");
+                "the requested child path must not be redirected or created");
     }
 
     @Test
