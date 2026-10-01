@@ -16,8 +16,32 @@ public record PullRequestDetails(
         @NotNull String mergableState,
         @NotNull int additions,
         @NotNull int deletions,
-        @NotNull int changedFiles) {
+        @NotNull int changedFiles,
+        @NotNull PullRequestChecks checks) {
     private static final Logger LOG = LoggerFactory.getLogger(PullRequestDetails.class);
+
+    public PullRequestDetails(
+            final ProjectId projectId,
+            final Project project,
+            final int number,
+            final boolean draft,
+            final boolean mergeable,
+            final String mergableState,
+            final int additions,
+            final int deletions,
+            final int changedFiles) {
+        this(
+                projectId,
+                project,
+                number,
+                draft,
+                mergeable,
+                mergableState,
+                additions,
+                deletions,
+                changedFiles,
+                new PullRequestChecks(List.of()));
+    }
 
     public enum Status {
         READY,
@@ -38,6 +62,8 @@ public record PullRequestDetails(
                 mergableState());
         if (draft()) {
             return Status.DRAFT;
+        } else if (checks().checksStatus() == PullRequestChecks.Status.FAILING) {
+            return Status.CHECKS_FAILING;
         } else if (mergeable && List.of("clean", "behind").contains(mergableState())) {
             return Status.READY;
         } else if ("dirty".equals(mergableState())) {

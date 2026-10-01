@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.jagent.desktop.ui.components.Theme;
 import java.awt.Color;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class PullRequestDetailsModelTest {
@@ -26,6 +27,31 @@ class PullRequestDetailsModelTest {
                 Theme.Colors.danger());
         assertStatus(
                 "unknown", false, false, PullRequestDetails.Status.OTHER, Theme.Colors.muted());
+    }
+
+    @Test
+    void failingChecksTakePriorityOverUnknownOrBlockedMergeState() {
+        final PullRequestCheck failure =
+                new PullRequestCheck(
+                        "ci/failure",
+                        PullRequestCheck.Status.COMPLETED,
+                        null,
+                        PullRequestCheck.Conclusion.FAILURE,
+                        null);
+        final PullRequestChecks checks = new PullRequestChecks(List.of(failure));
+
+        final PullRequestDetails details =
+                new PullRequestDetails(
+                        PROJECT_ID, PROJECT, 1, false, true, "blocked", 1, 1, 1, checks);
+
+        assertEquals(
+                PullRequestDetails.Status.CHECKS_FAILING,
+                details.status(),
+                "failing checks should override the blocked merge state");
+        assertEquals(
+                Theme.Colors.danger(),
+                details.indicatorColor(),
+                "failing checks should use the danger indicator color");
     }
 
     private static void assertStatus(

@@ -71,10 +71,7 @@ public final class SessionSummary extends JPanel {
     private record BranchStatus(String branch, boolean clean) {}
 
     private record PullRequestStatus(
-            PullRequest request,
-            PullRequestDetails details,
-            PullRequestChecks checks,
-            boolean checksAvailable) {}
+            PullRequest request, PullRequestDetails details, PullRequestChecks checks) {}
 
     public SessionSummary(
             final Project project,
@@ -339,8 +336,8 @@ public final class SessionSummary extends JPanel {
                             final PullRequest request = gitHub.getPullRequest(path);
                             final PullRequestDetails pullRequestDetails =
                                     gitHub.getPullRequestDetails(request);
-                            final PullRequestChecks checks = gitHub.getChecks(request);
-                            return new PullRequestStatus(request, pullRequestDetails, checks, true);
+                            return new PullRequestStatus(
+                                    request, pullRequestDetails, pullRequestDetails.checks());
                         })
                 .thenAccept(
                         status -> {
@@ -357,10 +354,7 @@ public final class SessionSummary extends JPanel {
                                     "Status: "
                                             + UiText.titleCase(status.details().status().name()));
                             pullRequestChecks.setText(
-                                    status.checksAvailable()
-                                            ? "Checks: "
-                                                    + GitFormatter.checksPassed(status.checks())
-                                            : "Checks: Unavailable");
+                                    "Checks: " + GitFormatter.checksPassed(status.checks()));
                             updatePullRequestDot(status.details());
                             updateCleanupSuggestion();
                         })
