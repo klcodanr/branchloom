@@ -92,11 +92,7 @@ final class GitNative {
     /* default */
     static void restoreWorktree(@NonNull final Path repository, @NonNull final Worktree worktree)
             throws IOException {
-        final String branch = worktree.branch();
-        final String shortBranch =
-                branch.startsWith("refs/heads/")
-                        ? branch.substring("refs/heads/".length())
-                        : branch;
+        final String shortBranch = new Branch(worktree.branch()).withoutHeadsPrefix();
         run(repository, WORKTREE, "add", "--force", worktree.path().toString(), shortBranch);
         run(repository, "-C", worktree.path().toString(), "checkout", "-B", shortBranch);
     }
