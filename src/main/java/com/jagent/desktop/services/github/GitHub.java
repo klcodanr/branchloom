@@ -53,7 +53,7 @@ import org.slf4j.LoggerFactory;
  * <pre>{@code
  * GitHub gitHub = new GitHub(appState);
  * List<PullRequest> requests = gitHub.loadForProject(projectId, project, searchText);
- * PullRequestChecks checks = gitHub.getChecks(request);
+ * PullRequestDetails details = gitHub.getPullRequestDetails(request);
  * }</pre>
  *
  * <p>Use {@link com.jagent.desktop.services.git.GitRepository} for local git state and this class
@@ -238,6 +238,59 @@ public final class GitHub {
         final GHRepository repository = repository();
         final GHPullRequest ghPullRequest = repository.getPullRequest(request.number());
         try {
+            PullRequestChecks checks;
+            try {
+                String headSha = request.headSha();
+                LOG.debug(
+                        "PR checks lookup started: project={}, number={}, summaryHeadSha={}",
+                        request.project().name(),
+                        request.number(),
+                        request.abbreviatedHeadSha());
+                if (headSha.isBlank()) {
+                    LOG.debug(
+                            "PR checks lookup requires refresh for missing SHA: project={}, number={}",
+                            request.project().name(),
+                            request.number());
+                    final GHPullRequest refreshed = repository.getPullRequest(request.number());
+                    headSha =
+                            refreshed.getHead() == null || refreshed.getHead().getSha() == null
+                                    ? ""
+                                    : refreshed.getHead().getSha();
+                    LOG.debug(
+                            "PR checks refresh resolved SHA: project={}, number={}, refreshedHeadSha={}",
+                            request.project().name(),
+                            request.number(),
+                            request.abbreviatedHeadSha());
+                }
+                if (headSha.isBlank()) {
+                    LOG.debug(
+                            "PR checks lookup has no SHA after refresh: project={}, number={}",
+                            request.project().name(),
+                            request.number());
+                    checks = new PullRequestChecks(List.of());
+                } else {
+                    final List<PullRequestCheck> checksFromRuns =
+                            repository.getCheckRuns(headSha).toList().stream()
+                                    .map(PullRequestCheck::from)
+                                    .toList();
+                    final List<PullRequestCheck> checksFromStatuses =
+                            repository.getCommit(headSha).listStatuses().toList().stream()
+                                    .map(PullRequestCheck::from)
+                                    .toList();
+                    final List<PullRequestCheck> mergedChecks =
+                            mergeChecks(checksFromRuns, checksFromStatuses);
+                    LOG.debug(
+                            "PR checks lookup finished: project={}, number={}, headSha={}, checks={}",
+                            request.project().name(),
+                            request.number(),
+                            request.abbreviatedHeadSha(),
+                            mergedChecks.size());
+                    checks = new PullRequestChecks(mergedChecks);
+                }
+            } catch (IOException exception) {
+                LOG.warn("Failed to load checks for pull request {}", request.number(), exception);
+                checks = new PullRequestChecks(List.of());
+            }
             return new PullRequestDetails(
                     projectId,
                     project,
@@ -249,7 +302,8 @@ public final class GitHub {
                             : ghPullRequest.getMergeableState(),
                     ghPullRequest.getAdditions(),
                     ghPullRequest.getDeletions(),
-                    ghPullRequest.getChangedFiles());
+                    ghPullRequest.getChangedFiles(),
+                    checks);
         } catch (IOException exception) {
             throw new IllegalStateException(
                     "Could not load pull request details " + request.number(), exception);
@@ -340,55 +394,6 @@ public final class GitHub {
                                         issue.getBody(),
                                         issue.getHtmlUrl()))
                 .toList();
-    }
-
-    public PullRequestChecks getChecks(final PullRequest request) throws IOException {
-
-        String headSha = request.headSha();
-        LOG.debug(
-                "PR checks lookup started: project={}, number={}, summaryHeadSha={}",
-                request.project().name(),
-                request.number(),
-                request.abbreviatedHeadSha());
-        if (headSha.isBlank()) {
-            LOG.debug(
-                    "PR checks lookup requires refresh for missing SHA: project={}, number={}",
-                    request.project().name(),
-                    request.number());
-            final GHPullRequest refreshed = repository.getPullRequest(request.number());
-            headSha =
-                    refreshed.getHead() == null || refreshed.getHead().getSha() == null
-                            ? ""
-                            : refreshed.getHead().getSha();
-            LOG.debug(
-                    "PR checks refresh resolved SHA: project={}, number={}, refreshedHeadSha={}",
-                    request.project().name(),
-                    request.number(),
-                    request.abbreviatedHeadSha());
-        }
-        if (headSha.isBlank()) {
-            LOG.debug(
-                    "PR checks lookup has no SHA after refresh: project={}, number={}",
-                    request.project().name(),
-                    request.number());
-            return new PullRequestChecks(List.of());
-        }
-        final List<PullRequestCheck> checksFromRuns =
-                repository.getCheckRuns(headSha).toList().stream()
-                        .map(PullRequestCheck::from)
-                        .toList();
-        final List<PullRequestCheck> checksFromStatuses =
-                repository.getCommit(headSha).listStatuses().toList().stream()
-                        .map(PullRequestCheck::from)
-                        .toList();
-        final List<PullRequestCheck> checks = mergeChecks(checksFromRuns, checksFromStatuses);
-        LOG.debug(
-                "PR checks lookup finished: project={}, number={}, headSha={}, checks={}",
-                request.project().name(),
-                request.number(),
-                request.abbreviatedHeadSha(),
-                checks.size());
-        return new PullRequestChecks(checks);
     }
 
     public PullRequestReviews getReviews(final PullRequest request)

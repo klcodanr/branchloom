@@ -4,9 +4,7 @@ import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
-import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
-import com.jagent.desktop.services.github.GitHub;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
@@ -30,23 +28,16 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public final class PullRequestSummaryPanel extends JPanel {
-    private static final Logger LOG = LoggerFactory.getLogger(PullRequestSummaryPanel.class);
     private final PullRequestChecksPanel checks = new PullRequestChecksPanel();
     private final AtomicLong renderGeneration = new AtomicLong();
-    private final transient Set<String> loadingChecks = new HashSet<>();
-    private final transient Map<String, PullRequestChecks> checksByRequest = new HashMap<>();
     private final transient Map<String, String> bodyByRequest = new HashMap<>();
     private final transient Set<String> loadingBodies = new HashSet<>();
     private transient PullRequest displayedRequest;
-    private final transient AppState appState;
 
-    public PullRequestSummaryPanel(final AppState appState) {
+    public PullRequestSummaryPanel() {
         super(new BorderLayout(0, UiConstants.SPACING_MD));
-        this.appState = appState;
         setOpaque(false);
         setBorder(
                 new EmptyBorder(
@@ -73,12 +64,10 @@ public final class PullRequestSummaryPanel extends JPanel {
         final JPanel center = new JPanel();
         center.setOpaque(false);
         center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
-        final String checksKey = PullRequestPresentation.checksKey(request);
-        final boolean checksLoading = !checksByRequest.containsKey(checksKey);
         checks.render(
                 request,
-                checksByRequest.getOrDefault(checksKey, new PullRequestChecks(List.of())),
-                checksLoading);
+                details == null ? new PullRequestChecks(List.of()) : details.checks(),
+                details == null);
         checks.setAlignmentX(LEFT_ALIGNMENT);
         center.add(checks);
         center.add(Box.createVerticalStrut(UiConstants.SPACING_SM));
@@ -97,7 +86,6 @@ public final class PullRequestSummaryPanel extends JPanel {
         center.add(bodyPanel);
         add(center, BorderLayout.CENTER);
         loadBodyAsync(request, generation, bodyKey, bodyPanel, body);
-        loadChecksAsync(appState, request, generation, checksKey);
     }
 
     private JPanel top(final PullRequest request, final PullRequestDetails details) {
@@ -292,42 +280,6 @@ public final class PullRequestSummaryPanel extends JPanel {
             return "Draft";
         }
         return UiText.titleCase(request.state().name());
-    }
-
-    private void loadChecksAsync(
-            final AppState appState,
-            final PullRequest request,
-            final long generation,
-            final String checksKey) {
-        if (checksByRequest.containsKey(checksKey) || loadingChecks.contains(checksKey)) {
-            return;
-        }
-        loadingChecks.add(checksKey);
-        BackgroundOperations.submit(
-                        "Pull Requests",
-                        "load-pr-checks",
-                        () -> GitHub.forProject(appState, request.projectId()).getChecks(request))
-                .thenAcceptAsync(
-                        pullRequestChecks -> {
-                            loadingChecks.remove(checksKey);
-                            checksByRequest.put(checksKey, pullRequestChecks);
-                            if (generation == renderGeneration.get()
-                                    && request.equals(displayedRequest)) {
-                                checks.render(request, pullRequestChecks, false);
-                                checks.revalidate();
-                                checks.repaint();
-                            }
-                        },
-                        SwingUtilities::invokeLater)
-                .exceptionally(
-                        failure -> {
-                            SwingUtilities.invokeLater(() -> loadingChecks.remove(checksKey));
-                            LOG.warn(
-                                    "Failed to load checks for pull request: {}",
-                                    request.number(),
-                                    failure);
-                            return null;
-                        });
     }
 
     private static JEditorPane createBodyEditor(final String html) {

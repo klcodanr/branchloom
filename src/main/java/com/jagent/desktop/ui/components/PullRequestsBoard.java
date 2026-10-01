@@ -67,7 +67,7 @@ public final class PullRequestsBoard extends JPanel {
         this.actionContext = actionContext;
         setLayout(new BorderLayout(0, UiConstants.CONTENT_PADDING));
         this.onRefresh = onRefresh;
-        this.summary = new PullRequestSummaryPanel(actionContext.appState());
+        this.summary = new PullRequestSummaryPanel();
         currentQuery = UiText.valueOrDefault(initialQuery, "").trim();
 
         final var parent = this;
