@@ -36,24 +36,4 @@ public final class UiText {
         }
         return result.toString();
     }
-
-    public static Color checksColor(final String checksStatus) {
-        return switch (checksStatus) {
-            case "PASSING" -> Theme.successColor();
-            case "FAILING" -> Theme.dangerColor();
-            case "PENDING" -> Theme.warningColor();
-            default -> Theme.mutedColor();
-        };
-    }
-
-    public static Color pullRequestIndicatorColor(
-            final String mergeState, final String checksStatus) {
-        if ("CLEAN".equals(mergeState) || "MERGEABLE".equals(mergeState)) {
-            return Theme.mergeColor();
-        }
-        if ("QUEUED".equals(mergeState)) {
-            return Theme.mergeQueueColor();
-        }
-        return checksColor(checksStatus);
-    }
 }

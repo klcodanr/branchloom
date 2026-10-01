@@ -299,7 +299,7 @@ public final class AppView extends JFrame {
     private JPanel shell(final ActionContext actionContext) {
         final JPanel shell = new JPanel(new BorderLayout());
         shell.setOpaque(true);
-        shell.setBackground(UIManager.getColor("Panel.background"));
+        shell.setBackground(Theme.Colors.background());
         final JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         splitPane.setLeftComponent(projectTreePanel);
         splitPane.setRightComponent(content);

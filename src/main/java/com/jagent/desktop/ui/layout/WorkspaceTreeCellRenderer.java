@@ -72,11 +72,11 @@ public final class WorkspaceTreeCellRenderer extends DefaultTreeCellRenderer {
 
     private Color statusColor(final String code) {
         if (code.contains("D") || code.contains("U")) {
-            return Theme.dangerColor();
+            Theme.Colors.danger();
         }
         if (code.contains("A") || code.contains("?")) {
-            return Theme.successColor();
+            return Theme.Colors.success();
         }
-        return Theme.warningColor();
+        return Theme.Colors.warning();
     }
 }

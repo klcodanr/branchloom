@@ -38,7 +38,6 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingConstants;
-import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.text.JTextComponent;
 
@@ -505,7 +504,7 @@ public final class GlobalSettingsView implements View {
 
     private static JLabel columnHeader(final String text) {
         final JLabel header = UiFactory.label(text, Theme.FontSize.XS);
-        header.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+        header.setForeground(Theme.Colors.muted());
         return header;
     }
 
@@ -520,7 +519,7 @@ public final class GlobalSettingsView implements View {
     private static JButton removeButton(
             final JPanel rows, final JPanel row, final Runnable removeFields) {
         final JButton remove = UiFactory.button("Remove");
-        remove.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+        remove.setForeground(Theme.Colors.muted());
         remove.addActionListener(
                 e -> {
                     removeFields.run();

@@ -10,7 +10,6 @@ import java.awt.Insets;
  * content padding separates a control's content from its edge.
  */
 public final class UiConstants {
-    public static final String DISABLED_FOREGROUND = "Label.disabledForeground";
     public static final int SPACING_XS = 4;
     public static final int SPACING_SM = 8;
     public static final int SPACING_MD = 12;

@@ -51,7 +51,7 @@ public final class SessionSummary extends JPanel {
     private final JTextArea branch = value("Loading branch status...");
     private final JButton pullRequest =
             UiFactory.link("Loading pull request status...", this::openPullRequest);
-    private final StatusDot pullRequestStatusDot = new StatusDot(Theme.mutedColor());
+    private final StatusDot pullRequestStatusDot = new StatusDot(Theme.Colors.muted());
     private final JPanel pullRequestDetails = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
     private final JLabel pullRequestStatus =
             UiFactory.label("Status: Loading...", Theme.FontSize.SM);
@@ -119,7 +119,7 @@ public final class SessionSummary extends JPanel {
                         new Alert.Content(
                                 "Ready for clean up! The pull request is finished and this "
                                         + "worktree has no uncommitted changes.",
-                                Theme.successColor(),
+                                Theme.Colors.success(),
                                 "Remove session and worktree",
                                 removeSessionAndWorktree));
         cleanupAlert.setVisible(false);
@@ -423,7 +423,7 @@ public final class SessionSummary extends JPanel {
                                 pullRequest.setText("No pull request associated with this branch");
                                 pullRequest.setToolTipText(null);
                                 pullRequestClosed = false;
-                                pullRequestStatusDot.update(Theme.mutedColor(), null);
+                                pullRequestStatusDot.update(Theme.Colors.muted(), null);
                                 pullRequestStatus.setText("Status: Unavailable");
                                 pullRequestChecks.setText("Checks: Unavailable");
                                 pullRequestDetails.revalidate();

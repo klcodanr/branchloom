@@ -6,13 +6,11 @@ import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.services.PlatformCommands;
 import java.awt.FlowLayout;
 import java.util.List;
-import java.util.Locale;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.UIManager;
 
 /** Renders checks summary and optional per-check details for a pull request. */
 public final class PullRequestChecksPanel extends JPanel {
@@ -57,17 +55,17 @@ public final class PullRequestChecksPanel extends JPanel {
                                 + " / "
                                 + checks.total(),
                         Theme.FontSize.SM);
-        summary.setForeground(Theme.mutedColor());
+        summary.setForeground(Theme.Colors.muted());
         row.add(summary);
         if (loading) {
             final JLabel loadingLabel = UiFactory.label("Loading checks...", Theme.FontSize.SM);
-            loadingLabel.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+            loadingLabel.setForeground(Theme.Colors.muted());
             row.add(loadingLabel);
             return row;
         }
         if (checks.checks().isEmpty()) {
             final JLabel none = UiFactory.label("(no check details)", Theme.FontSize.SM);
-            none.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+            none.setForeground(Theme.Colors.muted());
             row.add(none);
             return row;
         }
@@ -82,7 +80,7 @@ public final class PullRequestChecksPanel extends JPanel {
         row.setOpaque(false);
         final String status = displayStatus(check);
         final JLabel statusLabel = UiFactory.label(status, Theme.FontSize.SM);
-        statusLabel.setForeground(UiText.checksColor(status.toUpperCase(Locale.ROOT)));
+        statusLabel.setForeground(check.indicatorColor());
         row.add(statusLabel);
         final String linkUrl =
                 check.detailsUrl() == null ? fallbackUrl : check.detailsUrl().toExternalForm();

@@ -24,9 +24,9 @@ public final class GitStatusPanel extends JPanel {
         if (status.additions() == 0 && status.modifications() == 0 && status.deletions() == 0) {
             add(UiFactory.label("Clean", Theme.FontSize.XS));
         } else {
-            addCount(status.additions(), "+", Theme.successColor());
-            addCount(status.modifications(), "~", Theme.warningColor());
-            addCount(status.deletions(), "-", Theme.dangerColor());
+            addCount(status.additions(), "+", Theme.Colors.success());
+            addCount(status.modifications(), "~", Theme.Colors.warning());
+            addCount(status.deletions(), "-", Theme.Colors.danger());
         }
         refresh();
     }

@@ -7,7 +7,6 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import javax.swing.Icon;
 import javax.swing.JComponent;
-import javax.swing.UIManager;
 
 public final class StatusDot extends JComponent {
     private Color color;
@@ -33,14 +32,14 @@ public final class StatusDot extends JComponent {
 
     private static Color terminalColor(final TerminalState state) {
         if (state == null) {
-            return Theme.mutedColor();
+            return Theme.Colors.muted();
         }
         return switch (state) {
-            case STARTING -> Theme.warningColor();
-            case WORKING -> UIManager.getColor("Component.focusColor");
-            case IDLE -> Theme.successColor();
-            case EXITED, STOPPED -> UIManager.getColor(UiConstants.DISABLED_FOREGROUND);
-            case FAILED -> Theme.dangerColor();
+            case STARTING -> Theme.Colors.warning();
+            case WORKING -> Theme.Colors.focus();
+            case IDLE -> Theme.Colors.success();
+            case EXITED, STOPPED -> Theme.Colors.muted();
+            case FAILED -> Theme.Colors.danger();
         };
     }
 

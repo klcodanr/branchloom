@@ -28,11 +28,17 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class SessionLauncherTest {
     private final AtomicReference<TerminalPanel> lastPanel = new AtomicReference<>();
+
+    @BeforeAll
+    static void configureTheme() {
+        Theme.apply(Theme.FlatLafTheme.LIGHT);
+    }
 
     @AfterEach
     void disposeTerminal() {

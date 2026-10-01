@@ -27,7 +27,6 @@ import javax.swing.JSplitPane;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -265,9 +264,7 @@ public final class PullRequestsBoard extends JPanel {
                                                 || PullRequestPresentation.contains(
                                                         request.title(), localFilter)
                                                 || PullRequestPresentation.contains(
-                                                        PullRequestPresentation.authorLogin(
-                                                                request),
-                                                        localFilter)
+                                                        request.author().login(), localFilter)
                                                 || PullRequestPresentation.contains(
                                                         request.description(), localFilter)
                                                 || PullRequestPresentation.contains(
@@ -288,7 +285,7 @@ public final class PullRequestsBoard extends JPanel {
             final JLabel empty =
                     UiFactory.label("No pull requests match this filter.", Theme.FontSize.MD);
             empty.setAlignmentX(LEFT_ALIGNMENT);
-            empty.setForeground(UIManager.getColor(UiConstants.DISABLED_FOREGROUND));
+            empty.setForeground(Theme.Colors.muted());
             list.add(empty);
         }
         for (final PullRequest request : requests) {
@@ -306,8 +303,7 @@ public final class PullRequestsBoard extends JPanel {
             cardRow.setBorder(
                     request.equals(selectedRequest)
                             ? BorderFactory.createCompoundBorder(
-                                    BorderFactory.createLineBorder(
-                                            PullRequestPresentation.selectionColor(), 2),
+                                    BorderFactory.createLineBorder(Theme.Colors.focus(), 2),
                                     new EmptyBorder(0, 0, 0, 0))
                             : new EmptyBorder(2, 2, 2, 2));
             cardRow.add(card, BorderLayout.CENTER);

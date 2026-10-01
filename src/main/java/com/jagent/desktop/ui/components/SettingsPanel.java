@@ -16,7 +16,6 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
-import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 
 public final class SettingsPanel {
@@ -67,7 +66,7 @@ public final class SettingsPanel {
         actions.setPreferredSize(new Dimension(0, 42));
         actions.setMinimumSize(new Dimension(0, 42));
         final JButton saveButton = UiFactory.button("Save");
-        saveButton.setBackground(UIManager.getColor("Component.focusColor"));
+        saveButton.setBackground(Theme.Colors.focus());
         saveButton.setOpaque(true);
         saveButton.setFont(Theme.boldFont(Theme.FontSize.MD));
         saveButton.addActionListener(e -> save.run());
