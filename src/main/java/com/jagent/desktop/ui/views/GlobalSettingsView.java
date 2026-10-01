@@ -5,12 +5,12 @@ import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.AppSettings;
-import com.jagent.desktop.models.GitHubConnection;
 import com.jagent.desktop.models.PullRequestFilter;
 import com.jagent.desktop.models.Tool;
+import com.jagent.desktop.models.github.PatCredential;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.KeyringCredentialStore;
 import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.services.github.KeyringCredentialStore;
 import com.jagent.desktop.ui.components.SettingsPanel;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
@@ -221,7 +221,7 @@ public final class GlobalSettingsView implements View {
     }
 
     private static void addConnectionRow(
-            final AppState state, final JPanel rows, final GitHubConnection connection) {
+            final AppState state, final JPanel rows, final PatCredential connection) {
         final JPanel row = new JPanel(new BorderLayout(UiConstants.CONTENT_PADDING, 0));
         configureRow(row);
         row.add(UiFactory.label(connection.name(), Theme.FontSize.MD), BorderLayout.WEST);
@@ -258,16 +258,10 @@ public final class GlobalSettingsView implements View {
             return;
         }
         final String connectionId = java.util.UUID.randomUUID().toString();
-        final GitHubConnection connection =
-                new GitHubConnection(
-                        connectionId,
-                        name.getText().trim(),
-                        host.getText().trim(),
-                        null,
-                        true,
-                        "github:" + connectionId);
+        final PatCredential connection =
+                new PatCredential(connectionId, host.getText().trim(), name.getText().trim());
         try (KeyringCredentialStore credentials = new KeyringCredentialStore()) {
-            credentials.put(connection.credentialKey(), new String(token.getPassword()));
+            credentials.put(connection.credentialId(), new String(token.getPassword()));
         }
         state.addGitHubConnection(connection);
         addConnectionRow(state, rows, connection);

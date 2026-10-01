@@ -83,8 +83,9 @@ class ProjectSessionModelLogicTest {
                         null,
                         null,
                         null,
-                        null,
                         List.of(),
+                        List.of(),
+                        null,
                         null);
         final Session withTerminal = session.withNewTerminal(terminalId);
 

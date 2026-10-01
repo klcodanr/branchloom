@@ -6,8 +6,8 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.git.WorktreeStatusSummary;
 import com.jagent.desktop.services.EditorCommands;
-import com.jagent.desktop.services.GitHubPullRequest;
 import com.jagent.desktop.services.git.GitRepository;
+import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.ui.actions.OpenDirectoryAction;
 import com.jagent.desktop.ui.actions.RunCommandAction;
 import com.jagent.desktop.ui.components.GitStatusPanel;
@@ -388,19 +388,15 @@ public final class WorkspaceTreePanel extends JPanel {
         }
         try {
             final String baseBranch =
-                    GitHubPullRequest.baseBranch(
-                                    projectId,
-                                    project,
-                                    workspace,
-                                    actionContext.appState().githubConnections())
+                    GitHub.forProject(this.actionContext.appState(), projectId)
+                            .getPullRequest(workspace)
+                            .baseBranch()
                             .trim();
             if (!baseBranch.isBlank()) {
                 sourceRef = "origin/" + baseBranch;
             }
         } catch (IOException ignored) {
             // Fall back to the repository's configured comparison source.
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
         }
         return sourceRef;
     }

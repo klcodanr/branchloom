@@ -11,7 +11,7 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequest.State;
-import com.jagent.desktop.services.GitHub.Issue;
+import com.jagent.desktop.models.github.Issue;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Date;
@@ -25,8 +25,8 @@ class DialogLogicTest {
     private static final Agent AGENT = new Agent("Agent", "agent");
 
     @Test
-    void bulkSessionRequestsRequireIssuesAndCopySelections() {
-        final Issue issue = new Issue(7, "Fix bug", "Details", "https://example.test/7");
+    void bulkSessionRequestsRequireIssuesAndCopySelections() throws MalformedURLException {
+        final Issue issue = new Issue(7, "Fix bug", "Details", new URL("https://example.test/7"));
 
         assertFalse(BulkSessionDialog.hasSelection(List.of()), "empty issue selection is invalid");
         assertTrue(BulkSessionDialog.hasSelection(List.of(issue)), "an issue selection is valid");

@@ -94,7 +94,7 @@ public final class SessionView extends AbstractWorkspaceView {
                 new SessionSummary(
                         project,
                         session,
-                        actionContext.appState().githubConnections(),
+                        actionContext.appState(),
                         actionContext.appState().appSettings().agentContextPath(),
                         actionContext.appState().appSettings().tools(),
                         () -> new RemoveSessionAction(actionContext).execute());

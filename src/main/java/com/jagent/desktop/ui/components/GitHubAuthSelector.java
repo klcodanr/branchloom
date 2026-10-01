@@ -1,9 +1,10 @@
 package com.jagent.desktop.ui.components;
 
-import com.jagent.desktop.services.GitHub;
-import com.jagent.desktop.services.GitHub.Auth;
+import com.jagent.desktop.models.github.CliCredential;
+import com.jagent.desktop.models.github.Credential;
 import java.awt.Component;
 import java.util.List;
+import java.util.stream.Stream;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.JComboBox;
 import javax.swing.JList;
@@ -11,17 +12,16 @@ import javax.swing.JList;
 public final class GitHubAuthSelector {
     private GitHubAuthSelector() {}
 
-    public static JComboBox<Auth> render() {
-        return renderConfigured(List.of(new GitHub.Auth("github.com", null, "github-cli")));
+    public static JComboBox<Credential> render() {
+        return renderConfigured(
+                List.of(new CliCredential("github.com", "Default (active account)", "")));
     }
 
-    public static JComboBox<Auth> renderConfigured(final List<GitHub.Auth> configuredAuths) {
-        final JComboBox<GitHub.Auth> githubAuth =
+    public static JComboBox<Credential> renderConfigured(final List<Credential> configuredAuths) {
+        final JComboBox<Credential> githubAuth =
                 new JComboBox<>(
-                        java.util.stream.Stream.concat(
-                                        java.util.stream.Stream.of((GitHub.Auth) null),
-                                        configuredAuths.stream())
-                                .toArray(GitHub.Auth[]::new));
+                        Stream.concat(Stream.of((Credential) null), configuredAuths.stream())
+                                .toArray(Credential[]::new));
         githubAuth.setRenderer(
                 new DefaultListCellRenderer() {
                     @Override
@@ -33,7 +33,9 @@ public final class GitHubAuthSelector {
                             final boolean focused) {
                         return super.getListCellRendererComponent(
                                 list,
-                                value == null ? "Default (active account)" : value,
+                                value == null
+                                        ? "Default (active account)"
+                                        : ((Credential) value).name(),
                                 index,
                                 selected,
                                 focused);

@@ -5,12 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.jagent.desktop.models.GitHubConnection;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.TerminalId;
+import com.jagent.desktop.models.github.PatCredential;
 import com.jagent.desktop.ui.Defaults;
 import java.io.InvalidObjectException;
 import java.util.List;
@@ -185,34 +185,26 @@ class AppStateTest {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final String connectionId = "connection-id";
         state.addGitHubConnection(
-                new GitHubConnection(
-                        connectionId,
-                        "GitHub connection",
-                        "github.com",
-                        null,
-                        true,
-                        "github:" + connectionId));
+                new PatCredential(connectionId, "github.com", "GitHub connection"));
         final Project project =
                 new Project(
                         DEMO,
                         DEMO_PATH,
                         null,
-                        "github.com",
-                        null,
+                        new PatCredential(connectionId, "github.com", "GitHub connection"),
                         null,
                         null,
                         List.of(),
                         List.of(),
                         null,
-                        null,
-                        connectionId);
+                        null);
         final ProjectId projectId = state.addProject(project);
 
         state.removeGitHubConnection(connectionId);
 
         assertTrue(state.githubConnections().isEmpty(), "connection should be removed");
         assertNull(
-                state.projects().get(projectId).githubConnectionId(),
-                "project connection ID should be cleared");
+                state.projects().get(projectId).credential(),
+                "project credential should be cleared");
     }
 }

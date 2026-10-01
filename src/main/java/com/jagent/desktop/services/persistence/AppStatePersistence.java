@@ -1,11 +1,11 @@
 package com.jagent.desktop.services.persistence;
 
 import com.jagent.desktop.models.AppSettings;
-import com.jagent.desktop.models.GitHubConnection;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
+import com.jagent.desktop.models.github.PatCredential;
 import com.jagent.desktop.services.AgentDetection;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.EditorDetection;
@@ -207,6 +207,6 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
         private final Map<String, Project> projects = new LinkedHashMap<>();
         private final Map<String, Session> sessions = new LinkedHashMap<>();
         private final Map<String, Terminal> terminals = new LinkedHashMap<>();
-        private final Map<String, GitHubConnection> githubConnections = new LinkedHashMap<>();
+        private final Map<String, PatCredential> githubConnections = new LinkedHashMap<>();
     }
 }

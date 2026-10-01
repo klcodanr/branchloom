@@ -4,9 +4,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.models.GitHubConnection;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.models.github.Credential;
+import com.jagent.desktop.models.github.PatCredential;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.Defaults;
@@ -41,7 +42,6 @@ class ProjectSettingsViewTest {
     private static final String CONNECTION_ID = "conn-1";
     private static final String CONNECTION_NAME = "Personal token";
     private static final String HOST = "github.com";
-    private static final String USER = "demo-user";
 
     @Test
     void rendersAndSavesTheSelectedProject() {
@@ -103,15 +103,13 @@ class ProjectSettingsViewTest {
                         PROJECT_NAME,
                         PROJECT_PATH,
                         GROUP_ORIGINAL,
-                        HOST,
-                        USER,
+                        new PatCredential(CONNECTION_ID, HOST, CONNECTION_NAME),
                         TEMPLATE_ORIGINAL,
                         null,
                         List.of(STARTUP_ORIGINAL),
                         List.of(),
                         CONTEXT_PATH_ORIGINAL,
-                        CONTEXT_TEXT_ORIGINAL,
-                        CONNECTION_ID);
+                        CONTEXT_TEXT_ORIGINAL);
         final ProjectId projectId = ProjectId.create();
         final AppState state =
                 new AppState(
@@ -121,13 +119,7 @@ class ProjectSettingsViewTest {
                         Map.of(),
                         Map.of(
                                 CONNECTION_ID,
-                                new GitHubConnection(
-                                        CONNECTION_ID,
-                                        CONNECTION_NAME,
-                                        HOST,
-                                        USER,
-                                        true,
-                                        "github:" + CONNECTION_ID)));
+                                new PatCredential(CONNECTION_ID, HOST, CONNECTION_NAME)));
 
         final JTextField name = new JTextField(PROJECT_NAME_UPDATED);
         final JTextField group = new JTextField(GROUP_UPDATED);
@@ -135,12 +127,9 @@ class ProjectSettingsViewTest {
         final JTextArea startup = new JTextArea(STARTUP_UPDATED);
         final JTextField contextPath = new JTextField(CONTEXT_PATH_UPDATED);
         final JTextArea contextText = new JTextArea(CONTEXT_TEXT_UPDATED);
-        final JComboBox<com.jagent.desktop.services.GitHub.Auth> auths =
+        final JComboBox<Credential> auths =
                 new JComboBox<>(
-                        new com.jagent.desktop.services.GitHub.Auth[] {
-                            new com.jagent.desktop.services.GitHub.Auth(
-                                    HOST, USER, CONNECTION_ID, CONNECTION_NAME)
-                        });
+                        new Credential[] {new PatCredential(CONNECTION_ID, HOST, CONNECTION_NAME)});
         final AtomicBoolean closed = new AtomicBoolean();
 
         ProjectSettingsView.saveProject(

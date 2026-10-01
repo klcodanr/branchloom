@@ -227,7 +227,6 @@ class ActionTest {
                         repository.toString(),
                         null,
                         null,
-                        null,
                         worktree.toString(),
                         null,
                         List.of(

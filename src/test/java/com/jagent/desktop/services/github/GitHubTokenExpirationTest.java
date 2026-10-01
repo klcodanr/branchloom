@@ -1,4 +1,4 @@
-package com.jagent.desktop.services;
+package com.jagent.desktop.services.github;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -37,17 +37,6 @@ class GitHubTokenExpirationTest {
                 IOException.class,
                 () -> GitHubTokenExpiration.parseExpiration("not-a-timestamp"),
                 "invalid expiration header should fail");
-    }
-
-    @Test
-    void tokenFingerprintSummarizesTokensWithoutLeakingSecrets() {
-        assertEquals("empty", GitHubTokenExpiration.tokenFingerprint(""), "blank token is empty");
-        assertTrue(
-                GitHubTokenExpiration.tokenFingerprint("abc").contains("len=3"),
-                "short token should include its length");
-        final String fingerprint = GitHubTokenExpiration.tokenFingerprint("abcd1234xyz");
-        assertTrue(fingerprint.startsWith("len="), "fingerprint should include length");
-        assertTrue(fingerprint.contains("abcd...xyz"), "fingerprint should keep edge sample");
     }
 
     @Test

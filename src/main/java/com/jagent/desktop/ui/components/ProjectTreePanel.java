@@ -9,8 +9,8 @@ import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
-import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
@@ -321,18 +321,16 @@ public final class ProjectTreePanel extends JPanel {
                 "Pull requests",
                 "left-nav-pr-status",
                 () -> {
-                    final PullRequest pullRequest =
-                            GitHub.pullRequest(
-                                    session.projectId(),
-                                    project,
-                                    Path.of(session.worktreePath()),
-                                    actionContext.appState().githubConnections());
+                    final ProjectId projectId = session.projectId();
+                    final GitHub github = GitHub.forProject(actionContext.appState(), projectId);
+                    final String sessionWorktreePath = session.worktreePath();
+                    final String worktreePath =
+                            sessionWorktreePath == null || sessionWorktreePath.isBlank()
+                                    ? project.path()
+                                    : sessionWorktreePath;
+                    final PullRequest pullRequest = github.getPullRequest(Path.of(worktreePath));
                     final PullRequestDetails pullRequestDetails =
-                            GitHub.pullRequestDetails(
-                                    session.projectId(),
-                                    project,
-                                    pullRequest.number(),
-                                    actionContext.appState().githubConnections());
+                            github.getPullRequestDetails(pullRequest);
 
                     SwingUtilities.invokeLater(
                             () -> {

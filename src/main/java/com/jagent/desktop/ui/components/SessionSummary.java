@@ -1,17 +1,18 @@
 package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.async.BackgroundOperations;
-import com.jagent.desktop.models.GitHubConnection;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Tool;
 import com.jagent.desktop.services.AgentContext;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.EditorCommands;
-import com.jagent.desktop.services.GitHub;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.git.GitRepository;
+import com.jagent.desktop.services.github.GitHub;
+import com.jagent.desktop.ui.utils.ErrorMessages;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
@@ -22,7 +23,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -43,7 +43,7 @@ public final class SessionSummary extends JPanel {
 
     private final transient Session session;
     private final transient Project project;
-    private final transient Map<String, GitHubConnection> configuredConnections;
+    private final transient GitHub gitHub;
     private final String globalContextPath;
     private final List<Tool> editors;
     private final JTextArea branch = value("Loading branch status...");
@@ -66,35 +66,17 @@ public final class SessionSummary extends JPanel {
 
     private record PullRequestStatus(PullRequest request, PullRequestDetails details) {}
 
-    public SessionSummary(final Project project, final Session session) {
-        this(project, session, Map.of(), "", List.of(), () -> {});
-    }
-
-    public SessionSummary(
-            final Project project, final Session session, final Runnable removeSessionAndWorktree) {
-        this(project, session, Map.of(), "", List.of(), removeSessionAndWorktree);
-    }
-
     public SessionSummary(
             final Project project,
             final Session session,
-            final String globalContextPath,
-            final Runnable removeSessionAndWorktree) {
-        this(project, session, Map.of(), globalContextPath, List.of(), removeSessionAndWorktree);
-    }
-
-    public SessionSummary(
-            final Project project,
-            final Session session,
-            final Map<String, GitHubConnection> configuredConnections,
+            final AppState appState,
             final String globalContextPath,
             final List<Tool> editors,
             final Runnable removeSessionAndWorktree) {
         super();
         this.project = project;
         this.session = session;
-        this.configuredConnections =
-                configuredConnections == null ? Map.of() : Map.copyOf(configuredConnections);
+        this.gitHub = GitHub.forProject(appState, appState.currentProjectId());
         this.globalContextPath = UiText.valueOrDefault(globalContextPath, "");
         this.editors = editors == null ? List.of() : List.copyOf(editors);
         setBorder(UiFactory.sectionBorder());
@@ -218,15 +200,13 @@ public final class SessionSummary extends JPanel {
         BackgroundOperations.submit(
                         TASK_GROUP,
                         "session-agent-context",
-                        () -> AgentContext.read(project, session, globalContextPath))
+                        () -> AgentContext.read(project, session, globalContextPath, githubUser()))
                 .thenAccept(this::showContext)
                 .exceptionally(
                         failure -> {
                             LOG.error("Session agent context", failure);
                             showContext(
-                                    UNAVAILABLE
-                                            + ": "
-                                            + UiText.valueOrDefault(rootMessage(failure), ""));
+                                    UNAVAILABLE + ": " + ErrorMessages.deepestCause(failure, ""));
                             return null;
                         });
     }
@@ -278,7 +258,7 @@ public final class SessionSummary extends JPanel {
     }
 
     private void resetContext() {
-        final String generated = AgentContext.generatedContent(project, session);
+        final String generated = AgentContext.generatedContent(project, session, githubUser());
         contextText.setText(generated);
         contextText.setCaretPosition(0);
         try {
@@ -329,9 +309,7 @@ public final class SessionSummary extends JPanel {
                         failure -> {
                             LOG.error("Session branch status", failure);
                             branch.setText(
-                                    UNAVAILABLE
-                                            + ": "
-                                            + UiText.valueOrDefault(rootMessage(failure), ""));
+                                    UNAVAILABLE + ": " + ErrorMessages.deepestCause(failure, ""));
                             return null;
                         });
     }
@@ -346,18 +324,9 @@ public final class SessionSummary extends JPanel {
                                 throw new IOException("The session has no worktree path.");
                             }
                             final Path path = Path.of(worktreePath);
-                            final PullRequest request =
-                                    GitHub.pullRequest(
-                                            session.projectId(),
-                                            project,
-                                            path,
-                                            configuredConnections);
+                            final PullRequest request = gitHub.getPullRequest(path);
                             final PullRequestDetails pullRequestDetails =
-                                    GitHub.pullRequestDetails(
-                                            session.projectId(),
-                                            project,
-                                            request.number(),
-                                            configuredConnections);
+                                    gitHub.getPullRequestDetails(request);
                             return new PullRequestStatus(request, pullRequestDetails);
                         })
                 .thenAccept(
@@ -376,7 +345,7 @@ public final class SessionSummary extends JPanel {
                         })
                 .exceptionally(
                         failure -> {
-                            final String message = UiText.valueOrDefault(rootMessage(failure), "");
+                            final String message = ErrorMessages.deepestCause(failure, "");
                             if (message.toLowerCase(Locale.ROOT).contains("no pull request")) {
                                 pullRequestUrl = null;
                                 pullRequest.setText("No pull request associated with this branch");
@@ -412,19 +381,9 @@ public final class SessionSummary extends JPanel {
                             LOG.error("Session diff", failure);
                             GitFormatter.renderDiff(
                                     diff,
-                                    UNAVAILABLE
-                                            + ": "
-                                            + UiText.valueOrDefault(rootMessage(failure), ""));
+                                    UNAVAILABLE + ": " + ErrorMessages.deepestCause(failure, ""));
                             return null;
                         });
-    }
-
-    private static String rootMessage(final Throwable failure) {
-        Throwable cause = failure;
-        while (cause.getCause() != null) {
-            cause = cause.getCause();
-        }
-        return cause.getMessage() == null ? cause.toString() : cause.getMessage();
     }
 
     private void updatePullRequestDot(final PullRequestDetails details) {
@@ -438,5 +397,14 @@ public final class SessionSummary extends JPanel {
         cleanupAlert.setVisible(pullRequestClosed && worktreeClean);
         cleanupAlert.revalidate();
         cleanupAlert.repaint();
+    }
+
+    private String githubUser() {
+        try {
+            return gitHub.getLogin();
+        } catch (IOException exception) {
+            LOG.debug("Could not resolve GitHub login for agent context", exception);
+            return null;
+        }
     }
 }

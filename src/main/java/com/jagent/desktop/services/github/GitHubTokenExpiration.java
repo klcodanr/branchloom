@@ -1,5 +1,6 @@
-package com.jagent.desktop.services;
+package com.jagent.desktop.services.github;
 
+import com.jagent.desktop.services.JsonLogging;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -27,16 +28,6 @@ public interface GitHubTokenExpiration {
             try {
                 final int status = connection.getResponseCode();
                 if (status < 200 || status >= 300) {
-                    JsonLogging.warn(
-                            GitHubTokenExpiration.class,
-                            "GitHub token expiration lookup failed",
-                            Map.of(
-                                    "endpoint",
-                                    endpoint,
-                                    "status",
-                                    status,
-                                    "tokenFingerprint",
-                                    tokenFingerprint(token)));
                     throw new IOException("GitHub authentication request failed: " + status);
                 }
                 final String value =
@@ -77,20 +68,5 @@ public interface GitHubTokenExpiration {
                     Map.of("value", trimmed, "reason", exception.getMessage()));
             throw new IOException("GitHub returned an invalid token expiration", exception);
         }
-    }
-
-    static String tokenFingerprint(final String token) {
-        final String trimmed = token == null ? "" : token.trim();
-        if (trimmed.isBlank()) {
-            return "empty";
-        }
-        final int keepStart = 4;
-        final int keepEnd = 3;
-        if (trimmed.length() <= keepStart + keepEnd) {
-            return "len=" + trimmed.length() + ",sample=" + trimmed;
-        }
-        final String start = trimmed.substring(0, keepStart);
-        final String end = trimmed.substring(trimmed.length() - keepEnd);
-        return "len=" + trimmed.length() + ",sample=" + start + "..." + end;
     }
 }

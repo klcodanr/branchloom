@@ -86,9 +86,10 @@ class TemplateTest {
                         null,
                         null,
                         null,
-                        null,
                         List.of(),
-                        List.of());
+                        List.of(),
+                        null,
+                        null);
         final Session session = new Session(null, "Fix bug", null, null, "/tmp/work tree");
 
         assertEquals(
@@ -117,11 +118,12 @@ class TemplateTest {
                         "/tmp/demo",
                         null,
                         null,
-                        null,
                         CUSTOM_WORKTREE_TEMPLATE,
                         null,
                         List.of(),
-                        List.of());
+                        List.of(),
+                        null,
+                        null);
         assertEquals(
                 CUSTOM_WORKTREE_TEMPLATE,
                 Template.worktree(configured, settings),
@@ -147,9 +149,10 @@ class TemplateTest {
                 "/workspace/demo",
                 "default",
                 null,
-                null,
                 worktreeTemplate,
                 null,
+                List.of(),
+                List.of(),
                 null,
                 null);
     }
