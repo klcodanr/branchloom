@@ -104,15 +104,7 @@ public final class AgentContext {
         final String configuredPath =
                 Template.expand(configuredContextPath, project, session, false);
         final Path path = Path.of(configuredPath);
-        final Path contextPath =
-                path.isAbsolute()
-                        ? path
-                        : Path.of(session.worktreePath()).resolve(path).normalize();
-        final Path conflictingParent = contextPath.getParent();
-        if (conflictingParent != null && Files.isRegularFile(conflictingParent)) {
-            return conflictingParent;
-        }
-        return contextPath;
+        return path.isAbsolute() ? path : Path.of(session.worktreePath()).resolve(path).normalize();
     }
 
     private static String configuredContextPath(

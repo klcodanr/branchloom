@@ -209,15 +209,15 @@ public final class SessionCreationService {
             final String prompt,
             final String worktreePath,
             final String commandTemplate)
-            throws InvalidObjectException {
+            throws IOException, InvalidObjectException {
         final Session session = new Session(projectId, sessionName, agent, prompt, worktreePath);
+        String githubUser = null;
         try {
-            final String githubUser = GitHub.forProject(state, projectId).getLogin();
-            AgentContext.write(
-                    project, session, state.appSettings().agentContextPath(), githubUser);
+            githubUser = GitHub.forProject(state, projectId).getLogin();
         } catch (IOException exception) {
-            LOG.warn("Could not write agent context", exception);
+            LOG.warn("Could not resolve GitHub login for agent context", exception);
         }
+        AgentContext.write(project, session, state.appSettings().agentContextPath(), githubUser);
         final SessionId sessionId = state.addSession(projectId, session);
         final TerminalId terminalId =
                 state.addTerminal(

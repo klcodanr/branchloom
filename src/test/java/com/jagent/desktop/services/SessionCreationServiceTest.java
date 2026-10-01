@@ -81,6 +81,38 @@ class SessionCreationServiceTest {
     }
 
     @Test
+    void doesNotCreateSessionWhenAgentContextCannotBeWritten(@TempDir final Path directory)
+            throws IOException, InterruptedException {
+        TestGitRepository.initialize(directory);
+        final Path contextParent = directory.resolve(".cursor-notes");
+        Files.writeString(contextParent, "existing file");
+        final AppState state = TestAppState.empty();
+        final Project project =
+                new Project(
+                        PROJECT_NAME,
+                        directory.toString(),
+                        null,
+                        null,
+                        WORKTREE_TEMPLATE,
+                        null,
+                        java.util.List.of(),
+                        java.util.List.of(),
+                        contextParent.resolve("BRANCHLOOM_CONTEXT.md").toString(),
+                        null);
+        final ProjectId projectId = state.addProject(project);
+        final Agent agent = new Agent(AGENT_NAME, AGENT_COMMAND + " --prompt {prompt}");
+
+        assertThrows(
+                IOException.class,
+                () ->
+                        new SessionCreationService(state)
+                                .create(projectId, project, agent, SESSION_NAME, PROMPT, null),
+                "session creation should fail when agent context cannot be written");
+        assertTrue(
+                state.sessions().isEmpty(), "failed context creation must not register a session");
+    }
+
+    @Test
     void rejectsExistingBranchBeforeCreatingWorktree(@TempDir final Path directory)
             throws IOException, InterruptedException {
         TestGitRepository.initialize(directory);
@@ -381,6 +413,10 @@ class SessionCreationServiceTest {
                 service.createWorktreeAndSession(projectId, project, details, request);
 
         assertTrue(Files.isDirectory(worktree), "worktree should be created on disk");
+        assertEquals(
+                "fix-login-import",
+                TestGitRepository.output(worktree, "git branch --show-current").trim(),
+                "imported worktree should use the requested local branch name");
         assertEquals(
                 worktree.toAbsolutePath().normalize().toString(),
                 state.sessions().get(sessionId).worktreePath(),
