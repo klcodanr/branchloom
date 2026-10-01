@@ -56,4 +56,12 @@ class GitHubTest {
                 GitHubAuth.apiEndpoint(GITHUB_EXAMPLE),
                 "custom host should map to enterprise API path");
     }
+
+    @Test
+    void apiEndpointUsesPublicApiForNullHost() {
+        assertEquals(
+                "https://api.github.com",
+                GitHubAuth.apiEndpoint(null),
+                "missing host should use the public GitHub API endpoint");
+    }
 }

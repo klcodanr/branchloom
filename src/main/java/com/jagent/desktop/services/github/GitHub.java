@@ -93,7 +93,7 @@ public final class GitHub {
         auth = refreshedAuth;
         client =
                 new GitHubBuilder()
-                        .withEndpoint(auth.host())
+                        .withEndpoint(GitHubAuth.apiEndpoint(auth.host()))
                         .withOAuthToken(auth.token())
                         .withRateLimitHandler(GitHubRateLimitHandler.WAIT)
                         .withAbuseLimitHandler(GitHubAbuseLimitHandler.WAIT)
