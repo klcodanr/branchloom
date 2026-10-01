@@ -7,12 +7,15 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.ui.components.SearchableComboBox;
 import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiFactory;
+import com.jagent.desktop.ui.utils.ClipboardImagePaster;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.FocusTraversalPolicy;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
 import java.util.List;
 import java.util.function.Consumer;
 import javax.swing.JButton;
@@ -24,6 +27,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
+import javax.swing.TransferHandler;
 
 public final class NewSessionDialog extends JDialog {
     private static final String TITLE = "New agent session";
@@ -77,6 +81,7 @@ public final class NewSessionDialog extends JDialog {
         prompt.setWrapStyleWord(true);
         UiFactory.configureTextAreaTraversal(prompt);
         prompt.setName("session-prompt");
+        installImagePasteHandler();
         cancel.setName("session-cancel");
         ok.setName("session-ok");
 
@@ -155,6 +160,30 @@ public final class NewSessionDialog extends JDialog {
                 });
         pack();
         setLocationRelativeTo(actionContext.window());
+    }
+
+    private void installImagePasteHandler() {
+        final TransferHandler delegate = prompt.getTransferHandler();
+        prompt.setTransferHandler(
+                new TransferHandler() {
+                    @Override
+                    public boolean importData(
+                            final javax.swing.JComponent component,
+                            final Transferable transferable) {
+                        if (!transferable.isDataFlavorSupported(DataFlavor.imageFlavor)) {
+                            return delegate.importData(component, transferable);
+                        }
+                        return ClipboardImagePaster.paste(
+                                transferable,
+                                prompt::replaceSelection,
+                                message ->
+                                        JOptionPane.showMessageDialog(
+                                                NewSessionDialog.this,
+                                                message,
+                                                "Clipboard image paste failed",
+                                                JOptionPane.ERROR_MESSAGE));
+                    }
+                });
     }
 
     private void validateAndCheckBranch() {
