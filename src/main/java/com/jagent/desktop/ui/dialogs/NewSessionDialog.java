@@ -31,11 +31,17 @@ public final class NewSessionDialog extends JDialog {
     private final transient Consumer<Request> onValid;
     private final JTextField name = new JTextField(35);
     private final JComboBox<Agent> agent;
-    private final SearchableComboBox<String> baseBranch;
-    private final List<String> branchNames;
+    private final SearchableComboBox<BranchChoice> baseBranch;
     private final JTextArea prompt = new JTextArea(5, 35);
     private final JButton cancel = UiFactory.button("Cancel");
     private final JButton ok = UiFactory.button("OK");
+
+    private record BranchChoice(String displayName, String ref) {
+        @Override
+        public String toString() {
+            return displayName;
+        }
+    }
 
     public record Request(String name, Agent agent, String prompt, String baseBranch) {
         public Request(final String name, final Agent agent, final String prompt) {
@@ -60,8 +66,11 @@ public final class NewSessionDialog extends JDialog {
         agent = new JComboBox<>(appState.appSettings().agents().toArray(new Agent[0]));
         agent.setName("session-agent");
         agent.setPreferredSize(new Dimension(350, agent.getPreferredSize().height));
-        branchNames = branches.stream().map(Branch::name).toList();
-        baseBranch = new SearchableComboBox<>(branchNames);
+        final List<BranchChoice> branchChoices =
+                branches.stream()
+                        .map(branch -> new BranchChoice(branch.displayName(), branch.name()))
+                        .toList();
+        baseBranch = new SearchableComboBox<>(branchChoices);
         baseBranch.setName("session-base-branch");
         baseBranch.setPreferredSize(new Dimension(350, baseBranch.getPreferredSize().height));
         prompt.setLineWrap(true);
@@ -159,13 +168,15 @@ public final class NewSessionDialog extends JDialog {
         }
         final Agent selectedAgent = (Agent) agent.getSelectedItem();
         dispose();
-        final String selectedBranch = (String) baseBranch.getSelectedItem();
+        final Object selectedBranch = baseBranch.getSelectedItem();
         onValid.accept(
                 new Request(
                         name.getText().trim(),
                         selectedAgent,
                         prompt.getText().trim(),
-                        branchNames.contains(selectedBranch) ? selectedBranch : null));
+                        selectedBranch instanceof BranchChoice branchChoice
+                                ? branchChoice.ref()
+                                : null));
     }
 
     /* default */ static String validationFailure(

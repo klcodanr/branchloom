@@ -180,19 +180,15 @@ public final class ImportBranchAction extends BaseAction {
     }
 
     private static BranchChoice choice(final Branch branch) {
-        final String name = branch.name();
-        if (name.startsWith("refs/remotes/")) {
-            final String remoteRef = name.substring("refs/remotes/".length());
+        if (branch.remote()) {
+            final String remoteRef = branch.localName();
             final int separator = remoteRef.indexOf('/');
             final String localName =
                     separator >= 0 ? remoteRef.substring(separator + 1) : remoteRef;
             return new BranchChoice(remoteRef, remoteRef, true, localName);
         }
-        if (name.startsWith("refs/heads/")) {
-            final String local = name.substring("refs/heads/".length());
-            return new BranchChoice(local, local, false, local);
-        }
-        return new BranchChoice(name, name, false, name);
+        final String local = branch.displayName();
+        return new BranchChoice(local, local, false, local);
     }
 
     private static void importBranch(

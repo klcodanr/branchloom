@@ -273,10 +273,12 @@ public final class GitRepository implements AutoCloseable {
                 this.listWorktrees().stream()
                         .map(Worktree::branch)
                         .filter(branch -> branch != null)
+                        .map(Branch::new)
+                        .map(Branch::withoutHeadsPrefix)
                         .collect(Collectors.toSet());
 
         return this.listBranches().stream()
-                .filter(branch -> !occupied.contains("refs/heads/" + branch.name()))
+                .filter(branch -> !occupied.contains(branch.withoutHeadsPrefix()))
                 .toList();
     }
 
