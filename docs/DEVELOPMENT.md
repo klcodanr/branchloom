@@ -64,8 +64,9 @@ truth, while local builds default to version `1.0.0` and can override it:
 gradle -PreleaseVersion=20260819.143012 jpackageInstaller
 ```
 
-Release builds should be signed and notarized using the platform's signing tools
-and credentials. The workflow supports these environment variables:
+Release builds can be signed using the platform's signing tools and credentials.
+The packaging task does not perform notarization. The workflow supports these
+signing environment variables:
 
 - macOS: `BRANCHLOOM_MAC_SIGNING_KEY` and optionally `BRANCHLOOM_MAC_SIGNING_KEYCHAIN`.
 - Windows: `BRANCHLOOM_WIN_SIGNING_KEYSTORE`, optionally

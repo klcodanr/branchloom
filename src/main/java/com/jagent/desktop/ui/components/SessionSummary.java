@@ -4,6 +4,7 @@ import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.GitHubConnection;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Tool;
@@ -27,6 +28,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
@@ -51,6 +53,10 @@ public final class SessionSummary extends JPanel {
             UiFactory.link("Loading pull request status...", this::openPullRequest);
     private final StatusDot pullRequestStatusDot = new StatusDot(Theme.Colors.muted());
     private final JPanel pullRequestDetails = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+    private final JLabel pullRequestStatus =
+            UiFactory.label("Status: Loading...", Theme.FontSize.SM);
+    private final JLabel pullRequestChecks =
+            UiFactory.label("Checks: Loading...", Theme.FontSize.SM);
     private final JPanel diff = new JPanel();
     private final JTextArea contextFile = textArea("Loading context file...");
     private final JTextArea contextText = textArea("Loading context...");
@@ -64,7 +70,11 @@ public final class SessionSummary extends JPanel {
 
     private record BranchStatus(String branch, boolean clean) {}
 
-    private record PullRequestStatus(PullRequest request, PullRequestDetails details) {}
+    private record PullRequestStatus(
+            PullRequest request,
+            PullRequestDetails details,
+            PullRequestChecks checks,
+            boolean checksAvailable) {}
 
     public SessionSummary(final Project project, final Session session) {
         this(project, session, Map.of(), "", List.of(), () -> {});
@@ -102,6 +112,8 @@ public final class SessionSummary extends JPanel {
         pullRequestDetails.setOpaque(false);
         pullRequestDetails.add(pullRequestStatusDot);
         pullRequestDetails.add(pullRequest);
+        pullRequestDetails.add(pullRequestStatus);
+        pullRequestDetails.add(pullRequestChecks);
         cleanupAlert =
                 new Alert(
                         new Alert.Content(
@@ -358,7 +370,28 @@ public final class SessionSummary extends JPanel {
                                             project,
                                             request.number(),
                                             configuredConnections);
-                            return new PullRequestStatus(request, pullRequestDetails);
+                            try {
+                                return new PullRequestStatus(
+                                        request,
+                                        pullRequestDetails,
+                                        GitHub.getChecks(request, configuredConnections),
+                                        true);
+                            } catch (InterruptedException exception) {
+                                Thread.currentThread().interrupt();
+                                LOG.warn("Session PR checks", exception);
+                                return new PullRequestStatus(
+                                        request,
+                                        pullRequestDetails,
+                                        new PullRequestChecks(List.of()),
+                                        false);
+                            } catch (IOException exception) {
+                                LOG.warn("Session PR checks", exception);
+                                return new PullRequestStatus(
+                                        request,
+                                        pullRequestDetails,
+                                        new PullRequestChecks(List.of()),
+                                        false);
+                            }
                         })
                 .thenAccept(
                         status -> {
@@ -371,6 +404,14 @@ public final class SessionSummary extends JPanel {
                             pullRequest.setToolTipText(pullRequestUrl);
                             pullRequestClosed =
                                     status.request().state() == PullRequest.State.CLOSED;
+                            pullRequestStatus.setText(
+                                    "Status: "
+                                            + UiText.titleCase(status.details().status().name()));
+                            pullRequestChecks.setText(
+                                    status.checksAvailable()
+                                            ? "Checks: "
+                                                    + GitFormatter.checksPassed(status.checks())
+                                            : "Checks: Unavailable");
                             updatePullRequestDot(status.details());
                             updateCleanupSuggestion();
                         })
@@ -383,6 +424,8 @@ public final class SessionSummary extends JPanel {
                                 pullRequest.setToolTipText(null);
                                 pullRequestClosed = false;
                                 pullRequestStatusDot.update(Theme.Colors.muted(), null);
+                                pullRequestStatus.setText("Status: Unavailable");
+                                pullRequestChecks.setText("Checks: Unavailable");
                                 pullRequestDetails.revalidate();
                                 pullRequestDetails.repaint();
                                 updateCleanupSuggestion();
@@ -390,6 +433,8 @@ public final class SessionSummary extends JPanel {
                             }
                             LOG.error("Session PR status", failure);
                             pullRequest.setText(UNAVAILABLE + ": " + message);
+                            pullRequestStatus.setText("Status: Unavailable");
+                            pullRequestChecks.setText("Checks: Unavailable");
                             return null;
                         });
     }

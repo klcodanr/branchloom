@@ -189,7 +189,7 @@ user.
 
 Agents making UI changes should follow this sequence:
 
-1. Read this document, `docs/DESIGN_REVIEW.md`, and the target view before
+1. Read this document and the target view before
    editing.
 2. Identify the closest existing pattern and name it in the implementation
    notes or pull request description.

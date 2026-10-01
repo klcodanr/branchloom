@@ -61,11 +61,13 @@ public final class PullRequestsBoard extends JPanel {
 
     public PullRequestsBoard(
             final ActionContext actionContext,
-            final BiFunction<String, Boolean, List<PullRequest>> onRefresh) {
+            final BiFunction<String, Boolean, List<PullRequest>> onRefresh,
+            final String initialQuery) {
         super();
         this.actionContext = actionContext;
         setLayout(new BorderLayout(0, UiConstants.CONTENT_PADDING));
         this.onRefresh = onRefresh;
+        currentQuery = UiText.valueOrDefault(initialQuery, "").trim();
 
         final var parent = this;
 
@@ -161,6 +163,17 @@ public final class PullRequestsBoard extends JPanel {
             return;
         }
         currentQuery = UiText.valueOrDefault(query.getText(), "").trim();
+        if (currentQuery.isBlank()) {
+            refreshStatus.setText("Enter a pull request query");
+            remove(loading);
+            add(splitPane, BorderLayout.CENTER);
+            requests = List.of();
+            selectedRequest = null;
+            render();
+            revalidate();
+            repaint();
+            return;
+        }
         refreshInFlight = true;
         final long started = System.nanoTime();
         LOG.info(

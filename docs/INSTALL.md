@@ -23,7 +23,6 @@ open /Applications/Branchloom.app
 
 Branchloom requires:
 
-- Java 25. Gradle's toolchain support can provision it automatically for local builds.
 - Git.
 - A shell available on the host system.
 

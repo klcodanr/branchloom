@@ -61,6 +61,7 @@ public final class ProjectView extends AbstractWorkspaceView {
                                 .appSettings()
                                 .pullRequestFilters()
                                 .toArray(PullRequestFilter[]::new));
+        final PullRequestFilter initialFilter = (PullRequestFilter) this.filters.getSelectedItem();
         this.pullRequests =
                 new PullRequestsBoard(
                         actionContext,
@@ -76,7 +77,8 @@ public final class ProjectView extends AbstractWorkspaceView {
                                     ? pullRequestCache.refreshForProjectFilter(
                                             this.projectId, filter)
                                     : pullRequestCache.loadForProjectFilter(this.projectId, filter);
-                        });
+                        },
+                        initialFilter == null ? "" : initialFilter.query());
         this.filters.addActionListener(
                 event -> {
                     final PullRequestFilter selected =

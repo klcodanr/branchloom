@@ -36,7 +36,7 @@ public final class MyPullRequestsView extends JPanel implements View {
                                 .appSettings()
                                 .pullRequestFilters()
                                 .toArray(PullRequestFilter[]::new));
-        board = new PullRequestsBoard(actionContext, this::pullRequests);
+        board = new PullRequestsBoard(actionContext, this::pullRequests, selectedFilter().query());
         filters.addActionListener(
                 event -> {
                     board.setQuery(selectedFilter().query());
