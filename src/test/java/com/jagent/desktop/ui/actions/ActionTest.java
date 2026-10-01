@@ -272,7 +272,8 @@ class ActionTest {
                         + PlatformCommands.shellQuote(agentMarker.toString()),
                 terminal.command(),
                 ASSERTION_MESSAGE);
-        assertFalse("setup".equals(Files.readString(notes)), ASSERTION_MESSAGE);
+        AsyncTestSupport.await(
+                () -> Files.exists(notes), "startup command should create the notes file");
         AsyncTestSupport.await(
                 () -> {
                     try {
