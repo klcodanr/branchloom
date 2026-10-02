@@ -1,13 +1,14 @@
 package com.jagent.desktop.ui.components;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.jediterm.terminal.model.hyperlinks.HyperlinkFilter;
 import com.jediterm.terminal.model.hyperlinks.LinkResult;
 import com.jediterm.terminal.model.hyperlinks.LinkResultItem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -23,8 +24,11 @@ final class TerminalFileLinkFilter implements HyperlinkFilter {
     private final Path directory;
     private final Consumer<TerminalFileLink> openFile;
     private final BooleanSupplier activationAllowed;
-    private final Map<Path, FileCheck> fileCheckCache =
-            new LinkedHashMap<>(FILE_CHECK_CACHE_SIZE, 0.75f, true);
+    private final Cache<Path, Boolean> fileCheckCache =
+            Caffeine.newBuilder()
+                    .maximumSize(FILE_CHECK_CACHE_SIZE)
+                    .expireAfterWrite(Duration.ofMillis(FILE_CHECK_CACHE_TTL_MILLIS))
+                    .build();
 
     protected TerminalFileLinkFilter(
             final Path directory, final Consumer<TerminalFileLink> openFile) {
@@ -84,24 +88,8 @@ final class TerminalFileLinkFilter implements HyperlinkFilter {
     }
 
     private boolean isRegularFile(final Path path) {
-        final long now = System.currentTimeMillis();
-        synchronized (fileCheckCache) {
-            final FileCheck cached = fileCheckCache.get(path);
-            if (cached != null && now - cached.checkedAt() < FILE_CHECK_CACHE_TTL_MILLIS) {
-                return cached.regularFile();
-            }
-        }
-        final boolean regularFile = Files.isRegularFile(path);
-        synchronized (fileCheckCache) {
-            fileCheckCache.put(path, new FileCheck(regularFile, now));
-            if (fileCheckCache.size() > FILE_CHECK_CACHE_SIZE) {
-                fileCheckCache.remove(fileCheckCache.keySet().iterator().next());
-            }
-        }
-        return regularFile;
+        return fileCheckCache.get(path, Files::isRegularFile);
     }
-
-    private record FileCheck(boolean regularFile, long checkedAt) {}
 
     private Path resolve(final String value) {
         final String pathValue =
