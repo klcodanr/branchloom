@@ -4,6 +4,8 @@ import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.models.git.ChangedFileNode;
+import com.jagent.desktop.models.git.ChangedFileTree;
 import com.jagent.desktop.models.git.WorktreeStatusSummary;
 import com.jagent.desktop.services.EditorCommands;
 import com.jagent.desktop.services.git.GitRepository;
@@ -228,9 +230,35 @@ public final class WorkspaceTreePanel extends JPanel {
     private void reloadWorkspace() {
         saveTreeState();
         root.removeAllChildren();
-        root.add(new DefaultMutableTreeNode(LOADING));
+        if (changedOnlyButton.isSelected()) {
+            buildChangedTree();
+        } else {
+            root.add(new DefaultMutableTreeNode(LOADING));
+            ((DefaultTreeModel) tree.getModel()).reload(root);
+            loadChildren(root);
+        }
+    }
+
+    private void buildChangedTree() {
+        final ChangedFileTree changed = ChangedFileTree.of(statuses.keySet());
+        if (changed.children().isEmpty()) {
+            root.add(new DefaultMutableTreeNode(EMPTY));
+        } else {
+            changed.children().forEach(node -> root.add(toTreeNode(node)));
+        }
         ((DefaultTreeModel) tree.getModel()).reload(root);
-        loadChildren(root);
+        restoreTreeState();
+    }
+
+    private DefaultMutableTreeNode toTreeNode(final ChangedFileNode node) {
+        final DefaultMutableTreeNode treeNode =
+                new DefaultMutableTreeNode(workspace.resolve(node.path()));
+        if (node.directory() && node.children().isEmpty()) {
+            treeNode.add(new DefaultMutableTreeNode(EMPTY));
+        } else {
+            node.children().forEach(child -> treeNode.add(toTreeNode(child)));
+        }
+        return treeNode;
     }
 
     private void saveTreeState() {
@@ -270,7 +298,6 @@ public final class WorkspaceTreePanel extends JPanel {
         if (!(value instanceof Path directory)) {
             return;
         }
-        final boolean changedOnly = changedOnlyButton.isSelected();
         BackgroundOperations.submit("Workspace", "load-files", () -> loadDirectory(directory))
                 .thenAccept(
                         result -> {
@@ -279,7 +306,7 @@ public final class WorkspaceTreePanel extends JPanel {
                                 parent.add(new DefaultMutableTreeNode("Unavailable"));
                             } else {
                                 final List<DefaultMutableTreeNode> childNodes =
-                                        visibleChildNodes(result.children(), changedOnly);
+                                        result.children().stream().map(this::node).toList();
                                 if (childNodes.isEmpty()) {
                                     parent.add(new DefaultMutableTreeNode(EMPTY));
                                 } else {
@@ -297,14 +324,6 @@ public final class WorkspaceTreePanel extends JPanel {
                             ((DefaultTreeModel) tree.getModel()).reload(parent);
                             return null;
                         });
-    }
-
-    private List<DefaultMutableTreeNode> visibleChildNodes(
-            final List<Path> children, final boolean changedOnly) {
-        return children.stream()
-                .filter(path -> !changedOnly || changed(path))
-                .map(this::node)
-                .toList();
     }
 
     private DirectoryLoad loadDirectory(final Path directory) {
