@@ -54,6 +54,41 @@ class PullRequestDetailsModelTest {
                 "failing checks should use the danger indicator color");
     }
 
+    @Test
+    void failuresAndConflictsTakePriorityOverDraftState() {
+        final PullRequestCheck failure =
+                new PullRequestCheck(
+                        "ci/failure",
+                        PullRequestCheck.Status.COMPLETED,
+                        null,
+                        PullRequestCheck.Conclusion.FAILURE,
+                        null);
+        final PullRequestChecks checks = new PullRequestChecks(List.of(failure));
+
+        final PullRequestDetails failingDraft =
+                new PullRequestDetails(
+                        PROJECT_ID, PROJECT, 1, true, true, "clean", 1, 1, 1, checks);
+        final PullRequestDetails conflictedDraft =
+                new PullRequestDetails(PROJECT_ID, PROJECT, 1, true, false, "dirty", 1, 1, 1);
+
+        assertEquals(
+                PullRequestDetails.Status.CHECKS_FAILING,
+                failingDraft.status(),
+                "failing checks should override draft state");
+        assertEquals(
+                Theme.Colors.danger(),
+                failingDraft.indicatorColor(),
+                "failing draft checks should use the danger indicator color");
+        assertEquals(
+                PullRequestDetails.Status.CONFLICTED,
+                conflictedDraft.status(),
+                "conflicts should override draft state");
+        assertEquals(
+                Theme.Colors.danger(),
+                conflictedDraft.indicatorColor(),
+                "conflicted drafts should use the danger indicator color");
+    }
+
     private static void assertStatus(
             final String mergeableState,
             final boolean draft,
