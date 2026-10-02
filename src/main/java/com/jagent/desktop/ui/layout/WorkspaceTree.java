@@ -3,7 +3,7 @@ package com.jagent.desktop.ui.layout;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.actions.OpenDirectoryAction;
-import com.jagent.desktop.ui.components.UiFactory;
+import com.jagent.desktop.ui.components.UiPopupMenus;
 import com.jagent.desktop.ui.utils.PathUtils;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
@@ -114,7 +114,7 @@ public final class WorkspaceTree extends JTree {
         final JMenuItem copy = new JMenuItem("Copy path");
         copy.addActionListener(ignored -> CopyPathAction.copy(path.toAbsolutePath().toString()));
         menu.add(copy);
-        UiFactory.showPopupMenu(menu, this, x, y);
+        UiPopupMenus.show(menu, this, x, y);
     }
 
     private void showMenu(final MouseEvent event) {

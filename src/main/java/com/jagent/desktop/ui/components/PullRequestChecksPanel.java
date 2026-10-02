@@ -23,7 +23,7 @@ public final class PullRequestChecksPanel extends JPanel {
         super();
         setOpaque(false);
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-        setBorder(UiFactory.contentAreaBorder());
+        setBorder(UiBorders.contentArea());
     }
 
     public void render(
@@ -48,29 +48,31 @@ public final class PullRequestChecksPanel extends JPanel {
         final JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, UiConstants.SPACING_SM, 0));
         row.setOpaque(false);
         final JLabel summary =
-                UiFactory.label(
+                new JLabel(
                         UiText.titleCase(request.state().toString())
                                 + " "
                                 + checks.passed()
                                 + " / "
-                                + checks.total(),
-                        Theme.FontSize.SM);
+                                + checks.total());
+        summary.setFont(Theme.font(Theme.FontSize.SM));
         summary.setForeground(Theme.Colors.muted());
         row.add(summary);
         if (loading) {
-            final JLabel loadingLabel = UiFactory.label("Loading checks...", Theme.FontSize.SM);
+            final JLabel loadingLabel = new JLabel("Loading checks...");
+            loadingLabel.setFont(Theme.font(Theme.FontSize.SM));
             loadingLabel.setForeground(Theme.Colors.muted());
             row.add(loadingLabel);
             return row;
         }
         if (checks.checks().isEmpty()) {
-            final JLabel none = UiFactory.label("(no check details)", Theme.FontSize.SM);
+            final JLabel none = new JLabel("(no check details)");
+            none.setFont(Theme.font(Theme.FontSize.SM));
             none.setForeground(Theme.Colors.muted());
             row.add(none);
             return row;
         }
         final JButton toggle =
-                UiFactory.link(expanded ? "Hide details" : "Show details", this::toggle);
+                new LinkButton(expanded ? "Hide details" : "Show details", this::toggle);
         row.add(toggle);
         return row;
     }
@@ -79,12 +81,13 @@ public final class PullRequestChecksPanel extends JPanel {
         final JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, UiConstants.SPACING_SM, 0));
         row.setOpaque(false);
         final String status = displayStatus(check);
-        final JLabel statusLabel = UiFactory.label(status, Theme.FontSize.SM);
+        final JLabel statusLabel = new JLabel(status);
+        statusLabel.setFont(Theme.font(Theme.FontSize.SM));
         statusLabel.setForeground(check.indicatorColor());
         row.add(statusLabel);
         final String linkUrl =
                 check.detailsUrl() == null ? fallbackUrl : check.detailsUrl().toExternalForm();
-        final JButton link = UiFactory.link(check.name(), () -> PlatformCommands.openUrl(linkUrl));
+        final JButton link = new LinkButton(check.name(), () -> PlatformCommands.openUrl(linkUrl));
 
         row.add(link);
         return row;

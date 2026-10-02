@@ -1,5 +1,6 @@
 package com.jagent.desktop.ui.dialogs;
 
+import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
@@ -117,7 +118,7 @@ public final class MissingWorktreeRecovery {
                             actionContext
                                     .viewCoordinator()
                                     .updateView(
-                                            com.jagent.desktop.api.ViewId.SESSION,
+                                            ViewId.SESSION,
                                             ViewState.session(
                                                     actionContext.appState().currentProjectId(),
                                                     actionContext.appState().currentSessionId()));
@@ -163,8 +164,7 @@ public final class MissingWorktreeRecovery {
                             actionContext
                                     .viewCoordinator()
                                     .updateView(
-                                            com.jagent.desktop.api.ViewId.PROJECT,
-                                            ViewState.project(session.projectId()));
+                                            ViewId.PROJECT, ViewState.project(session.projectId()));
                         })
                 .exceptionally(
                         failure -> {

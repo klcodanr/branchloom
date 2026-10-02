@@ -1,7 +1,7 @@
 package com.jagent.desktop.async;
 
 import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.ui.components.UiFactory;
+import com.jagent.desktop.ui.components.LoadingPanel;
 import java.awt.Cursor;
 import java.awt.GraphicsEnvironment;
 import java.awt.Window;
@@ -40,7 +40,7 @@ public final class ProgressOperation {
             super(owner, title, ModalityType.MODELESS);
             setUndecorated(true);
             setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-            add(UiFactory.loading(message));
+            add(new LoadingPanel(message));
             setResizable(false);
             pack();
             setLocationRelativeTo(owner);

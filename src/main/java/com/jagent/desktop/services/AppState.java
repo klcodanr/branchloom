@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import org.jetbrains.annotations.Nullable;
 
 public class AppState {
@@ -65,28 +64,22 @@ public class AppState {
         this.appSettings = appSettings == null ? Defaults.appSettings() : appSettings;
         this.projects =
                 projects.entrySet().stream()
-                        .map(
-                                (e) ->
-                                        Map.entry(
-                                                new ProjectId(UUID.fromString(e.getKey())),
-                                                e.getValue()))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                        .collect(
+                                java.util.stream.Collectors.toMap(
+                                        e -> new ProjectId(UUID.fromString(e.getKey())),
+                                        Map.Entry::getValue));
         this.sessions =
                 sessions.entrySet().stream()
-                        .map(
-                                (e) ->
-                                        Map.entry(
-                                                new SessionId(UUID.fromString(e.getKey())),
-                                                e.getValue()))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                        .collect(
+                                java.util.stream.Collectors.toMap(
+                                        e -> new SessionId(UUID.fromString(e.getKey())),
+                                        Map.Entry::getValue));
         this.terminals =
                 terminals.entrySet().stream()
-                        .map(
-                                (e) ->
-                                        Map.entry(
-                                                new TerminalId(UUID.fromString(e.getKey())),
-                                                e.getValue()))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                        .collect(
+                                java.util.stream.Collectors.toMap(
+                                        e -> new TerminalId(UUID.fromString(e.getKey())),
+                                        Map.Entry::getValue));
         this.githubConnections =
                 githubConnections == null
                         ? new java.util.LinkedHashMap<>()

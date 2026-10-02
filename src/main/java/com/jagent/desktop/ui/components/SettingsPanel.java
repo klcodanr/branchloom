@@ -28,7 +28,7 @@ public final class SettingsPanel {
             final Runnable save,
             final Runnable cancel,
             final BooleanSupplier dirty) {
-        final JPanel screen = UiFactory.panel();
+        final JPanel screen = new JPanel();
         screen.setLayout(new BorderLayout(0, UiConstants.SPACING_XL));
         screen.setBorder(
                 new EmptyBorder(
@@ -41,16 +41,19 @@ public final class SettingsPanel {
             heading.setOpaque(false);
             heading.setLayout(new BoxLayout(heading, BoxLayout.Y_AXIS));
             heading.add(Box.createVerticalStrut(UiConstants.CONTENT_PADDING));
-            final JLabel titleLabel = UiFactory.label(title, Theme.FontSize.XXL);
+            final JLabel titleLabel = new JLabel(title);
+            titleLabel.setFont(Theme.font(Theme.FontSize.XXL));
             titleLabel.setFont(Theme.boldFont(Theme.FontSize.XXL));
             heading.add(titleLabel);
             heading.add(Box.createVerticalStrut(UiConstants.CONTENT_PADDING));
             if (!description.isBlank()) {
-                heading.add(UiFactory.label(description, Theme.FontSize.MD));
+                final JLabel descriptionLabel = new JLabel(description);
+                descriptionLabel.setFont(Theme.font(Theme.FontSize.MD));
+                heading.add(descriptionLabel);
             }
             screen.add(heading, BorderLayout.NORTH);
         }
-        final JPanel body = UiFactory.panel();
+        final JPanel body = new JPanel();
         body.setLayout(new BorderLayout());
         body.add(form, BorderLayout.CENTER);
         final JScrollPane bodyScroll = new JScrollPane(body);
@@ -65,12 +68,12 @@ public final class SettingsPanel {
         actions.setBorder(new EmptyBorder(UiConstants.SPACING_XS, 0, UiConstants.SPACING_XS, 0));
         actions.setPreferredSize(new Dimension(0, 42));
         actions.setMinimumSize(new Dimension(0, 42));
-        final JButton saveButton = UiFactory.button("Save");
+        final JButton saveButton = new BaseButton("Save");
         saveButton.setBackground(Theme.Colors.focus());
         saveButton.setOpaque(true);
         saveButton.setFont(Theme.boldFont(Theme.FontSize.MD));
         saveButton.addActionListener(e -> save.run());
-        final JButton cancelButton = UiFactory.button("Cancel");
+        final JButton cancelButton = new BaseButton("Cancel");
         cancelButton.addActionListener(
                 e -> {
                     if (!dirty.getAsBoolean()
@@ -97,7 +100,8 @@ public final class SettingsPanel {
         labelConstraints.anchor = GridBagConstraints.NORTHWEST;
         labelConstraints.insets =
                 new Insets(0, 0, UiConstants.CONTENT_PADDING, UiConstants.COMPONENT_GAP);
-        final JLabel label = UiFactory.label(title, Theme.FontSize.MD);
+        final JLabel label = new JLabel(title);
+        label.setFont(Theme.font(Theme.FontSize.MD));
         label.setPreferredSize(new Dimension(180, label.getPreferredSize().height));
         group.add(label, labelConstraints);
         final GridBagConstraints fieldConstraints = new GridBagConstraints();

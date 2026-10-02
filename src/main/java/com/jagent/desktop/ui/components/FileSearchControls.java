@@ -23,11 +23,10 @@ public final class FileSearchControls extends javax.swing.JPanel {
     private final Runnable focusSource;
     private final SearchInput searchInput =
             new SearchInput(new SearchInput.Text("file-search", FIND_IN_FILE, FIND_IN_FILE));
-    private final JButton searchButton = UiFactory.iconButton(UiIcons.search(), FIND_IN_FILE);
-    private final JLabel searchCount = UiFactory.label("", Theme.FontSize.XS);
-    private final JButton previousMatch =
-            UiFactory.iconButton(UiIcons.chevronUp(), "Previous match");
-    private final JButton nextMatch = UiFactory.iconButton(UiIcons.chevronDown(), "Next match");
+    private final JButton searchButton = new IconButton(UiIcons.search(), FIND_IN_FILE);
+    private final JLabel searchCount = new JLabel();
+    private final JButton previousMatch = new IconButton(UiIcons.chevronUp(), "Previous match");
+    private final JButton nextMatch = new IconButton(UiIcons.chevronDown(), "Next match");
     private List<Integer> matches = List.of();
     private int currentMatch = -1;
     private long searchGeneration;
@@ -42,6 +41,7 @@ public final class FileSearchControls extends javax.swing.JPanel {
         this.select = select;
         this.showSource = showSource;
         this.focusSource = focusSource;
+        searchCount.setFont(Theme.font(Theme.FontSize.XS));
         setOpaque(false);
         configureControls();
         configureSearch();

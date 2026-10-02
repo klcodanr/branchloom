@@ -65,7 +65,15 @@ public final class PlatformCommands {
         final String lookup = isWindows() ? "where " + executable : "command -v " + executable;
         try {
             final Process process = prepare(new ProcessBuilder(shell(lookup))).start();
-            return process.waitFor(2, TimeUnit.SECONDS) && process.exitValue() == 0;
+            try {
+                if (!process.waitFor(2, TimeUnit.SECONDS)) {
+                    process.destroyForcibly();
+                    return false;
+                }
+                return process.exitValue() == 0;
+            } finally {
+                process.destroy();
+            }
         } catch (IOException exception) {
             return false;
         } catch (InterruptedException exception) {
@@ -159,27 +167,31 @@ public final class PlatformCommands {
         builder.environment().put("PATH", fallback);
         try {
             final Process process = builder.redirectErrorStream(true).start();
-            final String output =
-                    new String(
-                            process.getInputStream().readAllBytes(),
-                            java.nio.charset.StandardCharsets.UTF_8);
-            final int exitCode = process.waitFor();
-            final int markerIndex = output.lastIndexOf(marker);
-            if (exitCode == 0 && markerIndex >= 0) {
-                final String path = output.substring(markerIndex + marker.length()).trim();
-                JsonLogging.info(
-                        PlatformCommands.class,
-                        "Shell environment discovered",
-                        java.util.Map.of("shell", shell));
-                return path;
+            try {
+                final String output =
+                        new String(
+                                process.getInputStream().readAllBytes(),
+                                java.nio.charset.StandardCharsets.UTF_8);
+                final int exitCode = process.waitFor();
+                final int markerIndex = output.lastIndexOf(marker);
+                if (exitCode == 0 && markerIndex >= 0) {
+                    final String path = output.substring(markerIndex + marker.length()).trim();
+                    JsonLogging.info(
+                            PlatformCommands.class,
+                            "Shell environment discovered",
+                            java.util.Map.of("shell", shell));
+                    return path;
+                }
+                LOG.warn(
+                        "Shell environment discovery failed for "
+                                + shell
+                                + " (exit code "
+                                + exitCode
+                                + "); using fallback PATH. Output: "
+                                + output.trim());
+            } finally {
+                process.destroy();
             }
-            LOG.warn(
-                    "Shell environment discovery failed for "
-                            + shell
-                            + " (exit code "
-                            + exitCode
-                            + "); using fallback PATH. Output: "
-                            + output.trim());
         } catch (IOException exception) {
             LOG.warn(
                     "Shell environment discovery could not start for "

@@ -7,9 +7,10 @@ import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.LogEntry;
 import com.jagent.desktop.services.JsonLogging;
+import com.jagent.desktop.ui.components.BaseButton;
+import com.jagent.desktop.ui.components.SelectableTextLabel;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
-import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.function.Function;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -118,7 +120,7 @@ public final class ProblemsView extends JPanel implements View {
         }
         final LogEntry problem = problems.get(problems.size() - row - 1);
         final JTextArea details =
-                UiFactory.selectableText(PRETTY_JSON.toJson(logEntry(problem)), Theme.FontSize.SM);
+                new SelectableTextLabel(PRETTY_JSON.toJson(logEntry(problem)), Theme.FontSize.SM);
         details.setRows(20);
         details.setColumns(80);
         details.setCaretPosition(0);
@@ -148,16 +150,20 @@ public final class ProblemsView extends JPanel implements View {
         final JPanel title = new JPanel();
         title.setOpaque(false);
         title.setLayout(new BoxLayout(title, BoxLayout.Y_AXIS));
-        title.add(UiFactory.label(TITLE, Theme.FontSize.XXL));
-        title.add(UiFactory.label("Application events and failures", Theme.FontSize.MD));
+        final JLabel titleLabel = new JLabel(TITLE);
+        titleLabel.setFont(Theme.font(Theme.FontSize.XXL));
+        title.add(titleLabel);
+        final JLabel description = new JLabel("Application events and failures");
+        description.setFont(Theme.font(Theme.FontSize.MD));
+        title.add(description);
         header.add(title, BorderLayout.WEST);
         final JPanel actions =
                 new JPanel(new FlowLayout(FlowLayout.RIGHT, UiConstants.CONTENT_PADDING, 0));
         actions.setOpaque(false);
-        showAllButton = UiFactory.button("Show all logs");
+        showAllButton = new BaseButton("Show all logs");
         showAllButton.addActionListener(event -> loadAllLogs());
         actions.add(showAllButton);
-        final JButton clearButton = UiFactory.button("Clear");
+        final JButton clearButton = new BaseButton("Clear");
         clearButton.addActionListener(
                 e -> {
                     problems.clear();

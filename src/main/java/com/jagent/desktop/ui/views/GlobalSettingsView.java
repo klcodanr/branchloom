@@ -11,10 +11,12 @@ import com.jagent.desktop.models.github.PatCredential;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.services.github.KeyringCredentialStore;
+import com.jagent.desktop.ui.components.BaseButton;
+import com.jagent.desktop.ui.components.BaseTextArea;
+import com.jagent.desktop.ui.components.SettingsEditorPanel;
 import com.jagent.desktop.ui.components.SettingsPanel;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
-import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
@@ -32,17 +34,13 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
-import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.ScrollPaneConstants;
-import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 import javax.swing.text.JTextComponent;
 
 public final class GlobalSettingsView implements View {
-    private static final int CONFIGURED_LIST_HEIGHT = 260;
     private static final int ROW_HEIGHT = 50;
     private static final EmptyBorder ROW_BORDER =
             new EmptyBorder(
@@ -111,8 +109,7 @@ public final class GlobalSettingsView implements View {
         final List<JTextField> toolCommands = new ArrayList<>();
         final List<JTextField> filterNames = new ArrayList<>();
         final List<JTextField> filterQueries = new ArrayList<>();
-        final JTextArea reviewPrompt = new JTextArea(settings.reviewPrompt(), 10, 60);
-        UiFactory.configureTextAreaTraversal(reviewPrompt);
+        final JTextArea reviewPrompt = new BaseTextArea(settings.reviewPrompt(), 10, 60);
         reviewPrompt.setToolTipText(REVIEW_VARIABLES_TOOLTIP);
         final JTabbedPane tabs = new JTabbedPane(JTabbedPane.TOP);
         tabs.putClientProperty("JTabbedPane.scrollButtonsPolicy", "asNeeded");
@@ -171,6 +168,10 @@ public final class GlobalSettingsView implements View {
     }
 
     private static JPanel reviewEditor(final JTextArea prompt) {
+        final JPanel fields = new JPanel();
+        fields.setOpaque(false);
+        fields.setLayout(new BoxLayout(fields, BoxLayout.Y_AXIS));
+        fields.add(SettingsPanel.labeledField("Pull request prompt", prompt));
         final JPanel editor = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
         editor.setOpaque(false);
         editor.setBorder(
@@ -179,53 +180,37 @@ public final class GlobalSettingsView implements View {
                         UiConstants.CONTENT_PADDING,
                         UiConstants.CONTENT_PADDING,
                         UiConstants.CONTENT_PADDING));
-        final JPanel fields = new JPanel();
-        fields.setOpaque(false);
-        fields.setLayout(new BoxLayout(fields, BoxLayout.Y_AXIS));
-        fields.add(SettingsPanel.labeledField("Pull request prompt", prompt));
         editor.add(fields, BorderLayout.CENTER);
         return editor;
     }
 
     private static JPanel githubEditor(final AppState state) {
-        final JPanel editor = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
-        editor.setOpaque(false);
-        editor.setBorder(
-                new EmptyBorder(
-                        UiConstants.CONTENT_PADDING,
-                        UiConstants.CONTENT_PADDING,
-                        UiConstants.CONTENT_PADDING,
-                        UiConstants.CONTENT_PADDING));
-        final JPanel intro = new JPanel(new BorderLayout());
-        intro.setOpaque(false);
-        intro.add(
-                UiFactory.label("Personal access token connections", Theme.FontSize.LG),
-                BorderLayout.WEST);
-        intro.add(
-                UiFactory.label(
-                        "Saved securely in the operating system keychain", Theme.FontSize.SM),
-                BorderLayout.EAST);
-        editor.add(intro, BorderLayout.NORTH);
         final JPanel rows = new JPanel();
         rows.setOpaque(false);
         rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
         state.githubConnections()
                 .values()
                 .forEach(connection -> addConnectionRow(state, rows, connection));
-        editor.add(configuredList(rows), BorderLayout.CENTER);
-        final JButton add = UiFactory.button("+  Add PAT connection");
-        add.addActionListener(event -> addConnectionDialog(state, rows));
-        editor.add(add, BorderLayout.SOUTH);
-        return editor;
+        return new SettingsEditorPanel(
+                "Personal access token connections",
+                "Saved securely in the operating system keychain",
+                rows,
+                null,
+                "+  Add PAT connection",
+                () -> addConnectionDialog(state, rows));
     }
 
     private static void addConnectionRow(
             final AppState state, final JPanel rows, final PatCredential connection) {
         final JPanel row = new JPanel(new BorderLayout(UiConstants.CONTENT_PADDING, 0));
         configureRow(row);
-        row.add(UiFactory.label(connection.name(), Theme.FontSize.MD), BorderLayout.WEST);
-        row.add(UiFactory.label(connection.host(), Theme.FontSize.SM), BorderLayout.CENTER);
-        final JButton remove = UiFactory.button("Remove");
+        final JLabel name = new JLabel(connection.name());
+        name.setFont(Theme.font(Theme.FontSize.MD));
+        row.add(name, BorderLayout.WEST);
+        final JLabel host = new JLabel(connection.host());
+        host.setFont(Theme.font(Theme.FontSize.SM));
+        row.add(host, BorderLayout.CENTER);
+        final JButton remove = new BaseButton("Remove");
         remove.addActionListener(
                 event -> {
                     state.removeGitHubConnection(connection.id());
@@ -272,38 +257,19 @@ public final class GlobalSettingsView implements View {
             final List<PullRequestFilter> filters,
             final List<JTextField> names,
             final List<JTextField> queries) {
-        final JPanel editor = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
-        editor.setOpaque(false);
-        editor.setBorder(
-                new EmptyBorder(
-                        UiConstants.CONTENT_PADDING,
-                        UiConstants.CONTENT_PADDING,
-                        UiConstants.CONTENT_PADDING,
-                        UiConstants.CONTENT_PADDING));
-        final JPanel intro = new JPanel(new BorderLayout());
-        intro.setOpaque(false);
-        intro.add(UiFactory.label("Pull request filters", Theme.FontSize.LG), BorderLayout.WEST);
-        intro.add(
-                UiFactory.label("Saved query filters for PR boards", Theme.FontSize.SM),
-                BorderLayout.EAST);
-        editor.add(intro, BorderLayout.NORTH);
         final JPanel rows = new JPanel();
         rows.setOpaque(false);
         rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
         for (final PullRequestFilter filter : filters) {
             addPullRequestFilterRow(rows, names, queries, filter.name(), filter.query());
         }
-        editor.add(configuredTable(rows, filterHeaders()), BorderLayout.CENTER);
-        final JButton add = UiFactory.button("+  Add filter");
-        add.setHorizontalAlignment(SwingConstants.LEFT);
-        add.addActionListener(
-                event -> {
-                    addPullRequestFilterRow(rows, names, queries, "", "");
-                    rows.revalidate();
-                    rows.repaint();
-                });
-        editor.add(add, BorderLayout.SOUTH);
-        return editor;
+        return new SettingsEditorPanel(
+                "Pull request filters",
+                "Saved query filters for PR boards",
+                rows,
+                filterHeaders(),
+                "+  Add filter",
+                () -> addPullRequestFilterRow(rows, names, queries, "", ""));
     }
 
     private static void installDirtyTracking(final Component component, final AtomicBoolean dirty) {
@@ -342,23 +308,6 @@ public final class GlobalSettingsView implements View {
             final List<JTextField> names,
             final List<JTextField> newSessionCommands,
             final List<JTextField> openCommands) {
-        final JPanel editor = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
-        editor.setOpaque(false);
-        editor.setBorder(
-                new EmptyBorder(
-                        UiConstants.CONTENT_PADDING,
-                        UiConstants.CONTENT_PADDING,
-                        UiConstants.CONTENT_PADDING,
-                        UiConstants.CONTENT_PADDING));
-        final JPanel intro = new JPanel(new BorderLayout());
-        intro.setOpaque(false);
-        intro.add(UiFactory.label("Configured agents", Theme.FontSize.LG), BorderLayout.WEST);
-        intro.add(
-                UiFactory.label(
-                        "Configure new-session and open commands for each agent",
-                        Theme.FontSize.SM),
-                BorderLayout.EAST);
-        editor.add(intro, BorderLayout.NORTH);
         final JPanel rows = new JPanel();
         rows.setOpaque(false);
         rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
@@ -372,73 +321,30 @@ public final class GlobalSettingsView implements View {
                     agent.newSessionCommand,
                     agent.openCommand);
         }
-        editor.add(configuredTable(rows, agentHeaders()), BorderLayout.CENTER);
-        final JPanel footer = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
-        footer.setOpaque(false);
-        final JButton add = UiFactory.button("+  Add agent");
-        add.addActionListener(
-                e -> {
-                    addAgentRow(rows, names, newSessionCommands, openCommands, "", "", "");
-                    rows.revalidate();
-                    rows.repaint();
-                });
-        footer.add(add, BorderLayout.NORTH);
-        editor.add(footer, BorderLayout.SOUTH);
-        return editor;
+        return new SettingsEditorPanel(
+                "Configured agents",
+                "Configure new-session and open commands for each agent",
+                rows,
+                agentHeaders(),
+                "+  Add agent",
+                () -> addAgentRow(rows, names, newSessionCommands, openCommands, "", "", ""));
     }
 
     private static JPanel toolEditor(
             final List<Tool> tools, final List<JTextField> names, final List<JTextField> commands) {
-        final JPanel editor = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
-        editor.setOpaque(false);
-        editor.setBorder(
-                new EmptyBorder(
-                        UiConstants.CONTENT_PADDING,
-                        UiConstants.CONTENT_PADDING,
-                        UiConstants.CONTENT_PADDING,
-                        UiConstants.CONTENT_PADDING));
-        final JPanel intro = new JPanel(new BorderLayout());
-        intro.setOpaque(false);
-        intro.add(UiFactory.label("Configured editors", Theme.FontSize.LG), BorderLayout.WEST);
-        intro.add(
-                UiFactory.label(
-                        "Commands run from the current session worktree", Theme.FontSize.SM),
-                BorderLayout.EAST);
-        editor.add(intro, BorderLayout.NORTH);
         final JPanel rows = new JPanel();
         rows.setOpaque(false);
         rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
         for (final Tool tool : tools) {
             addToolRow(rows, names, commands, tool.label(), tool.command());
         }
-        editor.add(configuredTable(rows, editorHeaders()), BorderLayout.CENTER);
-        final JButton add = UiFactory.button("+  Add editor");
-        add.setHorizontalAlignment(SwingConstants.LEFT);
-        add.addActionListener(
-                e -> {
-                    addToolRow(rows, names, commands, "", "");
-                    rows.revalidate();
-                    rows.repaint();
-                });
-        editor.add(add, BorderLayout.SOUTH);
-        return editor;
-    }
-
-    private static JScrollPane configuredList(final JPanel rows) {
-        final JScrollPane scroll = new JScrollPane(rows);
-        scroll.setPreferredSize(new Dimension(0, CONFIGURED_LIST_HEIGHT));
-        scroll.setMinimumSize(new Dimension(0, CONFIGURED_LIST_HEIGHT));
-        scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
-        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        return scroll;
-    }
-
-    private static JPanel configuredTable(final JPanel rows, final JPanel headers) {
-        final JPanel table = new JPanel(new BorderLayout());
-        table.setOpaque(false);
-        table.add(headers, BorderLayout.NORTH);
-        table.add(configuredList(rows), BorderLayout.CENTER);
-        return table;
+        return new SettingsEditorPanel(
+                "Configured editors",
+                "Commands run from the current session worktree",
+                rows,
+                editorHeaders(),
+                "+  Add editor",
+                () -> addToolRow(rows, names, commands, "", ""));
     }
 
     private static JPanel agentHeaders() {
@@ -497,7 +403,8 @@ public final class GlobalSettingsView implements View {
     }
 
     private static JLabel columnHeader(final String text) {
-        final JLabel header = UiFactory.label(text, Theme.FontSize.XS);
+        final JLabel header = new JLabel(text);
+        header.setFont(Theme.font(Theme.FontSize.XS));
         header.setForeground(Theme.Colors.muted());
         return header;
     }
@@ -512,7 +419,7 @@ public final class GlobalSettingsView implements View {
 
     private static JButton removeButton(
             final JPanel rows, final JPanel row, final Runnable removeFields) {
-        final JButton remove = UiFactory.button("Remove");
+        final JButton remove = new BaseButton("Remove");
         remove.setForeground(Theme.Colors.muted());
         remove.addActionListener(
                 e -> {

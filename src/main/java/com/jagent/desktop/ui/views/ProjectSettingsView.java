@@ -12,10 +12,12 @@ import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.services.github.GitHubAuth;
 import com.jagent.desktop.ui.Defaults;
 import com.jagent.desktop.ui.actions.OpenDirectoryAction;
+import com.jagent.desktop.ui.components.BaseButton;
+import com.jagent.desktop.ui.components.BaseTextArea;
 import com.jagent.desktop.ui.components.GitHubAuthSelector;
 import com.jagent.desktop.ui.components.SettingsPanel;
+import com.jagent.desktop.ui.components.UiBorders;
 import com.jagent.desktop.ui.components.UiConstants;
-import com.jagent.desktop.ui.components.UiFactory;
 import com.jagent.desktop.ui.components.UiText;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
@@ -80,13 +82,11 @@ public final class ProjectSettingsView extends JPanel implements View {
         final JTextField group = new JTextField(project.group(), 45);
         final JTextField template = new JTextField(project.worktreeTemplate(), 45);
         final JTextArea startup =
-                new JTextArea(String.join("\n", project.startupCommands()), 4, 45);
+                new BaseTextArea(String.join("\n", project.startupCommands()), 4, 45);
         final JTextField agentContextPath =
                 new JTextField(UiText.valueOrDefault(project.agentContextPath(), ""), 45);
         final JTextArea agentContextText =
-                new JTextArea(UiText.valueOrDefault(project.agentContextText(), ""), 6, 45);
-        UiFactory.configureTextAreaTraversal(agentContextText);
-        UiFactory.configureTextAreaTraversal(startup);
+                new BaseTextArea(UiText.valueOrDefault(project.agentContextText(), ""), 6, 45);
         template.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
         startup.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
         agentContextPath.setToolTipText(
@@ -141,7 +141,7 @@ public final class ProjectSettingsView extends JPanel implements View {
         form.add(SettingsPanel.labeledField("GitHub connection", githubAuthInput));
         final JPanel formContainer = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         formContainer.setOpaque(false);
-        formContainer.setBorder(UiFactory.sectionBorder());
+        formContainer.setBorder(UiBorders.section());
         formContainer.add(form);
         final String groupValue = project.group();
         final String initialGroup = UiText.valueOrDefault(groupValue, Defaults.DEFAULT_GROUP);
@@ -239,7 +239,7 @@ public final class ProjectSettingsView extends JPanel implements View {
     private static JPanel repositoryField(final Project project, final JPanel parent) {
         final JTextField repositoryPath = new JTextField(project.path());
         repositoryPath.setEditable(false);
-        final JButton openRepository = UiFactory.button("Open in file manager");
+        final JButton openRepository = new BaseButton("Open in file manager");
         openRepository.addActionListener(event -> OpenDirectoryAction.open(project.path(), parent));
         final JPanel repository = new JPanel(new BorderLayout(8, 0));
         repository.setOpaque(false);

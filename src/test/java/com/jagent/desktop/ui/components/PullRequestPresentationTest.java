@@ -76,12 +76,10 @@ class PullRequestPresentationTest {
                 "merge status color should resolve for details");
         assertNotNull(PullRequestPresentation.selectionColor(), "selection color should resolve");
         assertEquals(
-                "Unknown",
-                PullRequestPresentation.offsetOnly(null),
-                "missing timestamp should be unknown");
+                "Unknown", UiText.relativeTime((Date) null), "missing timestamp should be unknown");
         assertTrue(
-                PullRequestPresentation.offsetOnly(new Date()).contains("just now")
-                        || PullRequestPresentation.offsetOnly(new Date()).contains("ago"),
+                UiText.relativeTime(new Date()).contains("Just now")
+                        || UiText.relativeTime(new Date()).contains("ago"),
                 "known timestamps should format as relative times");
         assertTrue(
                 PullRequestPresentation.contains("Fix Login", "fix"),
@@ -120,7 +118,8 @@ class PullRequestPresentationTest {
                         null);
         assertEquals(
                 "1/2 passed",
-                GitFormatter.checksPassed(new PullRequestChecks(List.of(passed, pending))),
+                PullRequestPresentation.checksPassed(
+                        new PullRequestChecks(List.of(passed, pending))),
                 "check count should show passed checks over total checks");
     }
 
