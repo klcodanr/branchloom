@@ -1,10 +1,13 @@
 package com.jagent.desktop.ui.components;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.jediterm.terminal.model.hyperlinks.HyperlinkFilter;
 import com.jediterm.terminal.model.hyperlinks.LinkResult;
 import com.jediterm.terminal.model.hyperlinks.LinkResultItem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -13,11 +16,19 @@ import java.util.regex.Pattern;
 
 /** Detects existing files and compiler-style line and column suffixes. */
 final class TerminalFileLinkFilter implements HyperlinkFilter {
+    private static final long FILE_CHECK_CACHE_TTL_MILLIS = 30_000;
+    private static final int FILE_CHECK_CACHE_SIZE = 4_096;
     private static final Pattern TOKEN = Pattern.compile("(?<!\\S)[^\\s<>\\[\\]{}\"']+");
     private static final Pattern LOCATION = Pattern.compile("^(.+?)(?::(\\d+))?(?::(\\d+))?$");
+    private static final Pattern PATH_LIKE = Pattern.compile(".*(?:[/\\\\]|^\\.|\\.[^./\\\\]+$).*");
     private final Path directory;
     private final Consumer<TerminalFileLink> openFile;
     private final BooleanSupplier activationAllowed;
+    private final Cache<Path, Boolean> fileCheckCache =
+            Caffeine.newBuilder()
+                    .maximumSize(FILE_CHECK_CACHE_SIZE)
+                    .expireAfterWrite(Duration.ofMillis(FILE_CHECK_CACHE_TTL_MILLIS))
+                    .build();
 
     protected TerminalFileLinkFilter(
             final Path directory, final Consumer<TerminalFileLink> openFile) {
@@ -69,14 +80,15 @@ final class TerminalFileLinkFilter implements HyperlinkFilter {
         final int line = number(location.group(2));
         final int column = number(location.group(3));
         final Path path = resolve(location.group(1));
-        return Files.isRegularFile(path) ? new TerminalFileLink(path, line, column) : null;
+        return isRegularFile(path) ? new TerminalFileLink(path, line, column) : null;
     }
 
     private static boolean looksLikePath(final String value) {
-        return value.contains("/")
-                || value.contains("\\")
-                || value.startsWith(".")
-                || value.matches(".*\\.[^./\\\\]+$");
+        return PATH_LIKE.matcher(value).matches();
+    }
+
+    private boolean isRegularFile(final Path path) {
+        return fileCheckCache.get(path, Files::isRegularFile);
     }
 
     private Path resolve(final String value) {
