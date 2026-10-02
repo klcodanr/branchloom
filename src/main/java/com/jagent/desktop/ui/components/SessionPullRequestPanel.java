@@ -7,6 +7,7 @@ import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.ui.utils.ErrorMessages;
+import java.awt.FlowLayout;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Locale;
@@ -30,6 +31,7 @@ public final class SessionPullRequestPanel extends JPanel {
         this.gitHub = gitHub;
         this.closedChanged = closedChanged;
         setOpaque(false);
+        setLayout(new FlowLayout(FlowLayout.LEFT, 0, 0));
         add(summary);
     }
 
