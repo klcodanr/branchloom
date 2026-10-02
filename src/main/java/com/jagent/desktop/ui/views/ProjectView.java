@@ -15,7 +15,7 @@ import com.jagent.desktop.ui.components.ProjectActions;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
 import com.jagent.desktop.ui.components.TerminalPanel;
-import com.jagent.desktop.ui.components.UiFactory;
+import com.jagent.desktop.ui.components.UiPopupMenus;
 import com.jagent.desktop.ui.components.UiText;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
@@ -140,7 +140,7 @@ public final class ProjectView extends AbstractWorkspaceView {
     @Override
     protected void showActions(final JButton actions) {
         if (projectId != null) {
-            UiFactory.showPopupMenu(
+            UiPopupMenus.show(
                     ProjectActions.menu(actionContext, projectId), actions, 0, actions.getHeight());
         }
     }

@@ -2,6 +2,7 @@ package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.models.git.WorktreeStatusSummary;
 import java.awt.FlowLayout;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 /** Colored aggregate Git status presentation shared by workspace surfaces. */
@@ -22,7 +23,9 @@ public final class GitStatusPanel extends JPanel {
     public void showStatus(final WorktreeStatusSummary status) {
         removeAll();
         if (status.additions() == 0 && status.modifications() == 0 && status.deletions() == 0) {
-            add(UiFactory.label("Clean", Theme.FontSize.XS));
+            final JLabel clean = new JLabel("Clean");
+            clean.setFont(Theme.font(Theme.FontSize.XS));
+            add(clean);
         } else {
             addCount(status.additions(), "+", Theme.Colors.success());
             addCount(status.modifications(), "~", Theme.Colors.warning());
@@ -33,7 +36,9 @@ public final class GitStatusPanel extends JPanel {
 
     private void showMessage(final String message) {
         removeAll();
-        add(UiFactory.label(message, Theme.FontSize.XS));
+        final JLabel status = new JLabel(message);
+        status.setFont(Theme.font(Theme.FontSize.XS));
+        add(status);
         refresh();
     }
 
@@ -41,7 +46,8 @@ public final class GitStatusPanel extends JPanel {
         if (count == 0) {
             return;
         }
-        final var label = UiFactory.label(prefix + count, Theme.FontSize.XS);
+        final var label = new JLabel(prefix + count);
+        label.setFont(Theme.font(Theme.FontSize.XS));
         label.setForeground(color);
         add(label);
     }

@@ -7,10 +7,11 @@ import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.ui.components.FileViewer;
+import com.jagent.desktop.ui.components.IconButton;
 import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.Theme;
+import com.jagent.desktop.ui.components.UiBorders;
 import com.jagent.desktop.ui.components.UiConstants;
-import com.jagent.desktop.ui.components.UiFactory;
 import com.jagent.desktop.ui.components.UiIcons;
 import com.jagent.desktop.ui.components.WorkspaceTerminalTabs;
 import com.jagent.desktop.ui.layout.WorkspaceSplitPane;
@@ -58,7 +59,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         titleText = title;
         add(header(), BorderLayout.NORTH);
         tabs.putClientProperty("JTabbedPane.scrollButtonsPolicy", "asNeeded");
-        final JButton addTerminal = UiFactory.iconButton(UiIcons.plus(), "New terminal");
+        final JButton addTerminal = new IconButton(UiIcons.plus(), "New terminal");
         addTerminal.addActionListener(event -> openTerminal(workspacePath()));
         final JToolBar trailingComponent = new JToolBar();
         trailingComponent.setFloatable(false);
@@ -95,14 +96,15 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         final JPanel titleArea = new JPanel();
         titleArea.setOpaque(false);
         titleArea.setLayout(new BoxLayout(titleArea, BoxLayout.Y_AXIS));
-        titleLabel = UiFactory.label(titleText, Theme.FontSize.XXL);
+        titleLabel = new JLabel(titleText);
+        titleLabel.setFont(Theme.font(Theme.FontSize.XXL));
         titleLabel.setMinimumSize(new Dimension(0, titleLabel.getMinimumSize().height));
         titleArea.add(titleLabel);
         addTitleDetails(titleArea);
         header.add(titleArea, BorderLayout.CENTER);
 
         if (Files.isDirectory(workspacePath())) {
-            final JButton actions = UiFactory.iconButton(UiIcons.ellipsis(), "Actions");
+            final JButton actions = new IconButton(UiIcons.ellipsis(), "Actions");
             actions.setName("workspace-actions-button");
             actions.addActionListener(event -> showActions(actions));
             final JPanel actionArea = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
@@ -313,7 +315,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
             }
             final WorkspaceTreePanel treePanel =
                     new WorkspaceTreePanel(actionContext, workspacePath, openTerminal, openFile);
-            treePanel.setBorder(UiFactory.contentAreaBorder());
+            treePanel.setBorder(UiBorders.contentArea());
             treePanel.setHideAction(() -> hideWorkspaceTree(treePanel));
             contentSplit.setRightComponent(workspaceTreeContainer);
             hideWorkspaceTree(treePanel);
@@ -336,7 +338,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
             dock.setOpaque(false);
             dock.setMinimumSize(new Dimension(COLLAPSED_WORKSPACE_TREE_WIDTH, 0));
             dock.setPreferredSize(new Dimension(COLLAPSED_WORKSPACE_TREE_WIDTH, 0));
-            final JButton filesButton = UiFactory.iconButton(UiIcons.folderOpen(), "Show files");
+            final JButton filesButton = new IconButton(UiIcons.folderOpen(), "Show files");
             filesButton.setName("show-files-button");
             filesButton.addActionListener(ignored -> showWorkspaceTree(treePanel));
             dock.add(filesButton, BorderLayout.NORTH);

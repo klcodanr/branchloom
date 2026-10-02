@@ -34,7 +34,7 @@ public final class ProjectActions {
             final ProjectId projectId,
             final Component invoker,
             final Point point) {
-        UiFactory.showPopupMenu(menu(actionContext, projectId), invoker, point.x, point.y);
+        UiPopupMenus.show(menu(actionContext, projectId), invoker, point.x, point.y);
     }
 
     public static JPopupMenu menu(final ActionContext actionContext, final ProjectId projectId) {

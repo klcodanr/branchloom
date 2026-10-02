@@ -60,7 +60,7 @@ public final class ProjectTreePanel extends JPanel {
         super();
         this.actionContext = actionContext;
         setOpaque(false);
-        setBorder(UiFactory.contentAreaBorder());
+        setBorder(UiBorders.contentArea());
         setPreferredSize(new Dimension(315, 0));
         setLayout(new BorderLayout(0, UiConstants.COMPONENT_GAP));
 
@@ -85,14 +85,14 @@ public final class ProjectTreePanel extends JPanel {
         private ProjectHeader(final ActionContext actionContext) {
             super(new BorderLayout());
             setOpaque(false);
-            final JButton add = UiFactory.button("Project", UiIcons.plus());
+            final JButton add = new BaseButton("Project", UiIcons.plus());
             add.setFont(Theme.font(Theme.FontSize.XS));
             add.getAccessibleContext().setAccessibleName("Add project");
             add.setToolTipText("Add or clone a project");
             add.addActionListener(
                     event -> {
                         final JPopupMenu menu = projectAddMenu(actionContext);
-                        menu.show(add, 0, add.getHeight());
+                        UiPopupMenus.show(menu, add, 0, add.getHeight());
                     });
             add(add, BorderLayout.WEST);
         }
@@ -303,7 +303,12 @@ public final class ProjectTreePanel extends JPanel {
         }
         final PullRequestDetails pullRequest = pullRequestStatuses.get(session);
         final String pullRequestHtml =
-                pullRequest == null ? "" : "<br>" + GitFormatter.statusHtml(pullRequest);
+                pullRequest == null
+                        ? ""
+                        : "<br>PR: <font color='"
+                                + UiText.colorHex(pullRequest.indicatorColor())
+                                + "'>&#9679;</font> "
+                                + UiText.titleCase(pullRequest.status().toString());
         return "<html><b>"
                 + UiText.escapeHtml(session.name())
                 + "</b>"
@@ -415,7 +420,7 @@ public final class ProjectTreePanel extends JPanel {
         actionContext.appState().updateCurrentProject(entry.getValue().projectId());
         actionContext.appState().updateCurrentSession(entry.getKey());
         final JPopupMenu menu = SessionActions.menu(actionContext, entry.getKey());
-        UiFactory.showPopupMenu(menu, tree, point.x, point.y);
+        UiPopupMenus.show(menu, tree, point.x, point.y);
     }
 
     private void showGroupMenu(final DefaultMutableTreeNode groupNode, final Point point) {
@@ -438,7 +443,7 @@ public final class ProjectTreePanel extends JPanel {
         moveDown.setEnabled(groupIndex(groupNode) < groupCount() - 1);
         moveDown.addActionListener(event -> moveGroup(groupNode, groupIndex(groupNode) + 1));
         menu.add(moveDown);
-        UiFactory.showPopupMenu(menu, tree, point.x, point.y);
+        UiPopupMenus.show(menu, tree, point.x, point.y);
     }
 
     private void moveGroup(final DefaultMutableTreeNode groupNode, final int targetIndex) {
@@ -511,7 +516,7 @@ public final class ProjectTreePanel extends JPanel {
 
     private void showAddProjectMenu(final Point point) {
         final JPopupMenu menu = projectAddMenu(actionContext);
-        UiFactory.showPopupMenu(menu, tree, point.x, point.y);
+        UiPopupMenus.show(menu, tree, point.x, point.y);
     }
 
     private static JPopupMenu projectAddMenu(final ActionContext actionContext) {

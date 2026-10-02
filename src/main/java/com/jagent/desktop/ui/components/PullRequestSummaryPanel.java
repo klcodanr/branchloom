@@ -53,8 +53,8 @@ public final class PullRequestSummaryPanel extends ScrollablePanel {
         displayedRequest = request;
         removeAll();
         if (request == null) {
-            final JLabel empty =
-                    UiFactory.label("Select a pull request to see details.", Theme.FontSize.MD);
+            final JLabel empty = new JLabel("Select a pull request to see details.");
+            empty.setFont(Theme.font(Theme.FontSize.MD));
             empty.setForeground(Theme.Colors.muted());
             add(empty, BorderLayout.NORTH);
             return;
@@ -77,7 +77,7 @@ public final class PullRequestSummaryPanel extends ScrollablePanel {
         bodyPanel.setOpaque(false);
         bodyPanel.setAlignmentX(LEFT_ALIGNMENT);
         bodyPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
-        bodyPanel.setBorder(UiFactory.contentAreaBorder());
+        bodyPanel.setBorder(UiBorders.contentArea());
         final String bodyKey = PullRequestPresentation.bodyKey(request);
         final String cachedBody = bodyByRequest.get(bodyKey);
         final JEditorPane body =
@@ -102,12 +102,13 @@ public final class PullRequestSummaryPanel extends ScrollablePanel {
         header.setLayout(new FlowLayout(FlowLayout.LEFT, UiConstants.SPACING_SM, 0));
         header.setAlignmentX(LEFT_ALIGNMENT);
 
-        final JLabel number = UiFactory.label("#" + request.number(), Theme.FontSize.SM);
+        final JLabel number = new JLabel("#" + request.number());
+        number.setFont(Theme.font(Theme.FontSize.SM));
         number.setForeground(Theme.Colors.muted());
         header.add(number);
 
         final JButton title =
-                UiFactory.link(
+                new LinkButton(
                         request.title(),
                         () -> PlatformCommands.openUrl(request.url().toExternalForm()));
         title.setFont(Theme.boldFont(Theme.FontSize.XL));
@@ -172,19 +173,15 @@ public final class PullRequestSummaryPanel extends ScrollablePanel {
                                 UiIcons.pullRequestCreate(),
                                 "Opened",
                                 smallLabel(
-                                        PullRequestPresentation.offsetOnly(request.createdAt()),
-                                        "Opened: "
-                                                + PullRequestPresentation.offsetOnly(
-                                                        request.createdAt()),
+                                        UiText.relativeTime(request.createdAt()),
+                                        "Opened: " + UiText.relativeTime(request.createdAt()),
                                         null)),
                         iconValue(
                                 UiIcons.rotateCwClock(),
                                 "Updated",
                                 smallLabel(
-                                        PullRequestPresentation.offsetOnly(request.updatedAt()),
-                                        "Updated: "
-                                                + PullRequestPresentation.offsetOnly(
-                                                        request.updatedAt()),
+                                        UiText.relativeTime(request.updatedAt()),
+                                        "Updated: " + UiText.relativeTime(request.updatedAt()),
                                         null))));
         top.add(facts);
         return top;
@@ -237,7 +234,8 @@ public final class PullRequestSummaryPanel extends ScrollablePanel {
             @NotNull final String text,
             @NotNull final String tooltip,
             @Nullable final Color color) {
-        final JLabel label = UiFactory.label(text, Theme.FontSize.SM);
+        final JLabel label = new JLabel(text);
+        label.setFont(Theme.font(Theme.FontSize.SM));
         label.setForeground(Theme.Colors.foreground());
         if (tooltip != null) {
             label.setToolTipText(tooltip);
@@ -250,7 +248,7 @@ public final class PullRequestSummaryPanel extends ScrollablePanel {
 
     private static JButton link(
             @NotNull final String value, @NotNull final String tooltip, @NotNull final String url) {
-        final JButton link = UiFactory.link(value, () -> PlatformCommands.openUrl(url));
+        final JButton link = new LinkButton(value, () -> PlatformCommands.openUrl(url));
         link.setToolTipText(tooltip);
         return link;
     }

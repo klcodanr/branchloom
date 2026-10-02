@@ -22,8 +22,6 @@ import org.eclipse.jgit.api.ListBranchCommand.ListMode;
 import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.DiffEntry;
-import org.eclipse.jgit.diff.DiffFormatter;
-import org.eclipse.jgit.diff.Edit;
 import org.eclipse.jgit.errors.NoWorkTreeException;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Ref;
@@ -32,7 +30,6 @@ import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.transport.URIish;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 import org.eclipse.jgit.treewalk.filter.PathFilter;
-import org.eclipse.jgit.util.io.DisabledOutputStream;
 import org.jetbrains.annotations.NotNull;
 
 @SuppressWarnings({"PMD.GodClass", "PMD.CyclomaticComplexity"})
@@ -250,9 +247,7 @@ public final class GitRepository implements AutoCloseable {
     }
 
     public void fetchRemoteRef(final String ref) throws IOException {
-        if (!Optional.ofNullable(ref)
-                .filter(value -> !value.isBlank() && value.contains("/"))
-                .isPresent()) {
+        if (ref == null || ref.isBlank() || !ref.contains("/")) {
             throw new IOException("Invalid ref: " + ref);
         }
         final int separator = ref.indexOf('/');
@@ -366,31 +361,17 @@ public final class GitRepository implements AutoCloseable {
         }
     }
 
-    public String diffSummary() throws IOException {
-        try (Git git = Git.wrap(this.repository);
-                DiffFormatter formatter = new DiffFormatter(DisabledOutputStream.INSTANCE)) {
-            formatter.setRepository(this.repository);
-            final StringBuilder summary = new StringBuilder();
-            final List<DiffEntry> entries = git.diff().call();
-            for (final DiffEntry entry : entries) {
-                final String path =
-                        entry.getChangeType() == DiffEntry.ChangeType.DELETE
-                                ? entry.getOldPath()
-                                : entry.getNewPath();
-                int additions = 0;
-                int deletions = 0;
-                for (final Edit edit : formatter.toFileHeader(entry).toEditList()) {
-                    additions += edit.getEndB() - edit.getBeginB();
-                    deletions += edit.getEndA() - edit.getBeginA();
-                }
-                summary.append(additions)
-                        .append('\t')
-                        .append(deletions)
-                        .append('\t')
-                        .append(path)
-                        .append(System.lineSeparator());
-            }
-            return summary.toString();
+    public WorktreeStatus worktreeStatus() throws IOException {
+        try (Git git = Git.wrap(this.repository)) {
+            final Status status = git.status().call();
+            return new WorktreeStatus(
+                    currentBranch(),
+                    Set.copyOf(status.getAdded()),
+                    Set.copyOf(status.getRemoved()),
+                    Set.copyOf(status.getChanged()),
+                    Set.copyOf(status.getModified()),
+                    Set.copyOf(status.getMissing()),
+                    Set.copyOf(status.getUntracked()));
         } catch (NoWorkTreeException | GitAPIException exception) {
             throw new IOException(exception);
         }
@@ -511,4 +492,22 @@ public final class GitRepository implements AutoCloseable {
 
     public record WorkspaceStatus(
             WorktreeStatusSummary summary, Map<String, String> files, Set<String> ignoredPaths) {}
+
+    public record WorktreeStatus(
+            String branch,
+            Set<String> added,
+            Set<String> removed,
+            Set<String> changed,
+            Set<String> modified,
+            Set<String> missing,
+            Set<String> untracked) {
+        public boolean clean() {
+            return added.isEmpty()
+                    && removed.isEmpty()
+                    && changed.isEmpty()
+                    && modified.isEmpty()
+                    && missing.isEmpty()
+                    && untracked.isEmpty();
+        }
+    }
 }

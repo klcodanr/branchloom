@@ -6,19 +6,14 @@ import com.jagent.desktop.ui.utils.ErrorMessages;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
-import java.awt.FlowLayout;
 import java.awt.Font;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import javax.swing.ButtonGroup;
-import javax.swing.Icon;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JToggleButton;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultHighlighter;
 import javax.swing.text.Highlighter;
@@ -32,13 +27,12 @@ public final class FileViewer extends JPanel {
     private static final String DIFF = "diff";
     private final Path workspace;
     private final Path file;
-    private final boolean showDiffInitially;
-    private final JLabel status = UiFactory.label("Loading...", Theme.FontSize.XS);
     private final CardLayout cards = new CardLayout();
     private final JPanel content = new JPanel(cards);
     private final RSyntaxTextArea source = new RSyntaxTextArea();
     private final RSyntaxTextArea diff = new RSyntaxTextArea();
     private final List<Object> diffIndicatorHighlights = new ArrayList<>();
+    private final FileViewerToolbar toolbar;
     private volatile String loadedContent;
     private final FileSearchControls searchControls =
             new FileSearchControls(
@@ -54,57 +48,23 @@ public final class FileViewer extends JPanel {
         super(new BorderLayout(0, UiConstants.CONTENT_PADDING));
         this.workspace = workspace.toAbsolutePath().normalize();
         this.file = file.toAbsolutePath().normalize();
-        this.showDiffInitially = showDiffInitially;
-        setBorder(UiFactory.sectionBorder());
-        add(toolbar(), BorderLayout.NORTH);
+        setBorder(UiBorders.section());
         configureSource();
         configureDiff();
         content.add(new JScrollPane(source), SOURCE);
         content.add(new JScrollPane(diff), DIFF);
         cards.show(content, showDiffInitially ? DIFF : SOURCE);
+        toolbar =
+                new FileViewerToolbar(
+                        this.workspace,
+                        this.file,
+                        showDiffInitially,
+                        searchControls,
+                        () -> cards.show(content, SOURCE),
+                        () -> cards.show(content, DIFF));
+        add(toolbar, BorderLayout.NORTH);
         add(content, BorderLayout.CENTER);
         load();
-    }
-
-    private JPanel toolbar() {
-        final JPanel toolbar = new JPanel(new BorderLayout(UiConstants.CONTENT_PADDING, 0));
-        toolbar.setOpaque(false);
-        final JLabel path =
-                UiFactory.label(workspace.relativize(file).toString(), Theme.FontSize.SM);
-        path.setToolTipText(file.toString());
-        toolbar.add(path, BorderLayout.WEST);
-        final JPanel controls =
-                new JPanel(new FlowLayout(FlowLayout.RIGHT, UiConstants.SPACING_XS, 0));
-        controls.setOpaque(false);
-        final JPanel viewModes = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        viewModes.setOpaque(false);
-        final JToggleButton sourceButton = segmentedButton(UiIcons.fileCode(), "File", "first");
-        final JToggleButton diffButton = segmentedButton(UiIcons.gitCompare(), "Diff", "last");
-        final ButtonGroup group = new ButtonGroup();
-        group.add(sourceButton);
-        group.add(diffButton);
-        sourceButton.setSelected(!showDiffInitially);
-        diffButton.setSelected(showDiffInitially);
-        sourceButton.addActionListener(event -> cards.show(content, SOURCE));
-        diffButton.addActionListener(event -> cards.show(content, DIFF));
-        viewModes.add(sourceButton);
-        viewModes.add(diffButton);
-        controls.add(viewModes);
-        controls.add(searchControls);
-        controls.add(status);
-        toolbar.add(controls, BorderLayout.EAST);
-        return toolbar;
-    }
-
-    private static JToggleButton segmentedButton(
-            final Icon icon, final String name, final String position) {
-        final JToggleButton button = new JToggleButton(icon);
-        button.setToolTipText(name);
-        button.getAccessibleContext().setAccessibleName(name);
-        button.putClientProperty("JButton.buttonType", "segmented");
-        button.putClientProperty("JButton.segmentPosition", position);
-        UiFactory.configureButtonEnter(button);
-        return button;
     }
 
     private void configureSource() {
@@ -125,7 +85,7 @@ public final class FileViewer extends JPanel {
         diff.setLineWrap(false);
         diff.setSyntaxEditingStyle(RSyntaxTextArea.SYNTAX_STYLE_NONE);
         diff.setFont(Theme.terminalFont(Theme.FontSize.SM));
-        diff.setBorder(UiFactory.cardBorder());
+        diff.setBorder(UiBorders.card());
         applyEditorTheme();
     }
 
@@ -215,24 +175,24 @@ public final class FileViewer extends JPanel {
                                 fileDiff = repository.getFileDiff(file, false, "HEAD");
                             }
                             return new LoadedFile(
-                                    content, fileDiff, binary, GitFormatter.changedLines(fileDiff));
+                                    content, fileDiff, binary, changedLines(fileDiff));
                         })
                 .thenAccept(
                         loaded -> {
                             if (loaded.binary()) {
                                 loadedContent = null;
                                 source.setText("Binary file cannot be displayed.");
-                                GitFormatter.renderDiff(diff, loaded.diff());
+                                renderDiff(loaded.diff());
                                 highlightDiffLines(loaded.changedLines());
-                                status.setText("Binary");
+                                setStatus("Binary");
                                 return;
                             }
                             loadedContent = loaded.content();
                             source.setText(loaded.content());
                             source.setCaretPosition(0);
-                            GitFormatter.renderDiff(diff, loaded.diff());
+                            renderDiff(loaded.diff());
                             highlightDiffLines(loaded.changedLines());
-                            status.setText(loaded.diff().isBlank() ? "Unchanged" : "Changed");
+                            setStatus(loaded.diff().isBlank() ? "Unchanged" : "Changed");
                             searchControls.refresh();
                         })
                 .exceptionally(
@@ -241,7 +201,7 @@ public final class FileViewer extends JPanel {
                             source.setText(
                                     "Could not load file: "
                                             + ErrorMessages.deepestCause(failure, "Unknown error"));
-                            status.setText("Unavailable");
+                            setStatus("Unavailable");
                             return null;
                         });
     }
@@ -253,6 +213,32 @@ public final class FileViewer extends JPanel {
             }
         }
         return false;
+    }
+
+    private void renderDiff(final String output) {
+        diff.setText(output.isBlank() ? "No changes from HEAD." : output);
+        diff.setCaretPosition(0);
+    }
+
+    private static List<Integer> changedLines(final String output) {
+        final List<Integer> changedLines = new ArrayList<>();
+        if (output.isBlank()) {
+            return changedLines;
+        }
+        final String[] lines = output.split("\\R", -1);
+        for (int line = 0; line < lines.length; line++) {
+            final String text = lines[line].stripLeading();
+            if (text.startsWith("+") && !text.startsWith("+++")) {
+                changedLines.add(line + 1);
+            } else if (text.startsWith("-") && !text.startsWith("---")) {
+                changedLines.add(-(line + 1));
+            }
+        }
+        return List.copyOf(changedLines);
+    }
+
+    private void setStatus(final String text) {
+        toolbar.setStatus(text);
     }
 
     private void highlightDiffLines(final List<Integer> changedLines) {

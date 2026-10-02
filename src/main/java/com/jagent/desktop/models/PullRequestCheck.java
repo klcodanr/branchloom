@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Date;
-import java.util.List;
+import java.util.Set;
 import org.kohsuke.github.GHCheckRun;
 import org.kohsuke.github.GHCommitState;
 import org.kohsuke.github.GHCommitStatus;
@@ -17,6 +17,12 @@ import org.slf4j.LoggerFactory;
 public record PullRequestCheck(
         String name, Status status, Date completedAt, Conclusion conclusion, URL detailsUrl) {
     private static final Logger LOG = LoggerFactory.getLogger(PullRequestCheck.class);
+    private static final Set<Conclusion> FAILING_CONCLUSIONS =
+            Set.of(
+                    Conclusion.ACTION_REQUIRED,
+                    Conclusion.CANCELLED,
+                    Conclusion.FAILURE,
+                    Conclusion.TIMED_OUT);
 
     public enum Status {
         QUEUED,
@@ -25,20 +31,12 @@ public record PullRequestCheck(
         UNKNOWN;
 
         public static Status from(final GHCheckRun.Status status) {
-            switch (status) {
-                case QUEUED -> {
-                    return QUEUED;
-                }
-                case IN_PROGRESS -> {
-                    return IN_PROGRESS;
-                }
-                case COMPLETED -> {
-                    return COMPLETED;
-                }
-                default -> {
-                    return UNKNOWN;
-                }
-            }
+            return switch (status) {
+                case QUEUED -> QUEUED;
+                case IN_PROGRESS -> IN_PROGRESS;
+                case COMPLETED -> COMPLETED;
+                default -> UNKNOWN;
+            };
         }
     }
 
@@ -139,12 +137,7 @@ public record PullRequestCheck(
     }
 
     public boolean failing() {
-        return List.of(
-                        PullRequestCheck.Conclusion.ACTION_REQUIRED,
-                        PullRequestCheck.Conclusion.CANCELLED,
-                        PullRequestCheck.Conclusion.FAILURE,
-                        PullRequestCheck.Conclusion.TIMED_OUT)
-                .contains(conclusion());
+        return FAILING_CONCLUSIONS.contains(conclusion());
     }
 
     public Color indicatorColor() {

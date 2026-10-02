@@ -11,10 +11,11 @@ import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.ui.actions.OpenDirectoryAction;
 import com.jagent.desktop.ui.actions.RunCommandAction;
 import com.jagent.desktop.ui.components.GitStatusPanel;
+import com.jagent.desktop.ui.components.IconButton;
 import com.jagent.desktop.ui.components.SmIconButton;
 import com.jagent.desktop.ui.components.UiConstants;
-import com.jagent.desktop.ui.components.UiFactory;
 import com.jagent.desktop.ui.components.UiIcons;
+import com.jagent.desktop.ui.components.UiPopupMenus;
 import com.jagent.desktop.ui.utils.PathUtils;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
@@ -148,13 +149,13 @@ public final class WorkspaceTreePanel extends JPanel {
                         SwingUtilities.invokeLater(
                                 () -> {
                                     comparisonButton.setSelected(compareSourceBranch);
-                                    comparisonMenu()
-                                            .show(
-                                                    comparisonButton,
-                                                    0,
-                                                    comparisonButton.getHeight());
+                                    UiPopupMenus.show(
+                                            comparisonMenu(),
+                                            comparisonButton,
+                                            0,
+                                            comparisonButton.getHeight());
                                 }));
-        final JButton hideButton = UiFactory.iconButton(UiIcons.chevronRight(), "Hide files");
+        final JButton hideButton = new IconButton(UiIcons.chevronRight(), "Hide files");
         hideButton.addActionListener(ignored -> hideAction.run());
         final JPanel buttons =
                 new JPanel(new FlowLayout(FlowLayout.RIGHT, UiConstants.SPACING_XS, 0));

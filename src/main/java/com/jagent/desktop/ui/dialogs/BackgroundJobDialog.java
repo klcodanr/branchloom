@@ -1,9 +1,10 @@
 package com.jagent.desktop.ui.dialogs;
 
 import com.jagent.desktop.services.BackgroundJobs;
+import com.jagent.desktop.ui.components.BaseButton;
+import com.jagent.desktop.ui.components.SelectableTextLabel;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
-import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -75,7 +76,7 @@ public final class BackgroundJobDialog {
         final JLabel outputTitle = leftLabel("Console output", Theme.FontSize.SM);
         outputTitle.setFont(Theme.boldFont(Theme.FontSize.SM));
         details.add(outputTitle);
-        final var output = UiFactory.selectableText(job.output(), Theme.FontSize.SM);
+        final var output = new SelectableTextLabel(job.output(), Theme.FontSize.SM);
         output.setRows(Math.min(8, Math.max(3, job.output().split("\\R").length)));
         output.setColumns(52);
         output.setCaretPosition(0);
@@ -84,7 +85,7 @@ public final class BackgroundJobDialog {
         details.add(outputScroll);
         content.add(details, BorderLayout.CENTER);
 
-        final JButton close = UiFactory.button("Close");
+        final JButton close = new BaseButton("Close");
         close.addActionListener(
                 event -> {
                     if (dialog != null) {
@@ -99,7 +100,8 @@ public final class BackgroundJobDialog {
     }
 
     private static JLabel leftLabel(final String text, final Theme.FontSize size) {
-        final JLabel label = UiFactory.label(text, size);
+        final JLabel label = new JLabel(text);
+        label.setFont(Theme.font(size));
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
         return label;
     }

@@ -4,41 +4,35 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.git.Branch;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.ui.components.AgentSelector;
+import com.jagent.desktop.ui.components.BaseTextArea;
+import com.jagent.desktop.ui.components.FormPanel;
 import com.jagent.desktop.ui.components.SearchableComboBox;
-import com.jagent.desktop.ui.components.UiConstants;
-import com.jagent.desktop.ui.components.UiFactory;
 import com.jagent.desktop.ui.utils.ClipboardImagePaster;
-import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.FocusTraversalPolicy;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.util.List;
 import java.util.function.Consumer;
-import javax.swing.JButton;
 import javax.swing.JComboBox;
-import javax.swing.JDialog;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
 
-public final class NewSessionDialog extends JDialog {
+public final class NewSessionDialog extends FormDialog {
     private static final String TITLE = "New agent session";
     private final transient AppState appState;
     private final transient Consumer<Request> onValid;
     private final JTextField name = new JTextField(35);
     private final JComboBox<Agent> agent;
     private final SearchableComboBox<BranchChoice> baseBranch;
-    private final JTextArea prompt = new JTextArea(5, 35);
-    private final JButton cancel = UiFactory.button("Cancel");
-    private final JButton ok = UiFactory.button("OK");
+    private final JTextArea prompt = new BaseTextArea(5, 35);
 
     public record Request(String name, Agent agent, String prompt, String baseBranch) {
         public Request(final String name, final Agent agent, final String prompt) {
@@ -61,15 +55,12 @@ public final class NewSessionDialog extends JDialog {
             final ActionContext actionContext,
             final List<Branch> branches,
             final Consumer<Request> onValid) {
-        super(actionContext.window(), TITLE, ModalityType.APPLICATION_MODAL);
-        UiFactory.configureDialogCloseOnEscape(this);
+        super(actionContext.window(), TITLE);
 
         this.appState = actionContext.appState();
         this.onValid = onValid;
         name.setName("session-name");
-        agent = new JComboBox<>(appState.appSettings().agents().toArray(new Agent[0]));
-        agent.setName("session-agent");
-        agent.setPreferredSize(new Dimension(350, agent.getPreferredSize().height));
+        agent = new AgentSelector("session-agent", appState.appSettings().agents());
         final List<BranchChoice> branchChoices =
                 branches.stream()
                         .map(branch -> new BranchChoice(branch.displayName(), branch.name()))
@@ -79,21 +70,13 @@ public final class NewSessionDialog extends JDialog {
         baseBranch.setPreferredSize(new Dimension(350, baseBranch.getPreferredSize().height));
         prompt.setLineWrap(true);
         prompt.setWrapStyleWord(true);
-        UiFactory.configureTextAreaTraversal(prompt);
         prompt.setName("session-prompt");
         installImagePasteHandler();
-        cancel.setName("session-cancel");
-        ok.setName("session-ok");
-
-        final JPanel promptInput = new JPanel(new BorderLayout());
+        final var promptInput = new javax.swing.JPanel(new java.awt.BorderLayout());
         promptInput.setOpaque(false);
-        promptInput.add(new JScrollPane(prompt), BorderLayout.CENTER);
-        final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        buttons.add(cancel);
-        buttons.add(ok);
-        setLayout(new BorderLayout(UiConstants.COMPONENT_GAP, UiConstants.COMPONENT_GAP));
-        add(
-                UiFactory.form(
+        promptInput.add(new JScrollPane(prompt), java.awt.BorderLayout.CENTER);
+        initialize(
+                new FormPanel(
                         "Session name",
                         name,
                         "Agent",
@@ -102,15 +85,15 @@ public final class NewSessionDialog extends JDialog {
                         baseBranch,
                         "Prompt",
                         promptInput),
-                BorderLayout.CENTER);
-        add(buttons, BorderLayout.SOUTH);
-        cancel.addActionListener(event -> dispose());
-        ok.addActionListener(event -> validateAndCheckBranch());
-        getRootPane().setDefaultButton(ok);
+                "OK",
+                "session-cancel",
+                "session-ok",
+                this::validateAndCheckBranch,
+                actionContext.window());
         setFocusTraversalPolicy(
                 new FocusTraversalPolicy() {
                     private final List<Component> order =
-                            List.of(name, agent, baseBranch, prompt, cancel, ok);
+                            List.of(name, agent, baseBranch, prompt, cancelButton, primaryButton);
 
                     @Override
                     public Component getComponentAfter(
@@ -158,8 +141,6 @@ public final class NewSessionDialog extends JDialog {
                         return -1;
                     }
                 });
-        pack();
-        setLocationRelativeTo(actionContext.window());
     }
 
     private void installImagePasteHandler() {

@@ -8,11 +8,12 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundJobs;
 import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.components.GitStatusPanel;
+import com.jagent.desktop.ui.components.IconButton;
 import com.jagent.desktop.ui.components.RotatingIcon;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
-import com.jagent.desktop.ui.components.UiFactory;
 import com.jagent.desktop.ui.components.UiIcons;
+import com.jagent.desktop.ui.components.UiPopupMenus;
 import com.jagent.desktop.ui.components.UiText;
 import com.jagent.desktop.ui.dialogs.BackgroundJobDialog;
 import java.awt.BorderLayout;
@@ -43,12 +44,12 @@ public final class BottomBar extends JPanel {
     private final JButton searchButton;
     private final JButton problemsButton;
     private final JButton refreshButton;
-    private final JLabel project = UiFactory.label("", Theme.FontSize.XS);
+    private final JLabel project = new JLabel();
     private final JLabel branchIcon = new JLabel(UiIcons.gitBranch());
-    private final JLabel branch = UiFactory.label("", Theme.FontSize.XS);
+    private final JLabel branch = new JLabel();
     private final GitStatusPanel gitStatus = new GitStatusPanel();
     private final JProgressBar jobsProgress = new JProgressBar();
-    private final JLabel jobsStatus = UiFactory.label("", Theme.FontSize.XS);
+    private final JLabel jobsStatus = new JLabel();
     private final AtomicLong refreshGeneration = new AtomicLong();
     private final transient RotatingIcon refreshIcon = new RotatingIcon(UiIcons.refresh());
     private final Timer refreshAnimation;
@@ -70,6 +71,9 @@ public final class BottomBar extends JPanel {
         super(new BorderLayout(12, 0));
         this.appState = appState;
         refreshCurrentViewAction = refreshCurrentView;
+        project.setFont(Theme.font(Theme.FontSize.XS));
+        branch.setFont(Theme.font(Theme.FontSize.XS));
+        jobsStatus.setFont(Theme.font(Theme.FontSize.XS));
         setBorder(
                 BorderFactory.createCompoundBorder(
                         BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.Colors.border()),
@@ -150,7 +154,7 @@ public final class BottomBar extends JPanel {
     }
 
     private JButton iconButton(final Icon icon, final String tooltip, final Runnable action) {
-        final JButton button = UiFactory.iconButton(icon, tooltip);
+        final JButton button = new IconButton(icon, tooltip);
         button.addActionListener(event -> action.run());
         return button;
     }
@@ -293,7 +297,7 @@ public final class BottomBar extends JPanel {
 
     private void showJobs() {
         final JPopupMenu menu = createJobsMenu();
-        menu.show(jobsProgress, 0, -menu.getPreferredSize().height);
+        UiPopupMenus.show(menu, jobsProgress, 0, -menu.getPreferredSize().height);
     }
 
     protected JPopupMenu createJobsMenu() {
@@ -301,7 +305,8 @@ public final class BottomBar extends JPanel {
         if (jobs.isEmpty()) {
             menu.add("No background jobs").setEnabled(false);
         } else {
-            final JLabel heading = UiFactory.label("Background jobs", Theme.FontSize.MD);
+            final JLabel heading = new JLabel("Background jobs");
+            heading.setFont(Theme.font(Theme.FontSize.MD));
             heading.setFont(Theme.boldFont(Theme.FontSize.MD));
             heading.setBorder(
                     BorderFactory.createEmptyBorder(

@@ -63,19 +63,27 @@ public final class TerminalResources {
                     PlatformCommands.prepare(new ProcessBuilder(command))
                             .redirectErrorStream(true)
                             .start();
-            final String output =
-                    new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            if (!process.waitFor(2, TimeUnit.SECONDS) || process.exitValue() != 0) {
-                return Map.of();
-            }
-            final Map<Long, Long> result = new HashMap<>();
-            for (final String line : output.split("\\R")) {
-                final String[] fields = line.trim().split("\\s+");
-                if (fields.length == 2) {
-                    result.put(Long.parseLong(fields[0]), Long.parseLong(fields[1]) * 1024);
+            try {
+                final String output =
+                        new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                if (!process.waitFor(2, TimeUnit.SECONDS)) {
+                    process.destroyForcibly();
+                    return Map.of();
                 }
+                if (process.exitValue() != 0) {
+                    return Map.of();
+                }
+                final Map<Long, Long> result = new HashMap<>();
+                for (final String line : output.split("\\R")) {
+                    final String[] fields = line.trim().split("\\s+");
+                    if (fields.length == 2) {
+                        result.put(Long.parseLong(fields[0]), Long.parseLong(fields[1]) * 1024);
+                    }
+                }
+                return result;
+            } finally {
+                process.destroy();
             }
-            return result;
         } catch (InterruptedException ignored) {
             Thread.currentThread().interrupt();
             return Map.of();
@@ -95,19 +103,27 @@ public final class TerminalResources {
                     PlatformCommands.prepare(new ProcessBuilder(command))
                             .redirectErrorStream(true)
                             .start();
-            final String output =
-                    new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            if (!process.waitFor(2, TimeUnit.SECONDS) || process.exitValue() != 0) {
-                return Map.of();
-            }
-            final Map<Long, Long> result = new HashMap<>();
-            for (final String line : output.split("\\R")) {
-                final String[] fields = line.trim().split("\\s+");
-                if (fields.length == 2) {
-                    result.put(Long.parseLong(fields[0]), parseCpuTime(fields[1]));
+            try {
+                final String output =
+                        new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                if (!process.waitFor(2, TimeUnit.SECONDS)) {
+                    process.destroyForcibly();
+                    return Map.of();
                 }
+                if (process.exitValue() != 0) {
+                    return Map.of();
+                }
+                final Map<Long, Long> result = new HashMap<>();
+                for (final String line : output.split("\\R")) {
+                    final String[] fields = line.trim().split("\\s+");
+                    if (fields.length == 2) {
+                        result.put(Long.parseLong(fields[0]), parseCpuTime(fields[1]));
+                    }
+                }
+                return result;
+            } finally {
+                process.destroy();
             }
-            return result;
         } catch (InterruptedException ignored) {
             Thread.currentThread().interrupt();
             return Map.of();
