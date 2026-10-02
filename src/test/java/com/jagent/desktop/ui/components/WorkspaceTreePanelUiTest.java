@@ -92,7 +92,7 @@ class WorkspaceTreePanelUiTest {
     }
 
     @Test
-    void filtersUnchangedFilesWhileKeepingChangedDirectories()
+    void filtersUnchangedFilesAndFoldsSingleChildDirectories()
             throws IOException, InterruptedException {
         final Path workspace = Files.createTempDirectory("workspace-tree-filter-test");
         try {
@@ -110,11 +110,120 @@ class WorkspaceTreePanelUiTest {
             waitForLabel(panel, "~1");
             GuiActionRunner.execute(() -> changedOnlyButton(panel).doClick());
 
-            expandDirectory(panel, NESTED);
-            waitForFile(panel, FILE);
+            SwingTestSupport.await(
+                    () -> {
+                        final var workspaceRoot = root(panel);
+                        return workspaceRoot.getChildCount() == 1
+                                && workspace
+                                        .resolve(NESTED, FILE)
+                                        .toAbsolutePath()
+                                        .normalize()
+                                        .equals(
+                                                ((DefaultMutableTreeNode)
+                                                                workspaceRoot.getChildAt(0))
+                                                        .getUserObject());
+                    },
+                    "changed tree should fold the single-child directory");
+            final var changedFile = (DefaultMutableTreeNode) root(panel).getChildAt(0);
+            assertEquals(0, changedFile.getChildCount(), "folded changed file should be a leaf");
+            assertEquals(
+                    "nested/file.txt [M]",
+                    rowText(panel, changedFile),
+                    "folded file should render its workspace-relative path");
             waitForFileAbsent(panel, "clean.txt");
-            assertTrue(
-                    containsFile(tree(panel), NESTED), "changed parent directories should remain");
+        } finally {
+            try (var paths = Files.walk(workspace)) {
+                paths.sorted(Comparator.reverseOrder()).forEach(WorkspaceTreePanelUiTest::delete);
+            }
+        }
+    }
+
+    @Test
+    void keepsBranchDirectoriesAndChangedChildrenInChangedTree()
+            throws IOException, InterruptedException {
+        final Path workspace = Files.createTempDirectory("workspace-tree-branch-test");
+        try {
+            TestGitRepository.initialize(workspace);
+            TestGitRepository.run(
+                    workspace,
+                    "mkdir -p src/a src/b && printf 'x' > src/a/x.txt"
+                            + " && printf 'y' > src/b/y.txt"
+                            + " && git add src && git commit -qm files");
+            TestGitRepository.run(
+                    workspace,
+                    "printf 'changed' >> src/a/x.txt && printf 'changed' >> src/b/y.txt");
+
+            final var panel = GuiActionRunner.execute(() -> create(workspace));
+            waitForLabel(panel, "~2");
+            GuiActionRunner.execute(() -> changedOnlyButton(panel).doClick());
+
+            SwingTestSupport.await(
+                    () -> root(panel).getChildCount() == 1,
+                    "changed tree should contain the branch directory");
+            final var src = (DefaultMutableTreeNode) root(panel).getChildAt(0);
+            assertEquals(
+                    workspace.resolve("src").toAbsolutePath().normalize(),
+                    src.getUserObject(),
+                    "branch directory path should be preserved");
+            assertEquals(2, src.getChildCount(), "branch directory should keep both changed files");
+            GuiActionRunner.execute(() -> tree(panel).expandPath(new TreePath(src.getPath())));
+            final var first = (DefaultMutableTreeNode) src.getChildAt(0);
+            final var second = (DefaultMutableTreeNode) src.getChildAt(1);
+            assertEquals("a/x.txt [M]", rowText(panel, first), "first changed file should render");
+            assertEquals(
+                    "b/y.txt [M]", rowText(panel, second), "second changed file should render");
+        } finally {
+            try (var paths = Files.walk(workspace)) {
+                paths.sorted(Comparator.reverseOrder()).forEach(WorkspaceTreePanelUiTest::delete);
+            }
+        }
+    }
+
+    @Test
+    void showsDeletedFilesInChangedTree() throws IOException, InterruptedException {
+        final Path workspace = Files.createTempDirectory("workspace-tree-deleted-test");
+        try {
+            TestGitRepository.initialize(workspace);
+            TestGitRepository.run(
+                    workspace,
+                    "mkdir src && printf 'deleted' > src/a.txt"
+                            + " && git add src/a.txt && git commit -qm files");
+            TestGitRepository.run(workspace, "rm src/a.txt");
+
+            final var panel = GuiActionRunner.execute(() -> create(workspace));
+            waitForLabel(panel, "-1");
+            GuiActionRunner.execute(() -> changedOnlyButton(panel).doClick());
+
+            SwingTestSupport.await(
+                    () -> root(panel).getChildCount() == 1,
+                    "changed tree should contain the deleted file");
+            assertEquals(
+                    "src/a.txt [D]",
+                    rowText(panel, (DefaultMutableTreeNode) root(panel).getChildAt(0)),
+                    "deleted file should render its status");
+        } finally {
+            try (var paths = Files.walk(workspace)) {
+                paths.sorted(Comparator.reverseOrder()).forEach(WorkspaceTreePanelUiTest::delete);
+            }
+        }
+    }
+
+    @Test
+    void showsEmptyPlaceholderWhenNothingChanged() throws IOException, InterruptedException {
+        final Path workspace = Files.createTempDirectory("workspace-tree-empty-diff-test");
+        try {
+            TestGitRepository.initialize(workspace);
+            final var panel = GuiActionRunner.execute(() -> create(workspace));
+            waitForLabel(panel, "Clean");
+            GuiActionRunner.execute(() -> changedOnlyButton(panel).doClick());
+
+            SwingTestSupport.await(
+                    () -> root(panel).getChildCount() == 1,
+                    "changed tree should show an empty placeholder");
+            assertEquals(
+                    "Empty",
+                    ((DefaultMutableTreeNode) root(panel).getChildAt(0)).getUserObject(),
+                    "empty changed tree should show the placeholder");
         } finally {
             try (var paths = Files.walk(workspace)) {
                 paths.sorted(Comparator.reverseOrder()).forEach(WorkspaceTreePanelUiTest::delete);
@@ -378,6 +487,25 @@ class WorkspaceTreePanelUiTest {
     private static String fileName(final Path path) {
         final Path fileName = path.getFileName();
         return fileName == null ? null : fileName.toString();
+    }
+
+    private static String rowText(
+            final WorkspaceTreePanel panel, final DefaultMutableTreeNode node) {
+        final JTree workspaceTree = tree(panel);
+        final TreePath path = new TreePath(node.getPath());
+        final int row = workspaceTree.getRowForPath(path);
+        final var rendered =
+                workspaceTree
+                        .getCellRenderer()
+                        .getTreeCellRendererComponent(
+                                workspaceTree,
+                                node,
+                                false,
+                                workspaceTree.isExpanded(path),
+                                node.isLeaf(),
+                                row,
+                                false);
+        return ((JLabel) rendered).getText();
     }
 
     private static void waitForFile(final WorkspaceTreePanel panel, final String file)
