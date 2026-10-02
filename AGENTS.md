@@ -31,6 +31,7 @@
 - Avoid static mutable state and hidden global dependencies. When static access is unavoidable, isolate it behind a narrow boundary and keep the surrounding logic deterministic.
 - Provide focused tests for success, invalid input, empty input, cancellation, external failures, interruption, duplicate data, and cleanup paths. Do not rely on broad startup tests to cover these branches.
 - Use headless tests for component logic and validation. Reserve display-backed tests for integration tests that explicitly require a graphical environment.
+- UI tests use the autodetected `com.jagent.desktop.test.SwingThemeExtension` to apply the deterministic Light FlatLaf theme on the EDT; do not add per-test theme setup unless a test specifically exercises theme switching.
 
 ## Scope And Simplicity
 
