@@ -7,12 +7,13 @@ import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.ui.actions.RemoveSessionAction;
 import com.jagent.desktop.ui.components.SessionActions;
 import com.jagent.desktop.ui.components.SessionSummary;
 import com.jagent.desktop.ui.components.TerminalPanel;
-import com.jagent.desktop.ui.components.UiFactory;
+import com.jagent.desktop.ui.components.UiPopupMenus;
 import com.jagent.desktop.ui.dialogs.MissingWorktreeRecovery;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -54,8 +55,7 @@ public final class SessionView extends AbstractWorkspaceView {
         }
     }
 
-    private void restoreSession(
-            final ActionContext actionContext, final com.jagent.desktop.services.AppState state) {
+    private void restoreSession(final ActionContext actionContext, final AppState state) {
         MissingWorktreeRecovery.check(actionContext, project, session);
         final boolean hasSelectedTab = viewCoordinator.hasSelectedSessionTab(sessionId);
         final int selectedTab = viewCoordinator.selectedSessionTab(sessionId);
@@ -65,7 +65,7 @@ public final class SessionView extends AbstractWorkspaceView {
         updateCurrentTerminal();
     }
 
-    private void restoreTerminals(final com.jagent.desktop.services.AppState state) {
+    private void restoreTerminals(final AppState state) {
         terminalNumber = session.terminalIds().size();
         for (final TerminalId terminalId : session.terminalIds()) {
             final Terminal terminal = state.terminals().get(terminalId);
@@ -96,7 +96,6 @@ public final class SessionView extends AbstractWorkspaceView {
                         session,
                         actionContext.appState(),
                         actionContext.appState().appSettings().agentContextPath(),
-                        actionContext.appState().appSettings().tools(),
                         () -> new RemoveSessionAction(actionContext).execute());
         final JScrollPane summaryScroll = new JScrollPane(summary);
         summaryScroll.setBorder(null);
@@ -126,7 +125,7 @@ public final class SessionView extends AbstractWorkspaceView {
 
     @Override
     protected void showActions(final JButton button) {
-        UiFactory.showPopupMenu(
+        UiPopupMenus.show(
                 SessionActions.menu(actionContext, actionContext.appState().currentSessionId()),
                 button,
                 0,

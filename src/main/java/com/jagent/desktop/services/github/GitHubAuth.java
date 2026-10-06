@@ -27,7 +27,7 @@ public final class GitHubAuth {
 
     public Auth getAuth(final Project project) throws IOException {
         final Credential selected =
-                Optional.ofNullable(project.credential()).orElse(DEFAULT_CLI_AUTH.get(0));
+                Optional.ofNullable(project.credential()).orElse(DEFAULT_CLI_AUTH.getFirst());
         final String host = Optional.ofNullable(selected.host()).orElse(DEFAULT_HOST);
         final String token = TOKEN_FACTORY.getToken(selected);
         return new Auth(host, token);

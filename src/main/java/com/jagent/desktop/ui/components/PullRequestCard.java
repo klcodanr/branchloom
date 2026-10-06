@@ -13,7 +13,6 @@ import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.actions.ImportBranchAction;
 import com.jagent.desktop.ui.dialogs.ReviewDialog;
-import com.jagent.desktop.ui.utils.RelativeTime;
 import java.awt.Dimension;
 import java.io.IOException;
 import java.util.Date;
@@ -58,20 +57,21 @@ public final class PullRequestCard extends JPanel {
         setBackground(Theme.Colors.textareaBackground());
         setBorder(
                 BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(Theme.Colors.border()),
-                        UiFactory.cardBorder()));
+                        BorderFactory.createLineBorder(Theme.Colors.border()), UiBorders.card()));
         setPreferredSize(new Dimension(UiConstants.PR_CARD_WIDTH, UiConstants.PR_CARD_HEIGHT));
         setMinimumSize(new Dimension(UiConstants.PR_CARD_WIDTH, UiConstants.PR_CARD_HEIGHT));
         setMaximumSize(new Dimension(Integer.MAX_VALUE, UiConstants.PR_CARD_HEIGHT));
         setAlignmentX(LEFT_ALIGNMENT);
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-        final JLabel number = UiFactory.label("#" + request.number(), Theme.FontSize.XS);
+        final JLabel number = new JLabel("#" + request.number());
+        number.setFont(Theme.font(Theme.FontSize.XS));
         number.setForeground(Theme.Colors.muted());
         number.setFont(Theme.boldFont(Theme.FontSize.XS));
         number.setAlignmentX(LEFT_ALIGNMENT);
         number.setComponentPopupMenu(contextMenu);
         add(number);
-        final JLabel title = UiFactory.label(request.title(), Theme.FontSize.MD);
+        final JLabel title = new JLabel(request.title());
+        title.setFont(Theme.font(Theme.FontSize.MD));
         title.setAlignmentX(LEFT_ALIGNMENT);
         title.setToolTipText(request.title());
         title.setFont(Theme.boldFont(Theme.FontSize.MD));
@@ -84,7 +84,8 @@ public final class PullRequestCard extends JPanel {
         statusRow.setOpaque(false);
         statusRow.setLayout(new BoxLayout(statusRow, BoxLayout.X_AXIS));
         statusRow.setAlignmentX(LEFT_ALIGNMENT);
-        metadata = UiFactory.label(metadataText(request, details), Theme.FontSize.XS);
+        metadata = new JLabel(metadataText(request, details));
+        metadata.setFont(Theme.font(Theme.FontSize.XS));
         metadata.setForeground(Theme.Colors.muted());
         metadata.setToolTipText(metadataText(request, details));
         statusRow.add(statusDot);
@@ -115,15 +116,12 @@ public final class PullRequestCard extends JPanel {
             final String label,
             final Date timestamp,
             final JPopupMenu contextMenu) {
-        final String offset = RelativeTime.offsetTime(timestamp);
+        final String offset = UiText.relativeTime(timestamp);
         final JLabel value = new JLabel(offset, icon, JLabel.LEFT);
         value.setFont(Theme.font(Theme.FontSize.XS));
         value.setForeground(Theme.Colors.muted());
-        final String description =
-                "unknown".equals(offset)
-                        ? label
-                        : label + ("now".equals(offset) ? " just now" : " " + offset + " ago");
-        final String localDateTime = RelativeTime.localDateTime(timestamp);
+        final String description = "Unknown".equals(offset) ? label : label + " " + offset;
+        final String localDateTime = UiText.localDateTime(timestamp);
         value.setToolTipText(timestamp == null ? description : description + "\n" + localDateTime);
         value.setComponentPopupMenu(contextMenu);
         row.add(value);

@@ -27,14 +27,14 @@ public final class Alert extends JPanel {
         final JPanel body = new JPanel();
         body.setOpaque(false);
         body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-        final JTextArea text = UiFactory.selectableText(content.text(), Theme.FontSize.MD);
+        final JTextArea text = new SelectableTextLabel(content.text(), Theme.FontSize.MD);
         text.setFocusable(false);
         text.setRows(2);
         text.setColumns(40);
         text.setAlignmentX(LEFT_ALIGNMENT);
         body.add(text);
         body.add(Box.createVerticalStrut(UiConstants.CONTENT_PADDING));
-        final JButton button = UiFactory.button(content.actionLabel());
+        final JButton button = new BaseButton(content.actionLabel());
         button.addActionListener(event -> content.action().run());
         button.setAlignmentX(LEFT_ALIGNMENT);
         body.add(button);

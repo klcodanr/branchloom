@@ -32,7 +32,7 @@ public final class PullRequestSummaryButton extends JButton {
         render(
                 "#" + request.number() + " " + request.title(),
                 "Status: " + UiText.titleCase(details.status().name()),
-                "Checks: " + GitFormatter.checksPassed(details.checks()),
+                "Checks: " + PullRequestPresentation.checksPassed(details.checks()),
                 details.indicatorColor());
     }
 

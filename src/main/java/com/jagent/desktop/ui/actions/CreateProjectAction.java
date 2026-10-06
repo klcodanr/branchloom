@@ -1,8 +1,5 @@
 package com.jagent.desktop.ui.actions;
 
-import static com.jagent.desktop.ui.components.UiFactory.button;
-import static com.jagent.desktop.ui.components.UiFactory.form;
-
 import com.jagent.desktop.api.BaseAction;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.ProgressOperation;
@@ -12,6 +9,8 @@ import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.github.Credential;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.services.github.GitHubAuth;
+import com.jagent.desktop.ui.components.BaseButton;
+import com.jagent.desktop.ui.components.FormPanel;
 import com.jagent.desktop.ui.components.GitHubAuthSelector;
 import com.jagent.desktop.ui.components.UiText;
 import java.awt.Dimension;
@@ -74,7 +73,7 @@ public class CreateProjectAction extends BaseAction {
         final JComboBox<Credential> githubAuth =
                 GitHubAuthSelector.renderConfigured(configuredAuths);
         githubAuth.setPreferredSize(new Dimension(350, githubAuth.getPreferredSize().height));
-        final JButton browse = button("Browse...");
+        final JButton browse = new BaseButton("Browse...");
         browse.addActionListener(
                 event -> {
                     final JFileChooser chooser =
@@ -96,7 +95,7 @@ public class CreateProjectAction extends BaseAction {
         pathInput.add(path, java.awt.BorderLayout.CENTER);
         pathInput.add(browse, java.awt.BorderLayout.EAST);
         final JPanel projectForm =
-                form(
+                new FormPanel(
                         "Project name",
                         name,
                         "Project folder",

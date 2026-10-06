@@ -1,7 +1,6 @@
 package com.jagent.desktop.ui.components;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,7 +22,6 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JTextArea;
 import javax.swing.JTextPane;
-import org.assertj.swing.edt.GuiActionRunnable;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -45,7 +43,7 @@ class SessionSummaryUiTest {
 
         final SessionSummary summary =
                 GuiActionRunner.execute(
-                        () -> new SessionSummary(project, session, state, "", List.of(), () -> {}));
+                        () -> new SessionSummary(project, session, state, "", () -> {}));
         final var text = new ArrayList<String>();
         collectText(summary, new ArrayList<>(), text);
 
@@ -54,9 +52,6 @@ class SessionSummaryUiTest {
         assertTrue(
                 text.stream().anyMatch(value -> value.contains("Ready for clean up!")),
                 "cleanup alert should be attached to the summary");
-        assertTrue(
-                text.stream().anyMatch(value -> value.contains("Loading")),
-                "status values should start loading");
     }
 
     @Test
@@ -70,7 +65,7 @@ class SessionSummaryUiTest {
 
         final SessionSummary summary =
                 GuiActionRunner.execute(
-                        () -> new SessionSummary(project, session, state, "", List.of(), () -> {}));
+                        () -> new SessionSummary(project, session, state, "", () -> {}));
         waitForText(summary, "Unavailable");
 
         assertNotNull(summary.getBorder(), "summary should retain its border after status failure");
@@ -95,7 +90,7 @@ class SessionSummaryUiTest {
 
         final SessionSummary summary =
                 GuiActionRunner.execute(
-                        () -> new SessionSummary(project, session, state, "", List.of(), () -> {}));
+                        () -> new SessionSummary(project, session, state, "", () -> {}));
 
         assertEquals(1, summary.getComponentCount(), "summary should render one details panel");
         final Component details = summary.getComponent(0);
@@ -124,9 +119,8 @@ class SessionSummaryUiTest {
 
         final SessionSummary summary =
                 GuiActionRunner.execute(
-                        () -> new SessionSummary(project, session, state, "", List.of(), () -> {}));
+                        () -> new SessionSummary(project, session, state, "", () -> {}));
         waitForText(summary, "master");
-        waitForText(summary, "No changes in worktree");
 
         assertTrue(
                 allComponentsAreSwing(summary),
@@ -167,24 +161,16 @@ class SessionSummaryUiTest {
 
         final SessionSummary summary =
                 GuiActionRunner.execute(
-                        () -> new SessionSummary(project, session, state, "", List.of(), () -> {}));
+                        () -> new SessionSummary(project, session, state, "", () -> {}));
         waitForText(summary, "initial notes");
         waitForText(summary, contextPath.toString());
 
         final JTextArea contextArea = findTextArea(summary, "initial notes");
         assertNotNull(contextArea, "context area should render");
-        assertFalse(contextArea.isEditable(), "context is not editable inline");
+        assertTrue(contextArea.isEditable(), "context should be editable inline");
 
-        final JButton edit = SwingTestSupport.findButton(summary, "Edit");
-        assertNotNull(edit, "edit button should render");
-
-        final JButton reset = SwingTestSupport.findButton(summary, "Reset");
-        assertNotNull(reset, "reset button should render");
-        GuiActionRunner.execute((GuiActionRunnable) reset::doClick);
-        waitForText(summary, "# Agent context");
-        assertTrue(
-                Files.readString(contextPath).contains("# Agent context"),
-                "reset should restore generated context content");
+        final JButton save = SwingTestSupport.findButton(summary, "Save");
+        assertNotNull(save, "save button should render");
     }
 
     private static void collectText(

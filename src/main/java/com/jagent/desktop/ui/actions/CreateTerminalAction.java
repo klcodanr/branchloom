@@ -1,6 +1,7 @@
 package com.jagent.desktop.ui.actions;
 
 import com.jagent.desktop.api.BaseAction;
+import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.SessionId;
@@ -56,9 +57,7 @@ public final class CreateTerminalAction extends BaseAction {
         actionContext
                 .viewCoordinator()
                 .updateView(
-                        sessionId == null
-                                ? com.jagent.desktop.api.ViewId.PROJECT
-                                : com.jagent.desktop.api.ViewId.SESSION,
+                        sessionId == null ? ViewId.PROJECT : ViewId.SESSION,
                         sessionId == null
                                 ? ViewState.projectTerminal(projectId, terminalId)
                                 : ViewState.sessionTerminal(projectId, sessionId, terminalId));

@@ -1,7 +1,5 @@
 package com.jagent.desktop.ui.actions;
 
-import static com.jagent.desktop.ui.components.UiFactory.form;
-
 import com.jagent.desktop.api.BaseAction;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.ProgressOperation;
@@ -17,6 +15,7 @@ import com.jagent.desktop.services.SessionCreationService.WorktreeRequest;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.services.github.GitHub;
+import com.jagent.desktop.ui.components.FormPanel;
 import com.jagent.desktop.ui.components.SearchableList;
 import com.jagent.desktop.ui.utils.ErrorDialogs;
 import com.jagent.desktop.ui.utils.ErrorMessages;
@@ -100,7 +99,7 @@ public final class ImportBranchAction extends BaseAction {
                                             choices, "import-branches", "Search branches");
                             branchList.setVisibleRowCount(
                                     Math.min(12, Math.max(4, choices.size())));
-                            final var branchForm = form("Existing branches", branchList);
+                            final var branchForm = new FormPanel("Existing branches", branchList);
                             if (JOptionPane.showConfirmDialog(
                                             actionContext.window(),
                                             branchForm,

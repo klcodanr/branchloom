@@ -2,82 +2,64 @@ package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.Project;
-import com.jagent.desktop.models.PullRequest;
-import com.jagent.desktop.models.PullRequestChecks;
-import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
-import com.jagent.desktop.models.Tool;
-import com.jagent.desktop.services.AgentContext;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.EditorCommands;
-import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.ui.utils.ErrorMessages;
 import java.awt.BorderLayout;
-import java.awt.FlowLayout;
+import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Locale;
 import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
 import javax.swing.JComponent;
-import javax.swing.JOptionPane;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.ScrollPaneConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class SessionSummary extends ScrollablePanel {
-    private static final String TASK_GROUP = "Session summary";
+    public static final int LABEL_WIDTH = 80;
     private static final Logger LOG = LoggerFactory.getLogger(SessionSummary.class);
-    private static final String UNAVAILABLE = "Unavailable";
-    private static final String AGENT_CONTEXT = "Agent context";
-    private static final String EDIT_LABEL = "Edit";
-    private static final String RESET_LABEL = "Reset";
 
     private final transient Session session;
     private final transient Project project;
-    private final transient GitHub gitHub;
     private final String globalContextPath;
-    private final List<Tool> editors;
-    private final JTextArea branch = value("Loading branch status...");
-    private final PullRequestSummaryButton pullRequest =
-            new PullRequestSummaryButton(PlatformCommands::openUrl);
-    private final JPanel diff = new JPanel();
-    private final JTextArea contextFile = textArea("Loading context file...");
-    private final JTextArea contextText = textArea("Loading context...");
-    private final JButton editContext = UiFactory.button(EDIT_LABEL);
-    private final JButton resetContext = UiFactory.button(RESET_LABEL);
-    private final JPanel contextActions = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+    private final SessionBranchPanel branch;
+    private final SessionPullRequestPanel pullRequest;
+    private final SessionChangesSection changes;
+    private final SessionAgentContextSection agentContext;
     private final Alert cleanupAlert;
+    private JPanel detailsPanel;
     private boolean pullRequestClosed;
     private boolean worktreeClean;
-
-    private record BranchStatus(String branch, boolean clean) {}
-
-    private record PullRequestStatus(
-            PullRequest request, PullRequestDetails details, PullRequestChecks checks) {}
 
     public SessionSummary(
             final Project project,
             final Session session,
             final AppState appState,
             final String globalContextPath,
-            final List<Tool> editors,
             final Runnable removeSessionAndWorktree) {
         super();
         this.project = project;
         this.session = session;
-        this.gitHub = GitHub.forProject(appState, appState.currentProjectId());
+        final GitHub gitHub = GitHub.forProject(appState, appState.currentProjectId());
         this.globalContextPath = UiText.valueOrDefault(globalContextPath, "");
-        this.editors = editors == null ? List.of() : List.copyOf(editors);
-        setBorder(UiFactory.sectionBorder());
+        branch = new SessionBranchPanel(this::branchCleanChanged);
+        pullRequest = new SessionPullRequestPanel(session, gitHub, this::pullRequestClosedChanged);
+        changes = new SessionChangesSection();
+        agentContext =
+                new SessionAgentContextSection(project, session, this.globalContextPath, gitHub);
+        changes.onVisibilityChanged(visible -> updateOptionalSection(changes, visible, 7));
+        agentContext.onVisibilityChanged(
+                visible -> updateOptionalSection(agentContext, visible, 8));
+        setBorder(UiBorders.section());
         setLayout(new BorderLayout(0, UiConstants.SPACING_XL));
         cleanupAlert =
                 new Alert(
@@ -88,20 +70,14 @@ public final class SessionSummary extends ScrollablePanel {
                                 "Remove session and worktree",
                                 removeSessionAndWorktree));
         cleanupAlert.setVisible(false);
-        contextActions.setOpaque(false);
-        contextActions.add(editContext);
-        contextActions.add(resetContext);
-        editContext.addActionListener(event -> openContextInEditor());
-        resetContext.addActionListener(event -> resetContext());
-        contextFile.setRows(1);
-        contextText.setRows(10);
         add(details(), BorderLayout.CENTER);
         refresh();
     }
 
     private JPanel details() {
-        final JPanel details = UiFactory.panel();
-        details.setBorder(UiFactory.sectionBorder());
+        final JPanel details = new JPanel();
+        detailsPanel = details;
+        details.setBorder(UiBorders.section());
         details.setLayout(new GridBagLayout());
         final GridBagConstraints constraints = new GridBagConstraints();
         constraints.insets = new Insets(0, 0, UiConstants.SECTION_PADDING, UiConstants.SPACING_XL);
@@ -114,15 +90,11 @@ public final class SessionSummary extends ScrollablePanel {
         constraints.fill = GridBagConstraints.HORIZONTAL;
         details.add(cleanupAlert, constraints);
         constraints.gridy = 1;
-        addRow(details, constraints, 2, "Prompt", textArea(session.prompt()));
-        addRow(details, constraints, 3, "Created", value(session.created().toString()));
+        addRow(details, constraints, 2, "Pull request", pullRequest);
+        addRow(details, constraints, 3, "Created", value(UiText.relativeTime(session.created())));
         addRow(details, constraints, 4, "Branch", branch);
-        addRow(details, constraints, 5, "Pull request", pullRequest);
-        addRow(details, constraints, 6, "Worktree", textArea(session.worktreePath()));
-        addRow(details, constraints, 7, "Agent context file", contextFile);
-        addRow(details, constraints, 8, "", contextActions);
-        addRow(details, constraints, 9, AGENT_CONTEXT, contextText);
-        addRow(details, constraints, 10, "Changes", diff);
+        addRow(details, constraints, 5, "Worktree", textArea(session.worktreePath()));
+        addRow(details, constraints, 6, "Prompt", scrollablePrompt());
         constraints.gridy = 11;
         constraints.weighty = 1;
         constraints.fill = GridBagConstraints.VERTICAL;
@@ -130,7 +102,16 @@ public final class SessionSummary extends ScrollablePanel {
         return details;
     }
 
-    private void addRow(
+    private JScrollPane scrollablePrompt() {
+        final JScrollPane scroll = new JScrollPane(textArea(session.prompt()));
+        scroll.setPreferredSize(new Dimension(0, 170));
+        scroll.setMaximumSize(new Dimension(Integer.MAX_VALUE, 200));
+        scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        return scroll;
+    }
+
+    private JLabel addRow(
             final JPanel panel,
             final GridBagConstraints constraints,
             final int row,
@@ -138,24 +119,30 @@ public final class SessionSummary extends ScrollablePanel {
             final JComponent value) {
         constraints.gridy = row;
         constraints.gridx = 0;
-        constraints.weightx = 0;
-        panel.add(UiFactory.label(label, Theme.FontSize.SM), constraints);
-        constraints.gridx = 1;
         constraints.weightx = 1;
-        constraints.gridwidth = 2;
-        panel.add(value, constraints);
+        constraints.gridwidth = 3;
+        final JPanel rowPanel = new JPanel(new BorderLayout(UiConstants.SPACING_MD, 0));
+        rowPanel.setOpaque(false);
+        final JLabel labelComponent = new JLabel(label);
+        labelComponent.setFont(Theme.font(Theme.FontSize.SM));
+        labelComponent.setPreferredSize(
+                new Dimension(LABEL_WIDTH, labelComponent.getPreferredSize().height));
+        rowPanel.add(labelComponent, BorderLayout.WEST);
+        rowPanel.add(value, BorderLayout.CENTER);
+        panel.add(rowPanel, constraints);
         constraints.gridwidth = 1;
+        return labelComponent;
     }
 
     private JTextArea textArea(final String text) {
-        final JTextArea area = UiFactory.selectableText(text, Theme.FontSize.MD);
+        final JTextArea area = new SelectableTextLabel(text, Theme.FontSize.MD);
         area.setRows(2);
-        area.setBorder(UiFactory.cardBorder());
+        area.setBorder(UiBorders.card());
         return area;
     }
 
     private JTextArea value(final String text) {
-        final JTextArea area = UiFactory.selectableText(text, Theme.FontSize.MD);
+        final JTextArea area = new SelectableTextLabel(text, Theme.FontSize.MD);
         area.setAlignmentX(LEFT_ALIGNMENT);
         return area;
     }
@@ -167,215 +154,99 @@ public final class SessionSummary extends ScrollablePanel {
                 project.path(),
                 session.name(),
                 session.worktreePath());
-        diff.setOpaque(false);
-        diff.setLayout(new BoxLayout(diff, BoxLayout.Y_AXIS));
-        diff.removeAll();
-        diff.add(value("Loading diff..."));
-        contextFile.setEditable(false);
-        contextFile.setText("Loading context file...");
-        contextFile.setCaretPosition(0);
-        contextText.setText("Loading context...");
-        contextText.setCaretPosition(0);
-        editContext.setText(EDIT_LABEL);
-        editContext.setEnabled(false);
-        resetContext.setEnabled(false);
-        loadBranchStatus();
-        loadPullRequestStatus();
-        loadDiffSummary();
-        loadContext();
+        removeOptionalSections();
+        loadWorktreeStatus();
+        pullRequest.load();
+        agentContext.load();
     }
 
-    private void loadContext() {
-        BackgroundOperations.submit(
-                        TASK_GROUP,
-                        "session-agent-context",
-                        () -> AgentContext.read(project, session, globalContextPath, githubUser()))
-                .thenAccept(this::showContext)
-                .exceptionally(
-                        failure -> {
-                            LOG.error("Session agent context", failure);
-                            showContext(
-                                    UNAVAILABLE + ": " + ErrorMessages.deepestCause(failure, ""));
-                            return null;
-                        });
-    }
-
-    private void showContext(final String content) {
-        final Path contextPath = AgentContext.path(project, session, globalContextPath);
-        contextFile.setText(contextPath == null ? "Not configured" : contextPath.toString());
-        contextFile.setCaretPosition(0);
-        contextText.setText(UiText.valueOrDefault(content, "No context configured."));
-        contextText.setCaretPosition(0);
-        final boolean configured = contextPath != null;
-        editContext.setEnabled(configured);
-        resetContext.setEnabled(configured);
-    }
-
-    private void openContextInEditor() {
-        final Path contextPath = AgentContext.path(project, session, globalContextPath);
-        if (contextPath == null) {
-            return;
-        }
-        if (editors.isEmpty()) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "No editor is configured. Add one in Settings > Editors.",
-                    AGENT_CONTEXT,
-                    JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-        final Tool editor = editors.getFirst();
-        final String command = EditorCommands.openFile(editor, contextPath, 1, 1);
-        BackgroundOperations.runCommand(
-                        TASK_GROUP, "open-agent-context", command, Path.of(project.path()), null)
-                .thenRun(this::loadContext)
-                .exceptionally(
-                        exception -> {
-                            final String message =
-                                    exception.getCause() == null
-                                            ? exception.getMessage()
-                                            : exception.getCause().getMessage();
-                            JOptionPane.showMessageDialog(
-                                    this,
-                                    UiText.valueOrDefault(
-                                            message,
-                                            "Could not open the context file in the editor."),
-                                    AGENT_CONTEXT,
-                                    JOptionPane.ERROR_MESSAGE);
-                            return null;
-                        });
-    }
-
-    private void resetContext() {
-        final String generated = AgentContext.generatedContent(project, session, githubUser());
-        contextText.setText(generated);
-        contextText.setCaretPosition(0);
-        try {
-            AgentContext.save(project, session, globalContextPath, generated);
-            loadContext();
-        } catch (IOException exception) {
-            LOG.error("Reset session agent context", exception);
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Could not reset agent context: "
-                            + UiText.valueOrDefault(exception.getMessage(), ""),
-                    AGENT_CONTEXT,
-                    JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void loadBranchStatus() {
-        BackgroundOperations.submit(
-                        TASK_GROUP,
-                        "session-branch-status",
-                        () -> {
-                            final String worktreePath = session.worktreePath();
-                            if (worktreePath == null || worktreePath.isBlank()) {
-                                throw new IOException("The session has no worktree path.");
-                            }
-                            final Path path = Path.of(worktreePath);
-                            try (GitRepository repository = GitRepository.open(path)) {
-                                final String currentBranch = repository.currentBranch();
-                                final var status = repository.statusSummary();
-                                final boolean hasChanges =
-                                        status.additions() > 0
-                                                || status.modifications() > 0
-                                                || status.deletions() > 0;
-                                return new BranchStatus(currentBranch, !hasChanges);
-                            }
-                        })
-                .thenAccept(
-                        status -> {
-                            branch.setText(
-                                    (status.branch().isBlank() ? "Detached HEAD" : status.branch())
-                                            + (status.clean()
-                                                    ? "  ·  Clean"
-                                                    : "  ·  Changes present"));
-                            worktreeClean = status.clean();
-                            updateCleanupSuggestion();
-                        })
-                .exceptionally(
-                        failure -> {
-                            LOG.error("Session branch status", failure);
-                            branch.setText(
-                                    UNAVAILABLE + ": " + ErrorMessages.deepestCause(failure, ""));
-                            return null;
-                        });
-    }
-
-    private void loadPullRequestStatus() {
-        BackgroundOperations.submit(
-                        TASK_GROUP,
-                        "session-pull-request-status",
-                        () -> {
-                            final String worktreePath = session.worktreePath();
-                            if (worktreePath == null || worktreePath.isBlank()) {
-                                throw new IOException("The session has no worktree path.");
-                            }
-                            final Path path = Path.of(worktreePath);
-                            final PullRequest request = gitHub.getPullRequest(path);
-                            final PullRequestDetails pullRequestDetails =
-                                    gitHub.getPullRequestDetails(request);
-                            return new PullRequestStatus(
-                                    request, pullRequestDetails, pullRequestDetails.checks());
-                        })
-                .thenAccept(
-                        status -> {
-                            pullRequest.render(status.request(), status.details());
-                            pullRequestClosed =
-                                    status.request().state() == PullRequest.State.CLOSED;
-                            updateCleanupSuggestion();
-                        })
-                .exceptionally(
-                        failure -> {
-                            final String message = ErrorMessages.deepestCause(failure, "");
-                            if (message.toLowerCase(Locale.ROOT).contains("no pull request")) {
-                                pullRequest.renderUnavailable("", true);
-                                pullRequestClosed = false;
-                                updateCleanupSuggestion();
-                                return null;
-                            }
-                            LOG.error("Session PR status", failure);
-                            pullRequest.renderUnavailable(UNAVAILABLE + ": " + message, false);
-                            return null;
-                        });
-    }
-
-    private void loadDiffSummary() {
+    private void loadWorktreeStatus() {
         final String worktreePath = session.worktreePath();
         if (worktreePath == null || worktreePath.isBlank()) {
-            GitFormatter.renderDiff(diff, UNAVAILABLE + ": The session has no worktree path.");
+            final String message = "Unavailable: The session has no worktree path.";
+            branch.showUnavailable(message);
+            changes.showUnavailable(message);
             return;
         }
-        BackgroundOperations.runCommand(
-                        TASK_GROUP,
-                        "session-diff-summary",
-                        "git diff --stat",
-                        Path.of(worktreePath),
-                        null)
-                .thenAccept(diffSummary -> GitFormatter.renderDiff(diff, diffSummary))
+        if (!Files.isDirectory(Path.of(worktreePath))) {
+            final String message = "Unavailable: The session worktree does not exist.";
+            branch.showUnavailable(message);
+            changes.showUnavailable(message);
+            return;
+        }
+        changes.showLoading();
+        BackgroundOperations.submit(
+                        "Session summary",
+                        "session-worktree-status",
+                        () -> {
+                            try (GitRepository repository =
+                                    GitRepository.open(Path.of(worktreePath))) {
+                                return repository.worktreeStatus();
+                            }
+                        })
+                .thenAccept(
+                        status -> {
+                            branch.show(status);
+                            changes.show(status);
+                        })
                 .exceptionally(
                         failure -> {
-                            LOG.error("Session diff", failure);
-                            GitFormatter.renderDiff(
-                                    diff,
-                                    UNAVAILABLE + ": " + ErrorMessages.deepestCause(failure, ""));
+                            final String message =
+                                    "Unavailable: " + ErrorMessages.deepestCause(failure, "");
+                            branch.showUnavailable(message);
+                            changes.showUnavailable(message);
                             return null;
                         });
+    }
+
+    private void removeOptionalSections() {
+        detailsPanel.remove(changes);
+        detailsPanel.remove(agentContext);
+        detailsPanel.revalidate();
+        detailsPanel.repaint();
+    }
+
+    private void addOptionalSection(final JComponent section, final int row) {
+        if (section.getParent() == null) {
+            final GridBagConstraints constraints = new GridBagConstraints();
+            constraints.gridy = row;
+            constraints.gridx = 0;
+            constraints.gridwidth = 3;
+            constraints.weightx = 1;
+            constraints.fill = GridBagConstraints.HORIZONTAL;
+            constraints.anchor = GridBagConstraints.NORTHWEST;
+            constraints.insets =
+                    new Insets(0, 0, UiConstants.SECTION_PADDING, UiConstants.SPACING_XL);
+            detailsPanel.add(section, constraints);
+        }
+        detailsPanel.revalidate();
+        detailsPanel.repaint();
+    }
+
+    private void updateOptionalSection(
+            final JComponent section, final boolean visible, final int row) {
+        if (visible) {
+            addOptionalSection(section, row);
+        } else {
+            detailsPanel.remove(section);
+            detailsPanel.revalidate();
+            detailsPanel.repaint();
+        }
+    }
+
+    private void branchCleanChanged(final boolean clean) {
+        worktreeClean = clean;
+        updateCleanupSuggestion();
+    }
+
+    private void pullRequestClosedChanged(final boolean closed) {
+        pullRequestClosed = closed;
+        updateCleanupSuggestion();
     }
 
     private void updateCleanupSuggestion() {
         cleanupAlert.setVisible(pullRequestClosed && worktreeClean);
         cleanupAlert.revalidate();
         cleanupAlert.repaint();
-    }
-
-    private String githubUser() {
-        try {
-            return gitHub.getLogin();
-        } catch (IOException exception) {
-            LOG.debug("Could not resolve GitHub login for agent context", exception);
-            return null;
-        }
     }
 }

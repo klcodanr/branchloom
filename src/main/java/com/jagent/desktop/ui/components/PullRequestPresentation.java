@@ -1,10 +1,9 @@
 package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
-import com.jagent.desktop.ui.utils.RelativeTime;
 import java.awt.Color;
-import java.util.Date;
 import java.util.Locale;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
@@ -93,6 +92,10 @@ final class PullRequestPresentation {
                 + details.changedFiles();
     }
 
+    public static String checksPassed(final PullRequestChecks checks) {
+        return checks.passed() + "/" + checks.total() + " passed";
+    }
+
     public static Color mergeStatusColor(final PullRequestDetails details) {
         final Color color = details == null ? null : details.indicatorColor();
         if (color != null) {
@@ -104,14 +107,6 @@ final class PullRequestPresentation {
     public static Color selectionColor() {
         final Color color = Theme.Colors.textSelectionBackground();
         return color == null ? Theme.Colors.foreground() : color;
-    }
-
-    public static String offsetOnly(final Date timestamp) {
-        final String offset = RelativeTime.offsetTime(timestamp);
-        if ("unknown".equals(offset)) {
-            return "Unknown";
-        }
-        return "now".equals(offset) ? "just now" : offset + " ago";
     }
 
     public static String detailKey(final PullRequest request) {

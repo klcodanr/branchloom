@@ -5,9 +5,10 @@ import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.services.TerminalResources;
 import com.jagent.desktop.services.terminal.TerminalManager;
+import com.jagent.desktop.ui.components.BaseButton;
 import com.jagent.desktop.ui.components.Theme;
+import com.jagent.desktop.ui.components.UiBorders;
 import com.jagent.desktop.ui.components.UiConstants;
-import com.jagent.desktop.ui.components.UiFactory;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -48,12 +49,14 @@ public final class ResourceUsageView extends JPanel implements View {
     protected ResourceUsageView(final boolean loadResources) {
         super();
         setLayout(new BorderLayout(0, UiConstants.SECTION_PADDING));
-        setBorder(UiFactory.pageBorder());
+        setBorder(UiBorders.page());
 
         final JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
-        header.add(UiFactory.label("Resource Usage", Theme.FontSize.XXL), BorderLayout.WEST);
-        final JButton refresh = UiFactory.button("Refresh");
+        final JLabel title = new JLabel("Resource Usage");
+        title.setFont(Theme.font(Theme.FontSize.XXL));
+        header.add(title, BorderLayout.WEST);
+        final JButton refresh = new BaseButton("Refresh");
         refresh.addActionListener(event -> refresh());
         header.add(refresh, BorderLayout.EAST);
         add(header, BorderLayout.NORTH);
@@ -199,7 +202,7 @@ public final class ResourceUsageView extends JPanel implements View {
     }
 
     private static JPanel reportPanel(final String title) {
-        final JPanel report = UiFactory.panel();
+        final JPanel report = new JPanel();
         report.setAlignmentX(LEFT_ALIGNMENT);
         report.setLayout(new BorderLayout(0, UiConstants.COMPONENT_GAP));
         report.setBorder(BorderFactory.createTitledBorder(title));
@@ -213,7 +216,8 @@ public final class ResourceUsageView extends JPanel implements View {
     }
 
     private static JLabel metricValue() {
-        final JLabel value = UiFactory.label("-", Theme.FontSize.XL);
+        final JLabel value = new JLabel("-");
+        value.setFont(Theme.font(Theme.FontSize.XL));
         value.setFont(Theme.boldFont(Theme.FontSize.XL));
         return value;
     }
@@ -223,7 +227,9 @@ public final class ResourceUsageView extends JPanel implements View {
         metric.setOpaque(false);
         metric.setPreferredSize(new Dimension(150, 58));
         metric.setMaximumSize(new Dimension(150, 58));
-        metric.add(UiFactory.label(label, Theme.FontSize.SM), BorderLayout.NORTH);
+        final JLabel metricLabel = new JLabel(label);
+        metricLabel.setFont(Theme.font(Theme.FontSize.SM));
+        metric.add(metricLabel, BorderLayout.NORTH);
         metric.add(value, BorderLayout.CENTER);
         panel.add(metric);
     }
@@ -257,7 +263,9 @@ public final class ResourceUsageView extends JPanel implements View {
     private static JPanel labeledTable(final String title, final JTable table, final int height) {
         final JPanel group = new JPanel(new BorderLayout(0, UiConstants.SPACING_XS));
         group.setOpaque(false);
-        group.add(UiFactory.label(title, Theme.FontSize.SM), BorderLayout.NORTH);
+        final JLabel tableTitle = new JLabel(title);
+        tableTitle.setFont(Theme.font(Theme.FontSize.SM));
+        group.add(tableTitle, BorderLayout.NORTH);
         group.add(tableScroll(table, height), BorderLayout.CENTER);
         return group;
     }

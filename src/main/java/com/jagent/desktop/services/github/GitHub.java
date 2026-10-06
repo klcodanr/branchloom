@@ -56,8 +56,7 @@ import org.slf4j.LoggerFactory;
  * PullRequestDetails details = gitHub.getPullRequestDetails(request);
  * }</pre>
  *
- * <p>Use {@link com.jagent.desktop.services.git.GitRepository} for local git state and this class
- * for remote GitHub API state.
+ * <p>Use {@link GitRepository} for local git state and this class for remote GitHub API state.
  */
 @SuppressWarnings("PMD.GodClass")
 public final class GitHub {

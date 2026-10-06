@@ -37,19 +37,21 @@ final class GitNative {
                         .directory(directory.toFile())
                         .redirectErrorStream(true);
         final Process process = builder.start();
-        final String output =
-                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         try {
+            final String output =
+                    new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             final int exitCode = process.waitFor();
             if (exitCode != 0) {
                 PlatformCommands.logFailure(builder, exitCode, output);
                 throw new IOException(output.isBlank() ? "Git command failed." : output.trim());
             }
+            return output;
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while waiting for git process", exception);
+        } finally {
+            process.destroy();
         }
-        return output;
     }
 
     /* default */
