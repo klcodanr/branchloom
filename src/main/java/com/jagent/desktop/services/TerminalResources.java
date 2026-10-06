@@ -52,6 +52,13 @@ public final class TerminalResources {
         return new Sample(usage, !memory.isEmpty());
     }
 
+    public static boolean hasLiveDescendant(final long pid) {
+        return ProcessHandle.of(pid)
+                .filter(ProcessHandle::isAlive)
+                .map(handle -> handle.descendants().anyMatch(ProcessHandle::isAlive))
+                .orElse(false);
+    }
+
     private static Map<Long, Long> residentMemory(final Collection<Long> pids) {
         if (pids.isEmpty() || PlatformCommands.isWindows()) {
             return Map.of();
