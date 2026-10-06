@@ -476,8 +476,11 @@ class WorkspaceTreePanelUiTest {
             throws InterruptedException {
         SwingTestSupport.await(
                 () -> {
+                    final DefaultMutableTreeNode root = root(panel);
+                    final DefaultMutableTreeNode current = findNode(root, file);
                     final Object value = tree(panel).getLastSelectedPathComponent();
-                    return value instanceof DefaultMutableTreeNode node
+                    return current != null
+                            && value instanceof DefaultMutableTreeNode node
                             && node.getUserObject() instanceof Path path
                             && file.equals(fileName(path));
                 },

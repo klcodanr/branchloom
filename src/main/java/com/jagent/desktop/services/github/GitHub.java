@@ -66,8 +66,8 @@ public final class GitHub {
 
     private static final Map<ProjectId, GitHub> INSTANCES = new ConcurrentHashMap<>();
     private final GitHubAuth gitHubAuth;
+    private final AppState appState;
     private final ProjectId projectId;
-    private final Project project;
 
     private volatile String login;
     private volatile Auth auth;
@@ -80,12 +80,16 @@ public final class GitHub {
 
     private GitHub(final AppState appState, final ProjectId projectId) {
         this.gitHubAuth = new GitHubAuth();
+        this.appState = Objects.requireNonNull(appState);
         this.projectId = Objects.requireNonNull(projectId);
-        this.project = Objects.requireNonNull(appState.projects().get(projectId));
+    }
+
+    private Project project() {
+        return Objects.requireNonNull(appState.projects().get(projectId));
     }
 
     private org.kohsuke.github.GitHub client() throws IOException {
-        final Auth refreshedAuth = gitHubAuth.getAuth(project);
+        final Auth refreshedAuth = gitHubAuth.getAuth(project());
         if (auth != null && auth.equals(refreshedAuth) && client != null) {
             return client;
         }
@@ -143,7 +147,7 @@ public final class GitHub {
             return repository;
         }
         final String name;
-        try (GitRepository gitRepo = GitRepository.open(Path.of(project.path()))) {
+        try (GitRepository gitRepo = GitRepository.open(Path.of(project().path()))) {
             name = gitRepo.repositoryOrgAndName();
         }
         if (name == null) {
@@ -161,7 +165,7 @@ public final class GitHub {
         try {
             return new PullRequest(
                     projectId,
-                    project,
+                    project(),
                     request.getNumber(),
                     request.getState() == null
                             ? PullRequest.State.OPEN
@@ -292,7 +296,7 @@ public final class GitHub {
             }
             return new PullRequestDetails(
                     projectId,
-                    project,
+                    project(),
                     ghPullRequest.getNumber(),
                     ghPullRequest.isDraft(),
                     Boolean.TRUE.equals(ghPullRequest.getMergeable()),
@@ -352,7 +356,7 @@ public final class GitHub {
     public List<PullRequest> listPullRequests(final String search) throws IOException {
         final long started = System.currentTimeMillis();
 
-        LOG.debug("PR API auth selection: project={}", project.name());
+        LOG.debug("PR API auth selection: project={}", project().name());
         final GHRepository repository = repository();
         final List<PullRequest> requests =
                 StreamSupport.stream(
@@ -370,7 +374,7 @@ public final class GitHub {
 
         LOG.info(
                 "PR API load finished: project={}, search={}, count={}, elapsedMs={}",
-                project.name(),
+                project().name(),
                 search,
                 requests.size(),
                 System.currentTimeMillis() - started);
