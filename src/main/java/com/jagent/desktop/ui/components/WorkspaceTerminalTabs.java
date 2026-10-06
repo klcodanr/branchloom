@@ -2,17 +2,13 @@ package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.models.TerminalId;
 import java.awt.Component;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
-import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
-import javax.swing.JPopupMenu;
 import javax.swing.JTabbedPane;
 
 /** Owns the shared terminal tab lifecycle for workspace views. */
@@ -34,18 +30,6 @@ public final class WorkspaceTerminalTabs {
         this.tabs = tabs;
         this.closed = closed;
         this.renamed = renamed;
-        tabs.addMouseListener(
-                new MouseAdapter() {
-                    @Override
-                    public void mousePressed(final MouseEvent event) {
-                        showContextMenu(event);
-                    }
-
-                    @Override
-                    public void mouseReleased(final MouseEvent event) {
-                        showContextMenu(event);
-                    }
-                });
         tabs.addChangeListener(ignored -> startSelected());
     }
 
@@ -130,7 +114,7 @@ public final class WorkspaceTerminalTabs {
         }
     }
 
-    private void close(final int index) {
+    public void close(final int index) {
         if (index < 0
                 || index >= tabs.getTabCount()
                 || !(tabs.getComponentAt(index) instanceof TerminalPanel terminal)) {
@@ -195,21 +179,5 @@ public final class WorkspaceTerminalTabs {
             return trimmed;
         }
         return trimmed.substring(0, MAX_TAB_TITLE_LENGTH - ELLIPSIS.length()) + ELLIPSIS;
-    }
-
-    private void showContextMenu(final MouseEvent event) {
-        if (!event.isPopupTrigger()) {
-            return;
-        }
-        final int index = tabs.indexAtLocation(event.getX(), event.getY());
-        if (index < 0 || !(tabs.getComponentAt(index) instanceof TerminalPanel)) {
-            return;
-        }
-        tabs.setSelectedIndex(index);
-        final JPopupMenu menu = new JPopupMenu();
-        final JMenuItem rename = new JMenuItem("Rename terminal");
-        rename.addActionListener(ignored -> renameActive(tabs));
-        menu.add(rename);
-        menu.show(tabs, event.getX(), event.getY());
     }
 }

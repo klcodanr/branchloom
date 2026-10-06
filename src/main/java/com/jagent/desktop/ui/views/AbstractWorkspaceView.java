@@ -12,6 +12,7 @@ import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiFactory;
 import com.jagent.desktop.ui.components.UiIcons;
+import com.jagent.desktop.ui.components.WorkspaceTabMenu;
 import com.jagent.desktop.ui.components.WorkspaceTerminalTabs;
 import com.jagent.desktop.ui.layout.WorkspaceSplitPane;
 import com.jagent.desktop.ui.layout.WorkspaceTreePanel;
@@ -84,6 +85,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
                         },
                         this::terminalRenamed);
         terminalIds = terminalTabs.ids();
+        new WorkspaceTabMenu(tabs, terminalTabs);
         addDefaultTabs();
         tabs.addChangeListener(event -> updateCurrentTerminal());
     }
