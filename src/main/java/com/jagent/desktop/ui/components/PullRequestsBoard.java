@@ -41,7 +41,7 @@ public final class PullRequestsBoard extends JPanel {
     private final transient RotatingIcon refreshIcon = new RotatingIcon(UiIcons.refresh());
     private final Timer refreshAnimation;
     private final SearchInput query;
-    private final JComponent loading = UiFactory.loading("Loading pull requests...");
+    private final JComponent loading = new LoadingPanel("Loading pull requests...");
     private final JPanel list = new JPanel();
     private final PullRequestSummaryPanel summary;
     private final JScrollPane listScroll;
@@ -85,8 +85,9 @@ public final class PullRequestsBoard extends JPanel {
         query.setText(currentQuery);
         query.onSubmit(parent::refresh);
         controls.add(query);
-        refreshButton = UiFactory.iconButton(refreshIcon, "Refresh pull requests");
-        refreshStatus = UiFactory.label("Loading PRs...", Theme.FontSize.SM);
+        refreshButton = new IconButton(refreshIcon, "Refresh pull requests");
+        refreshStatus = new JLabel("Loading PRs...");
+        refreshStatus.setFont(Theme.font(Theme.FontSize.SM));
         refreshButton.addActionListener(event -> parent.refresh());
         controls.add(refreshButton);
         controls.add(refreshStatus);
@@ -277,13 +278,14 @@ public final class PullRequestsBoard extends JPanel {
             selectedRequest = requests.isEmpty() ? null : requests.getFirst();
         }
         list.removeAll();
-        final JLabel results = UiFactory.label("Results  " + requests.size(), Theme.FontSize.LG);
+        final JLabel results = new JLabel("Results  " + requests.size());
+        results.setFont(Theme.font(Theme.FontSize.LG));
         results.setAlignmentX(LEFT_ALIGNMENT);
         list.add(results);
         list.add(Box.createVerticalStrut(UiConstants.CONTENT_PADDING));
         if (requests.isEmpty()) {
-            final JLabel empty =
-                    UiFactory.label("No pull requests match this filter.", Theme.FontSize.MD);
+            final JLabel empty = new JLabel("No pull requests match this filter.");
+            empty.setFont(Theme.font(Theme.FontSize.MD));
             empty.setAlignmentX(LEFT_ALIGNMENT);
             empty.setForeground(Theme.Colors.muted());
             list.add(empty);

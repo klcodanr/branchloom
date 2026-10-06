@@ -23,10 +23,11 @@ import com.jagent.desktop.ui.actions.ResourceUsageAction;
 import com.jagent.desktop.ui.components.AppIcon;
 import com.jagent.desktop.ui.components.AppMenuBar;
 import com.jagent.desktop.ui.components.CommandPalette;
+import com.jagent.desktop.ui.components.EmptyStatePanel;
 import com.jagent.desktop.ui.components.ProjectTreePanel;
 import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.Theme;
-import com.jagent.desktop.ui.components.UiFactory;
+import com.jagent.desktop.ui.components.UiBorders;
 import com.jagent.desktop.ui.layout.BottomBar;
 import com.jagent.desktop.ui.utils.TerminalShortcutDispatcher;
 import java.awt.BorderLayout;
@@ -64,7 +65,7 @@ public final class AppView extends JFrame {
     private final transient ViewCoordinator viewCoordinator;
     private final transient ActionContext actionContext;
     private final transient TopLevelViewFactory topLevelViewFactory;
-    private final JLabel placeholder = UiFactory.label("", Theme.FontSize.XL);
+    private final JLabel placeholder = new JLabel();
     private final JPanel content = new JPanel(new BorderLayout());
     private final ProjectTreePanel projectTreePanel;
     private final BottomBar bottomBar;
@@ -78,6 +79,7 @@ public final class AppView extends JFrame {
 
     public AppView(final Path dataDirectory) {
         super("Branchloom");
+        placeholder.setFont(Theme.font(Theme.FontSize.XL));
         state = AppStatePersistence.load(dataDirectory);
         persistence = new AppStatePersistence(state, dataDirectory);
         windowStatePersistence = new WindowStatePersistence(dataDirectory);
@@ -86,7 +88,7 @@ public final class AppView extends JFrame {
         topLevelViewFactory = new TopLevelViewFactory(actionContext);
         configureWindow();
         content.setOpaque(false);
-        content.setBorder(UiFactory.contentAreaBorder());
+        content.setBorder(UiBorders.contentArea());
         projectTreePanel = new ProjectTreePanel(actionContext);
         bottomBar =
                 new BottomBar(
@@ -344,7 +346,7 @@ public final class AppView extends JFrame {
                             ? exception.getClass().getSimpleName()
                             : exception.getClass().getSimpleName() + ": " + exception.getMessage();
             content.add(
-                    UiFactory.empty(
+                    new EmptyStatePanel(
                             "Could not open project view",
                             "The selected view failed to render: " + detail),
                     BorderLayout.CENTER);

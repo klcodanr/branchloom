@@ -60,14 +60,14 @@ public record PullRequestDetails(
                 draft(),
                 mergeable(),
                 mergableState());
-        if (draft()) {
-            return Status.DRAFT;
-        } else if (checks().checksStatus() == PullRequestChecks.Status.FAILING) {
+        if (checks().checksStatus() == PullRequestChecks.Status.FAILING) {
             return Status.CHECKS_FAILING;
-        } else if (mergeable && List.of("clean", "behind").contains(mergableState())) {
-            return Status.READY;
         } else if ("dirty".equals(mergableState())) {
             return Status.CONFLICTED;
+        } else if (draft()) {
+            return Status.DRAFT;
+        } else if (mergeable && List.of("clean", "behind").contains(mergableState())) {
+            return Status.READY;
         } else if ("blocked".equals(mergableState())) {
             return Status.BLOCKED;
         } else if (List.of("draft", "has_hooks").contains(mergableState())) {
@@ -80,9 +80,7 @@ public record PullRequestDetails(
 
     public Color indicatorColor() {
         final Status stat = status();
-        if (draft()) {
-            return Theme.Colors.muted();
-        } else if (stat == Status.READY) {
+        if (stat == Status.READY) {
             return Theme.Colors.success();
         } else if (stat == Status.PENDING || stat == Status.BLOCKED) {
             return Theme.Colors.warning();

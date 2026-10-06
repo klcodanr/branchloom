@@ -211,13 +211,8 @@ public final class SessionCreationService {
             final String commandTemplate)
             throws IOException, InvalidObjectException {
         final Session session = new Session(projectId, sessionName, agent, prompt, worktreePath);
-        String githubUser = null;
-        try {
-            githubUser = GitHub.forProject(state, projectId).getLogin();
-        } catch (IOException exception) {
-            LOG.warn("Could not resolve GitHub login for agent context", exception);
-        }
-        AgentContext.write(project, session, state.appSettings().agentContextPath(), githubUser);
+        final String contextPath = state.appSettings().agentContextPath();
+        AgentContext.write(project, session, contextPath, null);
         final SessionId sessionId = state.addSession(projectId, session);
         final TerminalId terminalId =
                 state.addTerminal(
@@ -227,6 +222,12 @@ public final class SessionCreationService {
                                 agent,
                                 commandTemplate.replace(
                                         "{prompt}", PlatformCommands.shellQuote(prompt))));
+        try {
+            final String githubUser = GitHub.forProject(state, projectId).getLogin();
+            AgentContext.write(project, session, contextPath, githubUser);
+        } catch (IOException exception) {
+            LOG.warn("Could not enrich agent context with GitHub login", exception);
+        }
         return new CreatedSession(session, sessionId, terminalId, worktreePath);
     }
 

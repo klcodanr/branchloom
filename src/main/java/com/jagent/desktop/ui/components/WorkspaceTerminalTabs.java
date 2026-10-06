@@ -223,6 +223,6 @@ public final class WorkspaceTerminalTabs {
         final JMenuItem rename = new JMenuItem("Rename terminal");
         rename.addActionListener(ignored -> renameActive(tabs));
         menu.add(rename);
-        menu.show(tabs, event.getX(), event.getY());
+        UiPopupMenus.show(menu, tabs, event.getX(), event.getY());
     }
 }

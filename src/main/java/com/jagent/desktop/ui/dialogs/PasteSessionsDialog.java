@@ -2,36 +2,28 @@ package com.jagent.desktop.ui.dialogs;
 
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
-import com.jagent.desktop.ui.components.UiConstants;
-import com.jagent.desktop.ui.components.UiFactory;
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
+import com.jagent.desktop.ui.components.AgentSelector;
+import com.jagent.desktop.ui.components.BaseTextArea;
+import com.jagent.desktop.ui.components.FormPanel;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
-import javax.swing.JButton;
 import javax.swing.JComboBox;
-import javax.swing.JDialog;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 
 /** Collects one session description per pasted line. */
-public final class PasteSessionsDialog extends JDialog {
+public final class PasteSessionsDialog extends FormDialog {
     private final transient Consumer<Request> onValid;
-    private final JTextArea lines = new JTextArea(12, 45);
-    private final JTextArea basePrompt = new JTextArea(12, 45);
+    private final JTextArea lines = new BaseTextArea(12, 45);
+    private final JTextArea basePrompt = new BaseTextArea(12, 45);
     private final JComboBox<Agent> agent;
 
     public record Request(List<String> lines, Agent agent, String basePrompt) {}
 
     public PasteSessionsDialog(final ActionContext actionContext, final Consumer<Request> onValid) {
-        super(
-                actionContext.window(),
-                "Start sessions from pasted lines",
-                ModalityType.APPLICATION_MODAL);
+        super(actionContext.window(), "Start sessions from pasted lines");
         this.onValid = onValid;
         lines.setName("paste-session-lines");
         lines.setLineWrap(true);
@@ -41,34 +33,21 @@ public final class PasteSessionsDialog extends JDialog {
         basePrompt.setWrapStyleWord(true);
         basePrompt.setText("{prompt}");
         agent =
-                new JComboBox<>(
-                        actionContext.appState().appSettings().agents().toArray(new Agent[0]));
-        agent.setName("paste-session-agent");
-        agent.setPreferredSize(new Dimension(350, agent.getPreferredSize().height));
-        final JButton cancel = UiFactory.button("Cancel");
-        final JButton create = UiFactory.button("Create sessions");
-        cancel.setName("paste-session-cancel");
-        create.setName("paste-session-create");
-        cancel.addActionListener(event -> dispose());
-        create.addActionListener(event -> submit());
-        final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        buttons.add(cancel);
-        buttons.add(create);
-        setLayout(new BorderLayout(UiConstants.COMPONENT_GAP, UiConstants.COMPONENT_GAP));
-        add(
-                UiFactory.form(
+                new AgentSelector(
+                        "paste-session-agent", actionContext.appState().appSettings().agents());
+        initialize(
+                new FormPanel(
                         "Prompt template (use {prompt})",
                         new JScrollPane(basePrompt),
                         "Session names (one per line)",
                         new JScrollPane(lines),
                         "Agent",
                         agent),
-                BorderLayout.CENTER);
-        add(buttons, BorderLayout.SOUTH);
-        UiFactory.configureDialogCloseOnEscape(this);
-        getRootPane().setDefaultButton(create);
-        pack();
-        setLocationRelativeTo(actionContext.window());
+                "Create sessions",
+                "paste-session-cancel",
+                "paste-session-create",
+                this::submit,
+                actionContext.window());
     }
 
     /* package */
@@ -86,10 +65,6 @@ public final class PasteSessionsDialog extends JDialog {
 
     private void submit() {
         final List<String> values = nonBlankLines(lines.getText());
-        Arrays.stream(lines.getText().split("\\R"))
-                .map(String::trim)
-                .filter(value -> !value.isEmpty())
-                .toList();
         if (values.isEmpty()) {
             JOptionPane.showMessageDialog(
                     this,

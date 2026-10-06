@@ -26,7 +26,7 @@ dependencies {
     implementation 'org.commonmark:commonmark:0.30.0'
     implementation 'com.github.javakeyring:java-keyring:1.0.4'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.3.0'
-    implementation 'org.jetbrains.pty4j:pty4j:0.13.13'
+    implementation 'org.jetbrains.pty4j:pty4j:0.14.0'
     implementation 'org.jetbrains.jediterm:jediterm-core:3.76'
     implementation 'org.jetbrains.jediterm:jediterm-ui:3.76'
     implementation 'com.fifesoft:rsyntaxtextarea:4.0.1'

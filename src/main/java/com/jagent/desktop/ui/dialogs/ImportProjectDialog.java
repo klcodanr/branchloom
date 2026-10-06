@@ -1,36 +1,31 @@
 package com.jagent.desktop.ui.dialogs;
 
-import static com.jagent.desktop.ui.components.UiFactory.button;
-import static com.jagent.desktop.ui.components.UiFactory.form;
-
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.github.Credential;
+import com.jagent.desktop.ui.components.BaseButton;
+import com.jagent.desktop.ui.components.FormPanel;
 import com.jagent.desktop.ui.components.GitHubAuthSelector;
 import java.awt.BorderLayout;
 import java.awt.ContainerOrderFocusTraversalPolicy;
-import java.awt.FlowLayout;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Consumer;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
-import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
 /** Collects and validates the details needed to import a remote Git project. */
-public final class ImportProjectDialog extends JDialog {
+public final class ImportProjectDialog extends FormDialog {
     private static final String TITLE = "Clone remote project";
 
     private final Consumer<Request> onValid;
     private final JTextField remote = new JTextField(35);
     private final JTextField destination = new JTextField(35);
     private final JComboBox<Credential> githubAuth;
-    private final JButton cancel = new JButton("Cancel");
-    private final JButton ok = new JButton("OK");
 
     public record Request(String remote, Path destination, Credential auth) {}
 
@@ -38,40 +33,32 @@ public final class ImportProjectDialog extends JDialog {
             final ActionContext actionContext,
             final java.util.List<Credential> configuredAuths,
             final Consumer<Request> onValid) {
-        super(actionContext.window(), TITLE, ModalityType.APPLICATION_MODAL);
+        super(actionContext.window(), TITLE);
         this.onValid = onValid;
         githubAuth = GitHubAuthSelector.renderConfigured(configuredAuths);
         setFocusTraversalPolicy(new ContainerOrderFocusTraversalPolicy());
         remote.setName("import-remote");
         destination.setName("import-destination");
-        cancel.setName("import-cancel");
-        ok.setName("import-ok");
 
-        final JButton browse = button("Browse...");
+        final JButton browse = new BaseButton("Browse...");
         browse.addActionListener(event -> chooseDestination(actionContext));
         final JPanel destinationInput = new JPanel(new BorderLayout(8, 0));
         destinationInput.add(destination, BorderLayout.CENTER);
         destinationInput.add(browse, BorderLayout.EAST);
 
-        setLayout(new BorderLayout());
-        add(
-                form(
+        initialize(
+                new FormPanel(
                         "Git remote URL",
                         remote,
                         "Destination directory",
                         destinationInput,
                         "GitHub connection",
                         githubAuth),
-                BorderLayout.CENTER);
-        final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        buttons.add(cancel);
-        buttons.add(ok);
-        add(buttons, BorderLayout.SOUTH);
-        cancel.addActionListener(event -> dispose());
-        ok.addActionListener(event -> validateAndSubmit());
-        getRootPane().setDefaultButton(ok);
-        pack();
-        setLocationRelativeTo(actionContext.window());
+                "OK",
+                "import-cancel",
+                "import-ok",
+                this::validateAndSubmit,
+                actionContext.window());
     }
 
     private void chooseDestination(final ActionContext actionContext) {

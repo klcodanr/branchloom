@@ -40,14 +40,13 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import javax.swing.BoundedRangeModel;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollBar;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
-import javax.swing.event.PopupMenuEvent;
-import javax.swing.event.PopupMenuListener;
 import org.jetbrains.annotations.Nullable;
 
 /** UI attachment for a managed terminal runtime. */
@@ -216,11 +215,10 @@ public final class TerminalPanel extends JPanel {
         SwingUtilities.invokeLater(
                 () -> {
                     removeAll();
-                    add(
-                            UiFactory.label(
-                                    "Could not start terminal: " + exception.getMessage(),
-                                    Theme.FontSize.SM),
-                            BorderLayout.NORTH);
+                    final JLabel failure =
+                            new JLabel("Could not start terminal: " + exception.getMessage());
+                    failure.setFont(Theme.font(Theme.FontSize.SM));
+                    add(failure, BorderLayout.NORTH);
                     revalidate();
                     repaint();
                 });
@@ -517,7 +515,7 @@ public final class TerminalPanel extends JPanel {
                                 if (!(data instanceof List<?> files) || files.size() != 1) {
                                     return false;
                                 }
-                                if (!(files.get(0) instanceof File file)) {
+                                if (!(files.getFirst() instanceof File file)) {
                                     return false;
                                 }
                                 terminalStarter.sendString(
@@ -546,27 +544,14 @@ public final class TerminalPanel extends JPanel {
             final String link = linkAt(lastMousePoint);
             contextMenuLinkActivationChanged.accept(link != null);
             final JPopupMenu menu = super.createPopupMenu(actionProvider);
-            if (link != null) {
-                menu.addPopupMenuListener(
-                        new PopupMenuListener() {
-                            @Override
-                            public void popupMenuWillBecomeVisible(final PopupMenuEvent event) {
-                                contextMenuLinkActivationChanged.accept(true);
-                            }
-
-                            @Override
-                            public void popupMenuWillBecomeInvisible(final PopupMenuEvent event) {
-                                contextMenuLinkActivationChanged.accept(false);
-                            }
-
-                            @Override
-                            public void popupMenuCanceled(final PopupMenuEvent event) {
-                                contextMenuLinkActivationChanged.accept(false);
-                            }
-                        });
-            } else {
-                contextMenuLinkActivationChanged.accept(false);
-            }
+            UiPopupMenus.install(
+                    menu,
+                    this,
+                    visible -> {
+                        if (link != null) {
+                            contextMenuLinkActivationChanged.accept(visible);
+                        }
+                    });
             return menu;
         }
 

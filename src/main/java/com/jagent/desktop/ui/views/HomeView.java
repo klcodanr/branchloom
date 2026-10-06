@@ -6,17 +6,17 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.ImportProjectAction;
+import com.jagent.desktop.ui.components.BaseButton;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
-import com.jagent.desktop.ui.components.UiFactory;
 import com.jagent.desktop.ui.components.UiIcons;
+import com.jagent.desktop.ui.components.UiText;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.Comparator;
 import java.util.Map.Entry;
 import javax.swing.Box;
@@ -108,11 +108,11 @@ public final class HomeView extends JPanel implements View {
         final JPanel card = card("Get started");
         final JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER));
         final var create = new CreateProjectAction(actionContext);
-        final JButton addProject = UiFactory.button(create.label(), UiIcons.plus());
+        final JButton addProject = new BaseButton(create.label(), UiIcons.plus());
         addProject.addActionListener(event -> create.execute());
         actions.add(addProject);
         final var importProject = new ImportProjectAction(actionContext);
-        final JButton importButton = UiFactory.button(importProject.label());
+        final JButton importButton = new BaseButton(importProject.label());
         importButton.addActionListener(event -> importProject.execute());
         actions.add(importButton);
         card.add(actions, BorderLayout.CENTER);
@@ -129,7 +129,8 @@ public final class HomeView extends JPanel implements View {
                         UiConstants.CARD_PADDING));
         card.setAlignmentX(CENTER_ALIGNMENT);
         card.setPreferredSize(new Dimension(360, 132));
-        final var heading = UiFactory.label(title, Theme.FontSize.LG);
+        final var heading = new JLabel(title);
+        heading.setFont(Theme.font(Theme.FontSize.LG));
         heading.setHorizontalAlignment(SwingConstants.CENTER);
         card.add(heading, BorderLayout.NORTH);
         return card;
@@ -147,40 +148,19 @@ public final class HomeView extends JPanel implements View {
         actionContext.appState().updateCurrentSession(sessionId);
         actionContext
                 .viewCoordinator()
-                .updateView(
-                        ViewId.SESSION,
-                        com.jagent.desktop.services.ViewCoordinator.ViewState.session(
-                                session.projectId(), sessionId));
-    }
-
-    private String relativeTime(final Instant created) {
-        final long seconds = Math.max(0, Duration.between(created, Instant.now()).toSeconds());
-        if (seconds < 60) {
-            return "Just now";
-        }
-        final long minutes = seconds / 60;
-        if (minutes < 60) {
-            return elapsed(minutes, "minute");
-        }
-        final long hours = minutes / 60;
-        if (hours < 24) {
-            return elapsed(hours, "hour");
-        }
-        return elapsed(hours / 24, "day");
-    }
-
-    private String elapsed(final long amount, final String unit) {
-        return amount + " " + unit + (amount == 1 ? "" : "s") + " ago";
+                .updateView(ViewId.SESSION, ViewState.session(session.projectId(), sessionId));
     }
 
     private record SessionOption(SessionId sessionId, Session session) {}
 
-    private final class SessionRenderer extends JPanel implements ListCellRenderer<SessionOption> {
+    private static final class SessionRenderer extends JPanel
+            implements ListCellRenderer<SessionOption> {
         private final JLabel name = new JLabel();
-        private final JLabel age = UiFactory.label("", Theme.FontSize.SM);
+        private final JLabel age = new JLabel();
 
         private SessionRenderer() {
             super(new BorderLayout(0, 2));
+            age.setFont(Theme.font(Theme.FontSize.SM));
             setOpaque(true);
             add(name, BorderLayout.CENTER);
             add(age, BorderLayout.SOUTH);
@@ -196,7 +176,7 @@ public final class HomeView extends JPanel implements View {
             final boolean placeholder = value == null;
             name.setText(placeholder ? "Select a session" : value.session().name());
             name.setIcon(placeholder ? UiIcons.hatGlasses() : null);
-            age.setText(placeholder ? "" : relativeTime(value.session().created()));
+            age.setText(placeholder ? "" : UiText.relativeTime(value.session().created()));
             setBackground(selected ? list.getSelectionBackground() : list.getBackground());
             name.setForeground(selected ? list.getSelectionForeground() : list.getForeground());
             age.setForeground(selected ? list.getSelectionForeground() : list.getForeground());

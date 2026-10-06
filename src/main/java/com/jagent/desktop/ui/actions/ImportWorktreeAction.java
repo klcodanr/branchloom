@@ -1,17 +1,17 @@
 package com.jagent.desktop.ui.actions;
 
-import static com.jagent.desktop.ui.components.UiFactory.form;
-
 import com.jagent.desktop.api.BaseAction;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.models.git.Worktree;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.SessionCreationService;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.services.git.GitRepository;
+import com.jagent.desktop.ui.components.FormPanel;
 import com.jagent.desktop.ui.components.SearchableList;
 import com.jagent.desktop.ui.utils.ErrorDialogs;
 import com.jagent.desktop.ui.utils.ErrorMessages;
@@ -64,7 +64,7 @@ public final class ImportWorktreeAction extends BaseAction {
                             try (GitRepository repository =
                                     GitRepository.open(Path.of(project.path()))) {
                                 return repository.listWorktrees().stream()
-                                        .map(com.jagent.desktop.models.git.Worktree::path)
+                                        .map(Worktree::path)
                                         .toList();
                             }
                         })
@@ -93,7 +93,7 @@ public final class ImportWorktreeAction extends BaseAction {
         final SearchableList<String> worktree =
                 new SearchableList<>(worktrees, "import-worktrees", "Search worktrees");
         worktree.setVisibleRowCount(Math.min(12, Math.max(4, worktrees.size())));
-        final var worktreeForm = form("Existing worktrees", worktree);
+        final var worktreeForm = new FormPanel("Existing worktrees", worktree);
         if (JOptionPane.showConfirmDialog(
                         actionContext.window(), worktreeForm, TITLE, JOptionPane.OK_CANCEL_OPTION)
                 != JOptionPane.OK_OPTION) {
