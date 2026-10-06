@@ -4,6 +4,7 @@ import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.PlatformCommands;
+import com.jagent.desktop.services.TerminalResources;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
 import com.jagent.desktop.services.terminal.TerminalState;
@@ -143,6 +144,13 @@ public final class TerminalPanel extends JPanel {
 
     public TerminalState state() {
         return runtime.state();
+    }
+
+    public boolean hasRunningChildProcess() {
+        final var process = runtime.process();
+        return process != null
+                && process.isAlive()
+                && TerminalResources.hasLiveDescendant(process.pid());
     }
 
     public static TerminalState state(final TerminalId id) {

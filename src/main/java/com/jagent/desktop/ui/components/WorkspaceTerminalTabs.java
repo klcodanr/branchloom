@@ -136,6 +136,9 @@ public final class WorkspaceTerminalTabs {
                 || !(tabs.getComponentAt(index) instanceof TerminalPanel terminal)) {
             return;
         }
+        if (terminal.hasRunningChildProcess() && !confirmClose(tabs)) {
+            return;
+        }
         final TerminalId terminalId = ids.get(terminal);
         tabs.removeTabAt(index);
         started.remove(terminal);
@@ -195,6 +198,16 @@ public final class WorkspaceTerminalTabs {
             return trimmed;
         }
         return trimmed.substring(0, MAX_TAB_TITLE_LENGTH - ELLIPSIS.length()) + ELLIPSIS;
+    }
+
+    private static boolean confirmClose(final JTabbedPane tabs) {
+        return JOptionPane.showConfirmDialog(
+                        tabs,
+                        "A task is still running in this terminal tab. Close it anyway?",
+                        "Close running terminal",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.WARNING_MESSAGE)
+                == JOptionPane.YES_OPTION;
     }
 
     private void showContextMenu(final MouseEvent event) {
