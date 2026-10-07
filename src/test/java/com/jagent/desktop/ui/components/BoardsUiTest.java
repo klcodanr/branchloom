@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.swing.JButton;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
@@ -114,6 +115,29 @@ class BoardsUiTest {
                 "refresh failure text should be rendered after async update");
     }
 
+    @Test
+    void summaryTitleRetainsFullTextAndWraps() throws MalformedURLException {
+        final ProjectId projectId = ProjectId.create();
+        final String longTitle =
+                "Share remove unused code from features without clipping the summary title";
+        final PullRequest request = pullRequest(projectId, 8087, longTitle, "author-one");
+        final PullRequestSummaryPanel summary =
+                GuiActionRunner.execute(
+                        () -> {
+                            final PullRequestSummaryPanel panel = new PullRequestSummaryPanel();
+                            panel.render(request, null);
+                            panel.setSize(300, 500);
+                            panel.doLayout();
+                            return panel;
+                        });
+
+        final JButton title = findButton(summary);
+        assertTrue(title.getText().contains(longTitle), "summary should retain the full PR title");
+        assertTrue(
+                title.getPreferredSize().height > title.getFont().getSize(),
+                "long summary titles should wrap vertically");
+    }
+
     private static PullRequest pullRequest(
             final ProjectId projectId, final int number, final String title, final String author)
             throws MalformedURLException {
@@ -151,5 +175,20 @@ class BoardsUiTest {
             return text.toString();
         }
         return "";
+    }
+
+    private static JButton findButton(final java.awt.Component component) {
+        if (component instanceof JButton button && button.getText() != null) {
+            return button;
+        }
+        if (component instanceof java.awt.Container container) {
+            for (final java.awt.Component child : container.getComponents()) {
+                final JButton result = findButton(child);
+                if (result != null) {
+                    return result;
+                }
+            }
+        }
+        return null;
     }
 }

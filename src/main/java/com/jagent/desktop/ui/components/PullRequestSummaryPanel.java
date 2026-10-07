@@ -99,20 +99,26 @@ public final class PullRequestSummaryPanel extends ScrollablePanel {
 
         final JPanel header = new JPanel();
         header.setOpaque(false);
-        header.setLayout(new FlowLayout(FlowLayout.LEFT, UiConstants.SPACING_SM, 0));
+        header.setLayout(new BorderLayout(UiConstants.SPACING_SM, 0));
         header.setAlignmentX(LEFT_ALIGNMENT);
 
         final JLabel number = new JLabel("#" + request.number());
         number.setFont(Theme.font(Theme.FontSize.SM));
         number.setForeground(Theme.Colors.muted());
-        header.add(number);
+        header.add(number, BorderLayout.WEST);
 
         final JButton title =
                 new LinkButton(
                         request.title(),
                         () -> PlatformCommands.openUrl(request.url().toExternalForm()));
         title.setFont(Theme.boldFont(Theme.FontSize.XL));
-        header.add(title);
+        title.setToolTipText(request.title());
+        title.setText(
+                "<html><body style='width:100%;'>"
+                        + UiText.escapeHtml(request.title())
+                        + "</body></html>");
+        title.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+        header.add(title, BorderLayout.CENTER);
 
         top.add(header);
         top.add(Box.createVerticalStrut(UiConstants.SPACING_MD));
