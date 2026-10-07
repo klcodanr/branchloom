@@ -219,7 +219,7 @@ tasks.register('jlinkRuntime', Exec) {
         }
         commandLine "${System.getProperty('java.home')}/bin/jlink",
                 '--module-path', "${System.getProperty('java.home')}/jmods",
-                '--add-modules', 'java.base,java.desktop,java.logging',
+                '--add-modules', 'java.base,java.desktop,java.logging,java.management,java.management.rmi,jdk.management,jdk.management.agent',
                 '--strip-debug',
                 '--no-header-files',
                 '--no-man-pages',

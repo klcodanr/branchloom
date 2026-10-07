@@ -1,15 +1,19 @@
 package com.jagent.desktop.services;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.function.Consumer;
 
 /** Tracks background work that should be visible to the user. */
 public final class BackgroundJobs {
-    private final ConcurrentMap<UUID, Job> jobs = new ConcurrentHashMap<>();
+    private static final int MAX_COMPLETED_JOBS = 100;
+    private static final int MAX_OUTPUT_LINES = 5_000;
+    private final Map<UUID, Job> jobs = new LinkedHashMap<>();
     private final List<Consumer<List<Job>>> listeners = new ArrayList<>();
 
     public enum Status {
@@ -29,6 +33,8 @@ public final class BackgroundJobs {
 
     public final class Handle {
         private final UUID id;
+        private final BlockingQueue<String> outputLines =
+                new ArrayBlockingQueue<>(MAX_OUTPUT_LINES);
 
         private Handle(final UUID id) {
             this.id = id;
@@ -49,10 +55,16 @@ public final class BackgroundJobs {
 
         public void output(final String line) {
             final Job current = job(id);
-            final String output =
-                    current.output().isBlank()
-                            ? line
-                            : current.output() + System.lineSeparator() + line;
+            final String retainedOutput;
+            synchronized (this) {
+                if (!outputLines.offer(line)) {
+                    outputLines.poll();
+                    if (!outputLines.offer(line)) {
+                        throw new IllegalStateException("Unable to retain background job output");
+                    }
+                }
+                retainedOutput = String.join(System.lineSeparator(), outputLines);
+            }
             updateJob(
                     new Job(
                             id,
@@ -61,7 +73,7 @@ public final class BackgroundJobs {
                             current.session(),
                             current.status(),
                             current.message(),
-                            output));
+                            retainedOutput));
         }
 
         public void complete() {
@@ -97,13 +109,18 @@ public final class BackgroundJobs {
 
     public Handle start(final String title, final String project, final String session) {
         final UUID id = UUID.randomUUID();
-        jobs.put(id, new Job(id, title, project, session, Status.RUNNING, "Starting...", ""));
+        synchronized (jobs) {
+            jobs.put(id, new Job(id, title, project, session, Status.RUNNING, "Starting...", ""));
+            trimCompletedJobs();
+        }
         notifyListeners();
         return new Handle(id);
     }
 
     public List<Job> jobs() {
-        return jobs.values().stream().toList();
+        synchronized (jobs) {
+            return jobs.values().stream().toList();
+        }
     }
 
     public void listen(final Consumer<List<Job>> listener) {
@@ -114,15 +131,20 @@ public final class BackgroundJobs {
     }
 
     private Job job(final UUID id) {
-        final Job job = jobs.get(id);
-        if (job == null) {
-            throw new IllegalStateException("Background job not found: " + id);
+        synchronized (jobs) {
+            final Job job = jobs.get(id);
+            if (job == null) {
+                throw new IllegalStateException("Background job not found: " + id);
+            }
+            return job;
         }
-        return job;
     }
 
     private void updateJob(final Job job) {
-        jobs.put(job.id(), job);
+        synchronized (jobs) {
+            jobs.put(job.id(), job);
+            trimCompletedJobs();
+        }
         notifyListeners();
     }
 
@@ -130,6 +152,25 @@ public final class BackgroundJobs {
         final List<Job> snapshot = jobs();
         synchronized (listeners) {
             listeners.forEach(listener -> listener.accept(snapshot));
+        }
+    }
+
+    private void trimCompletedJobs() {
+        long completed =
+                jobs.values().stream().filter(job -> job.status() != Status.RUNNING).count();
+        if (completed <= MAX_COMPLETED_JOBS) {
+            return;
+        }
+        final var iterator = jobs.entrySet().iterator();
+        while (iterator.hasNext()) {
+            final Job job = iterator.next().getValue();
+            if (job.status() != Status.RUNNING) {
+                iterator.remove();
+                completed--;
+                if (completed <= MAX_COMPLETED_JOBS) {
+                    return;
+                }
+            }
         }
     }
 }

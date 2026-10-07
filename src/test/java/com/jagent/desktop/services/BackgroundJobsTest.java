@@ -1,6 +1,7 @@
 package com.jagent.desktop.services;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
@@ -39,5 +40,31 @@ class BackgroundJobsTest {
                 "npm install" + System.lineSeparator() + "npm test",
                 job.output(),
                 "console output should be retained");
+    }
+
+    @Test
+    void boundsRetainedOutputAndCompletedJobs() {
+        final BackgroundJobs jobs = new BackgroundJobs();
+        final var handle = jobs.start("Large output");
+
+        for (int index = 0; index < 5_001; index++) {
+            handle.output("line " + index);
+        }
+        assertEquals(
+                "line 1",
+                jobs.jobs().getFirst().output().lines().findFirst().orElseThrow(),
+                "oldest output lines should be evicted");
+        assertEquals(
+                5_000,
+                jobs.jobs().getFirst().output().lines().count(),
+                "retained output lines should be capped");
+
+        handle.complete();
+        for (int index = 0; index < 101; index++) {
+            final var completed = jobs.start("Job " + index);
+            completed.complete();
+        }
+
+        assertTrue(jobs.jobs().size() <= 100, "completed job history should be bounded");
     }
 }
