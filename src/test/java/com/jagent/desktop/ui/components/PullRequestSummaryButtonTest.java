@@ -56,8 +56,17 @@ class PullRequestSummaryButtonTest {
         GuiActionRunner.execute(() -> button.render(request, details));
 
         assertTrue(button.getText().contains("#12 Fix login"), "PR title should be rendered");
-        assertTrue(button.getText().contains("Status: Ready"), "PR status should be rendered");
+        assertTrue(
+                button.getText().contains("Status: In Progress"), "PR status should be rendered");
         assertTrue(button.getText().contains("Checks: 1/2 passed"), "PR checks should be rendered");
+        assertEquals(
+                Theme.Colors.foreground(),
+                button.getForeground(),
+                "button text should retain the normal foreground color");
+        assertEquals(
+                Theme.Colors.warning(),
+                button.getClientProperty("JComponent.outline"),
+                "button border should match the pull request indicator color");
         assertEquals(URL, button.getToolTipText(), "PR URL should be the tooltip");
 
         GuiActionRunner.execute((GuiActionRunnable) button::doClick);

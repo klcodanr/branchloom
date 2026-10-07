@@ -48,6 +48,8 @@ public final class PullRequestSummaryButton extends JButton {
 
     private void render(
             final String title, final String status, final String checks, final Color indicator) {
+        setForeground(Theme.Colors.foreground());
+        putClientProperty("JComponent.outline", indicator);
         setText(
                 "<html><span color=\""
                         + UiText.colorHex(indicator)
