@@ -16,7 +16,11 @@ class PullRequestDetailsModelTest {
         assertStatus("draft", true, true, PullRequestDetails.Status.DRAFT, Theme.Colors.muted());
         assertStatus("clean", false, true, PullRequestDetails.Status.READY, Theme.Colors.success());
         assertStatus(
-                "blocked", false, false, PullRequestDetails.Status.BLOCKED, Theme.Colors.warning());
+                "blocked",
+                false,
+                false,
+                PullRequestDetails.Status.IN_PROGRESS,
+                Theme.Colors.warning());
         assertStatus(
                 "dirty", false, false, PullRequestDetails.Status.CONFLICTED, Theme.Colors.danger());
         assertStatus(
@@ -87,6 +91,38 @@ class PullRequestDetailsModelTest {
                 Theme.Colors.danger(),
                 conflictedDraft.indicatorColor(),
                 "conflicted drafts should use the danger indicator color");
+    }
+
+    @Test
+    void progressingChecksTakePriorityOverDraftState() {
+        final PullRequestCheck pending =
+                new PullRequestCheck(
+                        "ci/pending",
+                        PullRequestCheck.Status.IN_PROGRESS,
+                        null,
+                        PullRequestCheck.Conclusion.UNKNOWN,
+                        null);
+        final PullRequestDetails details =
+                new PullRequestDetails(
+                        PROJECT_ID,
+                        PROJECT,
+                        1,
+                        true,
+                        true,
+                        "clean",
+                        1,
+                        1,
+                        1,
+                        new PullRequestChecks(List.of(pending)));
+
+        assertEquals(
+                PullRequestDetails.Status.IN_PROGRESS,
+                details.status(),
+                "progressing checks should override draft state");
+        assertEquals(
+                Theme.Colors.warning(),
+                details.indicatorColor(),
+                "progressing checks should use the warning indicator color");
     }
 
     private static void assertStatus(

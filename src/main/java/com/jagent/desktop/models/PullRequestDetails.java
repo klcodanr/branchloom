@@ -47,8 +47,7 @@ public record PullRequestDetails(
         READY,
         CONFLICTED,
         DRAFT,
-        BLOCKED,
-        PENDING,
+        IN_PROGRESS,
         CHECKS_FAILING,
         OTHER
     }
@@ -64,14 +63,14 @@ public record PullRequestDetails(
             return Status.CHECKS_FAILING;
         } else if ("dirty".equals(mergableState())) {
             return Status.CONFLICTED;
+        } else if (checks().checksStatus() == PullRequestChecks.Status.PENDING) {
+            return Status.IN_PROGRESS;
         } else if (draft()) {
             return Status.DRAFT;
         } else if (mergeable && List.of("clean", "behind").contains(mergableState())) {
             return Status.READY;
-        } else if ("blocked".equals(mergableState())) {
-            return Status.BLOCKED;
-        } else if (List.of("draft", "has_hooks").contains(mergableState())) {
-            return Status.PENDING;
+        } else if (List.of("blocked", "draft", "has_hooks").contains(mergableState())) {
+            return Status.IN_PROGRESS;
         } else if ("unstable".equals(mergableState())) {
             return Status.CHECKS_FAILING;
         }
@@ -82,7 +81,7 @@ public record PullRequestDetails(
         final Status stat = status();
         if (stat == Status.READY) {
             return Theme.Colors.success();
-        } else if (stat == Status.PENDING || stat == Status.BLOCKED) {
+        } else if (stat == Status.IN_PROGRESS) {
             return Theme.Colors.warning();
         } else if (stat == Status.CHECKS_FAILING || stat == Status.CONFLICTED) {
             return Theme.Colors.danger();
