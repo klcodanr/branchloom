@@ -27,6 +27,7 @@ import javax.swing.SwingUtilities;
  * ProgressOperation}.
  */
 public final class BackgroundOperations {
+    private static final int MAX_RETAINED_OUTPUT_CHARS = 1_000_000;
     private static final ExecutorService EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
     private static final ConcurrentMap<String, Counters> GROUPS = new ConcurrentHashMap<>();
     private static final ConcurrentMap<Thread, String> ACTIVE_TASKS = new ConcurrentHashMap<>();
@@ -130,7 +131,18 @@ public final class BackgroundOperations {
                 if (line == null) {
                     break;
                 }
-                output.append(line).append(System.lineSeparator());
+                if (output.length() < MAX_RETAINED_OUTPUT_CHARS) {
+                    final int remaining = MAX_RETAINED_OUTPUT_CHARS - output.length();
+                    output.append(line, 0, Math.min(line.length(), remaining));
+                    if (output.length() < MAX_RETAINED_OUTPUT_CHARS) {
+                        output.append(
+                                System.lineSeparator(),
+                                0,
+                                Math.min(
+                                        System.lineSeparator().length(),
+                                        MAX_RETAINED_OUTPUT_CHARS - output.length()));
+                    }
+                }
                 if (onOutput != null) {
                     final String text = line;
                     SwingUtilities.invokeLater(() -> onOutput.accept(text));
