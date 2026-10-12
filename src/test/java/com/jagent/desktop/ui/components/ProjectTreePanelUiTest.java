@@ -20,8 +20,10 @@ import java.util.List;
 import java.util.Map;
 import javax.swing.Action;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.JTree;
+import javax.swing.ScrollPaneConstants;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreePath;
 import org.assertj.swing.edt.GuiActionRunner;
@@ -58,6 +60,31 @@ class ProjectTreePanelUiTest {
         assertEquals(
                 ViewId.PROJECT, coordinator.currentViewId(), "project selection should navigate");
         assertEquals(List.of(ViewId.PROJECT), changedViews, "selection should notify navigation");
+    }
+
+    @Test
+    void projectTreeIsVerticallyScrollable() {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var panel =
+                GuiActionRunner.execute(
+                        () ->
+                                new ProjectTreePanel(
+                                        new ActionContext(
+                                                new ViewCoordinator(state), state, null)));
+
+        final var treeContent = (JPanel) panel.getComponent(1);
+        final var scroll = (JScrollPane) treeContent.getComponent(1);
+
+        assertEquals(
+                panel.tree(), scroll.getViewport().getView(), "tree should be in the viewport");
+        assertEquals(
+                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                scroll.getVerticalScrollBarPolicy(),
+                "tree should show a vertical scrollbar when its contents are too tall");
+        assertEquals(
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER,
+                scroll.getHorizontalScrollBarPolicy(),
+                "tree should not scroll horizontally");
     }
 
     @Test
@@ -230,8 +257,7 @@ class ProjectTreePanelUiTest {
                 state.currentProjectId(),
                 "search should not change the current project before confirmation");
         final var selectedNode =
-                (DefaultMutableTreeNode)
-                        ((JTree) treeContent.getComponent(1)).getLastSelectedPathComponent();
+                (DefaultMutableTreeNode) panel.tree().getLastSelectedPathComponent();
         assertEquals(
                 DEMO,
                 ((Project) ((Map.Entry<?, ?>) selectedNode.getUserObject()).getValue()).name(),
@@ -261,7 +287,7 @@ class ProjectTreePanelUiTest {
         final var search = (SearchInput) treeContent.getComponent(0);
         treeContent.setSize(400, 400);
         treeContent.doLayout();
-        final int collapsedTreeY = panel.tree().getY();
+        final int collapsedScrollY = treeContent.getComponent(1).getY();
 
         GuiActionRunner.execute(
                 () -> {
@@ -271,7 +297,7 @@ class ProjectTreePanelUiTest {
                 });
         treeContent.doLayout();
         assertTrue(
-                panel.tree().getY() > collapsedTreeY,
+                treeContent.getComponent(1).getY() > collapsedScrollY,
                 "visible search should reserve space above the tree");
 
         assertNull(panel.tree().getLastSelectedPathComponent(), "no match should clear selection");
@@ -284,8 +310,8 @@ class ProjectTreePanelUiTest {
                 });
         treeContent.doLayout();
         assertEquals(
-                collapsedTreeY,
-                panel.tree().getY(),
+                collapsedScrollY,
+                treeContent.getComponent(1).getY(),
                 "hidden search should release its space above the tree");
     }
 
