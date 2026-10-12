@@ -33,8 +33,10 @@ import javax.swing.JButton;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
+import javax.swing.JScrollPane;
 import javax.swing.JTree;
 import javax.swing.KeyStroke;
+import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.ToolTipManager;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -77,7 +79,13 @@ public final class ProjectTreePanel extends JPanel {
         final JPanel treeContent = new JPanel(new BorderLayout(0, UiConstants.CONTENT_PADDING));
         treeContent.setOpaque(false);
         treeContent.add(search, BorderLayout.NORTH);
-        treeContent.add(tree, BorderLayout.CENTER);
+        final JScrollPane treeScroll = new JScrollPane(tree);
+        treeScroll.setBorder(null);
+        treeScroll.setOpaque(false);
+        treeScroll.getViewport().setOpaque(false);
+        treeScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+        treeScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        treeContent.add(treeScroll, BorderLayout.CENTER);
         add(treeContent, BorderLayout.CENTER);
     }
 
