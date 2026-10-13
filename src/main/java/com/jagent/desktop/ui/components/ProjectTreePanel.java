@@ -53,6 +53,7 @@ public final class ProjectTreePanel extends JPanel {
     private final SearchInput search;
     private Map<ProjectId, Project> renderedProjects = Map.of();
     private Map<SessionId, Session> renderedSessions = Map.of();
+    private String searchQuery = "";
     private boolean rendered;
     private boolean selectingProgrammatically;
 
@@ -73,7 +74,8 @@ public final class ProjectTreePanel extends JPanel {
                                 "project-search",
                                 "Search projects and sessions",
                                 "Search projects and sessions"));
-        new ProjectTreeSearchHandler(tree, search, root, this::selectNode, this::select);
+        new ProjectTreeSearchHandler(
+                tree, search, root, this::filterTree, this::selectNode, this::select);
         final JPanel treeContent = new JPanel(new BorderLayout(0, UiConstants.CONTENT_PADDING));
         treeContent.setOpaque(false);
         treeContent.add(search, BorderLayout.NORTH);
@@ -213,7 +215,7 @@ public final class ProjectTreePanel extends JPanel {
         final Map<ProjectId, Project> projects = actionContext.appState().projects();
         final Map<SessionId, Session> sessions = actionContext.appState().sessions();
         if (!rendered || !projects.equals(renderedProjects) || !sessions.equals(renderedSessions)) {
-            treeSynchronizer.synchronize(actionContext.appState());
+            treeSynchronizer.synchronize(actionContext.appState(), searchQuery);
             renderedProjects = projects;
             renderedSessions = sessions;
             rendered = true;
@@ -260,6 +262,11 @@ public final class ProjectTreePanel extends JPanel {
 
     public JTree tree() {
         return tree;
+    }
+
+    private void filterTree(final String query) {
+        searchQuery = query;
+        treeSynchronizer.synchronize(actionContext.appState(), searchQuery);
     }
 
     public void updateSessionStatus(final Session session, final TerminalState state) {

@@ -331,6 +331,43 @@ class ProjectTreePanelUiTest {
     }
 
     @Test
+    void searchFiltersProjectsAndSessions() throws java.io.InvalidObjectException {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var matchingProjectId = state.addProject(project("Matching", "/tmp/matching", GROUP));
+        final var otherProjectId = state.addProject(project("Other", "/tmp/other", GROUP));
+        state.addSession(
+                matchingProjectId,
+                new Session(matchingProjectId, "Target session", AGENT, PROMPT, null));
+        state.addSession(
+                otherProjectId, new Session(otherProjectId, "Other session", AGENT, PROMPT, null));
+        final var panel =
+                GuiActionRunner.execute(
+                        () -> {
+                            final var created =
+                                    new ProjectTreePanel(
+                                            new ActionContext(
+                                                    new ViewCoordinator(state), state, null));
+                            created.refresh(null, null);
+                            return created;
+                        });
+
+        final var search = (JTextField) ((JPanel) panel.getComponent(1)).getComponent(0);
+        GuiActionRunner.execute(() -> search.setText("target"));
+
+        final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
+        assertEquals(
+                2, root.getChildCount(), "only the global node and matching group should remain");
+        final var group = (DefaultMutableTreeNode) root.getChildAt(1);
+        assertEquals(1, group.getChildCount(), "only the matching project should remain");
+        final var projectNode = (DefaultMutableTreeNode) group.getChildAt(0);
+        assertEquals(
+                matchingProjectId,
+                ((Map.Entry<?, ?>) projectNode.getUserObject()).getKey(),
+                "matching project should remain visible");
+        assertEquals(1, projectNode.getChildCount(), "only the matching session should remain");
+    }
+
+    @Test
     void groupsProjectsCaseInsensitivelyAndUsesDefaultForBlankGroups() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         state.addProject(project("Zulu", "/tmp/zulu", "z-group"));
