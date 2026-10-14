@@ -13,6 +13,7 @@ public final class ProjectTreeSearchHandler {
     private final JTree tree;
     private final SearchInput search;
     private final DefaultMutableTreeNode root;
+    private final Consumer<String> filterTree;
     private final Consumer<DefaultMutableTreeNode> selectNode;
     private final Consumer<DefaultMutableTreeNode> select;
     private DefaultMutableTreeNode searchMatch;
@@ -21,11 +22,13 @@ public final class ProjectTreeSearchHandler {
             final JTree tree,
             final SearchInput search,
             final DefaultMutableTreeNode root,
+            final Consumer<String> filterTree,
             final Consumer<DefaultMutableTreeNode> selectNode,
             final Consumer<DefaultMutableTreeNode> select) {
         this.tree = tree;
         this.search = search;
         this.root = root;
+        this.filterTree = filterTree;
         this.selectNode = selectNode;
         this.select = select;
         search.onChange(this::selectSearchMatch);
@@ -35,6 +38,7 @@ public final class ProjectTreeSearchHandler {
 
     private void selectSearchMatch(final String value) {
         final String query = value.trim().toLowerCase(Locale.ROOT);
+        filterTree.accept(query);
         if (query.isEmpty()) {
             clearSelection();
             return;

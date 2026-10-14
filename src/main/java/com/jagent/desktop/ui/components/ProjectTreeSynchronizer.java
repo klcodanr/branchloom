@@ -43,17 +43,21 @@ final class ProjectTreeSynchronizer {
         return sessionSynchronizer.sessionNode(sessionId);
     }
 
-    public void synchronize(final AppState appState) {
+    public void synchronize(final AppState appState, final String filter) {
         final DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
         ensureGlobalNodes(model);
         removeStaleProjects(appState.projects(), model);
         final Map<String, List<Map.Entry<ProjectId, Project>>> groupedProjects =
-                groupedProjects(appState.projects());
+                groupedProjects(appState.projects(), appState.sessions(), filter);
         final Map<String, DefaultMutableTreeNode> groups =
                 ensureGroups(groupedProjects.keySet(), model);
         for (final var group : groupedProjects.entrySet()) {
             synchronizeProjects(
-                    group.getValue(), groups.get(group.getKey()), appState.sessions(), model);
+                    group.getValue(),
+                    groups.get(group.getKey()),
+                    appState.sessions(),
+                    model,
+                    filter);
         }
         expandGroups(groups);
     }
@@ -82,12 +86,16 @@ final class ProjectTreeSynchronizer {
     }
 
     private Map<String, List<Map.Entry<ProjectId, Project>>> groupedProjects(
-            final Map<ProjectId, Project> projects) {
+            final Map<ProjectId, Project> projects,
+            final Map<SessionId, Session> sessions,
+            final String filter) {
         final Map<String, List<Map.Entry<ProjectId, Project>>> grouped =
                 new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         for (final var project : projects.entrySet()) {
-            grouped.computeIfAbsent(groupName(project.getValue()), ignored -> new ArrayList<>())
-                    .add(project);
+            if (ProjectTreeSessionSynchronizer.matches(project.getValue(), sessions, filter)) {
+                grouped.computeIfAbsent(groupName(project.getValue()), ignored -> new ArrayList<>())
+                        .add(project);
+            }
         }
         grouped.values()
                 .forEach(
@@ -167,7 +175,8 @@ final class ProjectTreeSynchronizer {
             final List<Map.Entry<ProjectId, Project>> projects,
             final DefaultMutableTreeNode group,
             final Map<SessionId, Session> sessions,
-            final DefaultTreeModel model) {
+            final DefaultTreeModel model,
+            final String filter) {
         final Set<ProjectId> desiredIds = new HashSet<>();
         for (final var project : projects) {
             desiredIds.add(project.getKey());
@@ -181,7 +190,7 @@ final class ProjectTreeSynchronizer {
             }
         }
         for (final var entry : projects) {
-            synchronizeProject(entry, group, sessions, model);
+            synchronizeProject(entry, group, sessions, model, filter);
         }
     }
 
@@ -189,7 +198,8 @@ final class ProjectTreeSynchronizer {
             final Map.Entry<ProjectId, Project> entry,
             final DefaultMutableTreeNode group,
             final Map<SessionId, Session> sessions,
-            final DefaultTreeModel model) {
+            final DefaultTreeModel model,
+            final String filter) {
         final DefaultMutableTreeNode project =
                 projectNodes.computeIfAbsent(
                         entry.getKey(), ignored -> new DefaultMutableTreeNode());
@@ -204,7 +214,7 @@ final class ProjectTreeSynchronizer {
             }
             model.insertNodeInto(project, group, group.getChildCount());
         }
-        sessionSynchronizer.synchronize(entry.getValue(), project, sessions, model);
+        sessionSynchronizer.synchronize(entry.getValue(), project, sessions, model, filter);
     }
 
     private static String groupName(final Project project) {

@@ -4,7 +4,7 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -28,15 +28,44 @@ final class ProjectTreeSessionSynchronizer {
             final Project project,
             final DefaultMutableTreeNode projectNode,
             final Map<SessionId, Session> sessions,
-            final DefaultTreeModel model) {
-        final Set<SessionId> desiredIds = new HashSet<>(project.sessionIds());
+            final DefaultTreeModel model,
+            final String filter) {
+        final Set<SessionId> desiredIds =
+                project.sessionIds().stream()
+                        .filter(
+                                id -> {
+                                    final Session session = sessions.get(id);
+                                    return session != null && matches(project, session, filter);
+                                })
+                        .collect(java.util.stream.Collectors.toSet());
         removeStaleSessions(projectNode, desiredIds, sessions, model);
         for (final SessionId id : project.sessionIds()) {
             final Session session = sessions.get(id);
-            if (session != null) {
+            if (session != null && matches(project, session, filter)) {
                 synchronizeSession(project, projectNode, id, session, model);
             }
         }
+    }
+
+    public static boolean matches(
+            final Project project, final Map<SessionId, Session> sessions, final String filter) {
+        if (filter == null
+                || filter.isBlank()
+                || project.name().toLowerCase(Locale.ROOT).contains(filter)) {
+            return true;
+        }
+        return project.sessionIds().stream()
+                .map(sessions::get)
+                .filter(session -> session != null)
+                .anyMatch(session -> session.name().toLowerCase(Locale.ROOT).contains(filter));
+    }
+
+    private static boolean matches(
+            final Project project, final Session session, final String filter) {
+        return filter == null
+                || filter.isBlank()
+                || project.name().toLowerCase(Locale.ROOT).contains(filter)
+                || session.name().toLowerCase(Locale.ROOT).contains(filter);
     }
 
     public void removeAll(final DefaultMutableTreeNode projectNode, final DefaultTreeModel model) {
