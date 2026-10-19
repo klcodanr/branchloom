@@ -77,7 +77,11 @@ class ProjectTreePanelUiTest {
                         () ->
                                 new ProjectTreePanel(
                                         new ActionContext(
-                                                new ViewCoordinator(state), state, null)));
+                                                new ViewCoordinator(state),
+                                                state,
+                                                null,
+                                                null,
+                                                null)));
 
         final var treeContent = (JPanel) panel.getComponent(1);
         final var scroll = (JScrollPane) treeContent.getComponent(1);
@@ -404,7 +408,11 @@ class ProjectTreePanelUiTest {
                             final var created =
                                     new ProjectTreePanel(
                                             new ActionContext(
-                                                    new ViewCoordinator(state), state, null));
+                                                    new ViewCoordinator(state),
+                                                    state,
+                                                    null,
+                                                    null,
+                                                    null));
                             created.refresh(null, null);
                             return created;
                         });

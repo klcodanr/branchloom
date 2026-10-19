@@ -19,11 +19,7 @@ class PullRequestDetailsModelTest {
         assertStatus("draft", true, true, PullRequestDetails.Status.DRAFT, Theme.Colors.muted());
         assertStatus("clean", false, true, PullRequestDetails.Status.READY, Theme.Colors.success());
         assertStatus(
-                "blocked",
-                false,
-                false,
-                PullRequestDetails.Status.IN_PROGRESS,
-                Theme.Colors.warning());
+                "blocked", false, false, PullRequestDetails.Status.BLOCKED, Theme.Colors.warning());
         assertStatus(
                 "dirty", false, false, PullRequestDetails.Status.CONFLICTED, Theme.Colors.danger());
         assertStatus(
@@ -124,20 +120,10 @@ class PullRequestDetailsModelTest {
                         PullRequestCheck.Conclusion.UNKNOWN,
                         null);
         final PullRequestDetails details =
-                new PullRequestDetails(
-                        PROJECT_ID,
-                        PROJECT,
-                        1,
-                        true,
-                        true,
-                        "clean",
-                        1,
-                        1,
-                        1,
-                        new PullRequestChecks(List.of(pending)));
+                details(true, true, "clean", new PullRequestChecks(List.of(pending)));
 
         assertEquals(
-                PullRequestDetails.Status.IN_PROGRESS,
+                PullRequestDetails.Status.PENDING,
                 details.status(),
                 "progressing checks should override draft state");
         assertEquals(

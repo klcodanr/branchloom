@@ -144,7 +144,10 @@ final class ProjectTreeProjectSynchronizer {
             }
         }
         projects.stream()
-                .filter(entry -> ProjectTreeSessionSynchronizer.matches(entry.getValue(), sessionsById, filter))
+                .filter(
+                        entry ->
+                                ProjectTreeSessionSynchronizer.matches(
+                                        entry.getValue(), sessionsById, filter))
                 .forEach(entry -> project(entry, group, sessionsById, model, filter));
     }
 
