@@ -174,6 +174,30 @@ class WorkspaceTerminalTabsUiTest {
         GuiActionRunner.execute(panel::dispose);
     }
 
+    @Test
+    void closesTerminalWhenNoChildProcessIsRunning() {
+        final CountingTerminalRuntime runtime = new CountingTerminalRuntime();
+        final TerminalPanel panel =
+                GuiActionRunner.execute(() -> new TerminalPanel(runtime, ignored -> {}));
+        final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
+        final AtomicReference<Boolean> closed = new AtomicReference<>();
+        final WorkspaceTerminalTabs terminalTabs =
+                GuiActionRunner.execute(
+                        () ->
+                                new WorkspaceTerminalTabs(
+                                        tabs,
+                                        (terminal, id) -> closed.set(true),
+                                        (terminal, title) -> {}));
+
+        GuiActionRunner.execute(() -> tabs.addTab(SUMMARY_TAB, new JPanel()));
+        GuiActionRunner.execute(
+                () -> terminalTabs.mount(TERMINAL_TAB, TerminalId.create(), panel, true));
+        GuiActionRunner.execute(terminalTabs::closeActive);
+
+        assertEquals(1, tabs.getTabCount(), "idle terminal should close without confirmation");
+        assertEquals(Boolean.TRUE, closed.get(), "close should notify the owner");
+    }
+
     private static final class CountingTerminalRuntime extends TerminalRuntime {
         private Consumer<TerminalState> listener = ignored -> {};
         private TerminalState state = TerminalState.STARTING;

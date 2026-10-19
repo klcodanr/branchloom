@@ -79,10 +79,10 @@ public final class GitRepository implements AutoCloseable {
         try {
             final URIish uri = new URIish(remote);
             final String humanishName = uri.getHumanishName();
-            final File targetDir = new File(parent.toFile(), humanishName);
-            Git.cloneRepository().setDirectory(targetDir).setURI(remote).call().close();
-            return Path.of(targetDir.getAbsolutePath());
-        } catch (URISyntaxException | GitAPIException e) {
+            final Path targetDir = parent.resolve(humanishName);
+            GitNative.run(parent, "clone", remote, targetDir.toString());
+            return targetDir.toAbsolutePath();
+        } catch (URISyntaxException e) {
             throw new IOException(e);
         }
     }

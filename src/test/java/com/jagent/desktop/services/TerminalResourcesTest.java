@@ -34,4 +34,11 @@ class TerminalResourcesTest {
         assertTrue(sample.terminals().isEmpty(), "assertion condition should hold");
         assertTrue(!sample.memoryAvailable(), "assertion condition should hold");
     }
+
+    @Test
+    void reportsWhetherProcessHasLiveDescendant() {
+        assertTrue(
+                !TerminalResources.hasLiveDescendant(-1),
+                "missing process should have no live descendant");
+    }
 }
