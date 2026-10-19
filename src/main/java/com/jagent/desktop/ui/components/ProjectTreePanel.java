@@ -72,7 +72,8 @@ public final class ProjectTreePanel extends JPanel {
                                 "project-search",
                                 "Search projects and sessions",
                                 "Search projects and sessions"));
-        new ProjectTreeSearchHandler(tree, search, root, this::selectNode, interaction::select);
+        new ProjectTreeSearchHandler(
+                tree, search, root, ignored -> {}, this::selectNode, interaction::select);
         final JPanel treeContent = new JPanel(new BorderLayout(0, UiConstants.CONTENT_PADDING));
         treeContent.setOpaque(false);
         treeContent.add(search, BorderLayout.NORTH);

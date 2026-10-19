@@ -39,10 +39,14 @@ final class ProjectTreeSynchronizer {
     }
 
     public void synchronize(final AppState appState) {
+        synchronize(appState, "");
+    }
+
+    public void synchronize(final AppState appState, final String filter) {
         final DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
         ensureGlobalNodes(model);
         BoardTreeSynchronizer.synchronize(appState, tree, root, model);
-        projectSynchronizer.synchronize(appState, model);
+        projectSynchronizer.synchronize(appState, model, filter);
     }
 
     private void ensureGlobalNodes(final DefaultTreeModel model) {
