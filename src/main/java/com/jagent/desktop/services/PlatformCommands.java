@@ -61,6 +61,41 @@ public final class PlatformCommands {
         }
     }
 
+    public static void notify(final String title, final String message) {
+        try {
+            final Process process =
+                    prepare(new ProcessBuilder(notificationCommand(title, message))).start();
+            process.destroy();
+        } catch (IOException exception) {
+            LOG.debug("Could not send desktop notification", exception);
+        }
+    }
+
+    private static List<String> notificationCommand(final String title, final String message) {
+        if (isMac()) {
+            return List.of(
+                    "osascript",
+                    "-e",
+                    "display notification \""
+                            + message.replace("\\", "\\\\").replace("\"", "\\\"")
+                            + "\" with title \""
+                            + title.replace("\\", "\\\\").replace("\"", "\\\"")
+                            + "\"");
+        }
+        if (isWindows()) {
+            return List.of(
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    "[System.Windows.Forms.MessageBox]::Show('"
+                            + message.replace("'", "''")
+                            + "','"
+                            + title.replace("'", "''")
+                            + "')");
+        }
+        return List.of("notify-send", title, message);
+    }
+
     public static boolean commandAvailable(final String executable) {
         final String lookup = isWindows() ? "where " + executable : "command -v " + executable;
         try {

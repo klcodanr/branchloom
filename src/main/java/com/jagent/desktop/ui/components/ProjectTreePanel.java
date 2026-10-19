@@ -88,6 +88,13 @@ public final class ProjectTreePanel extends JPanel {
         add(treeContent, BorderLayout.CENTER);
     }
 
+    public void updatePullRequestStatus(
+            final Session session,
+            final com.jagent.desktop.services.PullRequestWatcher.PullRequestStatus status) {
+        pullRequestStatuses.put(session, status.details());
+        tree.repaint();
+    }
+
     private static final class ProjectHeader extends JPanel {
         private ProjectHeader(final ActionContext actionContext) {
             super(new BorderLayout());
