@@ -7,10 +7,11 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.github.Auth;
 import com.jagent.desktop.models.github.CliCredential;
 import com.jagent.desktop.models.github.Credential;
-import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
+import com.jagent.desktop.services.git.GitRepository;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -27,16 +28,25 @@ public final class GitHubAuth {
 
     public Auth getAuth(final Project project) throws IOException {
         final Credential selected =
-                Optional.ofNullable(project.credential()).orElse(DEFAULT_CLI_AUTH.getFirst());
+                Optional.ofNullable(project.credential())
+                        .orElseGet(() -> defaultCredential(project));
         final String host = Optional.ofNullable(selected.host()).orElse(DEFAULT_HOST);
         final String token = TOKEN_FACTORY.getToken(selected);
         return new Auth(host, token);
     }
 
-    public List<Credential> listCredentials(final AppState state) {
-        final List<Credential> auths = new ArrayList<>(cliAuths());
-        auths.addAll(state.githubConnections().values());
-        return List.copyOf(auths);
+    private Credential defaultCredential(final Project project) {
+        try (GitRepository repository = GitRepository.open(Path.of(project.path()))) {
+            final String host = repository.remoteHost();
+            return new CliCredential(host, "Default (" + host + ")", "");
+        } catch (IOException exception) {
+            LOG.debug("Could not determine GitHub host from project remote", exception);
+            return DEFAULT_CLI_AUTH.getFirst();
+        }
+    }
+
+    public List<Credential> listCredentials() {
+        return List.copyOf(cliAuths());
     }
 
     public static String apiEndpoint(final String host) {

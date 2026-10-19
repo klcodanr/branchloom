@@ -29,12 +29,20 @@ class AppStatePersistenceTest {
     private static final String PROJECT_NAME = "Demo";
     private static final String THEME = "Dark";
     private static final String CONTEXT_PATH = ".branchloom/context.md";
+    private static final String DEMO_PATH = "/tmp/demo";
+    private static final String PROJECTS_FILE = "projects.json";
 
     @Test
     void missingFilesLoadDefaultSettingsAndEmptyState(@TempDir final Path directory) {
         final AppState loaded = AppStatePersistence.load(directory);
         final AppSettings defaults = Defaults.appSettings();
 
+        assertTrue(
+                Files.exists(directory.resolve(SETTINGS_FILE)),
+                "missing settings should be initialized");
+        assertTrue(
+                Files.exists(directory.resolve("settings.schema.json")),
+                "settings schema should be initialized");
         assertTrue(loaded.projects().isEmpty(), "missing projects should be empty");
         assertTrue(loaded.sessions().isEmpty(), "missing sessions should be empty");
         assertTrue(loaded.terminals().isEmpty(), "missing terminals should be empty");
@@ -65,7 +73,7 @@ class AppStatePersistenceTest {
     void persistsAndLoadsProjectsSessionsTerminalsAndSettings(@TempDir final Path directory)
             throws IOException, InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project(PROJECT_NAME, "/tmp/demo", null));
+        final var projectId = state.addProject(new Project(PROJECT_NAME, DEMO_PATH, null));
         final var sessionId =
                 state.addSession(
                         projectId,
@@ -81,13 +89,18 @@ class AppStatePersistenceTest {
                         Defaults.appSettings().tools(),
                         "custom/{sessionSlug}",
                         CONTEXT_PATH));
-
+        Files.createDirectories(directory);
+        Files.writeString(
+                directory.resolve(SETTINGS_FILE),
+                PersistenceSupport.JSON.toJson(state.appSettings()));
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
             persistence.persist();
         }
 
-        assertTrue(Files.exists(directory.resolve("projects.json")), "projects should be written");
-        assertTrue(Files.exists(directory.resolve(SETTINGS_FILE)), "settings should be written");
+        assertTrue(Files.exists(directory.resolve(PROJECTS_FILE)), "projects should be written");
+        assertTrue(
+                Files.exists(directory.resolve(SETTINGS_FILE)),
+                "existing settings should remain available");
         assertTrue(
                 Files.exists(
                         directory
@@ -115,14 +128,14 @@ class AppStatePersistenceTest {
         assertEquals(
                 CONTEXT_PATH, loaded.appSettings().agentContextPath(), "context path should load");
         assertEquals(
-                Defaults.appSettings().pullRequestFilters(),
+                state.appSettings().pullRequestFilters(),
                 loaded.appSettings().pullRequestFilters(),
-                "default pull request filters should load");
+                "configured pull request filters should load");
     }
 
     @Test
     void invalidFilesFallBackToDefaults(@TempDir final Path directory) throws IOException {
-        Files.writeString(directory.resolve("projects.json"), INVALID_JSON);
+        Files.writeString(directory.resolve(PROJECTS_FILE), INVALID_JSON);
 
         final AppState loaded = AppStatePersistence.load(directory);
 
@@ -137,7 +150,7 @@ class AppStatePersistenceTest {
     @Test
     void invalidSettingsDoNotDiscardProjects(@TempDir final Path directory) throws IOException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project(PROJECT_NAME, "/tmp/demo", null));
+        final var projectId = state.addProject(new Project(PROJECT_NAME, DEMO_PATH, null));
 
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
             persistence.persist();
@@ -170,7 +183,10 @@ class AppStatePersistenceTest {
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
             persistence.persist();
         }
-        Files.writeString(directory.resolve("projects.json"), INVALID_JSON);
+        Files.writeString(
+                directory.resolve(SETTINGS_FILE),
+                PersistenceSupport.JSON.toJson(state.appSettings()));
+        Files.writeString(directory.resolve(PROJECTS_FILE), INVALID_JSON);
 
         final AppState loaded = AppStatePersistence.load(directory);
 
@@ -182,8 +198,14 @@ class AppStatePersistenceTest {
     void invalidSettingsFallBackToDefaults(@TempDir final Path directory) throws IOException {
         Files.writeString(directory.resolve(SETTINGS_FILE), INVALID_JSON);
 
-        final AppState loaded = AppStatePersistence.load(directory);
+        final AppStatePersistence.LoadResult result = AppStatePersistence.loadWithResult(directory);
+        final AppState loaded = result.state();
 
+        assertTrue(result.hasSettingsError(), "invalid settings should report an error");
+        assertEquals(
+                INVALID_JSON,
+                Files.readString(directory.resolve(SETTINGS_FILE)),
+                "invalid settings should remain untouched");
         assertEquals(
                 Defaults.appSettings().theme(),
                 loaded.appSettings().theme(),
@@ -231,7 +253,7 @@ class AppStatePersistenceTest {
     void persistsTerminalAddAndRemoveEvents(@TempDir final Path directory)
             throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project("Demo", "/tmp/demo", null));
+        final var projectId = state.addProject(new Project("Demo", DEMO_PATH, null));
         final var sessionId =
                 state.addSession(
                         projectId,
@@ -256,13 +278,13 @@ class AppStatePersistenceTest {
     void persistSnapshotsDirectlyWhenCalledOnEdt(@TempDir final Path directory)
             throws InterruptedException, java.lang.reflect.InvocationTargetException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.updateAppSettings(Defaults.appSettings());
+        state.addProject(new Project(PROJECT_NAME, DEMO_PATH, null));
 
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
             SwingUtilities.invokeAndWait(persistence::persist);
         }
 
-        assertTrue(Files.exists(directory.resolve("settings.json")), "EDT snapshot should persist");
+        assertTrue(Files.exists(directory.resolve(PROJECTS_FILE)), "EDT snapshot should persist");
         assertNull(state.snapshotForPersistence(), "EDT snapshot should clear pending updates");
     }
 
@@ -270,21 +292,21 @@ class AppStatePersistenceTest {
     void closesWithoutWaitingForPersistenceExecutorOnEdt(@TempDir final Path directory)
             throws InterruptedException, java.lang.reflect.InvocationTargetException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.updateAppSettings(Defaults.appSettings());
+        state.addProject(new Project(PROJECT_NAME, DEMO_PATH, null));
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
             SwingUtilities.invokeAndWait(persistence::close);
         }
 
         assertTrue(
-                Files.exists(directory.resolve(SETTINGS_FILE)),
-                "closing on the EDT should persist settings");
+                Files.exists(directory.resolve(PROJECTS_FILE)),
+                "closing on the EDT should persist projects");
     }
 
     @Test
     void restoresUpdatesAfterPersistenceWriteFailure(@TempDir final Path directory)
             throws IOException, InterruptedException, java.lang.reflect.InvocationTargetException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.updateAppSettings(Defaults.appSettings());
+        state.addProject(new Project(PROJECT_NAME, DEMO_PATH, null));
         final Path unusableDirectory = directory.resolve("not-a-directory");
         Files.writeString(unusableDirectory, "blocker");
 
@@ -294,7 +316,7 @@ class AppStatePersistenceTest {
         SwingUtilities.invokeAndWait(() -> {});
 
         assertTrue(
-                state.snapshotForPersistence().appSettingsUpdated(),
+                state.snapshotForPersistence().projectsUpdated(),
                 "failed write should restore updates");
     }
 
@@ -302,15 +324,15 @@ class AppStatePersistenceTest {
     void successfulWritesRemoveTheirTemporaryFiles(@TempDir final Path directory)
             throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.updateAppSettings(Defaults.appSettings());
+        state.addProject(new Project(PROJECT_NAME, DEMO_PATH, null));
 
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
             persistence.persist();
         }
 
         assertFalse(
-                Files.exists(directory.resolve(SETTINGS_FILE + ".tmp")),
-                "temporary settings file should be removed");
-        assertTrue(Files.exists(directory.resolve(SETTINGS_FILE)), "settings file should remain");
+                Files.exists(directory.resolve(PROJECTS_FILE + ".tmp")),
+                "temporary projects file should be removed");
+        assertTrue(Files.exists(directory.resolve(PROJECTS_FILE)), "projects file should remain");
     }
 }

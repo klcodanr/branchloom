@@ -28,7 +28,6 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
-import javax.swing.JTextField;
 import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreePath;
@@ -37,7 +36,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class AppStartupIntegrationTest {
-    private static final String SAVE_BUTTON = "Save";
     private static final long CLOSE_TIMEOUT_NANOS = 5_000_000_000L;
 
     @TempDir private Path dataDirectory;
@@ -50,18 +48,8 @@ class AppStartupIntegrationTest {
 
             GuiActionRunner.execute(() -> app.setVisible(true));
             assertTrue(
-                    findButtonWithText(app, SAVE_BUTTON) == null,
-                    "application should initially render home");
+                    find(app, HomeView.class) != null, "application should initially render home");
 
-            GuiActionRunner.execute(
-                    () -> {
-                        final JButton button = findButton(app, "settings-button");
-                        assertTrue(button != null, "settings button should be available");
-                        button.doClick();
-                    });
-            assertTrue(
-                    findButtonWithText(app, SAVE_BUTTON) != null,
-                    "settings navigation should render the settings view");
             GuiActionRunner.execute(
                     () -> {
                         final JButton button = findButton(app, "home-button");
@@ -176,41 +164,6 @@ class AppStartupIntegrationTest {
     }
 
     @Test
-    void savesSettingsChangedThroughTheApplicationView() {
-        final AppView app = GuiActionRunner.execute(() -> new AppView(dataDirectory));
-        final String updatedTemplate = "custom/{sessionSlug}";
-        try {
-            GuiActionRunner.execute(() -> app.setVisible(true));
-            GuiActionRunner.execute(
-                    () -> {
-                        final JButton settings = findButton(app, "settings-button");
-                        assertTrue(settings != null, "settings button should be available");
-                        settings.doClick();
-                    });
-            GuiActionRunner.execute(
-                    () -> {
-                        final JTextField worktree =
-                                findTextField(app, Defaults.DEFAULT_WORKTREE_TEMPLATE);
-                        assertTrue(worktree != null, "worktree setting should be rendered");
-                        worktree.setText(updatedTemplate);
-                        final JButton save = findButtonWithText(app, SAVE_BUTTON);
-                        assertTrue(save != null, "settings save button should be available");
-                        save.doClick();
-                    });
-        } finally {
-            close(app);
-        }
-
-        assertTrue(
-                waitForFile(dataDirectory.resolve("settings.json")),
-                "settings file should be persisted");
-        assertTrue(
-                updatedTemplate.equals(
-                        AppStatePersistence.load(dataDirectory).appSettings().worktreeTemplate()),
-                "settings changed in the application should be persisted");
-    }
-
-    @Test
     void walksTheMainApplicationScreens() throws java.io.InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(new Project("Demo", dataDirectory.toString(), null));
@@ -246,9 +199,6 @@ class AppStartupIntegrationTest {
             GuiActionRunner.execute(() -> selectSession(tree));
             assertTrue(
                     find(app, SessionView.class) != null, "session selection should open session");
-
-            clickButton(app, "settings-button");
-            assertTrue(findButtonWithText(app, SAVE_BUTTON) != null, "global settings should open");
 
             clickMenuItem(app, "View", "Problems");
             assertTrue(find(app, ProblemsView.class) != null, "problems should open");
@@ -351,30 +301,6 @@ class AppStartupIntegrationTest {
         return null;
     }
 
-    private static JButton findButtonWithText(final Container root, final String text) {
-        for (final Component child : root.getComponents()) {
-            if (child instanceof JButton button && text.equals(button.getText())) {
-                return button;
-            }
-            if (child instanceof Container container) {
-                final JButton result = findButtonWithText(container, text);
-                if (result != null) {
-                    return result;
-                }
-            }
-        }
-        return null;
-    }
-
-    private static void clickButton(final Container root, final String name) {
-        GuiActionRunner.execute(
-                () -> {
-                    final JButton button = findButton(root, name);
-                    assertTrue(button != null, "button should be available: " + name);
-                    button.doClick();
-                });
-    }
-
     private static void clickMenuItem(
             final Container root, final String menuText, final String itemText) {
         GuiActionRunner.execute(
@@ -411,21 +337,6 @@ class AppStartupIntegrationTest {
             }
             if (child instanceof Container container) {
                 final JMenuItem result = findMenuItem(container, text);
-                if (result != null) {
-                    return result;
-                }
-            }
-        }
-        return null;
-    }
-
-    private static JTextField findTextField(final Container root, final String text) {
-        for (final Component child : root.getComponents()) {
-            if (child instanceof JTextField field && text.equals(field.getText())) {
-                return field;
-            }
-            if (child instanceof Container container) {
-                final JTextField result = findTextField(container, text);
                 if (result != null) {
                     return result;
                 }

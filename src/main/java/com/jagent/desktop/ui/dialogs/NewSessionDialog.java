@@ -68,8 +68,6 @@ public final class NewSessionDialog extends FormDialog {
         baseBranch = new SearchableComboBox<>(branchChoices);
         baseBranch.setName("session-base-branch");
         baseBranch.setPreferredSize(new Dimension(350, baseBranch.getPreferredSize().height));
-        prompt.setLineWrap(true);
-        prompt.setWrapStyleWord(true);
         prompt.setName("session-prompt");
         installImagePasteHandler();
         final var promptInput = new javax.swing.JPanel(new java.awt.BorderLayout());

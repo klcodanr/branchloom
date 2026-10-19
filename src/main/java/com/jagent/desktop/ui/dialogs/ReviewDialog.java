@@ -37,8 +37,6 @@ public final class ReviewDialog extends FormDialog {
                         .reviewPrompt()
                         .replace("{number}", Integer.toString(request.number()))
                         .replace("{title}", request.title()));
-        prompt.setLineWrap(true);
-        prompt.setWrapStyleWord(true);
 
         final JPanel promptInput = new JPanel(new BorderLayout());
         final JScrollPane promptScroll = new JScrollPane(prompt);

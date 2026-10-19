@@ -342,6 +342,21 @@ public final class GitRepository implements AutoCloseable {
         }
     }
 
+    public String remoteHost() throws IOException {
+        try {
+            final String remoteUrl =
+                    this.repository.getConfig().getString("remote", "origin", "url");
+            final URIish remoteUri = new URIish(remoteUrl);
+            final String host = remoteUri.getHost();
+            if (!remoteUri.isRemote() || host == null || host.isBlank()) {
+                throw new IOException("The remote URL: " + remoteUrl + " has no host.");
+            }
+            return host;
+        } catch (NoWorkTreeException | URISyntaxException e) {
+            throw new IOException(e);
+        }
+    }
+
     public void restoreWorktree(@NotNull final Worktree worktree) throws IOException {
         if (worktree.branch() == null || worktree.branch().isBlank()) {
             throw new IOException("The stale worktree has no recorded branch to restore.");

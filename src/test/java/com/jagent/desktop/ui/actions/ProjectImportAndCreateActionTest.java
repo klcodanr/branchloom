@@ -20,7 +20,8 @@ class ProjectImportAndCreateActionTest {
     @Test
     void createAndImportActionsExposeExpectedMetadata(@TempDir final Path tempDir) {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ActionContext context = new ActionContext(new ViewCoordinator(state), state, null);
+        final ActionContext context =
+                new ActionContext(new ViewCoordinator(state), state, null, null, null);
         final CreateProjectAction createAction = new CreateProjectAction(context);
         final ImportProjectAction importAction = new ImportProjectAction(context);
 

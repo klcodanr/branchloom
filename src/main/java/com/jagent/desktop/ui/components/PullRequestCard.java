@@ -12,12 +12,12 @@ import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.actions.ImportBranchAction;
+import com.jagent.desktop.ui.actions.OpenSettingsAction;
 import com.jagent.desktop.ui.dialogs.ReviewDialog;
-import java.awt.Dimension;
 import java.io.IOException;
+import java.net.URL;
 import java.util.Date;
 import java.util.concurrent.CompletionException;
-import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JComponent;
@@ -30,7 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Displays one pull request and its actions. */
-public final class PullRequestCard extends JPanel {
+public final class PullRequestCard extends CardPanel {
     private static final Logger LOG = LoggerFactory.getLogger(PullRequestCard.class);
     private static final String PULL_REQUEST_ACTION = "pull-request-action";
     private final transient ActionContext actionContext;
@@ -54,30 +54,8 @@ public final class PullRequestCard extends JPanel {
         this.project = actionContext.appState().projects().get(request.projectId());
         this.gitHub = GitHub.forProject(actionContext.appState(), request.projectId());
         final JPopupMenu contextMenu = menu();
-        setBackground(Theme.Colors.textareaBackground());
-        setBorder(
-                BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(Theme.Colors.border()), UiBorders.card()));
-        setPreferredSize(new Dimension(UiConstants.PR_CARD_WIDTH, UiConstants.PR_CARD_HEIGHT));
-        setMinimumSize(new Dimension(UiConstants.PR_CARD_WIDTH, UiConstants.PR_CARD_HEIGHT));
-        setMaximumSize(new Dimension(Integer.MAX_VALUE, UiConstants.PR_CARD_HEIGHT));
-        setAlignmentX(LEFT_ALIGNMENT);
-        setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-        final JLabel number = new JLabel("#" + request.number());
-        number.setFont(Theme.font(Theme.FontSize.XS));
-        number.setForeground(Theme.Colors.muted());
-        number.setFont(Theme.boldFont(Theme.FontSize.XS));
-        number.setAlignmentX(LEFT_ALIGNMENT);
-        number.setComponentPopupMenu(contextMenu);
-        add(number);
-        final JLabel title = new JLabel(request.title());
-        title.setFont(Theme.font(Theme.FontSize.MD));
-        title.setAlignmentX(LEFT_ALIGNMENT);
-        title.setToolTipText(request.title());
-        title.setFont(Theme.boldFont(Theme.FontSize.MD));
-        title.setForeground(Theme.Colors.foreground());
-        title.setComponentPopupMenu(contextMenu);
-        add(title);
+        addNumber(request.project().name() + " · PR · #" + request.number(), contextMenu);
+        addTitle(request.title(), contextMenu);
         final JComponent statusDot =
                 new StatusDot(details == null ? Theme.Colors.muted() : details.indicatorColor());
         final JPanel statusRow = new JPanel();
@@ -136,10 +114,13 @@ public final class PullRequestCard extends JPanel {
     }
 
     private void addCommonActions(final JPopupMenu menu) {
+        final URL url = request.url();
         final JMenuItem open = new JMenuItem("Open PR");
-        open.addActionListener(event -> PlatformCommands.openUrl(request.url().toExternalForm()));
+        open.setEnabled(url != null);
+        open.addActionListener(event -> PlatformCommands.openUrl(url.toExternalForm()));
         final JMenuItem copyUrl = new JMenuItem("Copy URL");
-        copyUrl.addActionListener(event -> CopyPathAction.copy(request.url().toExternalForm()));
+        copyUrl.setEnabled(url != null);
+        copyUrl.addActionListener(event -> CopyPathAction.copy(url.toExternalForm()));
         final JMenuItem importItem = new JMenuItem("Import PR branch");
         importItem.addActionListener(
                 event -> ImportBranchAction.importPullRequest(actionContext, request));
@@ -314,9 +295,7 @@ public final class PullRequestCard extends JPanel {
                             options,
                             options[0]);
             if (choice == 0) {
-                actionContext
-                        .viewCoordinator()
-                        .updateView(ViewId.SETTINGS, ViewCoordinator.ViewState.reset());
+                new OpenSettingsAction(actionContext).execute();
             }
             return;
         }

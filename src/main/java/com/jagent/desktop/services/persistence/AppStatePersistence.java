@@ -5,7 +5,6 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
-import com.jagent.desktop.models.github.PatCredential;
 import com.jagent.desktop.services.AgentDetection;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.EditorDetection;
@@ -14,6 +13,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -32,7 +32,6 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
     private final AppState appState;
     private final Path directory;
     private final Path projectsFile;
-    private final Path settingsFile;
     private final ScheduledExecutorService executor;
     private final ScheduledFuture<?> scheduledPersist;
 
@@ -41,7 +40,6 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
         this.appState = appState;
         this.directory = directory;
         this.projectsFile = directory.resolve("projects.json");
-        this.settingsFile = directory.resolve("settings.json");
         this.executor =
                 Executors.newSingleThreadScheduledExecutor(
                         runnable -> {
@@ -55,27 +53,82 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
     }
 
     public static AppState load(final Path directory) {
-        final Path projectsFile = directory.resolve("projects.json");
-        final Path settingsFile = directory.resolve("settings.json");
-        final boolean settingsExist = Files.exists(settingsFile);
-        final PersistedProjects projects =
-                readOrDefault(projectsFile, PersistedProjects.class, new PersistedProjects());
-        final AppSettings loadedSettings =
-                readOrDefault(settingsFile, AppSettings.class, Defaults.appSettings());
-        final AppSettings settings = settings(settingsExist, loadedSettings);
-        return new AppState(
-                settings,
-                projects.projects,
-                projects.sessions,
-                projects.terminals,
-                projects.githubConnections);
+        return loadWithResult(directory).state();
     }
 
-    private static AppSettings settings(
-            final boolean settingsExist, final AppSettings loadedSettings) {
-        if (settingsExist || loadedSettings == null) {
-            return loadedSettings == null ? Defaults.appSettings() : loadedSettings;
+    public record LoadResult(AppState state, String settingsError) {
+        public boolean hasSettingsError() {
+            return settingsError != null;
         }
+    }
+
+    public static LoadResult loadWithResult(final Path directory) {
+        final Path projectsFile = directory.resolve("projects.json");
+        final Path settingsFile = directory.resolve("settings.json");
+        final PersistedProjects projects =
+                readOrDefault(projectsFile, PersistedProjects.class, new PersistedProjects());
+        final SettingsResult settings = loadSettings(directory, settingsFile);
+        return new LoadResult(
+                new AppState(
+                        settings.settings(),
+                        projects.projects,
+                        projects.sessions,
+                        projects.terminals),
+                settings.error());
+    }
+
+    public record SettingsResult(AppSettings settings, String error) {
+        public boolean hasError() {
+            return error != null;
+        }
+    }
+
+    public static SettingsResult loadSettings(final Path directory) {
+        return loadSettings(directory, directory.resolve("settings.json"));
+    }
+
+    public SettingsResult reloadSettings() {
+        final SettingsResult result = loadSettings(directory);
+        if (!result.hasError()) {
+            appState.updateAppSettings(result.settings());
+        }
+        return result;
+    }
+
+    private static SettingsResult loadSettings(final Path directory, final Path settingsFile) {
+        if (!Files.exists(settingsFile)) {
+            final AppSettings defaults = logicalDefaults();
+            try {
+                Files.createDirectories(directory);
+                writeInitialSettings(settingsFile, defaults);
+                return new SettingsResult(defaults, null);
+            } catch (IOException exception) {
+                LOG.warn(
+                        "Failed to initialize {}; using in-memory defaults.",
+                        settingsFile,
+                        exception);
+                return new SettingsResult(
+                        defaults,
+                        "Branchloom could not create the initial settings file: "
+                                + exception.getMessage());
+            }
+        }
+        try {
+            copySchema(settingsFile);
+            return new SettingsResult(
+                    read(settingsFile, AppSettings.class, Defaults.appSettings()), null);
+        } catch (IOException | RuntimeException exception) {
+            LOG.warn("Failed to load {}; using in-memory defaults.", settingsFile, exception);
+            return new SettingsResult(
+                    Defaults.appSettings(),
+                    "Branchloom could not load settings.json at "
+                            + settingsFile
+                            + ". Fix the JSON and choose Refresh Settings.\n\n"
+                            + exception.getMessage());
+        }
+    }
+
+    private static AppSettings logicalDefaults() {
         final AppSettings defaults = Defaults.appSettings();
         return new AppSettings(
                 AgentDetection.detect(),
@@ -85,7 +138,30 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
                 EditorDetection.detect(),
                 defaults.worktreeTemplate(),
                 defaults.agentContextPath(),
-                defaults.pullRequestFilters());
+                defaults.pullRequestFilters(),
+                defaults.boards(),
+                defaults.jiraEndpoint());
+    }
+
+    private static void writeInitialSettings(final Path settingsFile, final AppSettings settings)
+            throws IOException {
+        final com.google.gson.JsonObject json = JSON.toJsonTree(settings).getAsJsonObject();
+        json.addProperty(
+                "$schema", settingsFile.resolveSibling("settings.schema.json").toUri().toString());
+        Files.writeString(settingsFile, JSON.toJson(json));
+        copySchema(settingsFile);
+    }
+
+    private static void copySchema(final Path settingsFile) throws IOException {
+        final var schema = AppStatePersistence.class.getResourceAsStream("/settings.schema.json");
+        if (schema != null) {
+            try (schema) {
+                Files.copy(
+                        schema,
+                        settingsFile.resolveSibling("settings.schema.json"),
+                        StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
     }
 
     public void persist() {
@@ -136,21 +212,15 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
                         .forEach(
                                 (id, terminal) ->
                                         projects.terminals.put(id.value().toString(), terminal));
-                projects.githubConnections.putAll(snapshot.githubConnections());
                 writeAtomically(projectsFile, projects);
                 snapshot.terminalEvents().forEach(this::updateTerminalHistory);
-            }
-            if (snapshot.appSettingsUpdated()) {
-                writeAtomically(settingsFile, snapshot.appSettings());
             }
         } catch (IOException exception) {
             LOG.warn("Failed to persist application state", exception);
             SwingUtilities.invokeLater(
                     () ->
                             appState.restorePersistenceUpdates(
-                                    snapshot.appSettingsUpdated(),
-                                    snapshot.projectsUpdated(),
-                                    snapshot.terminalEvents()));
+                                    snapshot.projectsUpdated(), snapshot.terminalEvents()));
         }
     }
 
@@ -231,6 +301,5 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
         private final Map<String, Project> projects = new LinkedHashMap<>();
         private final Map<String, Session> sessions = new LinkedHashMap<>();
         private final Map<String, Terminal> terminals = new LinkedHashMap<>();
-        private final Map<String, PatCredential> githubConnections = new LinkedHashMap<>();
     }
 }

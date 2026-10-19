@@ -4,22 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.models.GitHubUser;
 import com.jagent.desktop.models.Project;
-import com.jagent.desktop.models.ProjectId;
-import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewCoordinator;
-import com.jagent.desktop.test.SwingTestSupport;
 import com.jagent.desktop.ui.Defaults;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.Date;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
@@ -30,12 +19,9 @@ class BoardsUiTest {
     @Test
     void emptyPullRequestBoardShowsAndAcceptsFilters() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+        final var context = new ActionContext(new ViewCoordinator(state), state, null, null, null);
         final PullRequestsBoard board =
-                GuiActionRunner.execute(
-                        () ->
-                                new PullRequestsBoard(
-                                        context, (query, forceRefresh) -> List.of(), ""));
+                GuiActionRunner.execute(() -> new PullRequestsBoard(context, ""));
         board.setFilter(null);
         board.setFilter("missing");
         assertTrue(board.isVisible(), "board should remain visible after filter changes");
@@ -45,92 +31,13 @@ class BoardsUiTest {
     void blankInitialQueryDoesNotLoadPullRequests() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
-        final var context = new ActionContext(new ViewCoordinator(state), state, null);
-        final var loaded = new AtomicBoolean();
-
-        GuiActionRunner.execute(
-                () ->
-                        new PullRequestsBoard(
-                                context,
-                                (query, forceRefresh) -> {
-                                    loaded.set(true);
-                                    return List.of();
-                                },
-                                ""));
-
-        assertFalse(loaded.get(), "blank queries should not trigger a pull request search");
-    }
-
-    @Test
-    void pullRequestBoardRendersLoadedRequestsAndFiltersThem()
-            throws InterruptedException, MalformedURLException {
-        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ProjectId projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
-        final var context = new ActionContext(new ViewCoordinator(state), state, null);
-        final var loaded = new CountDownLatch(1);
-        final var initialQuery = new java.util.concurrent.atomic.AtomicReference<String>();
-        final PullRequest request = pullRequest(projectId, 12, "Fix login", "author-one");
+        final var context = new ActionContext(new ViewCoordinator(state), state, null, null, null);
         final PullRequestsBoard board =
-                GuiActionRunner.execute(
-                        () ->
-                                new PullRequestsBoard(
-                                        context,
-                                        (query, forceRefresh) -> {
-                                            initialQuery.set(query);
-                                            loaded.countDown();
-                                            return List.of(request);
-                                        },
-                                        "author:@me"));
-        assertTrue(loaded.await(5, TimeUnit.SECONDS), "board should invoke refresh supplier");
-        assertTrue(
-                "author:@me".equals(initialQuery.get()),
-                "board should use the selected filter query on initial refresh");
-        SwingTestSupport.await(
-                () -> componentText(board).contains("Fix login"), "PR should render");
-        GuiActionRunner.execute(() -> board.setFilter("login"));
-        assertTrue(
-                componentText(board).contains("Results"), "filter results summary should be shown");
-    }
+                GuiActionRunner.execute(() -> new PullRequestsBoard(context, ""));
 
-    @Test
-    void pullRequestBoardReportsRefreshFailures() throws InterruptedException {
-        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
-        final var context = new ActionContext(new ViewCoordinator(state), state, null);
-        final PullRequestsBoard board =
-                GuiActionRunner.execute(
-                        () ->
-                                new PullRequestsBoard(
-                                        context,
-                                        (query, forceRefresh) -> {
-                                            throw new IllegalStateException("fixture failure");
-                                        },
-                                        "author:@me"));
-        SwingTestSupport.await(
-                () -> componentText(board).contains("PR refresh failed"),
-                "refresh failures should be surfaced");
-        assertTrue(
-                componentText(board).contains("PR refresh failed"),
-                "refresh failure text should be rendered after async update");
-    }
-
-    private static PullRequest pullRequest(
-            final ProjectId projectId, final int number, final String title, final String author)
-            throws MalformedURLException {
-        return new PullRequest(
-                projectId,
-                new Project(PROJECT_NAME, PROJECT_PATH, null),
-                number,
-                PullRequest.State.OPEN,
-                title,
-                "Description",
-                new URL("https://example.test/" + number),
-                new Date(),
-                new Date(),
-                new GitHubUser(author, new URL("https://example.test/" + author)),
-                "feature/test",
-                "abcd1234efgh5678",
-                "main");
+        assertFalse(
+                componentText(board).contains("Refreshing"),
+                "blank queries should not trigger a pull request search");
     }
 
     private static String componentText(final java.awt.Component component) {

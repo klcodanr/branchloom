@@ -350,7 +350,7 @@ class WorkspaceTreePanelUiTest {
     private static WorkspaceTreePanel create(final Path workspace) {
         final var state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         return new WorkspaceTreePanel(
-                new ActionContext(new ViewCoordinator(state), state, null),
+                new ActionContext(new ViewCoordinator(state), state, null, null, null),
                 workspace,
                 ignored -> {},
                 (ignored, filtered) -> {});
@@ -362,7 +362,7 @@ class WorkspaceTreePanelUiTest {
             final java.util.function.BiConsumer<Path, Boolean> openFile) {
         final var state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         return new WorkspaceTreePanel(
-                new ActionContext(new ViewCoordinator(state), state, null),
+                new ActionContext(new ViewCoordinator(state), state, null, null, null),
                 workspace,
                 openTerminal,
                 openFile);

@@ -23,6 +23,7 @@ public final class UiConstants {
     public static final int CONTENT_PADDING = SPACING_SM;
     public static final int TAB_INSET = CONTENT_PADDING;
     public static final int CARD_PADDING = SPACING_SM;
+    public static final int CARD_ROW_PADDING = SPACING_XS / 2;
     public static final int TERMINAL_PADDING = SPACING_SM;
     public static final Insets ZERO_INSETS = new Insets(0, 0, 0, 0);
     public static final int PR_CARD_WIDTH = 200;

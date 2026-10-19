@@ -87,7 +87,12 @@ class ImportProjectDialogUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new ImportProjectDialog(
-                                        new ActionContext(new ViewCoordinator(state), state, owner),
+                                        new ActionContext(
+                                                new ViewCoordinator(state),
+                                                state,
+                                                owner,
+                                                null,
+                                                null),
                                         List.of(),
                                         request::set));
         final DialogFixture fixture = new DialogFixture(robot, dialog);

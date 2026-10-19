@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Branchloom global settings",
+  "description": "Global Branchloom configuration. Project-specific settings are stored separately in projects.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "URL of the JSON Schema used to provide editor validation and completion."
+    },
+    "agents": {
+      "type": "array",
+      "description": "Agent commands available when creating and opening sessions.",
+      "items": { "$ref": "#/$defs/agent" }
+    },
+    "groupOrder": {
+      "type": "array",
+      "description": "Project group names in the order they should appear in the workspace tree.",
+      "items": {
+        "type": "string",
+        "description": "A project group name."
+      }
+    },
+    "reviewPrompt": {
+      "type": "string",
+      "description": "Prompt template used when starting a pull request review."
+    },
+    "theme": {
+      "type": "string",
+      "description": "Application color theme. System follows the operating system preference.",
+      "enum": ["System", "Light", "Dark", "Mac Dark", "IntelliJ"]
+    },
+    "tools": {
+      "type": "array",
+      "description": "External tools used for opening files and directories.",
+      "items": { "$ref": "#/$defs/tool" }
+    },
+    "worktreeTemplate": {
+      "type": "string",
+      "description": "Template for new worktree paths. Supports {projectName}, {projectPath}, {sessionName}, {sessionSlug}, and {worktreePath}."
+    },
+    "agentContextPath": {
+      "type": "string",
+      "description": "Optional path to shared context supplied to agent sessions."
+    },
+    "pullRequestFilters": {
+      "type": "array",
+      "description": "Saved filters used to select pull requests in the pull request views.",
+      "items": { "$ref": "#/$defs/pullRequestFilter" }
+    },
+    "jiraEndpoint": {
+      "type": "string",
+      "description": "Base URL of the Jira instance. Authentication uses the JIRA_TOKEN environment variable."
+    },
+    "boards": {
+      "type": "array",
+      "description": "Named kanban boards and the sources, columns, and rules shown on each board.",
+      "items": { "$ref": "#/$defs/boardDefinition" }
+    }
+  },
+  "$defs": {
+    "agent": {
+      "type": "object",
+      "description": "An agent executable and the commands used to create or open a session.",
+      "additionalProperties": false,
+      "required": ["name", "newSessionCommand", "openCommand"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Display name of the agent."
+        },
+        "newSessionCommand": {
+          "type": "string",
+          "description": "Command used to start a new agent session. Supports {prompt}."
+        },
+        "openCommand": {
+          "type": "string",
+          "description": "Command used to open an existing agent session. Supports {prompt}."
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "description": "An external editor or other file-opening tool.",
+      "additionalProperties": false,
+      "required": ["label", "command"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Display name of the tool."
+        },
+        "command": {
+          "type": "string",
+          "description": "Executable command used to open a file."
+        }
+      }
+    },
+    "pullRequestFilter": {
+      "type": "object",
+      "description": "A named pull request query.",
+      "additionalProperties": false,
+      "required": ["name", "query"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Display name of the filter."
+        },
+        "query": {
+          "type": "string",
+          "description": "Query used to select pull requests."
+        }
+      }
+    },
+    "boardDefinition": {
+      "type": "object",
+      "description": "A named kanban board.",
+      "additionalProperties": false,
+      "required": ["name", "config"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Display name of the board."
+        },
+        "config": {
+          "$ref": "#/$defs/boardConfig",
+          "description": "Columns and source configuration for the board."
+        }
+      }
+    },
+    "boardConfig": {
+      "type": "object",
+      "description": "Board columns and enabled item sources.",
+      "additionalProperties": false,
+      "required": ["columns", "sources"],
+      "properties": {
+        "columns": {
+          "type": "array",
+          "description": "Columns displayed from left to right.",
+          "items": { "$ref": "#/$defs/boardColumn" }
+        },
+        "sources": {
+          "$ref": "#/$defs/sourceConfigs",
+          "description": "Sources that provide items for the board."
+        }
+      }
+    },
+    "boardColumn": {
+      "type": "object",
+      "description": "A board column and the source values that place items in it.",
+      "additionalProperties": false,
+      "required": ["title", "rules"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Column heading."
+        },
+        "rules": {
+          "type": "object",
+          "description": "Source-specific value mappings used to place items in this column.",
+          "additionalProperties": false,
+          "properties": {
+            "PULL_REQUEST": {
+              "type": "string",
+              "description": "Pull request state value for this column."
+            },
+            "GITHUB_ISSUES": {
+              "type": "string",
+              "description": "GitHub issue state value for this column."
+            },
+            "JIRA": {
+              "type": "string",
+              "description": "Jira issue JEXL rule. Jira exposes status, author, assignee, title, description, dates, and identifiers."
+            },
+            "AGENT_SESSION": {
+              "type": "string",
+              "description": "Agent session state value for this column."
+            }
+          }
+        }
+      }
+    },
+    "sourceConfigs": {
+      "type": "object",
+      "description": "Configuration for each board item source.",
+      "additionalProperties": false,
+       "required": ["AGENT_SESSION", "GITHUB_ISSUES", "PULL_REQUEST", "JIRA"],
+       "properties": {
+        "AGENT_SESSION": {
+          "$ref": "#/$defs/AGENT_SESSION_CONFIG",
+          "description": "Agent session source configuration."
+        },
+        "GITHUB_ISSUES": {
+          "$ref": "#/$defs/querySourceConfig",
+          "description": "GitHub issues source configuration."
+        },
+        "PULL_REQUEST": {
+          "$ref": "#/$defs/querySourceConfig",
+          "description": "Pull request source configuration."
+        },
+        "JIRA": {
+          "$ref": "#/$defs/querySourceConfig",
+          "description": "Jira issues source configuration."
+        }
+      }
+    },
+    "AGENT_SESSION_CONFIG": {
+      "type": "object",
+      "description": "Enables or disables agent session items.",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether agent session items are included."
+        }
+      }
+    },
+    "querySourceConfig": {
+      "type": "object",
+      "description": "Enables a source and optionally filters its items by query.",
+      "additionalProperties": false,
+      "required": ["enabled", "query"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether items from this source are included."
+        },
+        "query": {
+          "type": "string",
+          "description": "Source-specific query used to select items."
+        }
+      }
+    }
+  }
+}

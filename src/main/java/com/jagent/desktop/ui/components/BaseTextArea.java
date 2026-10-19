@@ -12,21 +12,29 @@ import javax.swing.KeyStroke;
 public class BaseTextArea extends JTextArea {
     public BaseTextArea() {
         super();
+        this.setLineWrap(true);
+        this.setWrapStyleWord(true);
         configureTraversal();
     }
 
     public BaseTextArea(final String text) {
         super(text);
+        this.setLineWrap(true);
+        this.setWrapStyleWord(true);
         configureTraversal();
     }
 
     public BaseTextArea(final int rows, final int columns) {
         super(rows, columns);
+        this.setLineWrap(true);
+        this.setWrapStyleWord(true);
         configureTraversal();
     }
 
     public BaseTextArea(final String text, final int rows, final int columns) {
         super(text, rows, columns);
+        this.setLineWrap(true);
+        this.setWrapStyleWord(true);
         configureTraversal();
     }
 

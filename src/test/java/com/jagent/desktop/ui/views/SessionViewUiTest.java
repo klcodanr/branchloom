@@ -45,7 +45,8 @@ class SessionViewUiTest {
                                 directory.toString()));
         state.updateCurrentProject(projectId);
         state.updateCurrentSession(sessionId);
-        final ActionContext context = new ActionContext(new ViewCoordinator(state), state, null);
+        final ActionContext context =
+                new ActionContext(new ViewCoordinator(state), state, null, null, null);
 
         final SessionView view = GuiActionRunner.execute(() -> new SessionView(context));
 
@@ -77,7 +78,11 @@ class SessionViewUiTest {
                         () ->
                                 new SessionView(
                                         new ActionContext(
-                                                new ViewCoordinator(state), state, null)));
+                                                new ViewCoordinator(state),
+                                                state,
+                                                null,
+                                                null,
+                                                null)));
 
         GuiActionRunner.execute(view::createTerminal);
 
@@ -108,7 +113,7 @@ class SessionViewUiTest {
                 secondSessionId, new Terminal(secondSessionId, "Second Terminal", SUCCESS_COMMAND));
         state.updateCurrentProject(projectId);
         final var coordinator = new ViewCoordinator(state);
-        final ActionContext context = new ActionContext(coordinator, state, null);
+        final ActionContext context = new ActionContext(coordinator, state, null, null, null);
 
         state.updateCurrentSession(firstSessionId);
         final SessionView firstSessionView =
@@ -152,7 +157,8 @@ class SessionViewUiTest {
                         projectId, new Session(projectId, SESSION_NAME, SESSION_AGENT, null, null));
         state.updateCurrentProject(projectId);
         state.updateCurrentSession(sessionId);
-        final ActionContext context = new ActionContext(new ViewCoordinator(state), state, null);
+        final ActionContext context =
+                new ActionContext(new ViewCoordinator(state), state, null, null, null);
 
         assertThrows(IllegalStateException.class, () -> new SessionView(context));
     }
@@ -179,7 +185,11 @@ class SessionViewUiTest {
                         () ->
                                 new SessionView(
                                         new ActionContext(
-                                                new ViewCoordinator(state), state, null)));
+                                                new ViewCoordinator(state),
+                                                state,
+                                                null,
+                                                null,
+                                                null)));
         final JTabbedPane tabs =
                 (JTabbedPane) ((WorkspaceSplitPane) view.getComponent(1)).getLeftComponent();
 
@@ -212,7 +222,7 @@ class SessionViewUiTest {
         state.updateCurrentProject(projectId);
         state.updateCurrentSession(sessionId);
         final var coordinator = new ViewCoordinator(state);
-        final ActionContext context = new ActionContext(coordinator, state, null);
+        final ActionContext context = new ActionContext(coordinator, state, null, null, null);
 
         final SessionView initialView = GuiActionRunner.execute(() -> new SessionView(context));
         final var terminalId =
@@ -291,7 +301,8 @@ class SessionViewUiTest {
                 state.addTerminal(sessionId, new Terminal(sessionId, "Session", SUCCESS_COMMAND));
         state.updateCurrentProject(projectId);
         state.updateCurrentSession(sessionId);
-        final ActionContext context = new ActionContext(new ViewCoordinator(state), state, null);
+        final ActionContext context =
+                new ActionContext(new ViewCoordinator(state), state, null, null, null);
 
         final ProjectView projectView =
                 GuiActionRunner.execute(

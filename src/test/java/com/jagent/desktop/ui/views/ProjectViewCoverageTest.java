@@ -30,7 +30,8 @@ class ProjectViewCoverageTest {
                         Map.of(),
                         Map.of());
         state.updateCurrentProject(projectId);
-        final ActionContext context = new ActionContext(new ViewCoordinator(state), state, null);
+        final ActionContext context =
+                new ActionContext(new ViewCoordinator(state), state, null, null, null);
 
         final Project passedToView = new Project("Unmapped", directory.toString(), null);
         final ProjectView view = new ProjectView(context, passedToView);

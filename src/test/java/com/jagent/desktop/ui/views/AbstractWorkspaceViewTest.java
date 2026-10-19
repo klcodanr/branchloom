@@ -28,7 +28,8 @@ class AbstractWorkspaceViewTest {
     void opensAndClosesWorkspaceFilesAndRestoresTabs(@TempDir final Path directory)
             throws IOException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ActionContext context = new ActionContext(new ViewCoordinator(state), state, null);
+        final ActionContext context =
+                new ActionContext(new ViewCoordinator(state), state, null, null, null);
         final FakeWorkspaceView view = new FakeWorkspaceView(context, directory);
         final Path file = directory.resolve("notes.txt");
         Files.writeString(file, "hello");
@@ -55,7 +56,8 @@ class AbstractWorkspaceViewTest {
     void togglesWorkspaceTreeFromCollapsedDock(@TempDir final Path directory)
             throws InvocationTargetException, InterruptedException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ActionContext context = new ActionContext(new ViewCoordinator(state), state, null);
+        final ActionContext context =
+                new ActionContext(new ViewCoordinator(state), state, null, null, null);
         final FakeWorkspaceView view = new FakeWorkspaceView(context, directory);
 
         final JButton showFiles = buttonByName(view, SHOW_FILES_BUTTON);
@@ -84,7 +86,8 @@ class AbstractWorkspaceViewTest {
     void omitsWorkspaceTreeWhenWorkspacePathIsNotDirectory(@TempDir final Path directory)
             throws IOException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ActionContext context = new ActionContext(new ViewCoordinator(state), state, null);
+        final ActionContext context =
+                new ActionContext(new ViewCoordinator(state), state, null, null, null);
         final Path fileWorkspace = directory.resolve("workspace.txt");
         Files.writeString(fileWorkspace, "not a directory");
         final FakeWorkspaceView view = new FakeWorkspaceView(context, fileWorkspace);

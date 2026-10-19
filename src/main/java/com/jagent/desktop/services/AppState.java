@@ -7,7 +7,6 @@ import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
-import com.jagent.desktop.models.github.PatCredential;
 import com.jagent.desktop.ui.Defaults;
 import java.io.InvalidObjectException;
 import java.util.ArrayList;
@@ -18,14 +17,12 @@ import java.util.function.Consumer;
 import org.jetbrains.annotations.Nullable;
 
 public class AppState {
-    private boolean appSettingsUpdated;
     private AppSettings appSettings;
     private boolean projectsUpdated;
     private ProjectId currentProject;
     private SessionId currentSession;
     private TerminalId currentTerminal;
     private final Map<ProjectId, Project> projects;
-    private final Map<String, PatCredential> githubConnections;
     private final Map<SessionId, Session> sessions;
     private final Map<TerminalId, Terminal> terminals;
     private final List<TerminalEvent> terminalEvents = new ArrayList<>();
@@ -38,13 +35,10 @@ public class AppState {
     public record TerminalEvent(TerminalAction action, TerminalId terminalId) {}
 
     public record PersistenceSnapshot(
-            boolean appSettingsUpdated,
             boolean projectsUpdated,
-            AppSettings appSettings,
             Map<ProjectId, Project> projects,
             Map<SessionId, Session> sessions,
             Map<TerminalId, Terminal> terminals,
-            Map<String, PatCredential> githubConnections,
             List<TerminalEvent> terminalEvents) {}
 
     public AppState(
@@ -52,15 +46,6 @@ public class AppState {
             final Map<String, Project> projects,
             final Map<String, Session> sessions,
             final Map<String, Terminal> terminals) {
-        this(appSettings, projects, sessions, terminals, Map.of());
-    }
-
-    public AppState(
-            final AppSettings appSettings,
-            final Map<String, Project> projects,
-            final Map<String, Session> sessions,
-            final Map<String, Terminal> terminals,
-            final Map<String, PatCredential> githubConnections) {
         this.appSettings = appSettings == null ? Defaults.appSettings() : appSettings;
         this.projects =
                 projects.entrySet().stream()
@@ -80,10 +65,6 @@ public class AppState {
                                 java.util.stream.Collectors.toMap(
                                         e -> new TerminalId(UUID.fromString(e.getKey())),
                                         Map.Entry::getValue));
-        this.githubConnections =
-                githubConnections == null
-                        ? new java.util.LinkedHashMap<>()
-                        : new java.util.LinkedHashMap<>(githubConnections);
     }
 
     public AppSettings appSettings() {
@@ -114,40 +95,6 @@ public class AppState {
         return Map.copyOf(this.projects);
     }
 
-    public Map<String, PatCredential> githubConnections() {
-        return Map.copyOf(this.githubConnections);
-    }
-
-    public void addGitHubConnection(final PatCredential connection) {
-
-        this.githubConnections.put(connection.id(), connection);
-        this.projectsUpdated = true;
-    }
-
-    public void removeGitHubConnection(final String connectionId) {
-        if (this.githubConnections.remove(connectionId) != null) {
-            this.projects.replaceAll(
-                    (projectId, project) -> {
-                        final var credential = project.credential();
-                        if (credential == null || !connectionId.equals(credential.id())) {
-                            return project;
-                        }
-                        return new Project(
-                                project.name(),
-                                project.path(),
-                                project.group(),
-                                null,
-                                project.worktreeTemplate(),
-                                project.worktreeCommand(),
-                                project.startupCommands(),
-                                project.sessionIds(),
-                                project.agentContextPath(),
-                                project.agentContextText());
-                    });
-            this.projectsUpdated = true;
-        }
-    }
-
     public Map<SessionId, Session> sessions() {
         return Map.copyOf(this.sessions);
     }
@@ -158,35 +105,27 @@ public class AppState {
 
     public void updateAppSettings(final AppSettings appSettings) {
         this.appSettings = appSettings;
-        this.appSettingsUpdated = true;
     }
 
     public PersistenceSnapshot snapshotForPersistence() {
         // AppState is owned by Swing; persistence requests this snapshot on the EDT.
-        if (!appSettingsUpdated && !projectsUpdated) {
+        if (!projectsUpdated) {
             return null;
         }
         final PersistenceSnapshot snapshot =
                 new PersistenceSnapshot(
-                        appSettingsUpdated,
                         projectsUpdated,
-                        appSettings,
                         Map.copyOf(projects),
                         Map.copyOf(sessions),
                         Map.copyOf(terminals),
-                        Map.copyOf(githubConnections),
                         List.copyOf(terminalEvents));
-        appSettingsUpdated = false;
         projectsUpdated = false;
         terminalEvents.clear();
         return snapshot;
     }
 
     public void restorePersistenceUpdates(
-            final boolean appSettingsUpdated,
-            final boolean projectsUpdated,
-            final List<TerminalEvent> terminalEvents) {
-        this.appSettingsUpdated |= appSettingsUpdated;
+            final boolean projectsUpdated, final List<TerminalEvent> terminalEvents) {
         this.projectsUpdated |= projectsUpdated || !terminalEvents.isEmpty();
         this.terminalEvents.addAll(0, terminalEvents);
     }

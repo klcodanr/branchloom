@@ -16,7 +16,8 @@ class MyPullRequestsViewTest {
     @Test
     void viewIdentityAndRefreshWorkWithoutProjects() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ActionContext context = new ActionContext(new ViewCoordinator(state), state, null);
+        final ActionContext context =
+                new ActionContext(new ViewCoordinator(state), state, null, null, null);
 
         final MyPullRequestsView view = new MyPullRequestsView(context);
         view.refresh();

@@ -38,7 +38,7 @@ class ViewsUiTest {
     void homeViewBuildsItsDashboardForAnEmptyApplication() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var coordinator = new ViewCoordinator(state);
-        final var context = new ActionContext(coordinator, state, null);
+        final var context = new ActionContext(coordinator, state, null, null, null);
 
         final var view = GuiActionRunner.execute(() -> new HomeView(context));
 

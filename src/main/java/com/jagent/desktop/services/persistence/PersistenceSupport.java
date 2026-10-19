@@ -10,7 +10,6 @@ import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 import com.jagent.desktop.models.github.CliCredential;
 import com.jagent.desktop.models.github.Credential;
-import com.jagent.desktop.models.github.PatCredential;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
@@ -41,9 +40,7 @@ class PersistenceSupport {
     private static final class CredentialJsonAdapter
             implements JsonSerializer<Credential>, JsonDeserializer<Credential> {
         private static final String TYPE = "type";
-        private static final String TYPE_PAT = "pat";
         private static final String TYPE_CLI = "cli";
-        private static final String FIELD_CREDENTIAL_ID = "credentialId";
         private static final String FIELD_ID = "id";
         private static final String FIELD_HOST = "host";
         private static final String FIELD_NAME = "name";
@@ -58,13 +55,6 @@ class PersistenceSupport {
                 return null;
             }
             final JsonObject json = new JsonObject();
-            if (source instanceof PatCredential pat) {
-                json.addProperty(TYPE, TYPE_PAT);
-                json.addProperty(FIELD_CREDENTIAL_ID, pat.credentialId());
-                json.addProperty(FIELD_HOST, pat.host());
-                json.addProperty(FIELD_NAME, pat.name());
-                return json;
-            }
             if (source instanceof CliCredential cli) {
                 json.addProperty(TYPE, TYPE_CLI);
                 json.addProperty(FIELD_HOST, cli.host());
@@ -88,12 +78,6 @@ class PersistenceSupport {
             }
             final JsonObject json = source.getAsJsonObject();
             final String type = stringValue(json, TYPE);
-            if (TYPE_PAT.equals(type) || json.has(FIELD_CREDENTIAL_ID)) {
-                return new PatCredential(
-                        stringValue(json, FIELD_CREDENTIAL_ID),
-                        stringValue(json, FIELD_HOST),
-                        stringValue(json, FIELD_NAME));
-            }
             if (TYPE_CLI.equals(type) || json.has(FIELD_USER)) {
                 return new CliCredential(
                         stringValue(json, FIELD_HOST),

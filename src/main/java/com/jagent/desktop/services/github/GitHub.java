@@ -20,6 +20,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -291,9 +292,7 @@ public final class GitHub {
                 checks = new PullRequestChecks(List.of());
             }
             return new PullRequestDetails(
-                    projectId,
-                    project,
-                    ghPullRequest.getNumber(),
+                    request,
                     ghPullRequest.isDraft(),
                     Boolean.TRUE.equals(ghPullRequest.getMergeable()),
                     ghPullRequest.getMergeableState() == null
@@ -377,22 +376,25 @@ public final class GitHub {
         return requests;
     }
 
-    public List<Issue> listIssues() throws IOException, InterruptedException {
+    public List<Issue> listIssues(final String query) throws IOException, InterruptedException {
+        final String search = query == null || query.isEmpty() ? "is:open" : query;
+        final GHRepository repository = repository();
 
-        return StreamSupport.stream(
-                        client().searchIssues()
-                                .q("repo:" + repository.getFullName() + " is:issue is:open")
-                                .list()
-                                .spliterator(),
-                        false)
-                .map(
-                        issue ->
-                                new Issue(
-                                        issue.getNumber(),
-                                        issue.getTitle(),
-                                        issue.getBody(),
-                                        issue.getHtmlUrl()))
-                .toList();
+        final List<Issue> issues = new ArrayList<>();
+        for (final var issue :
+                client().searchIssues()
+                        .q("repo:" + repository.getFullName() + " is:issue " + search)
+                        .list()) {
+            issues.add(
+                    new Issue(
+                            issue.getNumber(),
+                            issue.getTitle(),
+                            issue.getBody(),
+                            issue.getHtmlUrl(),
+                            issue.getCreatedAt(),
+                            issue.getUpdatedAt()));
+        }
+        return List.copyOf(issues);
     }
 
     public PullRequestReviews getReviews(final PullRequest request)

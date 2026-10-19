@@ -1,20 +1,17 @@
 package com.jagent.desktop.ui.components;
 
-import com.jagent.desktop.async.BackgroundOperations;
+import com.jagent.desktop.async.AsyncStateListener;
+import com.jagent.desktop.async.PullRequestInstanceState;
 import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequestDetails;
-import com.jagent.desktop.services.github.GitHub;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiFunction;
+import java.util.Optional;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -35,7 +32,7 @@ public final class PullRequestsBoard extends JPanel {
 
     private static final Logger LOG = LoggerFactory.getLogger(PullRequestsBoard.class);
     private final transient ActionContext actionContext;
-    private final transient BiFunction<String, Boolean, List<PullRequest>> onRefresh;
+    private final transient Map<ProjectId, PullRequestInstanceState> pullRequestStates;
     private final JButton refreshButton;
     private final JLabel refreshStatus;
     private final transient RotatingIcon refreshIcon = new RotatingIcon(UiIcons.refresh());
@@ -48,25 +45,35 @@ public final class PullRequestsBoard extends JPanel {
     private final JScrollPane summaryScroll;
     private final JSplitPane splitPane;
 
-    private transient List<PullRequest> requests = List.of();
-    private transient PullRequest selectedRequest;
-    private final transient Map<String, PullRequestDetails> detailsByKey =
-            new ConcurrentHashMap<>();
-    private final transient Set<String> loadedDetailKeys = new HashSet<>();
-    private final transient Set<String> loadingDetailKeys = new HashSet<>();
+    private transient List<PullRequestDetails> requests = List.of();
+    private transient PullRequestDetails selectedRequest;
     private boolean refreshInFlight;
     private boolean refreshQueued;
     private String localFilter = "";
     private String currentQuery = "";
 
+    public PullRequestsBoard(final ActionContext actionContext, final String initialQuery) {
+        this(actionContext, null, initialQuery);
+    }
+
     public PullRequestsBoard(
             final ActionContext actionContext,
-            final BiFunction<String, Boolean, List<PullRequest>> onRefresh,
+            final ProjectId projectId,
             final String initialQuery) {
         super();
         this.actionContext = actionContext;
+        this.pullRequestStates = new java.util.HashMap<>();
+        if (projectId != null) {
+            pullRequestStates.put(projectId, stateFor(projectId));
+        } else {
+            actionContext
+                    .appState()
+                    .projects()
+                    .keySet()
+                    .forEach(id -> pullRequestStates.put(id, stateFor(id)));
+        }
         setLayout(new BorderLayout(0, UiConstants.CONTENT_PADDING));
-        this.onRefresh = onRefresh;
+
         this.summary = new PullRequestSummaryPanel();
         currentQuery = UiText.valueOrDefault(initialQuery, "").trim();
 
@@ -112,12 +119,6 @@ public final class PullRequestsBoard extends JPanel {
         listScroll.getViewport().setOpaque(false);
         listScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         listScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
-        listScroll
-                .getViewport()
-                .addChangeListener(
-                        event ->
-                                PullRequestBoardSupport.loadVisibleDetails(
-                                        list, listScroll, this::ensureDetailsLoaded));
         summary.setOpaque(false);
         summary.setLayout(new BorderLayout(0, UiConstants.SPACING_MD));
         summary.setBorder(
@@ -138,7 +139,7 @@ public final class PullRequestsBoard extends JPanel {
         splitPane.setResizeWeight(0.3);
         SwingUtilities.invokeLater(() -> splitPane.setDividerLocation(0.3));
         add(loading, BorderLayout.CENTER);
-        refresh(false);
+        refresh();
     }
 
     public void setFilter(final String filter) {
@@ -154,10 +155,6 @@ public final class PullRequestsBoard extends JPanel {
     }
 
     public void refresh() {
-        refresh(true);
-    }
-
-    private void refresh(final boolean forceRefresh) {
         if (refreshInFlight) {
             refreshQueued = true;
             refreshStatus.setText("Refreshing PRs... (queued)");
@@ -188,50 +185,59 @@ public final class PullRequestsBoard extends JPanel {
             revalidate();
             repaint();
         }
-        if (this.actionContext.appState().projects().isEmpty()) {
+        if (pullRequestStates.isEmpty()) {
             completeRefresh(List.of(), "PRs refreshed", started);
             return;
         }
-        BackgroundOperations.submit(
-                        "Pull Requests",
-                        "pull-request-cache-refresh",
-                        () -> {
-                            final List<PullRequest> loaded =
-                                    onRefresh.apply(currentQuery, forceRefresh);
-                            LOG.info(
-                                    "PR board load finished: count={}, query={}, elapsedMs={}",
-                                    loaded.size(),
-                                    currentQuery,
-                                    (System.nanoTime() - started) / 1_000_000);
-                            return loaded;
-                        })
-                .thenAcceptAsync(
-                        loaded -> completeRefresh(loaded, "PRs refreshed", started),
-                        SwingUtilities::invokeLater)
-                .exceptionally(
-                        failure -> {
-                            SwingUtilities.invokeLater(
-                                    () -> {
-                                        refreshButton.setEnabled(true);
-                                        PullRequestBoardSupport.stopRefreshAnimation(
-                                                refreshIcon, refreshAnimation, refreshButton);
-                                        refreshStatus.setText("PR refresh failed");
-                                        LOG.warn(
-                                                "PR board load failed after {}ms",
-                                                (System.nanoTime() - started) / 1_000_000,
-                                                failure);
-                                        completeRefresh(requests, "PR refresh failed", started);
-                                    });
-                            return null;
-                        });
+        for (final Map.Entry<ProjectId, PullRequestInstanceState> entry :
+                pullRequestStates.entrySet()) {
+            final PullRequestInstanceState state = entry.getValue();
+            final PullRequestInstanceState.PullRequestKey key =
+                    new PullRequestInstanceState.PullRequestKey(entry.getKey(), currentQuery);
+            state.setListener(
+                    key,
+                    new AsyncStateListener<>() {
+                        @Override
+                        public void onComplete(final List<PullRequestDetails> ignored) {
+                            completeRefresh(loadCachedRequests(), "PRs refreshed", started);
+                        }
+
+                        @Override
+                        public void onFailure(final Throwable failure) {
+                            LOG.warn("PR board load failed", failure);
+                            completeRefresh(loadCachedRequests(), "PR refresh failed", started);
+                        }
+                    });
+            state.fetch(key, key);
+        }
+    }
+
+    private PullRequestInstanceState stateFor(final ProjectId project) {
+        return actionContext
+                .viewCoordinator()
+                .getOrDefaultAsyncLoadingState(
+                        project,
+                        new PullRequestInstanceState(
+                                actionContext.appState(),
+                                actionContext.viewCoordinator().backgroundJobs()));
+    }
+
+    private List<PullRequestDetails> loadCachedRequests() {
+        return pullRequestStates.entrySet().stream()
+                .map(
+                        entry ->
+                                entry.getValue()
+                                        .get(
+                                                new PullRequestInstanceState.PullRequestKey(
+                                                        entry.getKey(), currentQuery)))
+                .filter(Optional::isPresent)
+                .flatMap(optional -> optional.get().stream())
+                .toList();
     }
 
     private void completeRefresh(
-            final List<PullRequest> loaded, final String status, final long started) {
+            final List<PullRequestDetails> loaded, final String status, final long started) {
         requests = loaded;
-        loadedDetailKeys.clear();
-        loadingDetailKeys.clear();
-        detailsByKey.clear();
         refreshButton.setEnabled(true);
         PullRequestBoardSupport.stopRefreshAnimation(refreshIcon, refreshAnimation, refreshButton);
         refreshStatus.setText(status);
@@ -255,7 +261,7 @@ public final class PullRequestsBoard extends JPanel {
     }
 
     private void render() {
-        final List<PullRequest> requests =
+        final List<PullRequestDetails> requests =
                 this.requests.stream()
                         .filter(
                                 request ->
@@ -290,11 +296,9 @@ public final class PullRequestsBoard extends JPanel {
             empty.setForeground(Theme.Colors.muted());
             list.add(empty);
         }
-        for (final PullRequest request : requests) {
-            final PullRequestDetails details =
-                    detailsByKey.get(PullRequestPresentation.detailKey(request));
+        for (final PullRequestDetails request : requests) {
             final PullRequestCard card =
-                    new PullRequestCard(actionContext, request, details, this::refresh);
+                    new PullRequestCard(actionContext, request, request, this::refresh);
             final JPanel cardRow = new JPanel(new BorderLayout());
             cardRow.setOpaque(false);
             cardRow.putClientProperty("pullRequest", request);
@@ -307,80 +311,26 @@ public final class PullRequestsBoard extends JPanel {
                             ? BorderFactory.createCompoundBorder(
                                     BorderFactory.createLineBorder(Theme.Colors.focus(), 2),
                                     new EmptyBorder(0, 0, 0, 0))
-                            : new EmptyBorder(2, 2, 2, 2));
+                            : UiBorders.cardRow());
             cardRow.add(card, BorderLayout.CENTER);
             PullRequestBoardSupport.registerSelectionClick(
                     cardRow,
                     request,
                     selected -> {
-                        selectedRequest = selected;
+                        selectedRequest =
+                                requests.stream()
+                                        .filter(detail -> detail.equals(selected))
+                                        .findFirst()
+                                        .orElse(null);
                         render();
                     });
             list.add(cardRow);
             list.add(Box.createVerticalStrut(UiConstants.CONTENT_PADDING));
         }
-        summary.render(
-                selectedRequest,
-                detailsByKey.get(PullRequestPresentation.detailKey(selectedRequest)));
-        PullRequestBoardSupport.loadSelectedDetails(selectedRequest, this::ensureDetailsLoaded);
-        SwingUtilities.invokeLater(
-                () ->
-                        PullRequestBoardSupport.loadVisibleDetails(
-                                list, listScroll, this::ensureDetailsLoaded));
+        summary.render(selectedRequest, selectedRequest);
         list.revalidate();
         list.repaint();
         summary.revalidate();
         summary.repaint();
-    }
-
-    private PullRequestDetails loadDetails(final PullRequest request) {
-        final var project = actionContext.appState().projects().get(request.projectId());
-        if (project == null) {
-            return new PullRequestDetails(
-                    request.projectId(),
-                    request.project(),
-                    request.number(),
-                    false,
-                    false,
-                    "",
-                    0,
-                    0,
-                    0);
-        }
-        try {
-            return GitHub.forProject(this.actionContext.appState(), request.projectId())
-                    .getPullRequestDetails(request);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("PR detail loading was interrupted", exception);
-        } catch (java.io.IOException exception) {
-            throw new IllegalStateException("Could not load PR details", exception);
-        }
-    }
-
-    private void ensureDetailsLoaded(final PullRequest request) {
-        final String detailKey = PullRequestPresentation.detailKey(request);
-        if (loadedDetailKeys.contains(detailKey) || loadingDetailKeys.contains(detailKey)) {
-            return;
-        }
-        loadingDetailKeys.add(detailKey);
-        BackgroundOperations.submit("Pull Requests", "load-pr-details", () -> loadDetails(request))
-                .thenAcceptAsync(
-                        details -> {
-                            loadedDetailKeys.add(detailKey);
-                            loadingDetailKeys.remove(detailKey);
-                            detailsByKey.put(detailKey, details);
-                            if (request.equals(selectedRequest)
-                                    || PullRequestBoardSupport.isVisible(
-                                            request, list, listScroll)) {
-                                render();
-                            }
-                        },
-                        SwingUtilities::invokeLater)
-                .exceptionally(
-                        failure -> {
-                            SwingUtilities.invokeLater(() -> loadingDetailKeys.remove(detailKey));
-                            return null;
-                        });
     }
 }

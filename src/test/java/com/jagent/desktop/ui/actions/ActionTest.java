@@ -59,10 +59,8 @@ class ActionTest {
                 state.addSession(
                         projectId, new Session(projectId, SESSION_NAME, "agent", "prompt", null));
         final var coordinator = new ViewCoordinator(state);
-        final var context = new ActionContext(coordinator, state, null);
+        final var context = new ActionContext(coordinator, state, null, null, null);
 
-        new OpenSettingsAction(context).execute();
-        assertEquals(ViewId.SETTINGS, coordinator.currentViewId(), ASSERTION_MESSAGE);
         new ProblemsAction(context).execute();
         assertEquals(ViewId.PROBLEMS, coordinator.currentViewId(), ASSERTION_MESSAGE);
         new ResourceUsageAction(context).execute();
@@ -83,7 +81,7 @@ class ActionTest {
     void selectionDependentActionsReportEnablement() throws InvalidObjectException {
         final AppState state = TestAppState.empty();
         final var coordinator = new ViewCoordinator(state);
-        final var context = new ActionContext(coordinator, state, null);
+        final var context = new ActionContext(coordinator, state, null, null, null);
         final var projectAction = new OpenProjectAction(context);
         final var sessionAction = new OpenSessionAction(context);
         final var terminalAction = new CreateTerminalAction(context, "Shell", "sh");
@@ -117,7 +115,7 @@ class ActionTest {
         final AppState state = TestAppState.empty();
         final var coordinator = new ViewCoordinator(state);
         coordinator.updateView(ViewId.HOME, ViewCoordinator.ViewState.reset());
-        final var context = new ActionContext(coordinator, state, null);
+        final var context = new ActionContext(coordinator, state, null, null, null);
         final var importBranch = new ImportBranchAction(context);
         final var importWorktree = new ImportWorktreeAction(context);
         final var importProject = new ImportProjectAction(context);
@@ -141,7 +139,7 @@ class ActionTest {
     void selectionActionsIgnoreMissingSelectionsWithoutOpeningUi() {
         final AppState state = TestAppState.empty();
         final var coordinator = new ViewCoordinator(state);
-        final var context = new ActionContext(coordinator, state, null);
+        final var context = new ActionContext(coordinator, state, null, null, null);
 
         coordinator.updateView(ViewId.HOME, ViewCoordinator.ViewState.reset());
         new OpenProjectAction(context).execute();
@@ -171,7 +169,7 @@ class ActionTest {
                                 "prompt",
                                 tempDirectory.toString()));
         final var coordinator = new ViewCoordinator(state);
-        final var context = new ActionContext(coordinator, state, null);
+        final var context = new ActionContext(coordinator, state, null, null, null);
 
         state.updateCurrentProject(projectId);
         new OpenProjectAction(context).execute();
@@ -192,7 +190,7 @@ class ActionTest {
                 state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
         state.updateCurrentProject(projectId);
         final var coordinator = new ViewCoordinator(state);
-        final var context = new ActionContext(coordinator, state, null);
+        final var context = new ActionContext(coordinator, state, null, null, null);
         final var action = new CreateTerminalAction(context, "Shell", "sh");
 
         action.execute();
@@ -245,7 +243,7 @@ class ActionTest {
         final var projectId = state.addProject(project);
         state.updateCurrentProject(projectId);
         final var coordinator = new ViewCoordinator(state);
-        final var context = new ActionContext(coordinator, state, null);
+        final var context = new ActionContext(coordinator, state, null, null, null);
 
         new CreateSessionAction(context)
                 .addSession(
@@ -317,7 +315,9 @@ class ActionTest {
         state.updateCurrentProject(projectId);
         state.updateCurrentSession(sessionId);
         final var coordinator = new ViewCoordinator(state);
-        final var action = new RemoveSessionActionStub(new ActionContext(coordinator, state, null));
+        final var action =
+                new RemoveSessionActionStub(
+                        new ActionContext(coordinator, state, null, null, null));
 
         action.execute();
 
@@ -366,7 +366,8 @@ class ActionTest {
         state.updateCurrentSession(sessionId);
         final var coordinator = new ViewCoordinator(state);
         final var action =
-                new RemoveSessionActionStub(new ActionContext(coordinator, state, null), false);
+                new RemoveSessionActionStub(
+                        new ActionContext(coordinator, state, null, null, null), false);
 
         action.execute();
 
@@ -396,7 +397,9 @@ class ActionTest {
         final var coordinator = new ViewCoordinator(state);
         coordinator.updateView(
                 ViewId.SESSION, ViewCoordinator.ViewState.session(projectId, selectedSessionId));
-        final var action = new RemoveSessionActionStub(new ActionContext(coordinator, state, null));
+        final var action =
+                new RemoveSessionActionStub(
+                        new ActionContext(coordinator, state, null, null, null));
 
         action.removeSessionForTest(state, removedSessionId, projectId);
 
@@ -424,7 +427,9 @@ class ActionTest {
         state.updateCurrentProject(projectId);
         state.updateCurrentSession(sessionId);
         final var coordinator = new ViewCoordinator(state);
-        final var action = new RemoveSessionActionStub(new ActionContext(coordinator, state, null));
+        final var action =
+                new RemoveSessionActionStub(
+                        new ActionContext(coordinator, state, null, null, null));
 
         action.execute();
 
@@ -473,7 +478,7 @@ class ActionTest {
     @Test
     void actionMetadataIsStable() {
         final AppState state = TestAppState.empty();
-        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+        final var context = new ActionContext(new ViewCoordinator(state), state, null, null, null);
         final List<Action> actions =
                 List.of(
                         new CreateProjectAction(context),
@@ -507,7 +512,7 @@ class ActionTest {
                 state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
         state.updateCurrentProject(projectId);
         final var coordinator = new ViewCoordinator(state);
-        final var context = new ActionContext(coordinator, state, null);
+        final var context = new ActionContext(coordinator, state, null, null, null);
         final var command = new RunCommandAction(context, "Run", "printf test");
         final var directory = new OpenDirectoryAction(context);
 

@@ -1,6 +1,12 @@
 package com.jagent.desktop.ui;
 
+import com.google.gson.Gson;
 import com.jagent.desktop.models.AppSettings;
+import com.jagent.desktop.models.board.BoardDefinition;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 public final class Defaults {
@@ -22,14 +28,17 @@ public final class Defaults {
     private Defaults() {}
 
     public static AppSettings appSettings() {
-        return new AppSettings(
-                List.of(),
-                List.of(),
-                DEFAULT_REVIEW_PROMPT,
-                "System",
-                List.of(),
-                DEFAULT_WORKTREE_TEMPLATE,
-                "",
-                AppSettings.defaultPullRequestFilters());
+        try (Reader reader =
+                new InputStreamReader(
+                        Defaults.class.getResourceAsStream("/default-settings.json"),
+                        StandardCharsets.UTF_8)) {
+            return new Gson().fromJson(reader, AppSettings.class);
+        } catch (IOException | RuntimeException exception) {
+            throw new IllegalStateException("Could not load default settings", exception);
+        }
+    }
+
+    public static List<BoardDefinition> boardDefinitions() {
+        return appSettings().boards();
     }
 }

@@ -86,7 +86,7 @@ class PullRequestCardUiTest {
                 new Project(
                         PROJECT_NAME,
                         PROJECT_PATH,
-                        new CliCredential("github.com", "author", "author"));
+                        new CliCredential("github.com", AUTHOR, AUTHOR));
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
@@ -99,7 +99,12 @@ class PullRequestCardUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestCard(
-                                        new ActionContext(new ViewCoordinator(state), state, null),
+                                        new ActionContext(
+                                                new ViewCoordinator(state),
+                                                state,
+                                                null,
+                                                null,
+                                                null),
                                         request,
                                         details,
                                         () -> {}));
@@ -134,7 +139,12 @@ class PullRequestCardUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestCard(
-                                        new ActionContext(new ViewCoordinator(state), state, null),
+                                        new ActionContext(
+                                                new ViewCoordinator(state),
+                                                state,
+                                                null,
+                                                null,
+                                                null),
                                         request,
                                         details,
                                         () -> {}));
@@ -166,7 +176,12 @@ class PullRequestCardUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestCard(
-                                        new ActionContext(new ViewCoordinator(state), state, null),
+                                        new ActionContext(
+                                                new ViewCoordinator(state),
+                                                state,
+                                                null,
+                                                null,
+                                                null),
                                         request,
                                         details,
                                         () -> {}));
@@ -191,7 +206,7 @@ class PullRequestCardUiTest {
                         Map.of(projectId.value().toString(), project),
                         Map.of(),
                         Map.of());
-        return new ActionContext(new ViewCoordinator(state), state, null);
+        return new ActionContext(new ViewCoordinator(state), state, null, null, null);
     }
 
     private static PullRequest request(
@@ -222,7 +237,17 @@ class PullRequestCardUiTest {
             final boolean draft,
             final boolean mergeable,
             final String mergeableState) {
-        return new PullRequestDetails(
-                projectId, project, 12, draft, mergeable, mergeableState, 9, 3, 2);
+        try {
+            return new PullRequestDetails(
+                    request(projectId, "Test", AUTHOR, project),
+                    draft,
+                    mergeable,
+                    mergeableState,
+                    9,
+                    3,
+                    2);
+        } catch (MalformedURLException exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 }

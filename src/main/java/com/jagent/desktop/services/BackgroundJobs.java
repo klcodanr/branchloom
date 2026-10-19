@@ -15,7 +15,8 @@ public final class BackgroundJobs {
     public enum Status {
         RUNNING,
         SUCCEEDED,
-        FAILED
+        FAILED,
+        CANCELLED
     }
 
     public record Job(
@@ -89,6 +90,19 @@ public final class BackgroundJobs {
                             message,
                             current.output()));
         }
+
+        public void cancel() {
+            final Job current = job(id);
+            updateJob(
+                    new Job(
+                            id,
+                            current.title(),
+                            current.project(),
+                            current.session(),
+                            Status.CANCELLED,
+                            "Cancelled",
+                            current.output()));
+        }
     }
 
     public Handle start(final String title) {
@@ -122,6 +136,10 @@ public final class BackgroundJobs {
     }
 
     private void updateJob(final Job job) {
+        final Job current = jobs.get(job.id());
+        if (current != null && current.status() != Status.RUNNING) {
+            return;
+        }
         jobs.put(job.id(), job);
         notifyListeners();
     }

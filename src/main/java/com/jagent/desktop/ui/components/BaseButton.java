@@ -1,9 +1,11 @@
 package com.jagent.desktop.ui.components;
 
+import java.awt.FlowLayout;
 import java.awt.event.KeyEvent;
 import javax.swing.AbstractAction;
 import javax.swing.Icon;
 import javax.swing.JButton;
+import javax.swing.JPanel;
 import javax.swing.KeyStroke;
 
 /** Standard application button with accessible text and keyboard activation. */
@@ -22,6 +24,12 @@ public class BaseButton extends JButton {
     public BaseButton(final Icon icon) {
         super(icon);
         configure(null);
+    }
+
+    public JPanel wrap() {
+        final JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEADING, 0, 0));
+        panel.add(this);
+        return panel;
     }
 
     private void configure(final String accessibleName) {

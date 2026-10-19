@@ -19,6 +19,7 @@ import com.jagent.desktop.ui.actions.FindAction;
 import com.jagent.desktop.ui.actions.ImportProjectAction;
 import com.jagent.desktop.ui.actions.OpenSettingsAction;
 import com.jagent.desktop.ui.actions.ProblemsAction;
+import com.jagent.desktop.ui.actions.RefreshSettingsAction;
 import com.jagent.desktop.ui.actions.ResourceUsageAction;
 import com.jagent.desktop.ui.components.AppIcon;
 import com.jagent.desktop.ui.components.AppMenuBar;
@@ -29,8 +30,10 @@ import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiBorders;
 import com.jagent.desktop.ui.layout.BottomBar;
+import com.jagent.desktop.ui.utils.ErrorDialogs;
 import com.jagent.desktop.ui.utils.TerminalShortcutDispatcher;
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.KeyboardFocusManager;
 import java.awt.Rectangle;
@@ -43,7 +46,10 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import javax.swing.AbstractAction;
+import javax.swing.ActionMap;
+import javax.swing.InputMap;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -80,11 +86,13 @@ public final class AppView extends JFrame {
     public AppView(final Path dataDirectory) {
         super("Branchloom");
         placeholder.setFont(Theme.font(Theme.FontSize.XL));
-        state = AppStatePersistence.load(dataDirectory);
+        final AppStatePersistence.LoadResult loadResult =
+                AppStatePersistence.loadWithResult(dataDirectory);
+        state = loadResult.state();
         persistence = new AppStatePersistence(state, dataDirectory);
         windowStatePersistence = new WindowStatePersistence(dataDirectory);
         viewCoordinator = new ViewCoordinator(state, ignored -> render());
-        actionContext = new ActionContext(viewCoordinator, state, this);
+        actionContext = new ActionContext(viewCoordinator, state, this, dataDirectory, persistence);
         topLevelViewFactory = new TopLevelViewFactory(actionContext);
         configureWindow();
         content.setOpaque(false);
@@ -103,6 +111,9 @@ public final class AppView extends JFrame {
         add(shell(actionContext), BorderLayout.CENTER);
         installShortcuts();
         render();
+        if (loadResult.hasSettingsError()) {
+            ErrorDialogs.show(this, "Settings could not be loaded", loadResult.settingsError());
+        }
     }
 
     private void installShortcuts() {
@@ -171,8 +182,8 @@ public final class AppView extends JFrame {
     }
 
     private void bind(
-            final javax.swing.InputMap inputMap,
-            final javax.swing.ActionMap actionMap,
+            final InputMap inputMap,
+            final ActionMap actionMap,
             final KeyStroke keyStroke,
             final String id,
             final Runnable operation) {
@@ -194,12 +205,12 @@ public final class AppView extends JFrame {
         }
     }
 
-    private java.util.Optional<AbstractWorkspaceView> currentWorkspaceView() {
-        final java.awt.Component rendered =
+    private Optional<AbstractWorkspaceView> currentWorkspaceView() {
+        final Component rendered =
                 content.getComponentCount() == 0 ? null : content.getComponent(0);
         return rendered instanceof AbstractWorkspaceView workspaceView
-                ? java.util.Optional.of(workspaceView)
-                : java.util.Optional.empty();
+                ? Optional.of(workspaceView)
+                : Optional.empty();
     }
 
     private void openCommandPalette() {
@@ -211,6 +222,7 @@ public final class AppView extends JFrame {
                         new CreateSessionAction(actionContext),
                         new CreateTerminalAction(actionContext),
                         new OpenSettingsAction(actionContext),
+                        new RefreshSettingsAction(actionContext),
                         new ProblemsAction(actionContext),
                         new ResourceUsageAction(actionContext));
         CommandPalette.open(
@@ -328,7 +340,9 @@ public final class AppView extends JFrame {
         final View topLevel;
         final JComponent rendered;
         try {
-            topLevel = topLevelViewFactory.create(view, project, session);
+            topLevel =
+                    topLevelViewFactory.create(
+                            view, project, session, viewCoordinator.currentBoardName());
             rendered = topLevel.render();
         } catch (RuntimeException exception) {
             LOG.error(
@@ -359,11 +373,13 @@ public final class AppView extends JFrame {
         }
         currentView = topLevel;
         bottomBar.setRefreshVisible(
-                currentView instanceof SessionView || currentView instanceof MyPullRequestsView);
+                currentView instanceof SessionView
+                        || currentView instanceof MyPullRequestsView
+                        || currentView instanceof BoardView);
         content.removeAll();
         content.add(rendered, BorderLayout.CENTER);
         projectTreePanel.refresh(project, session);
-        setJMenuBar(AppMenuBar.create(new ActionContext(viewCoordinator, state, this)));
+        setJMenuBar(AppMenuBar.create(actionContext));
         revalidate();
         repaint();
     }

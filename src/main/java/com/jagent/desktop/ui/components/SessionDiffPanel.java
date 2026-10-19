@@ -18,6 +18,7 @@ public final class SessionDiffPanel extends JPanel {
         setOpaque(false);
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setAlignmentX(LEFT_ALIGNMENT);
+        showLoading();
     }
 
     public void showLoading() {
@@ -27,26 +28,21 @@ public final class SessionDiffPanel extends JPanel {
         repaint();
     }
 
-    public void show(final GitRepository.WorktreeStatus status) {
+    public void setWorktreeStatus(final GitRepository.WorktreeStatus status) {
         removeAll();
-        final List<FileStatus> files = new ArrayList<>();
-        addFiles(files, "+", Theme.Colors.success(), status.added());
-        addFiles(files, "-", Theme.Colors.danger(), status.removed());
-        addFiles(files, "~", Theme.Colors.warning(), status.changed());
-        addFiles(files, "M", Theme.Colors.warning(), status.modified());
-        addFiles(files, "D", Theme.Colors.warning(), status.missing());
-        addFiles(files, "??", Theme.Colors.warning(), status.untracked());
-        files.sort(Comparator.comparing(FileStatus::path));
-        for (final FileStatus file : files) {
-            addFile(file);
+        if (status != null) {
+            final List<FileStatus> files = new ArrayList<>();
+            addFiles(files, "+", Theme.Colors.success(), status.added());
+            addFiles(files, "-", Theme.Colors.danger(), status.removed());
+            addFiles(files, "~", Theme.Colors.warning(), status.changed());
+            addFiles(files, "M", Theme.Colors.warning(), status.modified());
+            addFiles(files, "D", Theme.Colors.warning(), status.missing());
+            addFiles(files, "??", Theme.Colors.warning(), status.untracked());
+            files.sort(Comparator.comparing(FileStatus::path));
+            for (final FileStatus file : files) {
+                addFile(file);
+            }
         }
-        revalidate();
-        repaint();
-    }
-
-    public void showMessage(final String message) {
-        removeAll();
-        add(new SelectableTextLabel(message, Theme.FontSize.MD));
         revalidate();
         repaint();
     }

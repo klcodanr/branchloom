@@ -5,10 +5,16 @@
 The build uses Java 25 and automatically provisions a matching toolchain when it
 is not installed locally.
 
-Run the automated tests with:
+Run the unit tests with:
 
 ```bash
 gradle test
+```
+
+Run the GUI integration tests separately with:
+
+```bash
+gradle integrationTest
 ```
 
 For development, run:
@@ -19,9 +25,11 @@ gradle dev
 
 This watches `src/main`, recompiles, and restarts the app when source files change.
 
-`gradle check` runs formatting, unused-code checks with PMD, and SpotBugs analysis.
-Reports are written under `build/reports/`; intentional Swing/framework findings
-are documented in `config/spotbugs/exclude.xml`.
+`gradle check` runs unit tests, GUI integration tests, formatting, PMD, SpotBugs,
+and JaCoCo coverage verification. Integration tests must not launch external
+applications or depend on a developer's configured editor. Reports are written
+under `build/reports/`; intentional Swing/framework findings are documented in
+`config/spotbugs/exclude.xml`.
 
 ## Package Locally
 

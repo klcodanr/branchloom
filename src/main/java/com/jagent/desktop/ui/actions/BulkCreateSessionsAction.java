@@ -55,7 +55,7 @@ public class BulkCreateSessionsAction extends BaseAction {
         }
         final Project project = state.projects().get(projectId);
         final GitHub gitHub = GitHub.forProject(state, projectId);
-        BackgroundOperations.submit("GitHub", "issues", gitHub::listIssues)
+        BackgroundOperations.submit("GitHub", "issues", () -> gitHub.listIssues(null))
                 .thenAcceptAsync(
                         issues -> {
                             if (issues.isEmpty()) {

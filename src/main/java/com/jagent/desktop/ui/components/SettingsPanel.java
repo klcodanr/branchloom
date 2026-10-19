@@ -3,9 +3,6 @@ package com.jagent.desktop.ui.components;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
 import java.util.function.BooleanSupplier;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -15,7 +12,6 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 import javax.swing.border.EmptyBorder;
 
 public final class SettingsPanel {
@@ -91,35 +87,5 @@ public final class SettingsPanel {
         actions.add(saveButton);
         screen.add(actions, BorderLayout.SOUTH);
         return screen;
-    }
-
-    public static JPanel labeledField(final String title, final JComponent field) {
-        final JPanel group = new JPanel(new GridBagLayout());
-        group.setOpaque(false);
-        final GridBagConstraints labelConstraints = new GridBagConstraints();
-        labelConstraints.anchor = GridBagConstraints.NORTHWEST;
-        labelConstraints.insets =
-                new Insets(0, 0, UiConstants.CONTENT_PADDING, UiConstants.COMPONENT_GAP);
-        final JLabel label = new JLabel(title);
-        label.setFont(Theme.font(Theme.FontSize.MD));
-        label.setPreferredSize(new Dimension(180, label.getPreferredSize().height));
-        group.add(label, labelConstraints);
-        final GridBagConstraints fieldConstraints = new GridBagConstraints();
-        fieldConstraints.anchor = GridBagConstraints.NORTHWEST;
-        fieldConstraints.fill = GridBagConstraints.HORIZONTAL;
-        fieldConstraints.weightx = 1;
-        fieldConstraints.gridwidth = GridBagConstraints.REMAINDER;
-        fieldConstraints.insets = new Insets(0, 0, UiConstants.CONTENT_PADDING, 0);
-        if (field instanceof JTextArea area) {
-            area.setLineWrap(true);
-            area.setWrapStyleWord(true);
-            final JScrollPane areaScroll = new JScrollPane(area);
-            fieldConstraints.fill = GridBagConstraints.BOTH;
-            fieldConstraints.weighty = 1;
-            group.add(areaScroll, fieldConstraints);
-            return group;
-        }
-        group.add(field, fieldConstraints);
-        return group;
     }
 }

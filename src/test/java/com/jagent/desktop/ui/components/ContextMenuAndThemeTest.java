@@ -45,7 +45,7 @@ class ContextMenuAndThemeTest {
                 state.addSession(projectId, new Session(projectId, "Feature", null, null, null));
         state.updateCurrentProject(projectId);
         state.updateCurrentSession(sessionId);
-        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+        final var context = new ActionContext(new ViewCoordinator(state), state, null, null, null);
 
         final var projectMenu =
                 GuiActionRunner.execute(() -> ProjectActions.menu(context, projectId));
@@ -109,7 +109,7 @@ class ContextMenuAndThemeTest {
             throws java.io.InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(new Project("Demo", "/tmp", null));
-        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+        final var context = new ActionContext(new ViewCoordinator(state), state, null, null, null);
 
         final var menu = GuiActionRunner.execute(() -> ProjectActions.menu(context, projectId));
 
@@ -135,7 +135,7 @@ class ContextMenuAndThemeTest {
         final var projectId = state.addProject(new Project("Demo", "/tmp", null));
         final var sessionId =
                 state.addSession(projectId, new Session(projectId, "Feature", null, null, null));
-        final var context = new ActionContext(new ViewCoordinator(state), state, null);
+        final var context = new ActionContext(new ViewCoordinator(state), state, null, null, null);
 
         final var menu = GuiActionRunner.execute(() -> SessionActions.menu(context, sessionId));
 

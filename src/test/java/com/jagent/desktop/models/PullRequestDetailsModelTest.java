@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.jagent.desktop.ui.components.Theme;
 import java.awt.Color;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Date;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -40,9 +43,7 @@ class PullRequestDetailsModelTest {
                         null);
         final PullRequestChecks checks = new PullRequestChecks(List.of(failure));
 
-        final PullRequestDetails details =
-                new PullRequestDetails(
-                        PROJECT_ID, PROJECT, 1, false, true, "blocked", 1, 1, 1, checks);
+        final PullRequestDetails details = details(false, true, "blocked", checks);
 
         assertEquals(
                 PullRequestDetails.Status.CHECKS_FAILING,
@@ -52,6 +53,28 @@ class PullRequestDetailsModelTest {
                 Theme.Colors.danger(),
                 details.indicatorColor(),
                 "failing checks should use the danger indicator color");
+    }
+
+    @Test
+    void pendingChecksTakePriorityOverBlockedMergeState() {
+        final PullRequestCheck pending =
+                new PullRequestCheck(
+                        "ci/pending",
+                        PullRequestCheck.Status.IN_PROGRESS,
+                        null,
+                        PullRequestCheck.Conclusion.UNKNOWN,
+                        null);
+        final PullRequestDetails details =
+                details(false, false, "blocked", new PullRequestChecks(List.of(pending)));
+
+        assertEquals(
+                PullRequestDetails.Status.PENDING,
+                details.status(),
+                "pending checks should take priority");
+        assertEquals(
+                Theme.Colors.warning(),
+                details.indicatorColor(),
+                "pending checks should use the warning color");
     }
 
     @Test
@@ -65,11 +88,9 @@ class PullRequestDetailsModelTest {
                         null);
         final PullRequestChecks checks = new PullRequestChecks(List.of(failure));
 
-        final PullRequestDetails failingDraft =
-                new PullRequestDetails(
-                        PROJECT_ID, PROJECT, 1, true, true, "clean", 1, 1, 1, checks);
+        final PullRequestDetails failingDraft = details(true, true, "clean", checks);
         final PullRequestDetails conflictedDraft =
-                new PullRequestDetails(PROJECT_ID, PROJECT, 1, true, false, "dirty", 1, 1, 1);
+                details(true, false, "dirty", new PullRequestChecks(List.of()));
 
         assertEquals(
                 PullRequestDetails.Status.CHECKS_FAILING,
@@ -96,9 +117,36 @@ class PullRequestDetailsModelTest {
             final PullRequestDetails.Status expectedStatus,
             final Color expectedColor) {
         final PullRequestDetails details =
-                new PullRequestDetails(
-                        PROJECT_ID, PROJECT, 1, draft, mergeable, mergeableState, 1, 1, 1);
+                details(draft, mergeable, mergeableState, new PullRequestChecks(List.of()));
         assertEquals(expectedStatus, details.status(), "status should match mergeability flags");
         assertEquals(expectedColor, details.indicatorColor(), "indicator color should match");
+    }
+
+    private static PullRequestDetails details(
+            final boolean draft,
+            final boolean mergeable,
+            final String mergeableState,
+            final PullRequestChecks checks) {
+        try {
+            final PullRequest request =
+                    new PullRequest(
+                            PROJECT_ID,
+                            PROJECT,
+                            1,
+                            PullRequest.State.OPEN,
+                            "Test",
+                            "",
+                            new URL("https://example.test/1"),
+                            new Date(),
+                            new Date(),
+                            new GitHubUser("author", new URL("https://example.test/author")),
+                            "head",
+                            "sha",
+                            "main");
+            return new PullRequestDetails(
+                    request, draft, mergeable, mergeableState, 1, 1, 1, checks);
+        } catch (MalformedURLException exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 }
