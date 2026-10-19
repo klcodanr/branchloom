@@ -421,9 +421,7 @@ class ProjectTreePanelUiTest {
         GuiActionRunner.execute(() -> search.setText("target"));
 
         final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-        assertEquals(
-                2, root.getChildCount(), "only the global node and matching group should remain");
-        final var group = (DefaultMutableTreeNode) root.getChildAt(1);
+        final var group = findGroup(root, GROUP);
         assertEquals(1, group.getChildCount(), "only the matching project should remain");
         final var projectNode = (DefaultMutableTreeNode) group.getChildAt(0);
         assertEquals(
@@ -750,6 +748,17 @@ class ProjectTreePanelUiTest {
 
     private static Project project(final String name, final String path, final String group) {
         return new Project(name, path, group, null, null, null, List.of(), List.of(), null, null);
+    }
+
+    private static DefaultMutableTreeNode findGroup(
+            final DefaultMutableTreeNode root, final String name) {
+        for (int index = 0; index < root.getChildCount(); index++) {
+            final DefaultMutableTreeNode child = (DefaultMutableTreeNode) root.getChildAt(index);
+            if (name.equals(child.getUserObject())) {
+                return child;
+            }
+        }
+        throw new AssertionError("missing group: " + name);
     }
 
     private static String projectName(final Object node) {

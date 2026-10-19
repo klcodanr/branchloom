@@ -30,8 +30,10 @@ import javax.swing.JButton;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
+import javax.swing.JScrollPane;
 import javax.swing.JTree;
 import javax.swing.KeyStroke;
+import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.ToolTipManager;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -51,6 +53,7 @@ public final class ProjectTreePanel extends JPanel {
     private Map<ProjectId, Project> renderedProjects = Map.of();
     private Map<SessionId, Session> renderedSessions = Map.of();
     private List<BoardDefinition> renderedBoards = List.of();
+    private String searchQuery = "";
     private boolean rendered;
     private boolean selectingProgrammatically;
 
@@ -73,11 +76,15 @@ public final class ProjectTreePanel extends JPanel {
                                 "Search projects and sessions",
                                 "Search projects and sessions"));
         new ProjectTreeSearchHandler(
-                tree, search, root, ignored -> {}, this::selectNode, interaction::select);
+                tree, search, root, this::filterTree, this::selectNode, interaction::select);
         final JPanel treeContent = new JPanel(new BorderLayout(0, UiConstants.CONTENT_PADDING));
         treeContent.setOpaque(false);
         treeContent.add(search, BorderLayout.NORTH);
-        treeContent.add(tree, BorderLayout.CENTER);
+        final JScrollPane treeScroll = new JScrollPane(tree);
+        treeScroll.setBorder(null);
+        treeScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+        treeScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        treeContent.add(treeScroll, BorderLayout.CENTER);
         add(treeContent, BorderLayout.CENTER);
     }
 
@@ -219,13 +226,19 @@ public final class ProjectTreePanel extends JPanel {
                 || !projects.equals(renderedProjects)
                 || !sessions.equals(renderedSessions)
                 || !boards.equals(renderedBoards)) {
-            treeSynchronizer.synchronize(actionContext.appState());
+            treeSynchronizer.synchronize(actionContext.appState(), searchQuery);
             renderedProjects = projects;
             renderedSessions = sessions;
             renderedBoards = boards;
             rendered = true;
         }
         restoreSelection(selectedProject, selectedSession);
+    }
+
+    private void filterTree(final String query) {
+        searchQuery = query;
+        rendered = false;
+        refresh(null, null);
     }
 
     private void restoreSelection(final Project selectedProject, final Session selectedSession) {

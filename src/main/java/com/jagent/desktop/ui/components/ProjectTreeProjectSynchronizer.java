@@ -134,7 +134,12 @@ final class ProjectTreeProjectSynchronizer {
             final DefaultTreeModel model,
             final String filter) {
         final Set<ProjectId> desired = new HashSet<>();
-        projects.forEach(entry -> desired.add(entry.getKey()));
+        projects.stream()
+                .filter(
+                        entry ->
+                                ProjectTreeSessionSynchronizer.matches(
+                                        entry.getValue(), sessionsById, filter))
+                .forEach(entry -> desired.add(entry.getKey()));
         for (int index = group.getChildCount() - 1; index >= 0; index--) {
             final DefaultMutableTreeNode node = (DefaultMutableTreeNode) group.getChildAt(index);
             if (!(node.getUserObject() instanceof Map.Entry<?, ?> entry)
