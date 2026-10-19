@@ -218,7 +218,15 @@ class WorkspaceTreePanelUiTest {
             GuiActionRunner.execute(() -> changedOnlyButton(panel).doClick());
 
             SwingTestSupport.await(
-                    () -> root(panel).getChildCount() == 1,
+                    () -> {
+                        final var workspaceRoot = root(panel);
+                        return workspaceRoot.getChildCount() == 1
+                                && "Empty"
+                                        .equals(
+                                                ((DefaultMutableTreeNode)
+                                                                workspaceRoot.getChildAt(0))
+                                                        .getUserObject());
+                    },
                     "changed tree should show an empty placeholder");
             assertEquals(
                     "Empty",
