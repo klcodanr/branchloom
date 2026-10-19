@@ -14,6 +14,7 @@ public final class BackgroundJobs {
     private static final int MAX_COMPLETED_JOBS = 100;
     private static final int MAX_OUTPUT_LINES = 5_000;
     private final ConcurrentMap<UUID, Job> jobs = new ConcurrentHashMap<>();
+    private final Object jobsLock = new Object();
     private final List<Consumer<List<Job>>> listeners = new ArrayList<>();
 
     public enum Status {
@@ -123,7 +124,7 @@ public final class BackgroundJobs {
 
     public Handle start(final String title, final String project, final String session) {
         final UUID id = UUID.randomUUID();
-        synchronized (jobs) {
+        synchronized (jobsLock) {
             jobs.put(id, new Job(id, title, project, session, Status.RUNNING, "Starting...", ""));
             trimCompletedJobs();
         }
@@ -132,7 +133,7 @@ public final class BackgroundJobs {
     }
 
     public List<Job> jobs() {
-        synchronized (jobs) {
+        synchronized (jobsLock) {
             return jobs.values().stream().toList();
         }
     }
@@ -145,7 +146,7 @@ public final class BackgroundJobs {
     }
 
     private Job job(final UUID id) {
-        synchronized (jobs) {
+        synchronized (jobsLock) {
             final Job job = jobs.get(id);
             if (job == null) {
                 throw new IllegalStateException("Background job not found: " + id);
@@ -155,7 +156,7 @@ public final class BackgroundJobs {
     }
 
     private void updateJob(final Job job) {
-        synchronized (jobs) {
+        synchronized (jobsLock) {
             final Job current = jobs.get(job.id());
             if (current != null && current.status() != Status.RUNNING) {
                 return;
