@@ -8,6 +8,7 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.PullRequestWatcher;
 import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.services.persistence.AppStatePersistence;
 import com.jagent.desktop.services.persistence.WindowStatePersistence;
@@ -75,6 +76,7 @@ public final class AppView extends JFrame {
     private final JPanel content = new JPanel(new BorderLayout());
     private final ProjectTreePanel projectTreePanel;
     private final BottomBar bottomBar;
+    private final transient PullRequestWatcher pullRequestWatcher;
     private transient java.awt.KeyEventDispatcher terminalShortcutDispatcher;
     private transient View currentView;
     private transient boolean closing;
@@ -98,6 +100,9 @@ public final class AppView extends JFrame {
         content.setOpaque(false);
         content.setBorder(UiBorders.contentArea());
         projectTreePanel = new ProjectTreePanel(actionContext);
+        pullRequestWatcher =
+                new PullRequestWatcher(state, projectTreePanel::updatePullRequestStatus);
+        pullRequestWatcher.start();
         bottomBar =
                 new BottomBar(
                         state,
@@ -281,6 +286,7 @@ public final class AppView extends JFrame {
         closing = true;
         saveWindowState();
         windowStatePersistence.close();
+        pullRequestWatcher.close();
         ProgressOperation.run(
                         this.actionContext,
                         "Closing Branchloom",
