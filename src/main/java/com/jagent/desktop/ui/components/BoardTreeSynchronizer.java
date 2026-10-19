@@ -51,11 +51,12 @@ final class BoardTreeSynchronizer {
             final BoardDefinition definition = definitions.get(index);
             final DefaultMutableTreeNode child = find(boards, definition);
             if (child != null) {
-                boards.remove(child);
+                model.removeNodeFromParent(child);
             }
             model.insertNodeInto(
                     child == null ? new DefaultMutableTreeNode(definition) : child, boards, index);
         }
+        model.reload(boards);
     }
 
     private static DefaultMutableTreeNode find(
