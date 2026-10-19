@@ -45,7 +45,12 @@ class NewSessionFlowIntegrationTest {
                 GuiActionRunner.execute(
                         () ->
                                 new NewSessionDialog(
-                                        new ActionContext(new ViewCoordinator(state), state, owner),
+                                        new ActionContext(
+                                                new ViewCoordinator(state),
+                                                state,
+                                                owner,
+                                                null,
+                                                null),
                                         request::set));
         final DialogFixture fixture = new DialogFixture(robot, dialog);
 
@@ -91,7 +96,12 @@ class NewSessionFlowIntegrationTest {
                 GuiActionRunner.execute(
                         () ->
                                 new NewSessionDialog(
-                                        new ActionContext(new ViewCoordinator(state), state, owner),
+                                        new ActionContext(
+                                                new ViewCoordinator(state),
+                                                state,
+                                                owner,
+                                                null,
+                                                null),
                                         request::set));
         final DialogFixture fixture = new DialogFixture(robot, dialog);
 

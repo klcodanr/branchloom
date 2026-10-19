@@ -49,12 +49,19 @@ class ProjectTreePanelUiTest {
                         () -> {
                             final var created =
                                     new ProjectTreePanel(
-                                            new ActionContext(coordinator, state, null));
+                                            new ActionContext(
+                                                    coordinator, state, null, null, null));
                             created.refresh(null, null);
                             return created;
                         });
 
-        GuiActionRunner.execute(() -> panel.tree().setSelectionRow(2));
+        GuiActionRunner.execute(
+                () -> {
+                    final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
+                    final var group = (DefaultMutableTreeNode) root.getChildAt(2);
+                    final var project = (DefaultMutableTreeNode) group.getChildAt(0);
+                    panel.tree().setSelectionPath(new TreePath(project.getPath()));
+                });
 
         assertEquals(projectId, state.currentProjectId(), "selected tree project should be stored");
         assertEquals(
@@ -70,7 +77,11 @@ class ProjectTreePanelUiTest {
                         () ->
                                 new ProjectTreePanel(
                                         new ActionContext(
-                                                new ViewCoordinator(state), state, null)));
+                                                new ViewCoordinator(state),
+                                                state,
+                                                null,
+                                                null,
+                                                null)));
 
         final var treeContent = (JPanel) panel.getComponent(1);
         final var scroll = (JScrollPane) treeContent.getComponent(1);
@@ -97,9 +108,17 @@ class ProjectTreePanelUiTest {
                             final var created =
                                     new ProjectTreePanel(
                                             new ActionContext(
-                                                    new ViewCoordinator(state), state, null));
+                                                    new ViewCoordinator(state),
+                                                    state,
+                                                    null,
+                                                    null,
+                                                    null));
                             created.refresh(null, null);
-                            created.tree().setSelectionRow(2);
+                            final var root =
+                                    (DefaultMutableTreeNode) created.tree().getModel().getRoot();
+                            final var group = (DefaultMutableTreeNode) root.getChildAt(2);
+                            final var project = (DefaultMutableTreeNode) group.getChildAt(0);
+                            created.tree().setSelectionPath(new TreePath(project.getPath()));
                             return created;
                         });
 
@@ -122,7 +141,11 @@ class ProjectTreePanelUiTest {
                             final var created =
                                     new ProjectTreePanel(
                                             new ActionContext(
-                                                    new ViewCoordinator(state), state, null));
+                                                    new ViewCoordinator(state),
+                                                    state,
+                                                    null,
+                                                    null,
+                                                    null));
                             created.refresh(null, null);
                             return created;
                         });
@@ -130,7 +153,7 @@ class ProjectTreePanelUiTest {
         assertNotNull(action, "context menu action should exist");
         assertTrue(action.isEnabled(), "context menu action should be enabled");
         final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-        final var groupNode = (DefaultMutableTreeNode) root.getChildAt(1);
+        final var groupNode = (DefaultMutableTreeNode) root.getChildAt(2);
         final var projectNode = (DefaultMutableTreeNode) groupNode.getChildAt(0);
         final var sessionNode = (DefaultMutableTreeNode) projectNode.getChildAt(0);
 
@@ -172,12 +195,18 @@ class ProjectTreePanelUiTest {
                         () -> {
                             final var created =
                                     new ProjectTreePanel(
-                                            new ActionContext(coordinator, state, null));
+                                            new ActionContext(
+                                                    coordinator, state, null, null, null));
                             created.refresh(state.projects().get(projectId), null);
                             return created;
                         });
 
-        GuiActionRunner.execute(() -> panel.tree().setSelectionPath(panel.tree().getPathForRow(0)));
+        GuiActionRunner.execute(
+                () -> {
+                    final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
+                    final var pullRequests = (DefaultMutableTreeNode) root.getChildAt(0);
+                    panel.tree().setSelectionPath(new TreePath(pullRequests.getPath()));
+                });
 
         assertNull(
                 state.currentProjectId(),
@@ -202,7 +231,8 @@ class ProjectTreePanelUiTest {
                         () -> {
                             final var created =
                                     new ProjectTreePanel(
-                                            new ActionContext(coordinator, state, null));
+                                            new ActionContext(
+                                                    coordinator, state, null, null, null));
                             created.refresh(state.projects().get(projectId), null);
                             return created;
                         });
@@ -233,7 +263,8 @@ class ProjectTreePanelUiTest {
                         () -> {
                             final var created =
                                     new ProjectTreePanel(
-                                            new ActionContext(coordinator, state, null));
+                                            new ActionContext(
+                                                    coordinator, state, null, null, null));
                             created.refresh(null, null);
                             return created;
                         });
@@ -279,7 +310,8 @@ class ProjectTreePanelUiTest {
                         () -> {
                             final var created =
                                     new ProjectTreePanel(
-                                            new ActionContext(coordinator, state, null));
+                                            new ActionContext(
+                                                    coordinator, state, null, null, null));
                             created.refresh(null, null);
                             return created;
                         });
@@ -328,7 +360,11 @@ class ProjectTreePanelUiTest {
                             final var created =
                                     new ProjectTreePanel(
                                             new ActionContext(
-                                                    new ViewCoordinator(state), state, null));
+                                                    new ViewCoordinator(state),
+                                                    state,
+                                                    null,
+                                                    null,
+                                                    null));
                             created.refresh(null, null);
                             return created;
                         });
@@ -336,7 +372,7 @@ class ProjectTreePanelUiTest {
         final var root = (DefaultMutableTreeNode) tree.getModel().getRoot();
         final var projectNode =
                 (DefaultMutableTreeNode)
-                        ((DefaultMutableTreeNode) root.getChildAt(1)).getChildAt(0);
+                        ((DefaultMutableTreeNode) root.getChildAt(2)).getChildAt(0);
         Assertions.assertFalse(
                 tree.isExpanded(new TreePath(projectNode.getPath())),
                 "project should be collapsed before searching");
@@ -372,7 +408,11 @@ class ProjectTreePanelUiTest {
                             final var created =
                                     new ProjectTreePanel(
                                             new ActionContext(
-                                                    new ViewCoordinator(state), state, null));
+                                                    new ViewCoordinator(state),
+                                                    state,
+                                                    null,
+                                                    null,
+                                                    null));
                             created.refresh(null, null);
                             return created;
                         });
@@ -381,9 +421,7 @@ class ProjectTreePanelUiTest {
         GuiActionRunner.execute(() -> search.setText("target"));
 
         final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-        assertEquals(
-                2, root.getChildCount(), "only the global node and matching group should remain");
-        final var group = (DefaultMutableTreeNode) root.getChildAt(1);
+        final var group = findGroup(root, GROUP);
         assertEquals(1, group.getChildCount(), "only the matching project should remain");
         final var projectNode = (DefaultMutableTreeNode) group.getChildAt(0);
         assertEquals(
@@ -405,22 +443,24 @@ class ProjectTreePanelUiTest {
                         () -> {
                             final var created =
                                     new ProjectTreePanel(
-                                            new ActionContext(coordinator, state, null));
+                                            new ActionContext(
+                                                    coordinator, state, null, null, null));
                             created.refresh(null, null);
                             return created;
                         });
 
         final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-        assertEquals(4, root.getChildCount(), "global views and all groups should be rendered");
+        assertEquals(
+                5, root.getChildCount(), "global views, boards, and all groups should be rendered");
         assertEquals(
                 "Pull Requests", root.getChildAt(0).toString(), "authored PRs should be first");
         assertEquals(
-                "A-group", root.getChildAt(1).toString(), "groups should sort case-insensitively");
+                "A-group", root.getChildAt(2).toString(), "groups should sort case-insensitively");
         assertEquals(
                 Defaults.DEFAULT_GROUP,
-                root.getChildAt(2).toString(),
+                root.getChildAt(3).toString(),
                 "blank groups should use default");
-        assertEquals("z-group", root.getChildAt(3).toString(), "groups should sort alphabetically");
+        assertEquals("z-group", root.getChildAt(4).toString(), "groups should sort alphabetically");
     }
 
     @Test
@@ -435,13 +475,17 @@ class ProjectTreePanelUiTest {
                             final var created =
                                     new ProjectTreePanel(
                                             new ActionContext(
-                                                    new ViewCoordinator(state), state, null));
+                                                    new ViewCoordinator(state),
+                                                    state,
+                                                    null,
+                                                    null,
+                                                    null));
                             created.refresh(null, null);
                             return created;
                         });
 
         final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-        final var group = (DefaultMutableTreeNode) root.getChildAt(1);
+        final var group = (DefaultMutableTreeNode) root.getChildAt(2);
         assertEquals("alpha", projectName(group.getChildAt(0)), "first project should be alpha");
         assertEquals("Beta", projectName(group.getChildAt(1)), "second project should be Beta");
         assertEquals("Zulu", projectName(group.getChildAt(2)), "third project should be Zulu");
@@ -463,7 +507,11 @@ class ProjectTreePanelUiTest {
                             final var created =
                                     new ProjectTreePanel(
                                             new ActionContext(
-                                                    new ViewCoordinator(state), state, null));
+                                                    new ViewCoordinator(state),
+                                                    state,
+                                                    null,
+                                                    null,
+                                                    null));
                             created.refresh(null, null);
                             return created;
                         });
@@ -471,7 +519,7 @@ class ProjectTreePanelUiTest {
         GuiActionRunner.execute(
                 () -> {
                     final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-                    final var group = (DefaultMutableTreeNode) root.getChildAt(1);
+                    final var group = (DefaultMutableTreeNode) root.getChildAt(2);
                     final var firstProject = group.getChildAt(0);
                     final var secondProject = group.getChildAt(1);
                     panel.tree()
@@ -518,7 +566,7 @@ class ProjectTreePanelUiTest {
                 });
 
         final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-        final var group = (DefaultMutableTreeNode) root.getChildAt(1);
+        final var group = (DefaultMutableTreeNode) root.getChildAt(2);
         assertTrue(
                 panel.tree()
                         .isExpanded(
@@ -543,13 +591,14 @@ class ProjectTreePanelUiTest {
                         () -> {
                             final var created =
                                     new ProjectTreePanel(
-                                            new ActionContext(coordinator, state, null));
+                                            new ActionContext(
+                                                    coordinator, state, null, null, null));
                             created.refresh(null, null);
                             return created;
                         });
 
         final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-        assertEquals(1, root.getChildCount(), "global views should remain available");
+        assertEquals(2, root.getChildCount(), "global views should remain available");
         assertEquals(
                 null, panel.tree().getSelectionPath(), "refresh should not select a global view");
         assertEquals(
@@ -572,13 +621,14 @@ class ProjectTreePanelUiTest {
                         () -> {
                             final var created =
                                     new ProjectTreePanel(
-                                            new ActionContext(coordinator, state, null));
+                                            new ActionContext(
+                                                    coordinator, state, null, null, null));
                             created.refresh(null, null);
                             return created;
                         });
         final JTree tree = panel.tree();
         final var root = (DefaultMutableTreeNode) tree.getModel().getRoot();
-        final var group = (DefaultMutableTreeNode) root.getChildAt(1);
+        final var group = (DefaultMutableTreeNode) root.getChildAt(2);
         final var projectNode = (DefaultMutableTreeNode) group.getChildAt(0);
         final var rendered =
                 tree.getCellRenderer()
@@ -623,14 +673,15 @@ class ProjectTreePanelUiTest {
                         () -> {
                             final var created =
                                     new ProjectTreePanel(
-                                            new ActionContext(coordinator, state, null));
+                                            new ActionContext(
+                                                    coordinator, state, null, null, null));
                             created.refresh(
                                     state.projects().get(projectId),
                                     state.sessions().get(sessionId));
                             return created;
                         });
         final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
-        final var group = (DefaultMutableTreeNode) root.getChildAt(1);
+        final var group = (DefaultMutableTreeNode) root.getChildAt(2);
         final var projectNode = (DefaultMutableTreeNode) group.getChildAt(0);
         final var sessionNode = (DefaultMutableTreeNode) projectNode.getChildAt(0);
 
@@ -664,7 +715,8 @@ class ProjectTreePanelUiTest {
                         () -> {
                             final var created =
                                     new ProjectTreePanel(
-                                            new ActionContext(coordinator, state, null));
+                                            new ActionContext(
+                                                    coordinator, state, null, null, null));
                             created.refresh(
                                     state.projects().get(projectId),
                                     state.sessions().get(sessionId));
@@ -675,14 +727,14 @@ class ProjectTreePanelUiTest {
         final var sessionNode =
                 (DefaultMutableTreeNode)
                         ((DefaultMutableTreeNode)
-                                        ((DefaultMutableTreeNode) root.getChildAt(1)).getChildAt(0))
+                                        ((DefaultMutableTreeNode) root.getChildAt(2)).getChildAt(0))
                                 .getChildAt(0);
         assertEquals(
                 SESSION_NAME,
                 ((Session) ((Map.Entry<?, ?>) sessionNode.getUserObject()).getValue()).name(),
                 "session name should be stored");
         assertEquals(
-                2, root.getChildCount(), "populated tree should contain global views and group");
+                3, root.getChildCount(), "populated tree should contain global views and group");
 
         GuiActionRunner.execute(
                 () -> panel.tree().setSelectionPath(new TreePath(sessionNode.getPath())));
@@ -696,6 +748,17 @@ class ProjectTreePanelUiTest {
 
     private static Project project(final String name, final String path, final String group) {
         return new Project(name, path, group, null, null, null, List.of(), List.of(), null, null);
+    }
+
+    private static DefaultMutableTreeNode findGroup(
+            final DefaultMutableTreeNode root, final String name) {
+        for (int index = 0; index < root.getChildCount(); index++) {
+            final DefaultMutableTreeNode child = (DefaultMutableTreeNode) root.getChildAt(index);
+            if (name.equals(child.getUserObject())) {
+                return child;
+            }
+        }
+        throw new AssertionError("missing group: " + name);
     }
 
     private static String projectName(final Object node) {

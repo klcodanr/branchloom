@@ -1,0 +1,76 @@
+{
+  "agents": [],
+  "groupOrder": [],
+  "reviewPrompt": "Review pull request #{number}: {title}\n\nInspect the changes carefully and report:\n1. Bugs or behavioral regressions\n2. Security or data-loss risks\n3. Missing tests\n4. Maintainability concerns\n\nPrioritize concrete findings with file and line references. If there are no findings, say so explicitly.",
+  "theme": "System",
+  "tools": [],
+  "worktreeTemplate": "{projectPath}/../{projectName}-{sessionSlug}",
+  "agentContextPath": "",
+  "pullRequestFilters": [
+    { "name": "My PRs", "query": "author:@me is:open" },
+    { "name": "Reviewable", "query": "review-requested:@me is:open -status:failure" },
+    { "name": "My Reviews", "query": "reviewed-by:@me is:unmerged -author:adobe-renovate-prod[bot] -author:@me" }
+  ],
+  "boards": [
+    {
+      "name": "My Work",
+      "config": {
+        "columns": [
+          {
+            "title": "Todo",
+            "rules": {
+              "PULL_REQUEST": "state == 'OPEN' && (status == 'DRAFT' || status == 'OTHER')",
+              "GITHUB_ISSUES": "state == 'open'",
+              "AGENT_SESSION": "state == 'idle'"
+            }
+          },
+          {
+            "title": "Active",
+            "rules": {
+              "PULL_REQUEST": "state == 'OPEN' && (status == 'CONFLICTED' || status == 'CHECKS_FAILING' || status == 'PENDING')",
+              "AGENT_SESSION": "state == 'active'"
+            }
+          },
+          {
+            "title": "Ready",
+            "rules": {
+              "PULL_REQUEST": "state == 'OPEN' && (status == 'READY' || status == 'BLOCKED')"
+            }
+          }
+        ],
+        "sources": {
+          "AGENT_SESSION": { "enabled": true },
+          "GITHUB_ISSUES": { "enabled": true, "query": "involves:@me is:open" },
+          "PULL_REQUEST": { "enabled": true, "query": "author:@me is:open" },
+          "JIRA": { "enabled": false, "query": "" }
+        }
+      }
+    },
+    {
+      "name": "Reviews",
+      "config": {
+        "columns": [
+          {
+            "title": "Not Ready",
+            "rules": {
+              "PULL_REQUEST": "state == 'OPEN' && (status == 'DRAFT' || status == 'PENDING' || status == 'OTHER' || status == 'CONFLICTED' || status == 'CHECKS_FAILING')",
+              "GITHUB_ISSUES": "state == 'open'"
+            }
+          },
+          {
+            "title": "Ready",
+            "rules": {
+              "PULL_REQUEST": "state == 'OPEN' && (status == 'READY' || status == 'BLOCKED')"
+            }
+          }
+        ],
+        "sources": {
+          "AGENT_SESSION": { "enabled": false },
+          "GITHUB_ISSUES": { "enabled": false, "query": "author:@me is:open" },
+          "PULL_REQUEST": { "enabled": true, "query": "user-review-requested:@me is:open" },
+          "JIRA": { "enabled": false, "query": "" }
+        }
+      }
+    }
+  ]
+}

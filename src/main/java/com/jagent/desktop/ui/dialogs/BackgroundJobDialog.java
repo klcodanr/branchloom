@@ -111,6 +111,7 @@ public final class BackgroundJobDialog {
             case RUNNING -> "Running";
             case SUCCEEDED -> "Completed";
             case FAILED -> "Failed";
+            case CANCELLED -> "Cancelled";
         };
     }
 
@@ -119,6 +120,7 @@ public final class BackgroundJobDialog {
             case RUNNING -> Theme.Colors.warning();
             case SUCCEEDED -> Theme.Colors.success();
             case FAILED -> Theme.Colors.danger();
+            case CANCELLED -> Theme.Colors.muted();
         };
     }
 }

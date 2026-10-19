@@ -26,11 +26,7 @@ public final class PasteSessionsDialog extends FormDialog {
         super(actionContext.window(), "Start sessions from pasted lines");
         this.onValid = onValid;
         lines.setName("paste-session-lines");
-        lines.setLineWrap(true);
-        lines.setWrapStyleWord(true);
         basePrompt.setName("paste-session-base-prompt");
-        basePrompt.setLineWrap(true);
-        basePrompt.setWrapStyleWord(true);
         basePrompt.setText("{prompt}");
         agent =
                 new AgentSelector(

@@ -10,7 +10,6 @@ import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.TerminalId;
-import com.jagent.desktop.models.github.PatCredential;
 import com.jagent.desktop.ui.Defaults;
 import java.io.InvalidObjectException;
 import java.util.List;
@@ -88,16 +87,15 @@ class AppStateTest {
     }
 
     @Test
-    void settingsUpdatesAndRestoreRemainPending() {
+    void settingsUpdatesAreRuntimeOnly() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         state.updateAppSettings(Defaults.appSettings());
-        final var first = state.snapshotForPersistence();
-        assertTrue(first.appSettingsUpdated(), "settings update should be persisted");
 
-        state.restorePersistenceUpdates(true, true, List.of());
-        final var restored = state.snapshotForPersistence();
-        assertTrue(restored.appSettingsUpdated(), "settings update should be restored");
-        assertTrue(restored.projectsUpdated(), "project update should be restored");
+        assertNull(state.snapshotForPersistence(), "settings update should not be persisted");
+
+        state.addProject(new Project(DEMO, DEMO_PATH, null));
+        final var snapshot = state.snapshotForPersistence();
+        assertTrue(snapshot.projectsUpdated(), "project update should be persisted");
     }
 
     @Test
@@ -150,7 +148,6 @@ class AppStateTest {
 
         state.restorePersistenceUpdates(
                 false,
-                false,
                 List.of(new AppState.TerminalEvent(AppState.TerminalAction.REMOVE, terminalId)));
         final var restored = state.snapshotForPersistence();
         assertEquals(
@@ -178,33 +175,5 @@ class AppStateTest {
         assertNull(state.currentProjectId(), "current project should be cleared");
         assertNull(state.currentSessionId(), "current session should be cleared");
         assertNull(state.currentTerminalId(), "current terminal should be cleared");
-    }
-
-    @Test
-    void removingGitHubConnectionClearsProjectConnectionReference() {
-        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final String connectionId = "connection-id";
-        state.addGitHubConnection(
-                new PatCredential(connectionId, "github.com", "GitHub connection"));
-        final Project project =
-                new Project(
-                        DEMO,
-                        DEMO_PATH,
-                        null,
-                        new PatCredential(connectionId, "github.com", "GitHub connection"),
-                        null,
-                        null,
-                        List.of(),
-                        List.of(),
-                        null,
-                        null);
-        final ProjectId projectId = state.addProject(project);
-
-        state.removeGitHubConnection(connectionId);
-
-        assertTrue(state.githubConnections().isEmpty(), "connection should be removed");
-        assertNull(
-                state.projects().get(projectId).credential(),
-                "project credential should be cleared");
     }
 }

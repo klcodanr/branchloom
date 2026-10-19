@@ -73,11 +73,8 @@ class ViewCoordinatorTest {
         final var coordinator = new ViewCoordinator(state);
 
         coordinator.updateSelectedTab(ViewId.HOME, 2);
-        coordinator.updateSelectedTab(ViewId.SETTINGS, 3);
 
         assertEquals(2, coordinator.selectedTab(ViewId.HOME), "home tab should be preserved");
-        assertEquals(
-                3, coordinator.selectedTab(ViewId.SETTINGS), "settings tab should be preserved");
         assertEquals(0, coordinator.selectedTab(ViewId.PROJECT), "unknown views should default");
     }
 

@@ -218,7 +218,15 @@ class WorkspaceTreePanelUiTest {
             GuiActionRunner.execute(() -> changedOnlyButton(panel).doClick());
 
             SwingTestSupport.await(
-                    () -> root(panel).getChildCount() == 1,
+                    () -> {
+                        final var workspaceRoot = root(panel);
+                        return workspaceRoot.getChildCount() == 1
+                                && "Empty"
+                                        .equals(
+                                                ((DefaultMutableTreeNode)
+                                                                workspaceRoot.getChildAt(0))
+                                                        .getUserObject());
+                    },
                     "changed tree should show an empty placeholder");
             assertEquals(
                     "Empty",
@@ -350,7 +358,7 @@ class WorkspaceTreePanelUiTest {
     private static WorkspaceTreePanel create(final Path workspace) {
         final var state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         return new WorkspaceTreePanel(
-                new ActionContext(new ViewCoordinator(state), state, null),
+                new ActionContext(new ViewCoordinator(state), state, null, null, null),
                 workspace,
                 ignored -> {},
                 (ignored, filtered) -> {});
@@ -362,7 +370,7 @@ class WorkspaceTreePanelUiTest {
             final java.util.function.BiConsumer<Path, Boolean> openFile) {
         final var state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         return new WorkspaceTreePanel(
-                new ActionContext(new ViewCoordinator(state), state, null),
+                new ActionContext(new ViewCoordinator(state), state, null, null, null),
                 workspace,
                 openTerminal,
                 openFile);

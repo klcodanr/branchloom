@@ -51,4 +51,12 @@ public final class UiBorders {
                 UiConstants.CARD_PADDING,
                 UiConstants.CARD_PADDING);
     }
+
+    public static Border cardRow() {
+        return new EmptyBorder(
+                UiConstants.CARD_ROW_PADDING,
+                UiConstants.CARD_ROW_PADDING,
+                UiConstants.CARD_ROW_PADDING,
+                UiConstants.CARD_ROW_PADDING);
+    }
 }

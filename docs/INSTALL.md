@@ -32,6 +32,7 @@ Optional integrations include:
   import, and GitHub account selection.
 - An installed agent CLI such as `opencode` or `claude`.
 - An installed editor CLI such as `code` or `cursor`.
+- A Jira instance and bearer token, if Jira board items are needed.
 
 Authenticate the GitHub CLI before using GitHub features:
 
@@ -52,3 +53,14 @@ gradle run
 
 On first launch, add a Git repository from the project tree. Available command-line
 tools are detected and added as default agents or editors when possible.
+
+To enable Jira boards, set `jiraEndpoint` in `~/.branchloom/settings.json` and
+export the corresponding bearer token before launching Branchloom:
+
+```bash
+export JIRA_TOKEN="your-token"
+```
+
+The Jira source must also be enabled in a board definition. The endpoint should be
+the Jira base URL, such as `https://jira.example.com`; Branchloom appends the Jira
+REST search path.

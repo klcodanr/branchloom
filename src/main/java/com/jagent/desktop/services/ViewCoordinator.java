@@ -1,6 +1,9 @@
 package com.jagent.desktop.services;
 
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.AsyncLoadingState;
+import com.jagent.desktop.async.BoardInstanceState;
+import com.jagent.desktop.async.SessionInstanceState;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.TerminalId;
@@ -13,16 +16,32 @@ import org.jetbrains.annotations.Nullable;
 /** Owns application selection, cached views, and central navigation state. */
 public final class ViewCoordinator {
     private final AppState appState;
+    private final Map<Object, AsyncLoadingState<?, ?, ?, ?>> asyncLoadingStates = new HashMap<>();
     private final BackgroundJobs backgroundJobs = new BackgroundJobs();
     private final Consumer<ViewId> viewChanged;
     private final Map<ViewId, Integer> selectedTabs = new EnumMap<>(ViewId.class);
     private final Map<SessionId, Integer> selectedSessionTabs = new HashMap<>();
     private ViewId currentViewId;
+    private String currentBoardName;
 
     public record ViewState(
-            ProjectId newProjectId, SessionId newSessionId, TerminalId newTerminalId) {
+            ProjectId newProjectId,
+            SessionId newSessionId,
+            TerminalId newTerminalId,
+            String boardName) {
+        public ViewState(
+                final ProjectId newProjectId,
+                final SessionId newSessionId,
+                final TerminalId newTerminalId) {
+            this(newProjectId, newSessionId, newTerminalId, null);
+        }
+
         public static ViewState reset() {
             return new ViewState(null, null, null);
+        }
+
+        public static ViewState board(final String boardName) {
+            return new ViewState(null, null, null, boardName);
         }
 
         public static ViewState project(final ProjectId projectId) {
@@ -51,6 +70,10 @@ public final class ViewCoordinator {
     public ViewCoordinator(final AppState appState, final Consumer<ViewId> viewChanged) {
         this.appState = appState;
         this.viewChanged = viewChanged;
+        this.asyncLoadingStates.put(
+                ViewId.BOARD, new BoardInstanceState(appState, this.backgroundJobs()));
+        this.asyncLoadingStates.put(
+                ViewId.SESSION, new SessionInstanceState(appState, this.backgroundJobs()));
     }
 
     public void updateView(final ViewId newViewId, final @Nullable ViewState viewState) {
@@ -58,6 +81,9 @@ public final class ViewCoordinator {
             appState.updateCurrentProject(viewState.newProjectId());
             appState.updateCurrentSession(viewState.newSessionId());
             appState.updateCurrentTerminal(viewState.newTerminalId());
+            if (viewState.boardName() != null) {
+                currentBoardName = viewState.boardName();
+            }
         }
         this.currentViewId = newViewId;
         this.viewChanged.accept(newViewId);
@@ -67,8 +93,24 @@ public final class ViewCoordinator {
         return this.currentViewId;
     }
 
+    public String currentBoardName() {
+        return currentBoardName;
+    }
+
     public BackgroundJobs backgroundJobs() {
         return backgroundJobs;
+    }
+
+    public <V extends AsyncLoadingState<?, ?, ?, ?>> V getAsyncLoadingState(final Object key) {
+        return (V) asyncLoadingStates.get(key);
+    }
+
+    public <V extends AsyncLoadingState<?, ?, ?, ?>> V getOrDefaultAsyncLoadingState(
+            final Object key, final V defaultState) {
+        if (!asyncLoadingStates.containsKey(key)) {
+            asyncLoadingStates.put(key, defaultState);
+        }
+        return (V) asyncLoadingStates.get(key);
     }
 
     public int selectedTab(final ViewId viewId) {

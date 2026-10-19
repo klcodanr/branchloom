@@ -46,10 +46,11 @@ class AppMenuBarTest {
         final JMenu file = bar.getMenu(0);
         final JMenuItem addLocalProject = findItem(file, "Add local project");
         final JMenuItem cloneRemoteProject = findItem(file, "Clone remote project");
-        final JMenuItem settings = findItem(file, "Settings");
+        final JMenuItem settings = findItem(file, "Open Settings");
         assertNotNull(addLocalProject, ASSERTION_MESSAGE);
         assertNotNull(cloneRemoteProject, ASSERTION_MESSAGE);
         assertNotNull(settings, ASSERTION_MESSAGE);
+        assertNotNull(findItem(file, "Refresh Settings"), ASSERTION_MESSAGE);
         assertTrue(addLocalProject.isEnabled(), ASSERTION_MESSAGE);
         assertTrue(file.getMenuComponent(2) instanceof JSeparator, ASSERTION_MESSAGE);
         if (SystemInfo.isMacOS) {
@@ -98,7 +99,7 @@ class AppMenuBarTest {
                 shortcut(KeyEvent.VK_F, false),
                 view.getItem(0).getAccelerator(),
                 ASSERTION_MESSAGE);
-        assertEquals("Problems", view.getItem(3).getText(), ASSERTION_MESSAGE);
+        assertEquals("Problems", view.getItem(2).getText(), ASSERTION_MESSAGE);
         assertNotNull(bar.getMenu(2).getItem(0), ASSERTION_MESSAGE);
         assertNotNull(bar.getMenu(3).getItem(0), ASSERTION_MESSAGE);
     }
@@ -113,7 +114,7 @@ class AppMenuBarTest {
         state.updateCurrentProject(projectId);
         state.updateCurrentSession(sessionId);
         final var coordinator = new ViewCoordinator(state);
-        final ActionContext context = new ActionContext(coordinator, state, null);
+        final ActionContext context = new ActionContext(coordinator, state, null, null, null);
         final JMenuBar bar = GuiActionRunner.execute(() -> AppMenuBar.create(context));
 
         GuiActionRunner.execute(
@@ -129,7 +130,7 @@ class AppMenuBarTest {
     }
 
     private static ActionContext context(final AppState state) {
-        return new ActionContext(new ViewCoordinator(state), state, null);
+        return new ActionContext(new ViewCoordinator(state), state, null, null, null);
     }
 
     private static boolean hasMenu(final JMenuBar bar, final String label) {

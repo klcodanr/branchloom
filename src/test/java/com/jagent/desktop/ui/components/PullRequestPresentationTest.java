@@ -144,8 +144,11 @@ class PullRequestPresentationTest {
     }
 
     private static PullRequestDetails details(final String mergeState, final boolean draft) {
-        final ProjectId projectId = ProjectId.create();
-        final Project project = new Project("Demo", "/tmp/demo", null);
-        return new PullRequestDetails(projectId, project, 12, draft, false, mergeState, 2, 1, 1);
+        try {
+            return new PullRequestDetails(
+                    request("Test", "author"), draft, false, mergeState, 2, 1, 1);
+        } catch (MalformedURLException exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 }

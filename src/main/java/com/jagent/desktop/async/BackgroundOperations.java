@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.swing.SwingUtilities;
@@ -51,11 +52,12 @@ public final class BackgroundOperations {
             final String group, final String name, final Callable<T> task) {
         final Counters counters = GROUPS.computeIfAbsent(group, ignored -> new Counters());
         counters.submitted.incrementAndGet();
-        final CompletableFuture<T> future = new CompletableFuture<>();
+        final TaskFuture<T> future = new TaskFuture<>();
 
         EXECUTOR.execute(
                 () -> {
                     final Thread current = Thread.currentThread();
+                    future.thread.set(current);
                     try {
                         current.setName(group + "/" + name);
                         ACTIVE_TASKS.put(current, name);
@@ -73,6 +75,21 @@ public final class BackgroundOperations {
                 });
 
         return future;
+    }
+
+    private static final class TaskFuture<T> extends CompletableFuture<T> {
+        private final AtomicReference<Thread> thread = new AtomicReference<>();
+
+        @Override
+        public boolean cancel(final boolean mayInterruptIfRunning) {
+            if (mayInterruptIfRunning) {
+                final Thread running = thread.get();
+                if (running != null) {
+                    running.interrupt();
+                }
+            }
+            return super.cancel(mayInterruptIfRunning);
+        }
     }
 
     /**

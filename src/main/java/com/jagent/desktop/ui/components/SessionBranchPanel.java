@@ -2,7 +2,6 @@ package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.services.git.GitRepository;
 import java.awt.BorderLayout;
-import java.util.function.Consumer;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
 
@@ -10,23 +9,25 @@ import javax.swing.JTextArea;
 public final class SessionBranchPanel extends JPanel {
     private final JTextArea value =
             new SelectableTextLabel("Loading branch status...", Theme.FontSize.MD);
-    private final Consumer<Boolean> cleanChanged;
 
-    public SessionBranchPanel(final Consumer<Boolean> cleanChanged) {
+    public SessionBranchPanel() {
         super(new BorderLayout());
-        this.cleanChanged = cleanChanged;
         value.setRows(1);
         add(value, BorderLayout.CENTER);
+        showLoading();
     }
 
-    public void show(final GitRepository.WorktreeStatus status) {
-        value.setText(
-                (status.branch().isBlank() ? "Detached HEAD" : status.branch())
-                        + (status.clean() ? "  ·  Clean" : "  ·  Changes present"));
-        cleanChanged.accept(status.clean());
+    public void showLoading() {
+        value.setText("Loading branch status...");
     }
 
-    public void showUnavailable(final String message) {
-        value.setText(message);
+    public void setWorktreeStatus(final GitRepository.WorktreeStatus status) {
+        if (status != null) {
+            value.setText(
+                    (status.branch().isBlank() ? "Detached HEAD" : status.branch())
+                            + (status.clean() ? "  ·  Clean" : "  ·  Changes present"));
+        } else {
+            value.setText("Could not load branch status");
+        }
     }
 }

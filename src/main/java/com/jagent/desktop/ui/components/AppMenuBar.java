@@ -2,7 +2,9 @@ package com.jagent.desktop.ui.components;
 
 import com.formdev.flatlaf.util.SystemInfo;
 import com.jagent.desktop.api.Action;
+import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.models.board.BoardDefinition;
 import com.jagent.desktop.ui.actions.AboutAction;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.CreateSessionAction;
@@ -11,6 +13,7 @@ import com.jagent.desktop.ui.actions.FindAction;
 import com.jagent.desktop.ui.actions.ImportProjectAction;
 import com.jagent.desktop.ui.actions.OpenSettingsAction;
 import com.jagent.desktop.ui.actions.ProblemsAction;
+import com.jagent.desktop.ui.actions.RefreshSettingsAction;
 import com.jagent.desktop.ui.actions.ResourceUsageAction;
 import com.jagent.desktop.ui.actions.ShortcutsAction;
 import java.awt.Toolkit;
@@ -18,6 +21,7 @@ import java.awt.Window;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
+import java.util.List;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -28,11 +32,30 @@ public final class AppMenuBar {
     private AppMenuBar() {}
 
     public static JMenuBar create(final ActionContext actionContext) {
+        final JMenuBar bar = new JMenuBar();
         final boolean projectSelected = actionContext.appState().currentProjectId() != null;
         final boolean sessionSelected = actionContext.appState().currentSessionId() != null;
-        final Window window = actionContext.window();
-        final JMenuBar bar = new JMenuBar();
+        bar.add(fileMenu(actionContext, projectSelected));
+        bar.add(viewMenu(actionContext));
+        if (projectSelected) {
+            final JMenu project = new JMenu("Project");
+            ProjectActions.populate(
+                    project, actionContext, actionContext.appState().currentProjectId());
+            bar.add(project);
+        }
+        if (sessionSelected) {
+            final JMenu session = new JMenu("Session");
+            SessionActions.populate(
+                    session, actionContext, actionContext.appState().currentSessionId());
+            bar.add(session);
+        }
+        bar.add(helpMenu(actionContext));
+        return bar;
+    }
 
+    private static JMenu fileMenu(
+            final ActionContext actionContext, final boolean projectSelected) {
+        final Window window = actionContext.window();
         final JMenu file = new JMenu("File");
         file.add(
                 actionItem(
@@ -51,6 +74,7 @@ public final class AppMenuBar {
         }
         file.addSeparator();
         file.add(actionItem(new OpenSettingsAction(actionContext)));
+        file.add(actionItem(new RefreshSettingsAction(actionContext)));
         if (!SystemInfo.isMacOS) {
             file.addSeparator();
             file.add(
@@ -60,37 +84,38 @@ public final class AppMenuBar {
                                     window.dispatchEvent(
                                             new WindowEvent(window, WindowEvent.WINDOW_CLOSING))));
         }
-        bar.add(file);
+        return file;
+    }
 
+    private static JMenu viewMenu(final ActionContext actionContext) {
         final JMenu view = new JMenu("View");
         view.add(
                 actionItem(
                         new FindAction(actionContext),
                         shortcut(KeyStroke.getKeyStroke(KeyEvent.VK_F, 0), false)));
         view.add(actionItem(new ResourceUsageAction(actionContext)));
-        view.addSeparator();
         view.add(actionItem(new ProblemsAction(actionContext)));
-        bar.add(view);
-
-        if (projectSelected) {
-            final JMenu project = new JMenu("Project");
-            ProjectActions.populate(
-                    project, actionContext, actionContext.appState().currentProjectId());
-            bar.add(project);
+        final List<BoardDefinition> boards = actionContext.appState().appSettings().boards();
+        for (final BoardDefinition board : boards) {
+            view.add(
+                    item(
+                            board.name(),
+                            () ->
+                                    actionContext
+                                            .viewCoordinator()
+                                            .updateView(
+                                                    ViewId.BOARD,
+                                                    com.jagent.desktop.services.ViewCoordinator
+                                                            .ViewState.board(board.name()))));
         }
+        return view;
+    }
 
-        if (sessionSelected) {
-            final JMenu session = new JMenu("Session");
-            SessionActions.populate(
-                    session, actionContext, actionContext.appState().currentSessionId());
-            bar.add(session);
-        }
-
+    private static JMenu helpMenu(final ActionContext actionContext) {
         final JMenu help = new JMenu("Help");
         help.add(actionItem(new ShortcutsAction(actionContext)));
         help.add(actionItem(new AboutAction(actionContext)));
-        bar.add(help);
-        return bar;
+        return help;
     }
 
     private static JMenuItem item(final String label, final Runnable action) {

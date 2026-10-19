@@ -3,27 +3,23 @@ package com.jagent.desktop.models;
 import com.jagent.desktop.ui.components.Theme;
 import java.awt.Color;
 import java.util.List;
-import org.jetbrains.annotations.NotNull;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public record PullRequestDetails(
-        @NotNull ProjectId projectId,
-        @NotNull Project project,
-        @NotNull int number,
-        @NotNull boolean draft,
-        @NotNull boolean mergeable,
-        @NotNull String mergableState,
-        @NotNull int additions,
-        @NotNull int deletions,
-        @NotNull int changedFiles,
-        @NotNull PullRequestChecks checks) {
+public final class PullRequestDetails extends PullRequest {
     private static final Logger LOG = LoggerFactory.getLogger(PullRequestDetails.class);
+    private final boolean draft;
+    private final boolean mergeable;
+    private final String mergableState;
+    private final int additions;
+    private final int deletions;
+    private final int changedFiles;
+    private final PullRequestChecks checks;
+    private final Status status;
 
     public PullRequestDetails(
-            final ProjectId projectId,
-            final Project project,
-            final int number,
+            final PullRequest pullRequest,
             final boolean draft,
             final boolean mergeable,
             final String mergableState,
@@ -31,9 +27,7 @@ public record PullRequestDetails(
             final int deletions,
             final int changedFiles) {
         this(
-                projectId,
-                project,
-                number,
+                pullRequest,
                 draft,
                 mergeable,
                 mergableState,
@@ -43,35 +37,120 @@ public record PullRequestDetails(
                 new PullRequestChecks(List.of()));
     }
 
+    public PullRequestDetails(
+            final PullRequest pullRequest,
+            final boolean draft,
+            final boolean mergeable,
+            final String mergableState,
+            final int additions,
+            final int deletions,
+            final int changedFiles,
+            final PullRequestChecks checks) {
+        super(
+                pullRequest.projectId(),
+                pullRequest.project(),
+                pullRequest.number(),
+                pullRequest.state(),
+                pullRequest.title(),
+                pullRequest.description(),
+                Objects.requireNonNull(pullRequest.url(), "Pull request URL is required"),
+                pullRequest.createdAt(),
+                pullRequest.updatedAt(),
+                pullRequest.author(),
+                pullRequest.headBranch(),
+                pullRequest.headSha(),
+                pullRequest.baseBranch());
+        this.draft = draft;
+        this.mergeable = mergeable;
+        this.mergableState = mergableState;
+        this.additions = additions;
+        this.deletions = deletions;
+        this.changedFiles = changedFiles;
+        this.checks = checks == null ? new PullRequestChecks(List.of()) : checks;
+        this.status = calculateStatus();
+    }
+
+    public boolean draft() {
+        return draft;
+    }
+
+    public boolean mergeable() {
+        return mergeable;
+    }
+
+    public String mergableState() {
+        return mergableState;
+    }
+
+    public int additions() {
+        return additions;
+    }
+
+    public int deletions() {
+        return deletions;
+    }
+
+    public int changedFiles() {
+        return changedFiles;
+    }
+
+    public PullRequestChecks checks() {
+        return checks;
+    }
+
     public enum Status {
         READY,
         CONFLICTED,
         DRAFT,
-        IN_PROGRESS,
+        BLOCKED,
+        PENDING,
         CHECKS_FAILING,
         OTHER
     }
 
     public Status status() {
+        return status;
+    }
+
+    private Status calculateStatus() {
         LOG.debug(
                 "Getting PR status: number={}, draft={}, mergeable={}, mergableState={}",
                 number(),
-                draft(),
-                mergeable(),
-                mergableState());
-        if (checks().checksStatus() == PullRequestChecks.Status.FAILING) {
-            return Status.CHECKS_FAILING;
-        } else if ("dirty".equals(mergableState())) {
+                draft,
+                mergeable,
+                mergableState);
+        final Status checkStatus = checkStatus();
+        if (checkStatus != null) {
+            return checkStatus;
+        }
+        if ("dirty".equals(mergableState)) {
             return Status.CONFLICTED;
-        } else if (checks().checksStatus() == PullRequestChecks.Status.PENDING) {
-            return Status.IN_PROGRESS;
-        } else if (draft()) {
+        }
+        if (draft) {
             return Status.DRAFT;
-        } else if (mergeable && List.of("clean", "behind").contains(mergableState())) {
+        }
+        if (mergeable && List.of("clean", "behind").contains(mergableState)) {
             return Status.READY;
-        } else if (List.of("blocked", "draft", "has_hooks").contains(mergableState())) {
-            return Status.IN_PROGRESS;
-        } else if ("unstable".equals(mergableState())) {
+        }
+        return mergeStateStatus();
+    }
+
+    private Status checkStatus() {
+        return switch (checks.checksStatus()) {
+            case FAILING -> Status.CHECKS_FAILING;
+            case PENDING -> Status.PENDING;
+            default -> null;
+        };
+    }
+
+    private Status mergeStateStatus() {
+        if ("blocked".equals(mergableState)) {
+            return Status.BLOCKED;
+        }
+        if (List.of("draft", "has_hooks").contains(mergableState)) {
+            return Status.PENDING;
+        }
+        if ("unstable".equals(mergableState)) {
             return Status.CHECKS_FAILING;
         }
         return Status.OTHER;
@@ -81,7 +160,7 @@ public record PullRequestDetails(
         final Status stat = status();
         if (stat == Status.READY) {
             return Theme.Colors.success();
-        } else if (stat == Status.IN_PROGRESS) {
+        } else if (stat == Status.PENDING || stat == Status.BLOCKED) {
             return Theme.Colors.warning();
         } else if (stat == Status.CHECKS_FAILING || stat == Status.CONFLICTED) {
             return Theme.Colors.danger();

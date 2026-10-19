@@ -33,7 +33,8 @@ class ProjectViewUiTest {
     void buildsTabsAndSupportsViewOperations() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
-        final ActionContext context = new ActionContext(new ViewCoordinator(state), state, null);
+        final ActionContext context =
+                new ActionContext(new ViewCoordinator(state), state, null, null, null);
         final Project project = state.projects().get(projectId);
 
         final ProjectView view = GuiActionRunner.execute(() -> new ProjectView(context, project));
@@ -57,7 +58,8 @@ class ProjectViewUiTest {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId =
                 state.addProject(new Project(PROJECT_NAME, directory.toString(), null));
-        final ActionContext context = new ActionContext(new ViewCoordinator(state), state, null);
+        final ActionContext context =
+                new ActionContext(new ViewCoordinator(state), state, null, null, null);
         final var firstFile =
                 java.nio.file.Files.writeString(directory.resolve("first.txt"), "first");
         final var secondFile =
@@ -98,7 +100,8 @@ class ProjectViewUiTest {
         state.addTerminal(sessionId, new Terminal(sessionId, "Shell", SUCCESS_COMMAND));
         state.addTerminal(
                 sessionId, new Terminal(sessionId, projectId, "Dual owner", SUCCESS_COMMAND));
-        final ActionContext context = new ActionContext(new ViewCoordinator(state), state, null);
+        final ActionContext context =
+                new ActionContext(new ViewCoordinator(state), state, null, null, null);
 
         final ProjectView view =
                 GuiActionRunner.execute(
@@ -121,7 +124,12 @@ class ProjectViewUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new ProjectView(
-                                        new ActionContext(new ViewCoordinator(state), state, null),
+                                        new ActionContext(
+                                                new ViewCoordinator(state),
+                                                state,
+                                                null,
+                                                null,
+                                                null),
                                         state.projects().get(projectId)));
         final JTabbedPane tabs =
                 (JTabbedPane) ((WorkspaceSplitPane) view.getComponent(1)).getLeftComponent();

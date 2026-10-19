@@ -39,8 +39,7 @@ class SettingsPanelUiTest {
     void labeledFieldWrapsTextAreasForEditing() {
         final var area = new javax.swing.JTextArea();
 
-        final JPanel field =
-                GuiActionRunner.execute(() -> SettingsPanel.labeledField("Prompt", area));
+        final JPanel field = GuiActionRunner.execute(() -> new LabeledField("Prompt", area));
 
         assertEquals(2, field.getComponentCount(), "field should include label and scroll pane");
         assertEquals(true, area.getLineWrap(), "text area should wrap lines");

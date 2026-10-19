@@ -17,6 +17,6 @@ public final class TestAppState {
     }
 
     public static ActionContext context(final AppState state) {
-        return new ActionContext(new ViewCoordinator(state), state, (Window) null);
+        return new ActionContext(new ViewCoordinator(state), state, (Window) null, null, null);
     }
 }

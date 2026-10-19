@@ -1,25 +1,27 @@
 package com.jagent.desktop.services;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 
 /** Tracks background work that should be visible to the user. */
 public final class BackgroundJobs {
     private static final int MAX_COMPLETED_JOBS = 100;
     private static final int MAX_OUTPUT_LINES = 5_000;
-    private final Map<UUID, Job> jobs = new LinkedHashMap<>();
+    private final ConcurrentMap<UUID, Job> jobs = new ConcurrentHashMap<>();
+    private final Object jobsLock = new Object();
     private final List<Consumer<List<Job>>> listeners = new ArrayList<>();
 
     public enum Status {
         RUNNING,
         SUCCEEDED,
-        FAILED
+        FAILED,
+        CANCELLED
     }
 
     public record Job(
@@ -55,7 +57,7 @@ public final class BackgroundJobs {
 
         public void output(final String line) {
             final Job current = job(id);
-            final String retainedOutput;
+            final String output;
             synchronized (this) {
                 if (!outputLines.offer(line)) {
                     outputLines.poll();
@@ -63,7 +65,7 @@ public final class BackgroundJobs {
                         throw new IllegalStateException("Unable to retain background job output");
                     }
                 }
-                retainedOutput = String.join(System.lineSeparator(), outputLines);
+                output = String.join(System.lineSeparator(), outputLines);
             }
             updateJob(
                     new Job(
@@ -73,7 +75,7 @@ public final class BackgroundJobs {
                             current.session(),
                             current.status(),
                             current.message(),
-                            retainedOutput));
+                            output));
         }
 
         public void complete() {
@@ -101,6 +103,19 @@ public final class BackgroundJobs {
                             message,
                             current.output()));
         }
+
+        public void cancel() {
+            final Job current = job(id);
+            updateJob(
+                    new Job(
+                            id,
+                            current.title(),
+                            current.project(),
+                            current.session(),
+                            Status.CANCELLED,
+                            "Cancelled",
+                            current.output()));
+        }
     }
 
     public Handle start(final String title) {
@@ -109,7 +124,7 @@ public final class BackgroundJobs {
 
     public Handle start(final String title, final String project, final String session) {
         final UUID id = UUID.randomUUID();
-        synchronized (jobs) {
+        synchronized (jobsLock) {
             jobs.put(id, new Job(id, title, project, session, Status.RUNNING, "Starting...", ""));
             trimCompletedJobs();
         }
@@ -118,7 +133,7 @@ public final class BackgroundJobs {
     }
 
     public List<Job> jobs() {
-        synchronized (jobs) {
+        synchronized (jobsLock) {
             return jobs.values().stream().toList();
         }
     }
@@ -131,7 +146,7 @@ public final class BackgroundJobs {
     }
 
     private Job job(final UUID id) {
-        synchronized (jobs) {
+        synchronized (jobsLock) {
             final Job job = jobs.get(id);
             if (job == null) {
                 throw new IllegalStateException("Background job not found: " + id);
@@ -141,18 +156,15 @@ public final class BackgroundJobs {
     }
 
     private void updateJob(final Job job) {
-        synchronized (jobs) {
+        synchronized (jobsLock) {
+            final Job current = jobs.get(job.id());
+            if (current != null && current.status() != Status.RUNNING) {
+                return;
+            }
             jobs.put(job.id(), job);
             trimCompletedJobs();
         }
         notifyListeners();
-    }
-
-    private void notifyListeners() {
-        final List<Job> snapshot = jobs();
-        synchronized (listeners) {
-            listeners.forEach(listener -> listener.accept(snapshot));
-        }
     }
 
     private void trimCompletedJobs() {
@@ -171,6 +183,13 @@ public final class BackgroundJobs {
                     return;
                 }
             }
+        }
+    }
+
+    private void notifyListeners() {
+        final List<Job> snapshot = jobs();
+        synchronized (listeners) {
+            listeners.forEach(listener -> listener.accept(snapshot));
         }
     }
 }

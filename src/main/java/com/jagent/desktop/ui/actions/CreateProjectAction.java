@@ -57,7 +57,7 @@ public class CreateProjectAction extends BaseAction {
                         this.actionContext,
                         ADD_PROJECT_TITLE,
                         "Loading GitHub accounts...",
-                        () -> new GitHubAuth().listCredentials(this.actionContext.appState()))
+                        () -> new GitHubAuth().listCredentials())
                 .thenAccept(this::showDialog)
                 .exceptionally(
                         failure -> {

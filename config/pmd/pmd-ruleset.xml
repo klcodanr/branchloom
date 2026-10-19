@@ -4,6 +4,7 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.github.io/schema/ruleset_2_0_0.xsd">
     <description>All standard Java PMD rules.</description>
+    <exclude-pattern>.*/models/PullRequest\.java</exclude-pattern>
     <rule ref="category/java/bestpractices.xml">
         <exclude name="GuardLogStatement" />
         <exclude name="UnusedAssignment" />

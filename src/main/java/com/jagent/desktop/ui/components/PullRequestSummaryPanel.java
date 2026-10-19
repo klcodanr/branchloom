@@ -10,6 +10,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -97,6 +98,7 @@ public final class PullRequestSummaryPanel extends ScrollablePanel {
         top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
         top.setAlignmentX(LEFT_ALIGNMENT);
 
+        final URL url = request.url();
         final JPanel header = new JPanel();
         header.setOpaque(false);
         header.setLayout(new BorderLayout(UiConstants.SPACING_SM, 0));
@@ -110,7 +112,12 @@ public final class PullRequestSummaryPanel extends ScrollablePanel {
         final JButton title =
                 new LinkButton(
                         request.title(),
-                        () -> PlatformCommands.openUrl(request.url().toExternalForm()));
+                        () -> {
+                            if (url != null) {
+                                PlatformCommands.openUrl(url.toExternalForm());
+                            }
+                        });
+        title.setEnabled(url != null);
         title.setFont(Theme.boldFont(Theme.FontSize.XL));
         title.setToolTipText(request.title());
         title.setText(

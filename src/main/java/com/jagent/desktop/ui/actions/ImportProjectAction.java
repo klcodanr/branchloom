@@ -44,7 +44,7 @@ public final class ImportProjectAction extends BaseAction {
                         actionContext,
                         TITLE,
                         "Loading GitHub accounts...",
-                        () -> new GitHubAuth().listCredentials(actionContext.appState()))
+                        () -> new GitHubAuth().listCredentials())
                 .thenAccept(
                         configuredAuths ->
                                 new ImportProjectDialog(

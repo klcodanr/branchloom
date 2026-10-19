@@ -1,5 +1,7 @@
 package com.jagent.desktop.models;
 
+import com.jagent.desktop.models.board.BoardConfig;
+import com.jagent.desktop.models.board.BoardDefinition;
 import java.util.List;
 
 public record AppSettings(
@@ -10,7 +12,9 @@ public record AppSettings(
         List<Tool> tools,
         String worktreeTemplate,
         String agentContextPath,
-        List<PullRequestFilter> pullRequestFilters) {
+        List<PullRequestFilter> pullRequestFilters,
+        List<BoardDefinition> boards,
+        String jiraEndpoint) {
     private static final String DEFAULT_WORKTREE_TEMPLATE =
             "{projectPath}/../{projectName}-{sessionSlug}";
     private static final PullRequestFilter ACTIVE_FILTER =
@@ -39,7 +43,31 @@ public record AppSettings(
                 tools,
                 worktreeTemplate,
                 "",
-                defaultPullRequestFilters());
+                defaultPullRequestFilters(),
+                List.of(),
+                "");
+    }
+
+    public AppSettings(
+            final List<Agent> agents,
+            final List<String> groupOrder,
+            final String reviewPrompt,
+            final String theme,
+            final List<Tool> tools,
+            final String worktreeTemplate,
+            final String agentContextPath,
+            final List<PullRequestFilter> pullRequestFilters) {
+        this(
+                agents,
+                groupOrder,
+                reviewPrompt,
+                theme,
+                tools,
+                worktreeTemplate,
+                agentContextPath,
+                pullRequestFilters,
+                List.of(),
+                "");
     }
 
     public AppSettings(
@@ -58,7 +86,9 @@ public record AppSettings(
                 tools,
                 worktreeTemplate,
                 agentContextPath,
-                defaultPullRequestFilters());
+                defaultPullRequestFilters(),
+                List.of(),
+                "");
     }
 
     public AppSettings {
@@ -71,6 +101,38 @@ public record AppSettings(
                         : worktreeTemplate;
         agentContextPath = agentContextPath == null ? "" : agentContextPath.trim();
         pullRequestFilters = sanitizePullRequestFilters(pullRequestFilters);
+        boards = sanitizeBoards(boards);
+        jiraEndpoint = jiraEndpoint == null || jiraEndpoint.isBlank() ? null : jiraEndpoint.trim();
+    }
+
+    public AppSettings(
+            final List<Agent> agents,
+            final List<String> groupOrder,
+            final String reviewPrompt,
+            final String theme,
+            final List<Tool> tools,
+            final String worktreeTemplate,
+            final String agentContextPath,
+            final List<PullRequestFilter> pullRequestFilters,
+            final BoardConfig boardConfig) {
+        this(
+                agents,
+                groupOrder,
+                reviewPrompt,
+                theme,
+                tools,
+                worktreeTemplate,
+                agentContextPath,
+                pullRequestFilters,
+                List.of(new BoardDefinition("Unified Board", boardConfig)),
+                "");
+    }
+
+    private static List<BoardDefinition> sanitizeBoards(final List<BoardDefinition> boards) {
+        if (boards == null) {
+            return List.of();
+        }
+        return boards.stream().filter(board -> board != null && !board.name().isBlank()).toList();
     }
 
     public PullRequestFilter filterNamed(final String name) {

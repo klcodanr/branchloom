@@ -4,8 +4,11 @@ import java.awt.Dimension;
 import java.awt.LayoutManager;
 import java.awt.Rectangle;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JViewport;
 import javax.swing.Scrollable;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 
 /** A panel that fills the viewport width while retaining vertical scrolling. */
 public abstract class ScrollablePanel extends JPanel implements Scrollable {
@@ -15,6 +18,18 @@ public abstract class ScrollablePanel extends JPanel implements Scrollable {
 
     protected ScrollablePanel(final LayoutManager layout) {
         super(layout);
+    }
+
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        SwingUtilities.invokeLater(
+                () -> {
+                    if (getParent() instanceof JViewport viewport
+                            && viewport.getParent() instanceof JScrollPane scrollPane) {
+                        scrollPane.getVerticalScrollBar().setValue(0);
+                    }
+                });
     }
 
     @Override

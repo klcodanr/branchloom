@@ -9,7 +9,6 @@ import com.jagent.desktop.models.PullRequestFilter;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.PlatformCommands;
-import com.jagent.desktop.services.PullRequestCache;
 import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.components.ProjectActions;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
@@ -20,7 +19,6 @@ import com.jagent.desktop.ui.components.UiText;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Map;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -34,7 +32,6 @@ public final class ProjectView extends AbstractWorkspaceView {
     private static final Logger LOG = LoggerFactory.getLogger(ProjectView.class);
     private final transient Project project;
     private final transient ProjectId projectId;
-    private final transient PullRequestCache pullRequestCache;
     private final PullRequestsBoard pullRequests;
     private final JComboBox<PullRequestFilter> filters;
     private final JPanel gitWarning = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
@@ -43,7 +40,6 @@ public final class ProjectView extends AbstractWorkspaceView {
     public ProjectView(final ActionContext actionContext, final Project project) {
         super(actionContext, ViewId.PROJECT);
         this.project = project;
-        this.pullRequestCache = PullRequestCache.get(actionContext.appState());
         this.projectId =
                 actionContext.appState().projects().entrySet().stream()
                         .filter(entry -> entry.getValue().equals(project))
@@ -61,19 +57,7 @@ public final class ProjectView extends AbstractWorkspaceView {
         this.pullRequests =
                 new PullRequestsBoard(
                         actionContext,
-                        (query, forceRefresh) -> {
-                            if (this.projectId == null) {
-                                return List.of();
-                            }
-                            final PullRequestFilter selected =
-                                    (PullRequestFilter) this.filters.getSelectedItem();
-                            final PullRequestFilter filter =
-                                    new PullRequestFilter(selected.name(), query);
-                            return forceRefresh
-                                    ? pullRequestCache.refreshForProjectFilter(
-                                            this.projectId, filter)
-                                    : pullRequestCache.loadForProjectFilter(this.projectId, filter);
-                        },
+                        projectId,
                         initialFilter == null ? "" : initialFilter.query());
         this.filters.addActionListener(
                 event -> {

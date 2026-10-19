@@ -2,14 +2,9 @@ package com.jagent.desktop.services.github;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.github.Credential;
-import com.jagent.desktop.models.github.PatCredential;
-import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.ui.Defaults;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class GitHubTest {
@@ -17,24 +12,9 @@ class GitHubTest {
 
     @Test
     void listCredentialsIncludesDefaultCliOption() {
-        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-
-        final List<Credential> auths = new GitHubAuth().listCredentials(state);
+        final List<Credential> auths = new GitHubAuth().listCredentials();
 
         assertFalse(auths.isEmpty(), "default auth should be available");
-    }
-
-    @Test
-    void listCredentialsIncludesPatConnections() {
-        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.addGitHubConnection(new PatCredential("pat-1", "github.com", "Personal token"));
-
-        final List<Credential> auths = new GitHubAuth().listCredentials(state);
-
-        assertTrue(auths.size() >= 2, "PAT connection should be included alongside CLI auths");
-        assertTrue(
-                auths.stream().map(Credential::id).anyMatch("pat-1"::equals),
-                "PAT id should be retained");
     }
 
     @Test
