@@ -175,7 +175,8 @@ public final class GitHub {
                     GitHubUser.from(request.getUser()),
                     request.getHead() == null ? "" : request.getHead().getRef(),
                     request.getHead() == null ? "" : request.getHead().getSha(),
-                    request.getBase() == null ? "" : request.getBase().getRef());
+                    request.getBase() == null ? "" : request.getBase().getRef(),
+                    request.isMerged());
         } catch (IOException e) {
             LOG.error("Failed to create PullRequest from GHPullRequest", e);
         }

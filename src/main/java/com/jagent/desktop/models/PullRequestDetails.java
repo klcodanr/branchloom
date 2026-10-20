@@ -59,7 +59,8 @@ public final class PullRequestDetails extends PullRequest {
                 pullRequest.author(),
                 pullRequest.headBranch(),
                 pullRequest.headSha(),
-                pullRequest.baseBranch());
+                pullRequest.baseBranch(),
+                pullRequest.merged());
         this.draft = draft;
         this.mergeable = mergeable;
         this.mergableState = mergableState;
@@ -99,6 +100,7 @@ public final class PullRequestDetails extends PullRequest {
     }
 
     public enum Status {
+        MERGED,
         READY,
         CONFLICTED,
         DRAFT,
@@ -119,6 +121,9 @@ public final class PullRequestDetails extends PullRequest {
                 draft,
                 mergeable,
                 mergableState);
+        if (merged()) {
+            return Status.MERGED;
+        }
         final Status checkStatus = checkStatus();
         if (checkStatus != null) {
             return checkStatus;
@@ -158,7 +163,7 @@ public final class PullRequestDetails extends PullRequest {
 
     public Color indicatorColor() {
         final Status stat = status();
-        if (stat == Status.READY) {
+        if (stat == Status.READY || stat == Status.MERGED) {
             return Theme.Colors.success();
         } else if (stat == Status.PENDING || stat == Status.BLOCKED) {
             return Theme.Colors.warning();
