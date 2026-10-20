@@ -31,7 +31,7 @@ dependencies {
     implementation 'org.jetbrains.jediterm:jediterm-ui:3.76'
     implementation 'com.fifesoft:rsyntaxtextarea:4.0.1'
     implementation 'org.eclipse.jgit:org.eclipse.jgit:7.8.0.202609011348-r'
-    implementation 'org.apache.commons:commons-jexl3:3.5.0'
+    implementation 'org.apache.commons:commons-jexl3:3.7.0'
     implementation 'org.slf4j:slf4j-jdk14:2.0.20'
     // implementation("org.graalvm.polyglot:polygraph:$graalVersion") // or polyglot core
     // implementation("org.graalvm.polyglot:polyglot:$graalVersion")
