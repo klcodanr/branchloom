@@ -25,6 +25,7 @@ class SessionCreationServiceTest {
     private static final String PROMPT = "prompt";
     private static final String WORKTREE_TEMPLATE = "worktrees/{sessionSlug}";
     private static final String WORKTREE_DIRECTORY = "worktree";
+    private static final String SHOW_CURRENT_BRANCH = "git branch --show-current";
 
     @Test
     void createsConfiguredWorktreeSessionAndTerminal(@TempDir final Path directory)
@@ -57,7 +58,7 @@ class SessionCreationServiceTest {
                 "created worktree path should use the configured template");
         assertEquals(
                 "fix-login\n",
-                TestGitRepository.output(worktree, "git branch --show-current"),
+                TestGitRepository.output(worktree, SHOW_CURRENT_BRANCH),
                 "created worktree should be on the new branch");
         assertTrue(Files.isDirectory(worktree), "created worktree should exist");
         assertEquals(
@@ -183,8 +184,7 @@ class SessionCreationServiceTest {
         assertTrue(Files.isDirectory(Path.of(created.worktreePath())), "worktree should exist");
         assertEquals(
                 "from-main\n",
-                TestGitRepository.output(
-                        Path.of(created.worktreePath()), "git branch --show-current"),
+                TestGitRepository.output(Path.of(created.worktreePath()), SHOW_CURRENT_BRANCH),
                 "explicit base branch should create the requested branch");
     }
 
@@ -415,8 +415,36 @@ class SessionCreationServiceTest {
         assertTrue(Files.isDirectory(worktree), "worktree should be created on disk");
         assertEquals(
                 "fix-login-import",
-                TestGitRepository.output(worktree, "git branch --show-current").trim(),
+                TestGitRepository.output(worktree, SHOW_CURRENT_BRANCH).trim(),
                 "imported worktree should use the requested local branch name");
+        assertEquals(
+                worktree.toAbsolutePath().normalize().toString(),
+                state.sessions().get(sessionId).worktreePath(),
+                "session should point to the created worktree path");
+    }
+
+    @Test
+    void createWorktreeAndSessionUsesExistingLocalBranch(@TempDir final Path directory)
+            throws IOException, InterruptedException, java.io.InvalidObjectException {
+        TestGitRepository.initialize(directory);
+        TestGitRepository.run(directory, "git branch existing-import");
+        final AppState state = TestAppState.empty();
+        final Project project = new Project(PROJECT_NAME, directory.toString(), null);
+        final ProjectId projectId = state.addProject(project);
+        final Path worktree = directory.resolve("existing-import-worktree");
+        final SessionCreationService.SessionDetails details =
+                new SessionCreationService.SessionDetails(SESSION_NAME, AGENT_NAME, PROMPT);
+        final SessionCreationService.WorktreeRequest request =
+                new SessionCreationService.WorktreeRequest(worktree, "master", "existing-import");
+
+        final SessionId sessionId =
+                new SessionCreationService(state)
+                        .createWorktreeAndSession(projectId, project, details, request);
+
+        assertEquals(
+                "existing-import",
+                TestGitRepository.output(worktree, SHOW_CURRENT_BRANCH).trim(),
+                "imported worktree should use the existing local branch");
         assertEquals(
                 worktree.toAbsolutePath().normalize().toString(),
                 state.sessions().get(sessionId).worktreePath(),
