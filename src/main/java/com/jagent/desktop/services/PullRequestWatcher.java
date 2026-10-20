@@ -28,27 +28,33 @@ public final class PullRequestWatcher implements AutoCloseable {
 
     private final Supplier<Map<SessionId, Session>> sessions;
     private final Function<Session, PullRequestStatus> loader;
-    private final BiConsumer<Session, PullRequestStatus> statusListener;
+    private final BiConsumer<SessionId, PullRequestStatus> statusListener;
+    private final BackgroundJobs backgroundJobs;
     private final ScheduledExecutorService scheduler;
     private final Map<SessionId, PullRequestStatus> previous = new java.util.HashMap<>();
 
     public PullRequestWatcher(
-            final AppState state, final BiConsumer<Session, PullRequestStatus> statusListener) {
+            final AppState state,
+            final BackgroundJobs backgroundJobs,
+            final BiConsumer<SessionId, PullRequestStatus> statusListener) {
         this(
                 state::sessions,
                 session -> load(state, session),
                 statusListener,
+                backgroundJobs,
                 Executors.newSingleThreadScheduledExecutor());
     }
 
     /* package */ PullRequestWatcher(
             final Supplier<Map<SessionId, Session>> sessions,
             final Function<Session, PullRequestStatus> loader,
-            final BiConsumer<Session, PullRequestStatus> statusListener,
+            final BiConsumer<SessionId, PullRequestStatus> statusListener,
+            final BackgroundJobs backgroundJobs,
             final ScheduledExecutorService scheduler) {
         this.sessions = Objects.requireNonNull(sessions);
         this.loader = Objects.requireNonNull(loader);
         this.statusListener = Objects.requireNonNull(statusListener);
+        this.backgroundJobs = Objects.requireNonNull(backgroundJobs);
         this.scheduler = Objects.requireNonNull(scheduler);
     }
 
@@ -64,17 +70,44 @@ public final class PullRequestWatcher implements AutoCloseable {
     }
 
     private void pollSafely() {
+        final BackgroundJobs.Handle job = backgroundJobs.start("Pull request monitoring");
         try {
-            poll();
+            pollWithJob(job);
+            job.complete();
         } catch (RuntimeException exception) {
+            job.fail(exception.getMessage() == null ? "Monitoring failed" : exception.getMessage());
             LOG.warn("Pull request polling failed", exception);
         }
     }
 
+    private void pollWithJob(final BackgroundJobs.Handle job) {
+        final Map<SessionId, Session> current = sessions.get();
+        previous.keySet().removeIf(id -> !current.containsKey(id));
+        final int[] failures = {0};
+        current.forEach(
+                (id, session) -> {
+                    job.update("Checking session " + session.name() + "...");
+                    if (!pollSession(id, session, job)) {
+                        failures[0]++;
+                    }
+                });
+        if (current.isEmpty()) {
+            job.update("No sessions to check");
+        } else if (failures[0] > 0) {
+            throw new IllegalStateException(
+                    failures[0] + " of " + current.size() + " session pull requests failed");
+        }
+    }
+
     private void pollSession(final SessionId id, final Session session) {
+        pollSession(id, session, null);
+    }
+
+    private boolean pollSession(
+            final SessionId id, final Session session, final BackgroundJobs.Handle job) {
         final String worktreePath = session.worktreePath();
         if (worktreePath == null || worktreePath.isBlank()) {
-            return;
+            return false;
         }
         try {
             final PullRequestStatus current = loader.apply(session);
@@ -82,9 +115,19 @@ public final class PullRequestWatcher implements AutoCloseable {
             if (old != null) {
                 alertTransitions(old, current);
             }
-            SwingUtilities.invokeLater(() -> statusListener.accept(session, current));
+            SwingUtilities.invokeLater(() -> statusListener.accept(id, current));
+            return true;
         } catch (RuntimeException exception) {
+            if ("No pull request found".equals(exception.getMessage())) {
+                previous.remove(id);
+                SwingUtilities.invokeLater(() -> statusListener.accept(id, null));
+                return true;
+            }
+            if (job != null) {
+                job.output("Failed to check " + session.name() + ": " + exception.getMessage());
+            }
             LOG.debug("Could not poll pull request for session {}", session.name(), exception);
+            return false;
         }
     }
 

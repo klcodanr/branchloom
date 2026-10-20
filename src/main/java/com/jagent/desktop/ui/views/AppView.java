@@ -7,6 +7,7 @@ import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
+import com.jagent.desktop.models.SessionMonitoringStatus;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PullRequestWatcher;
 import com.jagent.desktop.services.ViewCoordinator;
@@ -101,8 +102,31 @@ public final class AppView extends JFrame {
         content.setBorder(UiBorders.contentArea());
         projectTreePanel = new ProjectTreePanel(actionContext);
         pullRequestWatcher =
-                new PullRequestWatcher(state, projectTreePanel::updatePullRequestStatus);
-        pullRequestWatcher.start();
+                new PullRequestWatcher(
+                        state,
+                        viewCoordinator.backgroundJobs(),
+                        (sessionId, status) -> {
+                            if (status == null) {
+                                state.removeMonitoringStatus(sessionId);
+                                if (currentView instanceof HomeView) {
+                                    refreshCurrentView();
+                                }
+                                return;
+                            }
+                            state.updateMonitoringStatus(
+                                    sessionId,
+                                    new SessionMonitoringStatus(
+                                            status.request(),
+                                            status.details(),
+                                            java.time.Instant.now()));
+                            final Session session = state.sessions().get(sessionId);
+                            if (session != null) {
+                                projectTreePanel.updatePullRequestStatus(session, status);
+                            }
+                            if (currentView instanceof HomeView) {
+                                refreshCurrentView();
+                            }
+                        });
         bottomBar =
                 new BottomBar(
                         state,
@@ -116,6 +140,7 @@ public final class AppView extends JFrame {
         add(shell(actionContext), BorderLayout.CENTER);
         installShortcuts();
         render();
+        pullRequestWatcher.start();
         if (loadResult.hasSettingsError()) {
             ErrorDialogs.show(this, "Settings could not be loaded", loadResult.settingsError());
         }

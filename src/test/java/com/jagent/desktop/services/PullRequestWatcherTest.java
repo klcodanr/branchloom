@@ -41,12 +41,17 @@ class PullRequestWatcherTest {
                                 status(request, false, "dirty", PullRequestChecks.Status.FAILING),
                                 status(request, true, "clean", PullRequestChecks.Status.PASSING)));
         final List<PullRequestDetails.Status> rendered = new ArrayList<>();
+        final List<SessionId> renderedSessionIds = new ArrayList<>();
         final Map<SessionId, Session> sessions = Map.of(sessionId, session);
         try (PullRequestWatcher watcher =
                 new PullRequestWatcher(
                         () -> sessions,
                         ignored -> statuses.remove(),
-                        (ignored, status) -> rendered.add(status.details().status()),
+                        (renderedId, status) -> {
+                            renderedSessionIds.add(renderedId);
+                            rendered.add(status.details().status());
+                        },
+                        new BackgroundJobs(),
                         Executors.newSingleThreadScheduledExecutor())) {
             watcher.poll();
             watcher.poll();
@@ -56,6 +61,10 @@ class PullRequestWatcherTest {
         }
 
         assertEquals(4, rendered.size(), "each poll should update the PR status");
+        assertEquals(
+                List.of(sessionId, sessionId, sessionId, sessionId),
+                renderedSessionIds,
+                "each update should retain the session ID");
     }
 
     private static PullRequest request(final ProjectId projectId) throws MalformedURLException {
