@@ -2,6 +2,7 @@ package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.async.AsyncStateListener;
 import com.jagent.desktop.async.SessionInstanceState;
+import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.SessionSummaryInfo;
@@ -88,6 +89,16 @@ public final class SessionSummary extends ScrollablePanel {
         branch.setWorktreeStatus(info.worktreeStatus());
         diff.setWorktreeStatus(info.worktreeStatus());
         pullRequest.setPullRequest(info.pullRequest());
+        cleanupAlert.setVisible(shouldShowCleanupAlert(info));
+        revalidate();
+    }
+
+    public static boolean shouldShowCleanupAlert(final SessionSummaryInfo info) {
+        return info != null
+                && info.pullRequest() != null
+                && info.pullRequest().state() == PullRequest.State.MERGED
+                && info.worktreeStatus() != null
+                && info.worktreeStatus().clean();
     }
 
     private JPanel details() {
