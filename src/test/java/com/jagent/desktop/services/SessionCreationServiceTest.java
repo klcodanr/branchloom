@@ -14,6 +14,8 @@ import com.jagent.desktop.test.TestGitRepository;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -25,6 +27,7 @@ class SessionCreationServiceTest {
     private static final String PROMPT = "prompt";
     private static final String WORKTREE_TEMPLATE = "worktrees/{sessionSlug}";
     private static final String WORKTREE_DIRECTORY = "worktree";
+    private static final String EXISTING_IMPORT = "existing-import";
     private static final String SHOW_CURRENT_BRANCH = "git branch --show-current";
 
     @Test
@@ -427,7 +430,7 @@ class SessionCreationServiceTest {
     void createWorktreeAndSessionUsesExistingLocalBranch(@TempDir final Path directory)
             throws IOException, InterruptedException, java.io.InvalidObjectException {
         TestGitRepository.initialize(directory);
-        TestGitRepository.run(directory, "git branch existing-import");
+        TestGitRepository.run(directory, "git branch " + EXISTING_IMPORT);
         final AppState state = TestAppState.empty();
         final Project project = new Project(PROJECT_NAME, directory.toString(), null);
         final ProjectId projectId = state.addProject(project);
@@ -435,14 +438,64 @@ class SessionCreationServiceTest {
         final SessionCreationService.SessionDetails details =
                 new SessionCreationService.SessionDetails(SESSION_NAME, AGENT_NAME, PROMPT);
         final SessionCreationService.WorktreeRequest request =
-                new SessionCreationService.WorktreeRequest(worktree, "master", "existing-import");
+                new SessionCreationService.WorktreeRequest(worktree, "master", EXISTING_IMPORT);
 
         final SessionId sessionId =
                 new SessionCreationService(state)
                         .createWorktreeAndSession(projectId, project, details, request);
 
         assertEquals(
-                "existing-import",
+                EXISTING_IMPORT,
+                TestGitRepository.output(worktree, SHOW_CURRENT_BRANCH).trim(),
+                "imported worktree should use the existing local branch");
+        assertEquals(
+                worktree.toAbsolutePath().normalize().toString(),
+                state.sessions().get(sessionId).worktreePath(),
+                "session should point to the created worktree path");
+    }
+
+    @Test
+    void createWorktreeAndSessionPrunesMissingExistingWorktree(@TempDir final Path directory)
+            throws IOException, InterruptedException, java.io.InvalidObjectException {
+        TestGitRepository.initialize(directory);
+        TestGitRepository.run(directory, "git branch " + EXISTING_IMPORT);
+        final Path staleWorktree = directory.resolve("stale-worktree");
+        TestGitRepository.run(
+                directory,
+                "git worktree add "
+                        + PlatformCommands.shellQuote(staleWorktree.toString())
+                        + " "
+                        + EXISTING_IMPORT);
+        try (var paths = Files.walk(staleWorktree)) {
+            final AtomicReference<IOException> failure = new AtomicReference<>();
+            paths.sorted(Comparator.reverseOrder())
+                    .forEach(
+                            path -> {
+                                try {
+                                    Files.delete(path);
+                                } catch (IOException exception) {
+                                    failure.set(exception);
+                                }
+                            });
+            if (failure.get() != null) {
+                throw failure.get();
+            }
+        }
+        final AppState state = TestAppState.empty();
+        final Project project = new Project(PROJECT_NAME, directory.toString(), null);
+        final ProjectId projectId = state.addProject(project);
+        final Path worktree = directory.resolve("restored-worktree");
+        final SessionCreationService.SessionDetails details =
+                new SessionCreationService.SessionDetails(SESSION_NAME, AGENT_NAME, PROMPT);
+        final SessionCreationService.WorktreeRequest request =
+                new SessionCreationService.WorktreeRequest(worktree, "master", EXISTING_IMPORT);
+
+        final SessionId sessionId =
+                new SessionCreationService(state)
+                        .createWorktreeAndSession(projectId, project, details, request);
+
+        assertEquals(
+                EXISTING_IMPORT,
                 TestGitRepository.output(worktree, SHOW_CURRENT_BRANCH).trim(),
                 "imported worktree should use the existing local branch");
         assertEquals(

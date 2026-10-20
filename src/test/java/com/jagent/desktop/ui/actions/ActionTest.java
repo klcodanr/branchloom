@@ -16,6 +16,7 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundJobs;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.test.AsyncTestSupport;
 import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.test.TestGitRepository;
@@ -341,6 +342,12 @@ class ActionTest {
                 "worktree removal should record its result");
         assertTrue(state.sessions().isEmpty(), ASSERTION_MESSAGE);
         assertTrue(!Files.exists(worktree), ASSERTION_MESSAGE);
+        try (GitRepository git = GitRepository.open(realRepository)) {
+            assertTrue(
+                    git.listWorktrees().stream()
+                            .noneMatch(candidate -> candidate.path().equals(realWorktree)),
+                    "removed worktree should not remain registered");
+        }
     }
 
     @Test
