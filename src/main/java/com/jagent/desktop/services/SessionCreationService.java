@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Creates a session, its worktree, and its initial terminal. */
+@SuppressWarnings("PMD.GodClass")
 public final class SessionCreationService {
     private static final Logger LOG = LoggerFactory.getLogger(SessionCreationService.class);
     private final AppState state;
@@ -181,7 +182,9 @@ public final class SessionCreationService {
             throws IOException {
         try (GitRepository repository = GitRepository.open(Path.of(project.path()))) {
             if (localBranch != null && !localBranch.isBlank()) {
-                repository.createBranch(new Branch(sourceRef), localBranch);
+                if (!repository.branchExists(localBranch)) {
+                    repository.createBranch(new Branch(sourceRef), localBranch);
+                }
                 repository.addWorktree(worktreePath, new Branch(localBranch));
                 return;
             }

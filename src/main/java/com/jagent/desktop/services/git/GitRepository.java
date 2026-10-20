@@ -174,7 +174,8 @@ public final class GitRepository implements AutoCloseable {
     }
 
     public boolean branchExists(@NotNull final String branch) throws IOException {
-        return this.listLocalBranches().stream().anyMatch(b -> b.name().equals(branch));
+        return this.listLocalBranches().stream()
+                .anyMatch(b -> b.withoutHeadsPrefix().equals(branch));
     }
 
     public Branch createBranch(final Branch sourceBranch, final String newBranchName)
