@@ -54,6 +54,7 @@ public final class WorkspaceTerminalTabs {
         if (selected) {
             tabs.setSelectedComponent(terminal);
             start(terminal);
+            terminal.focusTerminal();
         }
     }
 
@@ -139,6 +140,7 @@ public final class WorkspaceTerminalTabs {
             return;
         }
         start(terminal);
+        terminal.focusTerminal();
     }
 
     private void start(final TerminalPanel terminal) {
