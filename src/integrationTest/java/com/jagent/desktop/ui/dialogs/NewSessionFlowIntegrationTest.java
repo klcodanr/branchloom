@@ -125,7 +125,6 @@ class NewSessionFlowIntegrationTest {
         return new AppState(
                 new AppSettings(
                         List.of(agent),
-                        defaults.groupOrder(),
                         defaults.reviewPrompt(),
                         defaults.theme(),
                         defaults.tools(),

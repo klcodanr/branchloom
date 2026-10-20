@@ -30,7 +30,7 @@ public abstract class BatchedAsyncLoadingState<I, C, V>
                             new BatchListener<>() {
 
                                 /** Total batches reported by the loader. */
-                                private int total;
+                                private volatile int total;
 
                                 @Override
                                 public void onComplete(final List<V> data) {

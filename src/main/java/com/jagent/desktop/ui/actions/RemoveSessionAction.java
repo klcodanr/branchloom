@@ -14,7 +14,10 @@ import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.components.UiText;
 import com.jagent.desktop.ui.utils.ErrorDialogs;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.concurrent.CompletionException;
 import javax.swing.BoxLayout;
 import javax.swing.JCheckBox;
@@ -105,6 +108,18 @@ public class RemoveSessionAction extends BaseAction {
                 == JOptionPane.YES_OPTION;
     }
 
+    protected boolean confirmResidualFolderDeletion(final Path path) {
+        return JOptionPane.showConfirmDialog(
+                        actionContext.window(),
+                        "Git removed the worktree, but this folder still exists:\n"
+                                + path
+                                + "\n\nDelete the folder and its contents?",
+                        "Remove leftover worktree folder",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.WARNING_MESSAGE)
+                == JOptionPane.YES_OPTION;
+    }
+
     private void removeWorktree(
             final AppState state,
             final SessionId sessionId,
@@ -154,15 +169,21 @@ public class RemoveSessionAction extends BaseAction {
                                                         GitRepository.open(
                                                                 Path.of(project.path()))) {
                                                     repository.deleteWorktree(check.path());
-                                                    return null;
+                                                    repository.pruneWorktrees(
+                                                            Path.of(project.path()));
+                                                    return Files.exists(check.path())
+                                                            ? check.path()
+                                                            : null;
                                                 }
                                             })
-                                    .thenRun(
-                                            () -> {
-                                                job.output("Worktree removed.");
-                                                job.complete();
-                                                removeSession(state, sessionId, projectId);
-                                            })
+                                    .thenAccept(
+                                            residualPath ->
+                                                    finishWorktreeRemoval(
+                                                            job,
+                                                            state,
+                                                            sessionId,
+                                                            projectId,
+                                                            residualPath))
                                     .exceptionally(
                                             failure -> {
                                                 failRemoval(job, failure);
@@ -174,6 +195,59 @@ public class RemoveSessionAction extends BaseAction {
                             failRemoval(job, failure);
                             return null;
                         });
+    }
+
+    private void finishWorktreeRemoval(
+            final Handle job,
+            final AppState state,
+            final SessionId sessionId,
+            final ProjectId projectId,
+            final Path residualPath) {
+        if (residualPath != null && confirmResidualFolderDeletion(residualPath)) {
+            removeResidualFolder(job, state, sessionId, projectId, residualPath);
+            return;
+        }
+        if (residualPath != null) {
+            job.output("Worktree folder retained: " + residualPath);
+        }
+        job.output("Worktree removed.");
+        job.complete();
+        removeSession(state, sessionId, projectId);
+    }
+
+    private void removeResidualFolder(
+            final Handle job,
+            final AppState state,
+            final SessionId sessionId,
+            final ProjectId projectId,
+            final Path path) {
+        BackgroundOperations.submit(
+                        "Operations",
+                        TITLE,
+                        () -> {
+                            deleteResidualFolder(path);
+                            return null;
+                        })
+                .thenRun(
+                        () -> {
+                            job.output("Leftover worktree folder removed.");
+                            job.complete();
+                            removeSession(state, sessionId, projectId);
+                        })
+                .exceptionally(
+                        failure -> {
+                            failRemoval(job, failure);
+                            return null;
+                        });
+    }
+
+    private static void deleteResidualFolder(final Path path) throws IOException {
+        try (var paths = Files.walk(path)) {
+            final var candidates = paths.sorted(Comparator.reverseOrder()).toList();
+            for (final Path candidate : candidates) {
+                Files.deleteIfExists(candidate);
+            }
+        }
     }
 
     protected void failRemoval(final Handle job, final Throwable failure) {

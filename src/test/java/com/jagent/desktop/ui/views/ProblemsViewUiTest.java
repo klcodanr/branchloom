@@ -79,7 +79,7 @@ class ProblemsViewUiTest {
     }
 
     private static JTable table(final ProblemsView view) {
-        return view.problemTable();
+        return SwingTestSupport.find(view, JTable.class);
     }
 
     private static void waitForRows(final ProblemsView view, final int rows)

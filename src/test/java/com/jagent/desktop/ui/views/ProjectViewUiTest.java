@@ -72,8 +72,8 @@ class ProjectViewUiTest {
 
         GuiActionRunner.execute(
                 () -> {
-                    view.openFile(firstFile);
-                    view.openFile(secondFile);
+                    view.openFile(firstFile, false);
+                    view.openFile(secondFile, false);
                 });
 
         assertEquals(3, tabs.getTabCount(), ASSERTION_MESSAGE);

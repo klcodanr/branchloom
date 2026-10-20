@@ -9,22 +9,23 @@ import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.utils.ClipboardImagePaster;
-import com.jediterm.core.Color;
 import com.jediterm.terminal.CursorShape;
 import com.jediterm.terminal.HyperlinkStyle;
+import com.jediterm.terminal.SubstringFinder;
 import com.jediterm.terminal.TerminalColor;
 import com.jediterm.terminal.TerminalCopyPasteHandler;
 import com.jediterm.terminal.TerminalStarter;
 import com.jediterm.terminal.TextStyle;
 import com.jediterm.terminal.TtyConnector;
-import com.jediterm.terminal.emulator.ColorPalette;
-import com.jediterm.terminal.emulator.ColorPaletteImpl;
 import com.jediterm.terminal.model.StyleState;
 import com.jediterm.terminal.model.TerminalTextBuffer;
+import com.jediterm.terminal.ui.JediTermSearchComponent;
+import com.jediterm.terminal.ui.JediTermSearchComponentListener;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Point;
 import java.awt.datatransfer.DataFlavor;
@@ -37,9 +38,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import javax.swing.BoundedRangeModel;
+import javax.swing.JCheckBox;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -47,6 +51,8 @@ import javax.swing.JPopupMenu;
 import javax.swing.JScrollBar;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import org.jetbrains.annotations.Nullable;
 
 /** UI attachment for a managed terminal runtime. */
@@ -134,6 +140,10 @@ public final class TerminalPanel extends JPanel {
 
     public void start() {
         runtime.start(this::attach, this::showStartupFailure);
+    }
+
+    public void focusTerminal() {
+        SwingUtilities.invokeLater(terminal::requestFocusInWindow);
     }
 
     public void setStateChanged(final Consumer<TerminalState> listener) {
@@ -225,36 +235,6 @@ public final class TerminalPanel extends JPanel {
     }
 
     protected static final class AppTerminalSettings extends DefaultSettingsProvider {
-        private static final ColorPalette PALETTE =
-                new ColorPalette() {
-                    @Override
-                    protected Color getForegroundByColorIndex(final int index) {
-                        return terminalColorByIndex(index, false);
-                    }
-
-                    @Override
-                    protected Color getBackgroundByColorIndex(final int index) {
-                        return terminalColorByIndex(index, true);
-                    }
-
-                    private Color terminalColorByIndex(final int index, final boolean background) {
-                        final java.awt.Color defaultColor =
-                                background
-                                        ? fromTerminalColor(
-                                                ColorPaletteImpl.XTERM_PALETTE.getBackground(
-                                                        TerminalColor.index(index)))
-                                        : fromTerminalColor(
-                                                ColorPaletteImpl.XTERM_PALETTE.getForeground(
-                                                        TerminalColor.index(index)));
-                        return toTerminalColor(ansiColor(index, defaultColor, background));
-                    }
-                };
-
-        @Override
-        public ColorPalette getTerminalColorPalette() {
-            return PALETTE;
-        }
-
         @Override
         public Font getTerminalFont() {
             return Theme.terminalFont(Theme.FontSize.SM);
@@ -317,61 +297,12 @@ public final class TerminalPanel extends JPanel {
             return 650;
         }
 
-        private static java.awt.Color ansiColor(
-                final int index, final java.awt.Color fallback, final boolean background) {
-            final java.awt.Color panelBackground = Theme.Colors.background();
-            final java.awt.Color labelForeground = Theme.Colors.foreground();
-            final java.awt.Color disabledForeground = Theme.Colors.muted();
-
-            final java.awt.Color blue = Theme.Colors.focus();
-            final java.awt.Color magenta = Theme.Colors.merge();
-            final java.awt.Color cyan = blend(Theme.Colors.success(), blue, 0.45f);
-            final java.awt.Color black = blend(panelBackground, labelForeground, 0.22f);
-            final java.awt.Color white = labelForeground;
-            final java.awt.Color[] ansi = {
-                background ? panelBackground : black,
-                Theme.Colors.danger(),
-                Theme.Colors.success(),
-                Theme.Colors.warning(),
-                blue,
-                magenta,
-                cyan,
-                white,
-                disabledForeground,
-                lift(Theme.Colors.danger(), 0.22f),
-                lift(Theme.Colors.success(), 0.22f),
-                lift(Theme.Colors.warning(), 0.12f),
-                lift(blue, 0.22f),
-                lift(magenta, 0.18f),
-                lift(cyan, 0.16f),
-                lift(white, 0.08f)
-            };
-            if (index < 0 || index >= ansi.length) {
-                return fallback;
-            }
-            return ansi[index];
-        }
-
         private static java.awt.Color contrastingForeground(final java.awt.Color background) {
             final java.awt.Color panelBackground = Theme.Colors.background();
             final java.awt.Color labelForeground = Theme.Colors.foreground();
             final double labelContrast = contrastRatio(background, labelForeground);
             final double panelContrast = contrastRatio(background, panelBackground);
             return labelContrast >= panelContrast ? labelForeground : panelBackground;
-        }
-
-        private static java.awt.Color blend(
-                final java.awt.Color first, final java.awt.Color second, final float ratio) {
-            final float clampedRatio = Math.max(0f, Math.min(1f, ratio));
-            final float inverseRatio = 1f - clampedRatio;
-            return new java.awt.Color(
-                    Math.round(first.getRed() * inverseRatio + second.getRed() * clampedRatio),
-                    Math.round(first.getGreen() * inverseRatio + second.getGreen() * clampedRatio),
-                    Math.round(first.getBlue() * inverseRatio + second.getBlue() * clampedRatio));
-        }
-
-        private static java.awt.Color lift(final java.awt.Color color, final float amount) {
-            return blend(color, java.awt.Color.WHITE, amount);
         }
 
         private static double contrastRatio(
@@ -466,6 +397,110 @@ public final class TerminalPanel extends JPanel {
                     styleState,
                     allowed -> modifiedClickLinkActivationAllowed = allowed,
                     allowed -> contextMenuLinkActivationAllowed = allowed);
+        }
+
+        @Override
+        protected JediTermSearchComponent createSearchComponent() {
+            return new AppSearchComponent();
+        }
+    }
+
+    private static final class AppSearchComponent extends JPanel
+            implements JediTermSearchComponent {
+        private final SearchInput textField =
+                new SearchInput(
+                        new SearchInput.Text(
+                                "terminal-search", "Find in terminal", "Find in terminal"));
+        private final JCheckBox ignoreCase = new JCheckBox("Ignore Case", true);
+        private final JLabel resultLabel = new JLabel();
+        private final List<JediTermSearchComponentListener> listeners =
+                new CopyOnWriteArrayList<>();
+
+        private AppSearchComponent() {
+            super(new FlowLayout(FlowLayout.LEFT, 4, 4));
+            setOpaque(true);
+            setBackground(Theme.Colors.background());
+            setBorder(Theme.sectionBorder(4, 6, 4, 6));
+            textField.setVisible(true);
+            textField.setColumns(24);
+            ignoreCase.setOpaque(false);
+            resultLabel.setFont(Theme.font(Theme.FontSize.XS));
+            final IconButton next = new IconButton(UiIcons.chevronDown(), "Next match");
+            final IconButton previous = new IconButton(UiIcons.chevronUp(), "Previous match");
+            next.addActionListener(
+                    event ->
+                            listeners.forEach(
+                                    JediTermSearchComponentListener::selectNextFindResult));
+            previous.addActionListener(
+                    event ->
+                            listeners.forEach(
+                                    JediTermSearchComponentListener::selectPrevFindResult));
+            add(textField);
+            add(ignoreCase);
+            add(resultLabel);
+            add(next);
+            add(previous);
+            final DocumentListener searchListener =
+                    new DocumentListener() {
+                        @Override
+                        public void insertUpdate(final DocumentEvent event) {
+                            searchChanged();
+                        }
+
+                        @Override
+                        public void removeUpdate(final DocumentEvent event) {
+                            searchChanged();
+                        }
+
+                        @Override
+                        public void changedUpdate(final DocumentEvent event) {
+                            searchChanged();
+                        }
+                    };
+            textField.getDocument().addDocumentListener(searchListener);
+            ignoreCase.addItemListener(event -> searchChanged());
+            textField.onCancel(
+                    () -> listeners.forEach(JediTermSearchComponentListener::hideSearchComponent));
+        }
+
+        private void searchChanged() {
+            listeners.forEach(
+                    listener ->
+                            listener.searchSettingsChanged(
+                                    textField.getText(), ignoreCase.isSelected()));
+        }
+
+        @Override
+        public JComponent getComponent() {
+            return this;
+        }
+
+        @Override
+        public void addListener(final JediTermSearchComponentListener listener) {
+            listeners.add(listener);
+        }
+
+        @Override
+        public void addKeyListener(final java.awt.event.KeyListener listener) {
+            textField.addKeyListener(listener);
+        }
+
+        @Override
+        public void requestFocus() {
+            textField.requestFocus();
+        }
+
+        @Override
+        public boolean requestFocusInWindow() {
+            return textField.requestFocusInWindow();
+        }
+
+        @Override
+        public void onResultUpdated(final SubstringFinder.FindResult result) {
+            resultLabel.setText(
+                    result == null || result.getItems().isEmpty()
+                            ? ""
+                            : result.selectedItem().getIndex() + " of " + result.getItems().size());
         }
     }
 
@@ -632,13 +667,5 @@ public final class TerminalPanel extends JPanel {
 
     private static TerminalColor terminalColor(final java.awt.Color color) {
         return TerminalColor.rgb(color.getRed(), color.getGreen(), color.getBlue());
-    }
-
-    private static Color toTerminalColor(final java.awt.Color color) {
-        return new Color(color.getRed(), color.getGreen(), color.getBlue());
-    }
-
-    private static java.awt.Color fromTerminalColor(final Color color) {
-        return new java.awt.Color(color.getRed(), color.getGreen(), color.getBlue());
     }
 }

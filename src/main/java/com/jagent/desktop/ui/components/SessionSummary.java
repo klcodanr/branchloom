@@ -45,6 +45,15 @@ public final class SessionSummary extends ScrollablePanel {
         branch = new SessionBranchPanel();
         pullRequest = new PullRequestSummaryButton();
         diff = new SessionDiffPanel();
+        cleanupAlert =
+                new Alert(
+                        new Alert.Content(
+                                "Ready for clean up! The pull request is finished and this "
+                                        + "worktree has no uncommitted changes.",
+                                Theme.Colors.success(),
+                                "Remove session and worktree",
+                                removeSessionAndWorktree));
+        cleanupAlert.setVisible(false);
 
         final Optional<SessionSummaryInfo> initialState =
                 Optional.ofNullable(sessionInstanceState.get(sessionId)).orElseGet(Optional::empty);
@@ -71,15 +80,6 @@ public final class SessionSummary extends ScrollablePanel {
 
         setBorder(UiBorders.section());
         setLayout(new BorderLayout(0, UiConstants.SPACING_XL));
-        cleanupAlert =
-                new Alert(
-                        new Alert.Content(
-                                "Ready for clean up! The pull request is finished and this "
-                                        + "worktree has no uncommitted changes.",
-                                Theme.Colors.success(),
-                                "Remove session and worktree",
-                                removeSessionAndWorktree));
-        cleanupAlert.setVisible(false);
         add(details(), BorderLayout.CENTER);
         refresh();
     }
@@ -89,11 +89,16 @@ public final class SessionSummary extends ScrollablePanel {
         branch.setWorktreeStatus(info.worktreeStatus());
         diff.setWorktreeStatus(info.worktreeStatus());
         pullRequest.setPullRequest(info.pullRequest());
-        cleanupAlert.setVisible(
-                info.pullRequest() != null
-                        && info.pullRequest().status() == PullRequestDetails.Status.MERGED
-                        && info.worktreeStatus() != null
-                        && info.worktreeStatus().clean());
+        cleanupAlert.setVisible(shouldShowCleanupAlert(info));
+        revalidate();
+    }
+
+    public static boolean shouldShowCleanupAlert(final SessionSummaryInfo info) {
+        return info != null
+                && info.pullRequest() != null
+                && info.pullRequest().status() == PullRequestDetails.Status.MERGED
+                && info.worktreeStatus() != null
+                && info.worktreeStatus().clean();
     }
 
     private JPanel details() {

@@ -7,8 +7,6 @@ import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestCheck;
 import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
-import com.jagent.desktop.models.PullRequestReview;
-import com.jagent.desktop.models.PullRequestReviews;
 import com.jagent.desktop.models.github.Auth;
 import com.jagent.desktop.models.github.Issue;
 import com.jagent.desktop.services.AppState;
@@ -396,25 +394,5 @@ public final class GitHub {
                             issue.getUpdatedAt()));
         }
         return List.copyOf(issues);
-    }
-
-    public PullRequestReviews getReviews(final PullRequest request)
-            throws IOException, InterruptedException {
-        final List<PullRequestReview> reviews =
-                repository().getPullRequest(request.number()).listReviews().toList().stream()
-                        .map(
-                                review -> {
-                                    try {
-                                        return PullRequestReview.from(review);
-                                    } catch (IOException e) {
-                                        LOG.warn(
-                                                "Failed to convert GitHub review to PullRequestReview",
-                                                e);
-                                    }
-                                    return null;
-                                })
-                        .filter(Objects::nonNull)
-                        .toList();
-        return new PullRequestReviews(reviews);
     }
 }

@@ -55,10 +55,10 @@ class AppViewShortcutIntegrationTest {
             final JTabbedPane tabs = find(projectView, JTabbedPane.class);
             assertNotNull(tabs, "project tabs should be present");
             final int defaultTabCount = tabs.getTabCount();
-            GuiActionRunner.execute(() -> projectView.openFile(file));
+            GuiActionRunner.execute(() -> projectView.openFile(file, false));
             assertEquals(
                     defaultTabCount + 1, tabs.getTabCount(), "opening a file should add a tab");
-            GuiActionRunner.execute(() -> projectView.openFile(file));
+            GuiActionRunner.execute(() -> projectView.openFile(file, false));
             assertEquals(
                     defaultTabCount + 1,
                     tabs.getTabCount(),
@@ -71,7 +71,7 @@ class AppViewShortcutIntegrationTest {
                     defaultTabCount,
                     tabs.getTabCount(),
                     "the tab close callback should close the file");
-            GuiActionRunner.execute(() -> projectView.openFile(file));
+            GuiActionRunner.execute(() -> projectView.openFile(file, false));
 
             invokeCloseShortcut(app);
             assertEquals(defaultTabCount, tabs.getTabCount(), "the active file should close first");
@@ -81,8 +81,7 @@ class AppViewShortcutIntegrationTest {
                     defaultTabCount,
                     tabs.getTabCount(),
                     "default tabs should remain after closing the file");
-            projectView.openDefaultTab();
-            projectView.openFile(dataDirectory.getRoot());
+            projectView.openFile(dataDirectory.getRoot(), false);
         } finally {
             close(app);
         }

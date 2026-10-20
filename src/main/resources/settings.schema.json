@@ -14,14 +14,6 @@
       "description": "Agent commands available when creating and opening sessions.",
       "items": { "$ref": "#/$defs/agent" }
     },
-    "groupOrder": {
-      "type": "array",
-      "description": "Project group names in the order they should appear in the workspace tree.",
-      "items": {
-        "type": "string",
-        "description": "A project group name."
-      }
-    },
     "reviewPrompt": {
       "type": "string",
       "description": "Prompt template used when starting a pull request review."

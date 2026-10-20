@@ -10,6 +10,7 @@ import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.ui.actions.RemoveSessionAction;
+import com.jagent.desktop.ui.components.EmptyStatePanel;
 import com.jagent.desktop.ui.components.SessionActions;
 import com.jagent.desktop.ui.components.SessionSummary;
 import com.jagent.desktop.ui.components.TerminalPanel;
@@ -22,8 +23,11 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class SessionView extends AbstractWorkspaceView {
+    private static final Logger LOG = LoggerFactory.getLogger(SessionView.class);
 
     private final transient SessionId sessionId;
     private final transient Project project;
@@ -70,11 +74,22 @@ public final class SessionView extends AbstractWorkspaceView {
         for (final TerminalId terminalId : session.terminalIds()) {
             final Terminal terminal = state.terminals().get(terminalId);
             if (terminal != null) {
-                addTerminal(
-                        terminalId,
-                        terminalDefinitionForRestore(session, terminalId, terminal),
-                        workspacePath(),
-                        false);
+                try {
+                    addTerminal(
+                            terminalId,
+                            terminalDefinitionForRestore(session, terminalId, terminal),
+                            workspacePath(),
+                            false);
+                } catch (RuntimeException exception) {
+                    LOG.error("Failed to restore terminal tab {}", terminalId, exception);
+                    tabs.addTab(
+                            terminal.title(),
+                            new EmptyStatePanel(
+                                    "Could not load terminal",
+                                    exception.getClass().getSimpleName()
+                                            + ": "
+                                            + exception.getMessage()));
+                }
             }
         }
     }
@@ -90,17 +105,26 @@ public final class SessionView extends AbstractWorkspaceView {
     }
 
     private void addSummary() {
-        summary =
-                new SessionSummary(
-                        sessionId,
-                        actionContext.appState(),
-                        () -> new RemoveSessionAction(actionContext).execute(),
-                        viewCoordinator.getAsyncLoadingState(ViewId.SESSION));
-        final JScrollPane summaryScroll = new JScrollPane(summary);
-        summaryScroll.setBorder(null);
-        summaryScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        summaryScroll.getVerticalScrollBar().setUnitIncrement(14);
-        tabs.addTab("Summary", summaryScroll);
+        try {
+            summary =
+                    new SessionSummary(
+                            sessionId,
+                            actionContext.appState(),
+                            () -> new RemoveSessionAction(actionContext).execute(),
+                            viewCoordinator.getAsyncLoadingState(ViewId.SESSION));
+            final JScrollPane summaryScroll = new JScrollPane(summary);
+            summaryScroll.setBorder(null);
+            summaryScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+            summaryScroll.getVerticalScrollBar().setUnitIncrement(14);
+            tabs.addTab("Summary", summaryScroll);
+        } catch (RuntimeException exception) {
+            LOG.error("Failed to create session summary for {}", sessionId, exception);
+            tabs.addTab(
+                    "Summary",
+                    new EmptyStatePanel(
+                            "Could not load session summary",
+                            exception.getClass().getSimpleName() + ": " + exception.getMessage()));
+        }
     }
 
     @Override
@@ -152,7 +176,9 @@ public final class SessionView extends AbstractWorkspaceView {
 
     @Override
     public void refresh() {
-        summary.refresh();
+        if (summary != null) {
+            summary.refresh();
+        }
     }
 
     public void renameSession() {

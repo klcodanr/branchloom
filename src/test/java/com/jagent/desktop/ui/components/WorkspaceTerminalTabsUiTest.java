@@ -1,6 +1,7 @@
 package com.jagent.desktop.ui.components;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.TerminalId;
@@ -58,6 +59,26 @@ class WorkspaceTerminalTabsUiTest {
 
         GuiActionRunner.execute(firstPanel::dispose);
         GuiActionRunner.execute(secondPanel::dispose);
+    }
+
+    @Test
+    void focusesNewlySelectedTerminalTab() {
+        final CountingTerminalRuntime runtime = new CountingTerminalRuntime();
+        final TerminalPanel panel =
+                GuiActionRunner.execute(() -> new TerminalPanel(runtime, ignored -> {}));
+        final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
+        final WorkspaceTerminalTabs terminalTabs =
+                GuiActionRunner.execute(
+                        () -> new WorkspaceTerminalTabs(tabs, (terminal, id) -> {}, (t, n) -> {}));
+
+        GuiActionRunner.execute(() -> tabs.addTab(SUMMARY_TAB, new JPanel()));
+        GuiActionRunner.execute(
+                () -> terminalTabs.mount(TERMINAL_TAB, TerminalId.create(), panel, true));
+        GuiActionRunner.execute(() -> {});
+
+        assertSame(panel, tabs.getSelectedComponent(), "new terminal tab should be selected");
+
+        GuiActionRunner.execute(panel::dispose);
     }
 
     @Test
