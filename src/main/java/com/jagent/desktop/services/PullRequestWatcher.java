@@ -6,17 +6,13 @@ import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
-import com.jagent.desktop.services.github.GitHub;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.swing.SwingUtilities;
 import org.slf4j.Logger;
@@ -28,7 +24,7 @@ public final class PullRequestWatcher implements AutoCloseable {
     private static final Duration POLL_INTERVAL = Duration.ofSeconds(30);
 
     private final Supplier<Map<SessionId, Session>> sessions;
-    private final Function<Session, PullRequestDetails> loader;
+    private final ActionContext actionContext;
     private final BiConsumer<SessionId, PullRequestDetails> statusListener;
     private final BackgroundJobs backgroundJobs;
     private final ScheduledExecutorService scheduler;
@@ -37,9 +33,9 @@ public final class PullRequestWatcher implements AutoCloseable {
     public PullRequestWatcher(
             final ActionContext actionContext,
             final BiConsumer<SessionId, PullRequestDetails> statusListener) {
-        this(
-                actionContext.appState()::sessions,
-                session -> load(actionContext, session),
+        this.actionContext = actionContext;
+        this.sessions = actionContext.appState()::sessions;
+        this.statusListener =
                 (sessionId, status) -> {
                     if (status == null) {
                         actionContext.appState().removeMonitoringStatus(sessionId);
@@ -47,22 +43,9 @@ public final class PullRequestWatcher implements AutoCloseable {
                         actionContext.appState().updateMonitoringStatus(sessionId, status);
                     }
                     statusListener.accept(sessionId, status);
-                },
-                actionContext.viewCoordinator().backgroundJobs(),
-                Executors.newSingleThreadScheduledExecutor());
-    }
-
-    /* package */ PullRequestWatcher(
-            final Supplier<Map<SessionId, Session>> sessions,
-            final Function<Session, PullRequestDetails> loader,
-            final BiConsumer<SessionId, PullRequestDetails> statusListener,
-            final BackgroundJobs backgroundJobs,
-            final ScheduledExecutorService scheduler) {
-        this.sessions = Objects.requireNonNull(sessions);
-        this.loader = Objects.requireNonNull(loader);
-        this.statusListener = Objects.requireNonNull(statusListener);
-        this.backgroundJobs = Objects.requireNonNull(backgroundJobs);
-        this.scheduler = Objects.requireNonNull(scheduler);
+                };
+        this.backgroundJobs = actionContext.viewCoordinator().backgroundJobs();
+        this.scheduler = Executors.newSingleThreadScheduledExecutor();
     }
 
     public void start() {
@@ -117,7 +100,7 @@ public final class PullRequestWatcher implements AutoCloseable {
             return false;
         }
         try {
-            final PullRequestDetails current = loader.apply(session);
+            final PullRequestDetails current = load(session);
             final PullRequestDetails old = previous.put(id, current);
             if (old != null) {
                 alertTransitions(old, current);
@@ -163,11 +146,11 @@ public final class PullRequestWatcher implements AutoCloseable {
         PlatformCommands.notify("Branchloom PR #" + request.number(), message);
     }
 
-    private static PullRequestDetails load(
-            final ActionContext actionContext, final Session session) {
+    private PullRequestDetails load(final Session session) {
         try {
-            final GitHub github = GitHub.forProject(actionContext.appState(), session.projectId());
-            final PullRequest request = github.getPullRequest(Path.of(session.worktreePath()));
+            final var github = actionContext.githubProvider().forProject(session.projectId());
+            final PullRequest request =
+                    github.getPullRequest(java.nio.file.Path.of(session.worktreePath()));
             return github.getPullRequestDetails(request);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();

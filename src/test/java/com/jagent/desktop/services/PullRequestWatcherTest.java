@@ -2,6 +2,7 @@ package com.jagent.desktop.services;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.GitHubUser;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
@@ -11,6 +12,9 @@ import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
+import com.jagent.desktop.services.github.GitHub;
+import com.jagent.desktop.ui.Defaults;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayDeque;
@@ -19,7 +23,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.Executors;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 
@@ -42,17 +45,36 @@ class PullRequestWatcherTest {
                                 status(request, true, "clean", PullRequestChecks.Status.PASSING)));
         final List<PullRequestDetails.Status> rendered = new ArrayList<>();
         final List<SessionId> renderedSessionIds = new ArrayList<>();
-        final Map<SessionId, Session> sessions = Map.of(sessionId, session);
+        final Project project = request.project();
+        final var state =
+                new AppState(
+                        Defaults.appSettings(),
+                        Map.of(projectId.value().toString(), project),
+                        Map.of(sessionId.value().toString(), session),
+                        Map.of());
+        final GitHub github =
+                new GitHub(state, projectId) {
+                    @Override
+                    public PullRequest getPullRequest(final java.nio.file.Path worktree)
+                            throws IOException {
+                        return request;
+                    }
+
+                    @Override
+                    public PullRequestDetails getPullRequestDetails(final PullRequest ignored) {
+                        return statuses.remove();
+                    }
+                };
+        final var context =
+                new ActionContext(
+                        new ViewCoordinator(state), state, null, null, null, ignored -> github);
         try (PullRequestWatcher watcher =
                 new PullRequestWatcher(
-                        () -> sessions,
-                        ignored -> statuses.remove(),
+                        context,
                         (renderedId, status) -> {
                             renderedSessionIds.add(renderedId);
                             rendered.add(status.status());
-                        },
-                        new BackgroundJobs(),
-                        Executors.newSingleThreadScheduledExecutor())) {
+                        })) {
             watcher.poll();
             watcher.poll();
             watcher.poll();
