@@ -47,6 +47,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import javax.swing.AbstractAction;
 import javax.swing.ActionMap;
@@ -367,7 +368,10 @@ public final class AppView extends JFrame {
                             : exception.getClass().getSimpleName() + ": " + exception.getMessage();
             content.add(
                     new EmptyStatePanel(
-                            "Could not open project view",
+                            "Could not open "
+                                    + (view == null
+                                            ? "view"
+                                            : view.name().toLowerCase(Locale.ROOT) + " view"),
                             "The selected view failed to render: " + detail),
                     BorderLayout.CENTER);
             content.revalidate();
