@@ -15,6 +15,7 @@ import com.jediterm.terminal.TerminalColor;
 import com.jediterm.terminal.TextStyle;
 import com.jediterm.terminal.TtyConnector;
 import com.jediterm.terminal.emulator.ColorPalette;
+import com.jediterm.terminal.emulator.ColorPaletteImpl;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
@@ -24,7 +25,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
-import javax.swing.UIManager;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -332,38 +332,22 @@ class TerminalPanelUiTest {
     }
 
     @Test
-    void terminalSettingsProvideCompleteAnsiPaletteOverrides() {
+    void terminalSettingsUseJediTermAnsiPalette() {
         final TerminalPanel.AppTerminalSettings settings = new TerminalPanel.AppTerminalSettings();
         final ColorPalette palette = settings.getTerminalColorPalette();
-
-        final java.awt.Color panelBackground =
-                UIManager.getColor("Panel.background") == null
-                        ? java.awt.Color.BLACK
-                        : UIManager.getColor("Panel.background");
 
         for (int index = 0; index <= 15; index++) {
             final TerminalColor color = ColorPalette.getIndexedTerminalColor(index);
             assertNotNull(color, "indexed terminal color should resolve: " + index);
-            assertTrue(
-                    palette.getForeground(color) != null,
-                    "foreground color index should resolve: " + index);
-            assertTrue(
-                    palette.getBackground(color) != null,
-                    "background color index should resolve: " + index);
+            assertEquals(
+                    ColorPaletteImpl.XTERM_PALETTE.getForeground(color),
+                    palette.getForeground(color),
+                    "foreground should use Jediterm ANSI palette: " + index);
+            assertEquals(
+                    ColorPaletteImpl.XTERM_PALETTE.getBackground(color),
+                    palette.getBackground(color),
+                    "background should use Jediterm ANSI palette: " + index);
         }
-
-        assertEquals(
-                panelBackground.getRed(),
-                palette.getBackground(TerminalColor.index(0)).getRed(),
-                "ANSI background index 0 should match panel background red channel");
-        assertEquals(
-                panelBackground.getGreen(),
-                palette.getBackground(TerminalColor.index(0)).getGreen(),
-                "ANSI background index 0 should match panel background green channel");
-        assertEquals(
-                panelBackground.getBlue(),
-                palette.getBackground(TerminalColor.index(0)).getBlue(),
-                "ANSI background index 0 should match panel background blue channel");
     }
 
     private static void waitForState(final TerminalPanel panel, final TerminalState expected)
