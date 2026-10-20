@@ -294,6 +294,7 @@ public class GitHub {
             return new PullRequestDetails(
                     request,
                     ghPullRequest.isDraft(),
+                    ghPullRequest.isMerged(),
                     Boolean.TRUE.equals(ghPullRequest.getMergeable()),
                     ghPullRequest.getMergeableState() == null
                             ? ""
