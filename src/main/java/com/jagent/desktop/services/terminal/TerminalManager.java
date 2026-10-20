@@ -107,10 +107,6 @@ public final class TerminalManager {
         runtimeFactory = factory == null ? TerminalRuntime::new : factory;
     }
 
-    /* package */ void resetRuntimeFactory() {
-        runtimeFactory = TerminalRuntime::new;
-    }
-
     /* package */ @FunctionalInterface
     interface RuntimeFactory {
         TerminalRuntime create(String command, Path directory, String historyFile);

@@ -33,11 +33,10 @@ class ContextMenuAndThemeTest {
         final AppSettings settings =
                 new AppSettings(
                         List.of(new Agent(AGENT_NAME, AGENT_COMMAND, AGENT_COMMAND)),
-                        List.of(),
                         "review",
                         "System",
                         List.of(new Tool("Editor", "editor .")),
-                        Defaults.DEFAULT_WORKTREE_TEMPLATE,
+                        Defaults.appSettings().worktreeTemplate(),
                         "");
         final AppState state = new AppState(settings, Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(new Project("Demo", "/tmp", null));
@@ -126,11 +125,10 @@ class ContextMenuAndThemeTest {
         final AppSettings settings =
                 new AppSettings(
                         List.of(new Agent(AGENT_NAME, AGENT_COMMAND, AGENT_COMMAND)),
-                        List.of(),
                         "review",
                         "System",
                         List.of(),
-                        Defaults.DEFAULT_WORKTREE_TEMPLATE);
+                        Defaults.appSettings().worktreeTemplate());
         final AppState state = new AppState(settings, Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(new Project("Demo", "/tmp", null));
         final var sessionId =

@@ -177,11 +177,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         return titleLabel;
     }
 
-    protected final void openFile(final Path file) {
-        openFile(file, false);
-    }
-
-    private void openFile(final Path file, final boolean filtered) {
+    protected final void openFile(final Path file, final boolean filtered) {
         final Path normalized = file.toAbsolutePath().normalize();
         for (int index = 0; index < tabs.getTabCount(); index++) {
             if (tabs.getComponentAt(index) instanceof JComponent component
@@ -213,12 +209,6 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
 
     protected final void selectTerminal(final int index) {
         terminalTabs.select(index);
-    }
-
-    protected final void openDefaultTab() {
-        if (tabs.getTabCount() > 0) {
-            tabs.setSelectedIndex(0);
-        }
     }
 
     protected final void updateCurrentTerminal() {

@@ -47,10 +47,6 @@ public final class PullRequestCache {
         return loadForFilter(filter, false);
     }
 
-    public List<PullRequest> refreshForFilter(final PullRequestFilter filter) {
-        return loadForFilter(filter, true);
-    }
-
     private List<PullRequest> loadForFilter(
             final PullRequestFilter filter, final boolean forceRefresh) {
         return appState.projects().entrySet().stream()
@@ -76,11 +72,6 @@ public final class PullRequestCache {
     public List<PullRequest> loadForProjectFilter(
             final ProjectId projectId, final PullRequestFilter filter) {
         return loadForProjectFilter(projectId, filter, false);
-    }
-
-    public List<PullRequest> refreshForProjectFilter(
-            final ProjectId projectId, final PullRequestFilter filter) {
-        return loadForProjectFilter(projectId, filter, true);
     }
 
     private List<PullRequest> loadForProjectFilter(

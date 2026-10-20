@@ -15,4 +15,14 @@
         <Class name="com.jagent.desktop.ui.dialogs.ProgressOperation$Operation" />
         <Bug pattern="THROWS_METHOD_THROWS_CLAUSE_BASIC_EXCEPTION" />
     </Match>
+
+    <!-- Swing configuration methods are safe during construction of these final UI types. -->
+    <Match>
+        <Class name="com.jagent.desktop.ui.components.BaseButton" />
+        <Bug pattern="MC_OVERRIDABLE_METHOD_CALL_IN_CONSTRUCTOR" />
+    </Match>
+    <Match>
+        <Class name="com.jagent.desktop.ui.components.BaseTextArea" />
+        <Bug pattern="MC_OVERRIDABLE_METHOD_CALL_IN_CONSTRUCTOR" />
+    </Match>
 </FindBugsFilter>

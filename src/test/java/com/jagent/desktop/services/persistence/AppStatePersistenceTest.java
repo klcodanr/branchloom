@@ -47,10 +47,6 @@ class AppStatePersistenceTest {
         assertTrue(loaded.sessions().isEmpty(), "missing sessions should be empty");
         assertTrue(loaded.terminals().isEmpty(), "missing terminals should be empty");
         assertEquals(
-                defaults.groupOrder(),
-                loaded.appSettings().groupOrder(),
-                "default group order should load");
-        assertEquals(
                 defaults.reviewPrompt(),
                 loaded.appSettings().reviewPrompt(),
                 "default review prompt should load");
@@ -83,7 +79,6 @@ class AppStatePersistenceTest {
         state.updateAppSettings(
                 new AppSettings(
                         List.of(new Agent("Test agent", "agent {prompt}", AGENT_COMMAND)),
-                        Defaults.appSettings().groupOrder(),
                         "review",
                         THEME,
                         Defaults.appSettings().tools(),
@@ -173,7 +168,6 @@ class AppStatePersistenceTest {
         state.updateAppSettings(
                 new AppSettings(
                         Defaults.appSettings().agents(),
-                        Defaults.appSettings().groupOrder(),
                         "review",
                         THEME,
                         Defaults.appSettings().tools(),
@@ -222,7 +216,6 @@ class AppStatePersistenceTest {
                 """
                 {
                   "agents": [{"name":"Demo Agent","newSessionCommand":"agent {prompt}","openCommand":"agent"}],
-                  "groupOrder": ["Approved"],
                   "reviewPrompt": "review",
                   "theme": "Dark",
                   "tools": [],

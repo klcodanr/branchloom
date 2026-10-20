@@ -132,7 +132,6 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
         final AppSettings defaults = Defaults.appSettings();
         return new AppSettings(
                 AgentDetection.detect(),
-                defaults.groupOrder(),
                 defaults.reviewPrompt(),
                 defaults.theme(),
                 EditorDetection.detect(),

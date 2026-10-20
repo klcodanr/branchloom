@@ -48,11 +48,6 @@ public final class BulkSessionDialog extends FormDialog {
         return new Request(List.copyOf(selected), agent);
     }
 
-    /* package */
-    static boolean hasSelection(final List<Issue> selected) {
-        return !selected.isEmpty();
-    }
-
     private void submit() {
         final List<Issue> selected = issues.getSelectedValuesList();
         if (selected.isEmpty()) {

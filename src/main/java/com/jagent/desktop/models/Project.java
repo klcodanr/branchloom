@@ -1,12 +1,9 @@
 package com.jagent.desktop.models;
 
 import com.jagent.desktop.models.github.Credential;
-import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.ui.Defaults;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import org.jetbrains.annotations.Nullable;
 
 public record Project(
@@ -37,12 +34,6 @@ public record Project(
                 List.of(),
                 null,
                 null);
-    }
-
-    public List<Entry<SessionId, Session>> projectSessions(final AppState appState) {
-        return this.sessionIds().stream()
-                .map((si) -> Map.entry(si, appState.sessions().get(si)))
-                .toList();
     }
 
     public Project withName(final String name) {
