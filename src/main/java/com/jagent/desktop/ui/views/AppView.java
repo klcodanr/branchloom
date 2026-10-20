@@ -102,19 +102,10 @@ public final class AppView extends JFrame {
         projectTreePanel = new ProjectTreePanel(actionContext);
         pullRequestWatcher =
                 new PullRequestWatcher(
-                        state,
-                        viewCoordinator.backgroundJobs(),
+                        actionContext,
                         (sessionId, status) -> {
-                            if (status == null) {
-                                state.removeMonitoringStatus(sessionId);
-                                if (currentView instanceof HomeView) {
-                                    refreshCurrentView();
-                                }
-                                return;
-                            }
-                            state.updateMonitoringStatus(sessionId, status);
                             final Session session = state.sessions().get(sessionId);
-                            if (session != null) {
+                            if (status != null && session != null) {
                                 projectTreePanel.updatePullRequestStatus(session, status);
                             }
                             if (currentView instanceof HomeView) {

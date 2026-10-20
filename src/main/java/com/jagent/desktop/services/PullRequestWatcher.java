@@ -1,5 +1,6 @@
 package com.jagent.desktop.services;
 
+import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
@@ -34,14 +35,20 @@ public final class PullRequestWatcher implements AutoCloseable {
     private final Map<SessionId, PullRequestDetails> previous = new java.util.HashMap<>();
 
     public PullRequestWatcher(
-            final AppState state,
-            final BackgroundJobs backgroundJobs,
+            final ActionContext actionContext,
             final BiConsumer<SessionId, PullRequestDetails> statusListener) {
         this(
-                state::sessions,
-                session -> load(state, session),
-                statusListener,
-                backgroundJobs,
+                actionContext.appState()::sessions,
+                session -> load(actionContext, session),
+                (sessionId, status) -> {
+                    if (status == null) {
+                        actionContext.appState().removeMonitoringStatus(sessionId);
+                    } else {
+                        actionContext.appState().updateMonitoringStatus(sessionId, status);
+                    }
+                    statusListener.accept(sessionId, status);
+                },
+                actionContext.viewCoordinator().backgroundJobs(),
                 Executors.newSingleThreadScheduledExecutor());
     }
 
@@ -115,7 +122,10 @@ public final class PullRequestWatcher implements AutoCloseable {
             if (old != null) {
                 alertTransitions(old, current);
             }
-            SwingUtilities.invokeLater(() -> statusListener.accept(id, current));
+            SwingUtilities.invokeLater(
+                    () -> {
+                        statusListener.accept(id, current);
+                    });
             return true;
         } catch (RuntimeException exception) {
             if ("No pull request found".equals(exception.getMessage())) {
@@ -153,9 +163,10 @@ public final class PullRequestWatcher implements AutoCloseable {
         PlatformCommands.notify("Branchloom PR #" + request.number(), message);
     }
 
-    private static PullRequestDetails load(final AppState state, final Session session) {
+    private static PullRequestDetails load(
+            final ActionContext actionContext, final Session session) {
         try {
-            final GitHub github = GitHub.forProject(state, session.projectId());
+            final GitHub github = GitHub.forProject(actionContext.appState(), session.projectId());
             final PullRequest request = github.getPullRequest(Path.of(session.worktreePath()));
             return github.getPullRequestDetails(request);
         } catch (InterruptedException exception) {
