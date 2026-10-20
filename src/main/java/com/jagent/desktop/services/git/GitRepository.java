@@ -165,6 +165,7 @@ public final class GitRepository implements AutoCloseable {
         if (branch.remote()) {
             this.fetchRemoteRef(branch.name());
         }
+        this.pruneWorktrees(this.repositoryPath);
         GitNative.createWorktree(this.repositoryPath, worktreePath, branch);
     }
 
