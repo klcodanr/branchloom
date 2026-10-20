@@ -1,21 +1,18 @@
 package com.jagent.desktop.services;
 
+import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
-import com.jagent.desktop.services.github.GitHub;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.swing.SwingUtilities;
 import org.slf4j.Logger;
@@ -27,29 +24,28 @@ public final class PullRequestWatcher implements AutoCloseable {
     private static final Duration POLL_INTERVAL = Duration.ofSeconds(30);
 
     private final Supplier<Map<SessionId, Session>> sessions;
-    private final Function<Session, PullRequestStatus> loader;
-    private final BiConsumer<Session, PullRequestStatus> statusListener;
+    private final ActionContext actionContext;
+    private final BiConsumer<SessionId, PullRequestDetails> statusListener;
+    private final BackgroundJobs backgroundJobs;
     private final ScheduledExecutorService scheduler;
-    private final Map<SessionId, PullRequestStatus> previous = new java.util.HashMap<>();
+    private final Map<SessionId, PullRequestDetails> previous = new java.util.HashMap<>();
 
     public PullRequestWatcher(
-            final AppState state, final BiConsumer<Session, PullRequestStatus> statusListener) {
-        this(
-                state::sessions,
-                session -> load(state, session),
-                statusListener,
-                Executors.newSingleThreadScheduledExecutor());
-    }
-
-    /* package */ PullRequestWatcher(
-            final Supplier<Map<SessionId, Session>> sessions,
-            final Function<Session, PullRequestStatus> loader,
-            final BiConsumer<Session, PullRequestStatus> statusListener,
-            final ScheduledExecutorService scheduler) {
-        this.sessions = Objects.requireNonNull(sessions);
-        this.loader = Objects.requireNonNull(loader);
-        this.statusListener = Objects.requireNonNull(statusListener);
-        this.scheduler = Objects.requireNonNull(scheduler);
+            final ActionContext actionContext,
+            final BiConsumer<SessionId, PullRequestDetails> statusListener) {
+        this.actionContext = actionContext;
+        this.sessions = actionContext.appState()::sessions;
+        this.statusListener =
+                (sessionId, status) -> {
+                    if (status == null) {
+                        actionContext.appState().removeMonitoringStatus(sessionId);
+                    } else {
+                        actionContext.appState().updateMonitoringStatus(sessionId, status);
+                    }
+                    statusListener.accept(sessionId, status);
+                };
+        this.backgroundJobs = actionContext.viewCoordinator().backgroundJobs();
+        this.scheduler = Executors.newSingleThreadScheduledExecutor();
     }
 
     public void start() {
@@ -64,45 +60,85 @@ public final class PullRequestWatcher implements AutoCloseable {
     }
 
     private void pollSafely() {
+        final BackgroundJobs.Handle job = backgroundJobs.start("Pull request monitoring");
         try {
-            poll();
+            pollWithJob(job);
+            job.complete();
         } catch (RuntimeException exception) {
+            job.fail(exception.getMessage() == null ? "Monitoring failed" : exception.getMessage());
             LOG.warn("Pull request polling failed", exception);
         }
     }
 
-    private void pollSession(final SessionId id, final Session session) {
-        final String worktreePath = session.worktreePath();
-        if (worktreePath == null || worktreePath.isBlank()) {
-            return;
-        }
-        try {
-            final PullRequestStatus current = loader.apply(session);
-            final PullRequestStatus old = previous.put(id, current);
-            if (old != null) {
-                alertTransitions(old, current);
-            }
-            SwingUtilities.invokeLater(() -> statusListener.accept(session, current));
-        } catch (RuntimeException exception) {
-            LOG.debug("Could not poll pull request for session {}", session.name(), exception);
+    private void pollWithJob(final BackgroundJobs.Handle job) {
+        final Map<SessionId, Session> current = sessions.get();
+        previous.keySet().removeIf(id -> !current.containsKey(id));
+        final int[] failures = {0};
+        current.forEach(
+                (id, session) -> {
+                    job.update("Checking session " + session.name() + "...");
+                    if (!pollSession(id, session, job)) {
+                        failures[0]++;
+                    }
+                });
+        if (current.isEmpty()) {
+            job.update("No sessions to check");
+        } else if (failures[0] > 0) {
+            throw new IllegalStateException(
+                    failures[0] + " of " + current.size() + " session pull requests failed");
         }
     }
 
-    private void alertTransitions(final PullRequestStatus old, final PullRequestStatus current) {
-        if (old.details().status() != PullRequestDetails.Status.CONFLICTED
-                && current.details().status() == PullRequestDetails.Status.CONFLICTED) {
-            notify(current.request(), "Pull request is conflicted");
+    private void pollSession(final SessionId id, final Session session) {
+        pollSession(id, session, null);
+    }
+
+    private boolean pollSession(
+            final SessionId id, final Session session, final BackgroundJobs.Handle job) {
+        final String worktreePath = session.worktreePath();
+        if (worktreePath == null || worktreePath.isBlank()) {
+            return false;
         }
-        final PullRequestChecks.Status oldChecks = old.details().checks().checksStatus();
-        final PullRequestChecks.Status newChecks = current.details().checks().checksStatus();
+        try {
+            final PullRequestDetails current = load(session);
+            final PullRequestDetails old = previous.put(id, current);
+            if (old != null) {
+                alertTransitions(old, current);
+            }
+            SwingUtilities.invokeLater(
+                    () -> {
+                        statusListener.accept(id, current);
+                    });
+            return true;
+        } catch (RuntimeException exception) {
+            if ("No pull request found".equals(exception.getMessage())) {
+                previous.remove(id);
+                SwingUtilities.invokeLater(() -> statusListener.accept(id, null));
+                return true;
+            }
+            if (job != null) {
+                job.output("Failed to check " + session.name() + ": " + exception.getMessage());
+            }
+            LOG.debug("Could not poll pull request for session {}", session.name(), exception);
+            return false;
+        }
+    }
+
+    private void alertTransitions(final PullRequestDetails old, final PullRequestDetails current) {
+        if (old.status() != PullRequestDetails.Status.CONFLICTED
+                && current.status() == PullRequestDetails.Status.CONFLICTED) {
+            notify(current, "Pull request is conflicted");
+        }
+        final PullRequestChecks.Status oldChecks = old.checks().checksStatus();
+        final PullRequestChecks.Status newChecks = current.checks().checksStatus();
         if (oldChecks != newChecks && newChecks == PullRequestChecks.Status.FAILING) {
-            notify(current.request(), "Pull request checks failed");
+            notify(current, "Pull request checks failed");
         } else if (oldChecks != newChecks && newChecks == PullRequestChecks.Status.PASSING) {
-            notify(current.request(), "Pull request checks passed");
+            notify(current, "Pull request checks passed");
         }
-        if (old.details().status() != PullRequestDetails.Status.READY
-                && current.details().status() == PullRequestDetails.Status.READY) {
-            notify(current.request(), "Pull request is ready to merge");
+        if (old.status() != PullRequestDetails.Status.READY
+                && current.status() == PullRequestDetails.Status.READY) {
+            notify(current, "Pull request is ready to merge");
         }
     }
 
@@ -110,11 +146,12 @@ public final class PullRequestWatcher implements AutoCloseable {
         PlatformCommands.notify("Branchloom PR #" + request.number(), message);
     }
 
-    private static PullRequestStatus load(final AppState state, final Session session) {
+    private PullRequestDetails load(final Session session) {
         try {
-            final GitHub github = GitHub.forProject(state, session.projectId());
-            final PullRequest request = github.getPullRequest(Path.of(session.worktreePath()));
-            return new PullRequestStatus(request, github.getPullRequestDetails(request));
+            final var github = actionContext.githubProvider().forProject(session.projectId());
+            final PullRequest request =
+                    github.getPullRequest(java.nio.file.Path.of(session.worktreePath()));
+            return github.getPullRequestDetails(request);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Could not load session pull request", exception);
@@ -127,6 +164,4 @@ public final class PullRequestWatcher implements AutoCloseable {
     public void close() {
         scheduler.shutdownNow();
     }
-
-    public record PullRequestStatus(PullRequest request, PullRequestDetails details) {}
 }

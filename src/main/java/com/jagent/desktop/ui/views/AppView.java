@@ -102,8 +102,17 @@ public final class AppView extends JFrame {
         content.setBorder(UiBorders.contentArea());
         projectTreePanel = new ProjectTreePanel(actionContext);
         pullRequestWatcher =
-                new PullRequestWatcher(state, projectTreePanel::updatePullRequestStatus);
-        pullRequestWatcher.start();
+                new PullRequestWatcher(
+                        actionContext,
+                        (sessionId, status) -> {
+                            final Session session = state.sessions().get(sessionId);
+                            if (status != null && session != null) {
+                                projectTreePanel.updatePullRequestStatus(session, status);
+                            }
+                            if (currentView instanceof HomeView) {
+                                refreshCurrentView();
+                            }
+                        });
         bottomBar =
                 new BottomBar(
                         state,
@@ -117,6 +126,7 @@ public final class AppView extends JFrame {
         add(shell(actionContext), BorderLayout.CENTER);
         installShortcuts();
         render();
+        pullRequestWatcher.start();
         if (loadResult.hasSettingsError()) {
             ErrorDialogs.show(this, "Settings could not be loaded", loadResult.settingsError());
         }

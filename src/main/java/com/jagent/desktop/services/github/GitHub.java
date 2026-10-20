@@ -58,7 +58,7 @@ import org.slf4j.LoggerFactory;
  * <p>Use {@link GitRepository} for local git state and this class for remote GitHub API state.
  */
 @SuppressWarnings("PMD.GodClass")
-public final class GitHub {
+public class GitHub {
     private static final Logger LOG = LoggerFactory.getLogger(GitHub.class);
     private static final int CORE_RATE_LIMIT_BUFFER = 1;
     private static final int SEARCH_RATE_LIMIT_BUFFER = 1;
@@ -74,13 +74,15 @@ public final class GitHub {
     private volatile GHRepository repository;
 
     public static GitHub forProject(final AppState appState, final ProjectId projectId) {
+        Objects.requireNonNull(projectId);
+        Objects.requireNonNull(appState.projects().get(projectId));
         return INSTANCES.computeIfAbsent(projectId, id -> new GitHub(appState, id));
     }
 
-    private GitHub(final AppState appState, final ProjectId projectId) {
+    protected GitHub(final AppState appState, final ProjectId projectId) {
         this.gitHubAuth = new GitHubAuth();
-        this.projectId = Objects.requireNonNull(projectId);
-        this.project = Objects.requireNonNull(appState.projects().get(projectId));
+        this.projectId = projectId;
+        this.project = appState.projects().get(projectId);
     }
 
     private org.kohsuke.github.GitHub client() throws IOException {
@@ -222,7 +224,7 @@ public final class GitHub {
                                 repository
                                         .queryPullRequests()
                                         .state(GHIssueState.ALL)
-                                        .head(branch)
+                                        .head(repository.getOwner().getLogin() + ":" + branch)
                                         .list()
                                         .spliterator(),
                                 false)
