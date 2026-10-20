@@ -6,8 +6,10 @@ plugins {
     id 'application'
     id 'com.diffplug.spotless' version '8.10.4'
     id 'pmd'
-    id 'com.github.spotbugs' version '6.5.12'
+    id 'com.github.spotbugs' version '6.5.13'
     id 'jacoco'
+    id 'io.github.arya458.dead-code-detector' version '0.0.10'
+    id 'nebula.lint' version '21.3.0'
 }
 
 repositories {
@@ -15,7 +17,6 @@ repositories {
     maven { url = 'https://packages.jetbrains.team/maven/p/ij/intellij-dependencies' }
 }
 
-// var graalVersion = "24.2.2" 
 version = providers.gradleProperty('releaseVersion').orElse('1.0.0').get()
 
 dependencies {
@@ -33,11 +34,10 @@ dependencies {
     implementation 'org.eclipse.jgit:org.eclipse.jgit:7.8.0.202609011348-r'
     implementation 'org.apache.commons:commons-jexl3:3.7.0'
     implementation 'org.slf4j:slf4j-jdk14:2.0.20'
-    // implementation("org.graalvm.polyglot:polygraph:$graalVersion") // or polyglot core
-    // implementation("org.graalvm.polyglot:polyglot:$graalVersion")
-    // implementation(platform("org.graalvm.polyglot:js:$graalVersion"))
-    testImplementation 'org.assertj:assertj-swing-junit:3.17.1'
-    testImplementation 'org.junit.jupiter:junit-jupiter:6.1.3'
+    runtimeOnly 'org.slf4j:slf4j-jdk14:2.0.20'
+    testImplementation 'org.assertj:assertj-swing:3.17.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:6.1.3'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.1.3'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:6.1.3'
 }
 
@@ -62,10 +62,6 @@ sourceSets {
 configurations {
     integrationTestImplementation.extendsFrom(testImplementation)
     integrationTestRuntimeOnly.extendsFrom(testRuntimeOnly)
-}
-
-dependencies {
-    integrationTestImplementation 'org.apiguardian:apiguardian-api:1.1.2'
 }
 
 tasks.register('integrationTest', Test) {
@@ -151,6 +147,30 @@ pmd {
     ruleSetFiles = files('config/pmd/pmd-ruleset.xml')
 }
 
+deadCodeDetector {
+    failOnDeadCode = false
+    includeTests = false
+    keepPublicApi = true
+    platform = 'auto'
+    includeResources = false
+    analyzeDependencies = false
+    failOnUnusedDependencies = false
+    scanConfigFiles = true
+    configDirs = ['src/main/resources']
+    parallelScan = true
+    excludeClasses.add(java.util.regex.Pattern.compile('.*\\.package-info'))
+}
+
+gradleLint {
+    rules = ['unused-dependency']
+    alwaysRun = false
+}
+
+tasks.named('deadCodeDetector') {
+    notCompatibleWithConfigurationCache(
+            'The dead-code detector plugin accesses the Gradle project during task execution.')
+}
+
 tasks.named('pmdTest') {
     ruleSetFiles = files('config/pmd/pmd-test-ruleset.xml')
 }
@@ -176,6 +196,7 @@ tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach {
 
 tasks.named('check') {
     dependsOn tasks.named('spotlessCheck'), tasks.named('pmdMain'), tasks.named('spotbugsMain'), tasks.named('integrationTest'), tasks.named('jacocoTestCoverageVerification')
+    setDependsOn(dependsOn.findAll { dependency -> dependency != 'deadCodeDetector' })
 }
 
 tasks.register('ciCompile') {

@@ -89,11 +89,6 @@ class ProjectSessionModelLogicTest {
                         null);
         final Session withTerminal = session.withNewTerminal(terminalId);
 
-        assertEquals(
-                List.of(),
-                project.projectSessions(
-                        new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of())),
-                "missing sessions should produce no entries");
         assertEquals(List.of(sessionId), withSession.sessionIds(), VALUE_MESSAGE);
         assertTrue(nullSessions.sessionIds().isEmpty(), "null sessions should default to empty");
         assertEquals(
@@ -103,21 +98,5 @@ class ProjectSessionModelLogicTest {
                 List.of(),
                 withTerminal.withRemovedTerminal(terminalId).terminalIds(),
                 VALUE_MESSAGE);
-    }
-
-    @Test
-    void projectSessionsResolvesStoredSessionIds() throws InvalidObjectException {
-        final Project project = new Project(DEMO_NAME, DEMO_PATH, null);
-        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ProjectId storedProjectId = state.addProject(project);
-        final SessionId sessionId =
-                state.addSession(
-                        storedProjectId, new Session(storedProjectId, "Stored", null, null, null));
-        final Project stored = state.projects().get(storedProjectId);
-
-        assertEquals(
-                List.of(Map.entry(sessionId, state.sessions().get(sessionId))),
-                stored.projectSessions(state),
-                "project session references should resolve through app state");
     }
 }

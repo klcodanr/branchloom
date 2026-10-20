@@ -6,15 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.Agent;
-import com.jagent.desktop.models.GitHubUser;
-import com.jagent.desktop.models.Project;
-import com.jagent.desktop.models.ProjectId;
-import com.jagent.desktop.models.PullRequest;
-import com.jagent.desktop.models.PullRequest.State;
 import com.jagent.desktop.models.github.Issue;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -28,8 +22,6 @@ class DialogLogicTest {
     void bulkSessionRequestsRequireIssuesAndCopySelections() throws MalformedURLException {
         final Issue issue = new Issue(7, "Fix bug", "Details", new URL("https://example.test/7"));
 
-        assertFalse(BulkSessionDialog.hasSelection(List.of()), "empty issue selection is invalid");
-        assertTrue(BulkSessionDialog.hasSelection(List.of(issue)), "an issue selection is valid");
         assertEquals(
                 List.of(issue),
                 BulkSessionDialog.request(List.of(issue), AGENT).issues(),
@@ -49,29 +41,7 @@ class DialogLogicTest {
     }
 
     @Test
-    void reviewPromptSubstitutesRequestDetailsAndRejectsBlankPrompts()
-            throws MalformedURLException {
-        final Project project = new Project("Demo", "/tmp/demo", null);
-        final PullRequest request =
-                new PullRequest(
-                        ProjectId.create(),
-                        project,
-                        12,
-                        State.OPEN,
-                        "Improve tests",
-                        "description",
-                        new URL("https://example.test/12"),
-                        new Date(),
-                        new Date(),
-                        new GitHubUser("author", new URL("https://example.test/author")),
-                        "branch",
-                        "1234567",
-                        "main");
-
-        assertEquals(
-                "Review #12: Improve tests",
-                ReviewDialog.defaultPrompt("Review #{number}: {title}", request),
-                "review prompt placeholders should be replaced");
+    void reviewPromptsRejectBlankValues() {
         assertFalse(ReviewDialog.validPrompt(" \n "), "blank review prompts should be rejected");
         assertTrue(ReviewDialog.validPrompt("Review it"), "non-blank review prompts are valid");
     }

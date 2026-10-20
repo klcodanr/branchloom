@@ -164,7 +164,7 @@ class AbstractWorkspaceViewTest {
         public void refresh() {}
 
         private void openWorkspaceFile(final Path file) {
-            openFile(file);
+            openFile(file, false);
         }
 
         private int tabCount() {

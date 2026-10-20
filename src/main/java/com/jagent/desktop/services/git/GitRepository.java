@@ -204,10 +204,6 @@ public final class GitRepository implements AutoCloseable {
         GitNative.deleteWorktree(this.repositoryPath, worktreePath);
     }
 
-    public void fetchRemote() throws IOException {
-        GitNative.run(this.repositoryPath, FETCH, ORIGIN);
-    }
-
     public void updateCurrentBranch() throws IOException {
         GitNative.run(this.repositoryPath, "pull", "--rebase");
     }
@@ -233,13 +229,6 @@ public final class GitRepository implements AutoCloseable {
         GitNative.run(this.repositoryPath, "rebase", remoteRef);
     }
 
-    public void mergePrimaryBranch() throws IOException {
-        final String primaryBranch = primaryBranchName();
-        final String remoteRef = ORIGIN_REMOTE_REF_PREFIX + primaryBranch;
-        GitNative.run(this.repositoryPath, FETCH, ORIGIN);
-        GitNative.run(this.repositoryPath, "merge", remoteRef);
-    }
-
     public void rebasePrimaryBranch() throws IOException {
         final String primaryBranch = primaryBranchName();
         final String remoteRef = ORIGIN_REMOTE_REF_PREFIX + primaryBranch;
@@ -256,12 +245,6 @@ public final class GitRepository implements AutoCloseable {
         final String branch = ref.substring(separator + 1);
 
         GitNative.run(this.repositoryPath, FETCH, remote, branch);
-    }
-
-    public boolean isPruneableWorktree() throws IOException {
-        final var path = this.repository.getWorkTree().toPath();
-        return GitNative.listWorktrees(path).stream()
-                .anyMatch(w -> w.path().equals(path) && w.prunable());
     }
 
     public List<Branch> listAvailableBranches() throws IOException {

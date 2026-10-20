@@ -23,7 +23,7 @@ class TerminalManagerTest {
     void resetSingleton() {
         final TerminalManager manager = TerminalManager.get();
         manager.disposeAll();
-        manager.resetRuntimeFactory();
+        manager.setRuntimeFactory(null);
     }
 
     @Test

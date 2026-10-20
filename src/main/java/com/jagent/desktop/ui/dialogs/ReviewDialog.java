@@ -52,12 +52,6 @@ public final class ReviewDialog extends FormDialog {
     }
 
     /* package */
-    static String defaultPrompt(final String template, final PullRequest request) {
-        return template.replace("{number}", Integer.toString(request.number()))
-                .replace("{title}", request.title());
-    }
-
-    /* package */
     static boolean validPrompt(final String value) {
         return !value.isBlank();
     }

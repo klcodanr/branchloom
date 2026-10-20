@@ -1,12 +1,10 @@
 package com.jagent.desktop.models;
 
-import com.jagent.desktop.models.board.BoardConfig;
 import com.jagent.desktop.models.board.BoardDefinition;
 import java.util.List;
 
 public record AppSettings(
         List<Agent> agents,
-        List<String> groupOrder,
         String reviewPrompt,
         String theme,
         List<Tool> tools,
@@ -30,14 +28,12 @@ public record AppSettings(
 
     public AppSettings(
             final List<Agent> agents,
-            final List<String> groupOrder,
             final String reviewPrompt,
             final String theme,
             final List<Tool> tools,
             final String worktreeTemplate) {
         this(
                 agents,
-                groupOrder,
                 reviewPrompt,
                 theme,
                 tools,
@@ -50,29 +46,6 @@ public record AppSettings(
 
     public AppSettings(
             final List<Agent> agents,
-            final List<String> groupOrder,
-            final String reviewPrompt,
-            final String theme,
-            final List<Tool> tools,
-            final String worktreeTemplate,
-            final String agentContextPath,
-            final List<PullRequestFilter> pullRequestFilters) {
-        this(
-                agents,
-                groupOrder,
-                reviewPrompt,
-                theme,
-                tools,
-                worktreeTemplate,
-                agentContextPath,
-                pullRequestFilters,
-                List.of(),
-                "");
-    }
-
-    public AppSettings(
-            final List<Agent> agents,
-            final List<String> groupOrder,
             final String reviewPrompt,
             final String theme,
             final List<Tool> tools,
@@ -80,7 +53,6 @@ public record AppSettings(
             final String agentContextPath) {
         this(
                 agents,
-                groupOrder,
                 reviewPrompt,
                 theme,
                 tools,
@@ -93,7 +65,6 @@ public record AppSettings(
 
     public AppSettings {
         agents = agents == null ? List.of() : List.copyOf(agents);
-        groupOrder = groupOrder == null ? List.of() : List.copyOf(groupOrder);
         tools = tools == null ? List.of() : List.copyOf(tools);
         worktreeTemplate =
                 worktreeTemplate == null || worktreeTemplate.isBlank()
@@ -105,44 +76,11 @@ public record AppSettings(
         jiraEndpoint = jiraEndpoint == null || jiraEndpoint.isBlank() ? null : jiraEndpoint.trim();
     }
 
-    public AppSettings(
-            final List<Agent> agents,
-            final List<String> groupOrder,
-            final String reviewPrompt,
-            final String theme,
-            final List<Tool> tools,
-            final String worktreeTemplate,
-            final String agentContextPath,
-            final List<PullRequestFilter> pullRequestFilters,
-            final BoardConfig boardConfig) {
-        this(
-                agents,
-                groupOrder,
-                reviewPrompt,
-                theme,
-                tools,
-                worktreeTemplate,
-                agentContextPath,
-                pullRequestFilters,
-                List.of(new BoardDefinition("Unified Board", boardConfig)),
-                "");
-    }
-
     private static List<BoardDefinition> sanitizeBoards(final List<BoardDefinition> boards) {
         if (boards == null) {
             return List.of();
         }
         return boards.stream().filter(board -> board != null && !board.name().isBlank()).toList();
-    }
-
-    public PullRequestFilter filterNamed(final String name) {
-        if (name == null || name.isBlank()) {
-            return pullRequestFilters.getFirst();
-        }
-        return pullRequestFilters.stream()
-                .filter(filter -> filter.name().equalsIgnoreCase(name.trim()))
-                .findFirst()
-                .orElseGet(pullRequestFilters::getFirst);
     }
 
     public static List<PullRequestFilter> defaultPullRequestFilters() {

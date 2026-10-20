@@ -33,7 +33,6 @@ class NewSessionDialogUiTest {
                 new AppState(
                         new com.jagent.desktop.models.AppSettings(
                                 List.of(agent),
-                                settings.groupOrder(),
                                 settings.reviewPrompt(),
                                 settings.theme(),
                                 settings.tools(),

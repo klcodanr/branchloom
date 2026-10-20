@@ -110,10 +110,6 @@ public final class ProblemsView extends JPanel implements View {
         table.clearSelection();
     }
 
-    protected JTable problemTable() {
-        return table;
-    }
-
     private void showProblemDetails(final int row) {
         if (row < 0 || row >= problems.size()) {
             return;

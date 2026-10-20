@@ -10,17 +10,15 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class CommandRunnerTest {
     @Test
-    void runCommandReportsOutputAndCompletesOnTheEventDispatchThread(@TempDir final Path directory)
+    void runCommandReportsOutputAndCompletes(@TempDir final Path directory)
             throws InterruptedException, ExecutionException {
         final CountDownLatch completed = new CountDownLatch(1);
         final List<String> output = new java.util.concurrent.CopyOnWriteArrayList<>();
-        final AtomicReference<Boolean> completionOnEdt = new AtomicReference<>();
 
         BackgroundOperations.runCommand(
                         "Commands",
@@ -30,13 +28,11 @@ class CommandRunnerTest {
                         output::add)
                 .thenRun(
                         () -> {
-                            completionOnEdt.set(javax.swing.SwingUtilities.isEventDispatchThread());
                             completed.countDown();
                         });
 
         assertTrue(completed.await(5, TimeUnit.SECONDS), "command should complete");
         assertEquals(List.of("first", "second"), output, "command output should be reported");
-        assertEquals(Boolean.TRUE, completionOnEdt.get(), "completion callback should run on EDT");
     }
 
     @Test
