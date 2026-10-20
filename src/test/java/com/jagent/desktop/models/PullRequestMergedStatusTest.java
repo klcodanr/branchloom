@@ -12,10 +12,18 @@ import org.junit.jupiter.api.Test;
 class PullRequestMergedStatusTest {
     @Test
     void mergedPullRequestHasMergedDetailsStatus() throws MalformedURLException {
-        final PullRequest request = request(true);
+        final PullRequest request = request();
         final PullRequestDetails details =
                 new PullRequestDetails(
-                        request, false, true, "clean", 1, 1, 1, new PullRequestChecks(List.of()));
+                        request,
+                        false,
+                        true,
+                        true,
+                        "clean",
+                        1,
+                        1,
+                        1,
+                        new PullRequestChecks(List.of()));
 
         assertEquals(
                 PullRequest.State.CLOSED,
@@ -31,7 +39,7 @@ class PullRequestMergedStatusTest {
                 "merged pull requests should use the success indicator");
     }
 
-    private static PullRequest request(final boolean merged) throws MalformedURLException {
+    private static PullRequest request() throws MalformedURLException {
         final Project project = new Project("Demo", "/tmp/demo", null);
         return new PullRequest(
                 ProjectId.create(),
@@ -46,7 +54,6 @@ class PullRequestMergedStatusTest {
                 new GitHubUser("author", new URL("https://example.test/author")),
                 "head",
                 "sha",
-                "main",
-                merged);
+                "main");
     }
 }

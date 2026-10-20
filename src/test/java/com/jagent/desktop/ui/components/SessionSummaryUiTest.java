@@ -73,8 +73,7 @@ class SessionSummaryUiTest {
                         new GitHubUser("author", new URL("https://example.test/author")),
                         "feature/test",
                         "abc123",
-                        "main",
-                        merged);
-        return new PullRequestDetails(request, false, true, "clean", 0, 0, 0);
+                        "main");
+        return new PullRequestDetails(request, false, merged, true, "clean", 0, 0, 0);
     }
 }

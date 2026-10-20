@@ -173,8 +173,7 @@ public final class GitHub {
                     GitHubUser.from(request.getUser()),
                     request.getHead() == null ? "" : request.getHead().getRef(),
                     request.getHead() == null ? "" : request.getHead().getSha(),
-                    request.getBase() == null ? "" : request.getBase().getRef(),
-                    request.isMerged());
+                    request.getBase() == null ? "" : request.getBase().getRef());
         } catch (IOException e) {
             LOG.error("Failed to create PullRequest from GHPullRequest", e);
         }
@@ -293,6 +292,7 @@ public final class GitHub {
             return new PullRequestDetails(
                     request,
                     ghPullRequest.isDraft(),
+                    ghPullRequest.isMerged(),
                     Boolean.TRUE.equals(ghPullRequest.getMergeable()),
                     ghPullRequest.getMergeableState() == null
                             ? ""

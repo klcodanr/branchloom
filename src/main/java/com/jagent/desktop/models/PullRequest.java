@@ -11,7 +11,6 @@ public class PullRequest implements BoardItem {
     private final Project project;
     private final int number;
     private final State state;
-    private final boolean merged;
     private final String title;
     private final String description;
     private final URL url;
@@ -35,13 +34,11 @@ public class PullRequest implements BoardItem {
             @NotNull final GitHubUser author,
             @NotNull final String headBranch,
             @NotNull final String headSha,
-            @NotNull final String baseBranch,
-            final boolean merged) {
+            @NotNull final String baseBranch) {
         this.projectId = projectId;
         this.project = project;
         this.number = number;
         this.state = state;
-        this.merged = merged;
         this.title = title;
         this.description = description;
         this.url = url;
@@ -51,37 +48,6 @@ public class PullRequest implements BoardItem {
         this.headBranch = headBranch;
         this.headSha = headSha;
         this.baseBranch = baseBranch;
-    }
-
-    public PullRequest(
-            @NotNull final ProjectId projectId,
-            @NotNull final Project project,
-            final int number,
-            @NotNull final State state,
-            @NotNull final String title,
-            @NotNull final String description,
-            @NotNull final URL url,
-            @NotNull final Date createdAt,
-            @NotNull final Date updatedAt,
-            @NotNull final GitHubUser author,
-            @NotNull final String headBranch,
-            @NotNull final String headSha,
-            @NotNull final String baseBranch) {
-        this(
-                projectId,
-                project,
-                number,
-                state,
-                title,
-                description,
-                url,
-                createdAt,
-                updatedAt,
-                author,
-                headBranch,
-                headSha,
-                baseBranch,
-                false);
     }
 
     public ProjectId projectId() {
@@ -98,10 +64,6 @@ public class PullRequest implements BoardItem {
 
     public State state() {
         return state;
-    }
-
-    public boolean merged() {
-        return merged;
     }
 
     @Override
