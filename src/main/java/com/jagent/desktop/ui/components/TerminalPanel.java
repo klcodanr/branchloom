@@ -142,6 +142,10 @@ public final class TerminalPanel extends JPanel {
         runtime.start(this::attach, this::showStartupFailure);
     }
 
+    public void focusTerminal() {
+        SwingUtilities.invokeLater(terminal::requestFocusInWindow);
+    }
+
     public void setStateChanged(final Consumer<TerminalState> listener) {
         final Consumer<TerminalState> callback = listener == null ? ignored -> {} : listener;
         runtime.onStateChanged(state -> SwingUtilities.invokeLater(() -> callback.accept(state)));
