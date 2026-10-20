@@ -7,7 +7,6 @@ import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
-import com.jagent.desktop.models.SessionMonitoringStatus;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PullRequestWatcher;
 import com.jagent.desktop.services.ViewCoordinator;
@@ -113,12 +112,7 @@ public final class AppView extends JFrame {
                                 }
                                 return;
                             }
-                            state.updateMonitoringStatus(
-                                    sessionId,
-                                    new SessionMonitoringStatus(
-                                            status.request(),
-                                            status.details(),
-                                            java.time.Instant.now()));
+                            state.updateMonitoringStatus(sessionId, status);
                             final Session session = state.sessions().get(sessionId);
                             if (session != null) {
                                 projectTreePanel.updatePullRequestStatus(session, status);

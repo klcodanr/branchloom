@@ -3,9 +3,9 @@ package com.jagent.desktop.services;
 import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
-import com.jagent.desktop.models.SessionMonitoringStatus;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.ui.Defaults;
@@ -26,8 +26,7 @@ public class AppState {
     private final Map<ProjectId, Project> projects;
     private final Map<SessionId, Session> sessions;
     private final Map<TerminalId, Terminal> terminals;
-    private final Map<SessionId, SessionMonitoringStatus> monitoringStatuses =
-            new java.util.HashMap<>();
+    private final Map<SessionId, PullRequestDetails> monitoringStatuses = new java.util.HashMap<>();
     private final List<TerminalEvent> terminalEvents = new ArrayList<>();
 
     public enum TerminalAction {
@@ -106,12 +105,11 @@ public class AppState {
         return Map.copyOf(this.terminals);
     }
 
-    public Map<SessionId, SessionMonitoringStatus> monitoringStatuses() {
+    public Map<SessionId, PullRequestDetails> monitoringStatuses() {
         return Map.copyOf(this.monitoringStatuses);
     }
 
-    public void updateMonitoringStatus(
-            final SessionId sessionId, final SessionMonitoringStatus status) {
+    public void updateMonitoringStatus(final SessionId sessionId, final PullRequestDetails status) {
         this.monitoringStatuses.put(sessionId, status);
     }
 

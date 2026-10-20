@@ -2,9 +2,9 @@ package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
-import com.jagent.desktop.models.SessionMonitoringStatus;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewCoordinator.ViewState;
@@ -80,7 +80,7 @@ public final class SessionMonitoringPanel extends JPanel {
                                     new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
                             final JLabel label = new JLabel(value == null ? "" : value.toString());
                             final int modelRow = table.convertRowIndexToModel(row);
-                            final SessionMonitoringStatus monitoring =
+                            final PullRequestDetails monitoring =
                                     appState.monitoringStatuses().get(sessionIds.get(modelRow));
                             renderer.setOpaque(true);
                             renderer.setBorder(cellBorder);
@@ -94,9 +94,7 @@ public final class SessionMonitoringPanel extends JPanel {
                                             : table.getForeground());
                             final StatusDot dot = new StatusDot(null);
                             dot.update(
-                                    monitoring == null
-                                            ? null
-                                            : monitoring.details().indicatorColor(),
+                                    monitoring == null ? null : monitoring.indicatorColor(),
                                     label.getText());
                             renderer.add(dot);
                             renderer.add(label);
@@ -127,15 +125,13 @@ public final class SessionMonitoringPanel extends JPanel {
 
     private void addRow(final DefaultTableModel model, final SessionId id, final Session session) {
         sessionIds.add(id);
-        final SessionMonitoringStatus monitoring = appState.monitoringStatuses().get(id);
+        final PullRequestDetails monitoring = appState.monitoringStatuses().get(id);
         model.addRow(
                 new Object[] {
                     projectName(session) + " > " + session.name(),
-                    monitoring == null ? "" : "#" + monitoring.request().number(),
-                    monitoring == null
-                            ? ""
-                            : UiText.titleCase(monitoring.details().status().toString()),
-                    monitoring == null ? "" : UiText.relativeTime(monitoring.request().updatedAt())
+                    monitoring == null ? "" : "#" + monitoring.number(),
+                    monitoring == null ? "" : UiText.titleCase(monitoring.status().toString()),
+                    monitoring == null ? "" : UiText.relativeTime(monitoring.updatedAt())
                 });
     }
 
@@ -159,11 +155,11 @@ public final class SessionMonitoringPanel extends JPanel {
                         .updateView(ViewId.SESSION, ViewState.session(session.projectId(), id));
             }
         } else if (column == 1) {
-            final var monitoring = appState.monitoringStatuses().get(id);
+            final PullRequestDetails monitoring = appState.monitoringStatuses().get(id);
             if (monitoring == null) {
                 return;
             }
-            final var url = monitoring.request().url();
+            final var url = monitoring.url();
             if (url == null) {
                 return;
             }

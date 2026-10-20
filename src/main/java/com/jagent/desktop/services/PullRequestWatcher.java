@@ -27,16 +27,16 @@ public final class PullRequestWatcher implements AutoCloseable {
     private static final Duration POLL_INTERVAL = Duration.ofSeconds(30);
 
     private final Supplier<Map<SessionId, Session>> sessions;
-    private final Function<Session, PullRequestStatus> loader;
-    private final BiConsumer<SessionId, PullRequestStatus> statusListener;
+    private final Function<Session, PullRequestDetails> loader;
+    private final BiConsumer<SessionId, PullRequestDetails> statusListener;
     private final BackgroundJobs backgroundJobs;
     private final ScheduledExecutorService scheduler;
-    private final Map<SessionId, PullRequestStatus> previous = new java.util.HashMap<>();
+    private final Map<SessionId, PullRequestDetails> previous = new java.util.HashMap<>();
 
     public PullRequestWatcher(
             final AppState state,
             final BackgroundJobs backgroundJobs,
-            final BiConsumer<SessionId, PullRequestStatus> statusListener) {
+            final BiConsumer<SessionId, PullRequestDetails> statusListener) {
         this(
                 state::sessions,
                 session -> load(state, session),
@@ -47,8 +47,8 @@ public final class PullRequestWatcher implements AutoCloseable {
 
     /* package */ PullRequestWatcher(
             final Supplier<Map<SessionId, Session>> sessions,
-            final Function<Session, PullRequestStatus> loader,
-            final BiConsumer<SessionId, PullRequestStatus> statusListener,
+            final Function<Session, PullRequestDetails> loader,
+            final BiConsumer<SessionId, PullRequestDetails> statusListener,
             final BackgroundJobs backgroundJobs,
             final ScheduledExecutorService scheduler) {
         this.sessions = Objects.requireNonNull(sessions);
@@ -110,8 +110,8 @@ public final class PullRequestWatcher implements AutoCloseable {
             return false;
         }
         try {
-            final PullRequestStatus current = loader.apply(session);
-            final PullRequestStatus old = previous.put(id, current);
+            final PullRequestDetails current = loader.apply(session);
+            final PullRequestDetails old = previous.put(id, current);
             if (old != null) {
                 alertTransitions(old, current);
             }
@@ -131,21 +131,21 @@ public final class PullRequestWatcher implements AutoCloseable {
         }
     }
 
-    private void alertTransitions(final PullRequestStatus old, final PullRequestStatus current) {
-        if (old.details().status() != PullRequestDetails.Status.CONFLICTED
-                && current.details().status() == PullRequestDetails.Status.CONFLICTED) {
-            notify(current.request(), "Pull request is conflicted");
+    private void alertTransitions(final PullRequestDetails old, final PullRequestDetails current) {
+        if (old.status() != PullRequestDetails.Status.CONFLICTED
+                && current.status() == PullRequestDetails.Status.CONFLICTED) {
+            notify(current, "Pull request is conflicted");
         }
-        final PullRequestChecks.Status oldChecks = old.details().checks().checksStatus();
-        final PullRequestChecks.Status newChecks = current.details().checks().checksStatus();
+        final PullRequestChecks.Status oldChecks = old.checks().checksStatus();
+        final PullRequestChecks.Status newChecks = current.checks().checksStatus();
         if (oldChecks != newChecks && newChecks == PullRequestChecks.Status.FAILING) {
-            notify(current.request(), "Pull request checks failed");
+            notify(current, "Pull request checks failed");
         } else if (oldChecks != newChecks && newChecks == PullRequestChecks.Status.PASSING) {
-            notify(current.request(), "Pull request checks passed");
+            notify(current, "Pull request checks passed");
         }
-        if (old.details().status() != PullRequestDetails.Status.READY
-                && current.details().status() == PullRequestDetails.Status.READY) {
-            notify(current.request(), "Pull request is ready to merge");
+        if (old.status() != PullRequestDetails.Status.READY
+                && current.status() == PullRequestDetails.Status.READY) {
+            notify(current, "Pull request is ready to merge");
         }
     }
 
@@ -153,11 +153,11 @@ public final class PullRequestWatcher implements AutoCloseable {
         PlatformCommands.notify("Branchloom PR #" + request.number(), message);
     }
 
-    private static PullRequestStatus load(final AppState state, final Session session) {
+    private static PullRequestDetails load(final AppState state, final Session session) {
         try {
             final GitHub github = GitHub.forProject(state, session.projectId());
             final PullRequest request = github.getPullRequest(Path.of(session.worktreePath()));
-            return new PullRequestStatus(request, github.getPullRequestDetails(request));
+            return github.getPullRequestDetails(request);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Could not load session pull request", exception);
@@ -170,6 +170,4 @@ public final class PullRequestWatcher implements AutoCloseable {
     public void close() {
         scheduler.shutdownNow();
     }
-
-    public record PullRequestStatus(PullRequest request, PullRequestDetails details) {}
 }

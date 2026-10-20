@@ -33,7 +33,7 @@ class PullRequestWatcherTest {
         final SessionId sessionId = SessionId.create();
         final Session session = new Session(projectId, "agent", "agent", "prompt", "/tmp/worktree");
         final PullRequest request = request(projectId);
-        final Queue<PullRequestWatcher.PullRequestStatus> statuses =
+        final Queue<PullRequestDetails> statuses =
                 new ArrayDeque<>(
                         List.of(
                                 status(request, false, "clean", PullRequestChecks.Status.PENDING),
@@ -49,7 +49,7 @@ class PullRequestWatcherTest {
                         ignored -> statuses.remove(),
                         (renderedId, status) -> {
                             renderedSessionIds.add(renderedId);
-                            rendered.add(status.details().status());
+                            rendered.add(status.status());
                         },
                         new BackgroundJobs(),
                         Executors.newSingleThreadScheduledExecutor())) {
@@ -85,15 +85,13 @@ class PullRequestWatcherTest {
                 "main");
     }
 
-    private static PullRequestWatcher.PullRequestStatus status(
+    private static PullRequestDetails status(
             final PullRequest request,
             final boolean mergeable,
             final String mergeableState,
             final PullRequestChecks.Status checksStatus) {
-        return new PullRequestWatcher.PullRequestStatus(
-                request,
-                new PullRequestDetails(
-                        request, false, mergeable, mergeableState, 1, 1, 1, checks(checksStatus)));
+        return new PullRequestDetails(
+                request, false, mergeable, mergeableState, 1, 1, 1, checks(checksStatus));
     }
 
     private static PullRequestChecks checks(final PullRequestChecks.Status status) {
