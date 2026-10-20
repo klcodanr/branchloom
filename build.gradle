@@ -4,7 +4,7 @@ import java.nio.file.StandardWatchEventKinds
 
 plugins {
     id 'application'
-    id 'com.diffplug.spotless' version '8.10.3'
+    id 'com.diffplug.spotless' version '8.10.4'
     id 'pmd'
     id 'com.github.spotbugs' version '6.5.12'
     id 'jacoco'
@@ -24,14 +24,14 @@ dependencies {
     implementation 'com.formdev:flatlaf-extras:3.7.2'
     implementation 'com.google.code.gson:gson:2.14.0'
     implementation 'org.kohsuke:github-api:1.330'
-    implementation 'org.commonmark:commonmark:0.30.0'
-    implementation 'com.github.ben-manes.caffeine:caffeine:3.3.0'
+    implementation 'org.commonmark:commonmark:0.30.1'
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.3.1'
     implementation 'org.jetbrains.pty4j:pty4j:0.14.0'
     implementation 'org.jetbrains.jediterm:jediterm-core:3.76'
     implementation 'org.jetbrains.jediterm:jediterm-ui:3.76'
     implementation 'com.fifesoft:rsyntaxtextarea:4.0.1'
     implementation 'org.eclipse.jgit:org.eclipse.jgit:7.8.0.202609011348-r'
-    implementation 'org.apache.commons:commons-jexl3:3.5.0'
+    implementation 'org.apache.commons:commons-jexl3:3.7.0'
     implementation 'org.slf4j:slf4j-jdk14:2.0.20'
     // implementation("org.graalvm.polyglot:polygraph:$graalVersion") // or polyglot core
     // implementation("org.graalvm.polyglot:polyglot:$graalVersion")
