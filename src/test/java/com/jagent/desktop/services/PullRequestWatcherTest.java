@@ -66,13 +66,12 @@ class PullRequestWatcherTest {
         final var context =
                 new ActionContext(
                         TestAppState.controller(state), state, null, null, null, ignored -> github);
-        try (PullRequestWatcher watcher = new PullRequestWatcher(context)) {
-            watcher.poll();
-            watcher.poll();
-            watcher.poll();
-            watcher.poll();
-            SwingUtilities.invokeAndWait(() -> {});
-        }
+        final PullRequestWatcher watcher = new PullRequestWatcher(context);
+        watcher.poll();
+        watcher.poll();
+        watcher.poll();
+        watcher.poll();
+        SwingUtilities.invokeAndWait(() -> {});
 
         assertEquals(
                 PullRequestDetails.Status.READY,

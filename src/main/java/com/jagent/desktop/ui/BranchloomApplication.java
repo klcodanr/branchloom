@@ -4,7 +4,6 @@ import com.formdev.flatlaf.util.SystemInfo;
 import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.PullRequestWatcher;
 import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.services.persistence.AppStatePersistence;
 import com.jagent.desktop.services.persistence.WindowStatePersistence;
@@ -23,7 +22,6 @@ public final class BranchloomApplication {
     private final Path dataDirectory;
     private final AppStatePersistence persistence;
     private final WindowStatePersistence windowStatePersistence;
-    private final PullRequestWatcher pullRequestWatcher;
     private final AppState state;
     private final ViewController controller;
     private final ApplicationWindow window;
@@ -65,7 +63,6 @@ public final class BranchloomApplication {
                     window.setJMenuBar(AppMenuBar.create(actionContext));
                     view.render();
                 });
-        pullRequestWatcher = new PullRequestWatcher(actionContext);
     }
 
     public void start() {
@@ -75,7 +72,6 @@ public final class BranchloomApplication {
         if (Taskbar.isTaskbarSupported()) {
             Taskbar.getTaskbar().setIconImage(AppIcon.image(128));
         }
-        pullRequestWatcher.start();
         window.setIconImage(AppIcon.image(64));
         window.setVisible(true);
     }
@@ -101,7 +97,6 @@ public final class BranchloomApplication {
             return;
         }
         closed = true;
-        pullRequestWatcher.close();
         ProgressOperation.run(
                         new ActionContext(controller, state, window, dataDirectory, null),
                         "Closing Branchloom",

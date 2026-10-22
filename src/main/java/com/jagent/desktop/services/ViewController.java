@@ -31,6 +31,7 @@ public final class ViewController {
     private final AppState appState;
     private final Map<Object, AsyncLoadingState<?, ?, ?, ?>> asyncLoadingStates = new HashMap<>();
     private final BackgroundJobs backgroundJobs = new BackgroundJobs();
+    private final PullRequestWatcher pullRequestWatcher;
     private final List<Consumer<ViewId>> viewChanged = new ArrayList<>();
     private final ViewFactory viewFactory;
     private final Map<ViewId, Integer> selectedTabs = new EnumMap<>(ViewId.class);
@@ -104,6 +105,9 @@ public final class ViewController {
                                     refreshSettings.run();
                                     this.updateView(currentViewId, null);
                                 }));
+        pullRequestWatcher =
+                new PullRequestWatcher(
+                        new ActionContext(this, appState, window, dataDirectory, refreshSettings));
     }
 
     public void updateView(final ViewId newViewId, final @Nullable ViewState viewState) {
@@ -224,6 +228,10 @@ public final class ViewController {
 
     public BackgroundJobs backgroundJobs() {
         return backgroundJobs;
+    }
+
+    public PullRequestWatcher pullRequestWatcher() {
+        return pullRequestWatcher;
     }
 
     public <V extends AsyncLoadingState<?, ?, ?, ?>> V getAsyncLoadingState(final Object key) {

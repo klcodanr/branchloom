@@ -1,6 +1,6 @@
 package com.jagent.desktop.ui.views;
 
-import com.jagent.desktop.api.View;
+import com.jagent.desktop.api.RefreshableView;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Session;
@@ -32,7 +32,7 @@ import javax.swing.ListCellRenderer;
 import javax.swing.SwingConstants;
 
 /** Home dashboard for continuing an existing session or adding a project. */
-public final class HomeView extends JPanel implements View {
+public final class HomeView extends JPanel implements RefreshableView {
     private final transient ActionContext actionContext;
     private final transient AppState appState;
     private final JScrollPane scrollPane;
@@ -64,10 +64,18 @@ public final class HomeView extends JPanel implements View {
     @Override
     public void detach() {}
 
-    public void refresh() {
-        scrollPane.setViewportView(body());
-        revalidate();
-        repaint();
+    @Override
+    public java.util.concurrent.CompletableFuture<?> refresh() {
+        return actionContext
+                .viewController()
+                .pullRequestWatcher()
+                .refresh()
+                .thenRun(
+                        () -> {
+                            scrollPane.setViewportView(body());
+                            revalidate();
+                            repaint();
+                        });
     }
 
     private JPanel body() {

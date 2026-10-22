@@ -20,6 +20,8 @@ import org.junit.jupiter.api.Test;
 class ViewInstanceStateTest {
     private static final long TIMEOUT_SECONDS = 5;
     private static final String SESSION = "session";
+    private static final String FIRST = "first";
+    private static final String LATEST = "latest";
 
     @Test
     void loadsOffEdtAndNotifiesListenerOnEdt()
@@ -114,18 +116,50 @@ class ViewInstanceStateTest {
                     }
                 });
 
-        state.fetch(SESSION, "first");
+        state.fetch(SESSION, FIRST);
         assertTrue(
                 state.firstLoadStarted.await(TIMEOUT_SECONDS, TimeUnit.SECONDS),
                 "first load should start");
-        state.fetch(SESSION, "latest");
+        state.fetch(SESSION, LATEST);
         state.releaseFirstLoad.countDown();
 
         assertTrue(
                 completed.await(TIMEOUT_SECONDS, TimeUnit.SECONDS), "latest load should complete");
         assertEquals(1, listenerCalls.get(), "listener should be called once");
         assertEquals("latest", result.get(), "latest configuration should win");
-        assertEquals(List.of("first", "latest"), state.configs, "loads should use both configs");
+        assertEquals(List.of(FIRST, LATEST), state.configs, "loads should use both configs");
+    }
+
+    @Test
+    void reservesInstanceBeforeSubmittingWorker() throws InterruptedException {
+        final StateFixture state = new StateFixture();
+        state.blockFirstLoad = true;
+
+        state.fetch(SESSION, FIRST);
+        state.fetch(SESSION, LATEST);
+        assertTrue(
+                state.firstLoadStarted.await(TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                "first load should start");
+        state.releaseFirstLoad.countDown();
+
+        await(
+                () -> state.configs.equals(List.of(FIRST, LATEST)),
+                "queued refresh should be loaded exactly once after the first load");
+        assertEquals(1, state.backgroundJobs.jobs().size(), "refreshes should share one job");
+        assertEquals(
+                BackgroundJobs.Status.SUCCEEDED,
+                state.backgroundJobs.jobs().getFirst().status(),
+                "shared job should complete after the latest refresh");
+    }
+
+    private static void await(
+            final java.util.function.BooleanSupplier condition, final String message)
+            throws InterruptedException {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
+        while (!condition.getAsBoolean() && System.nanoTime() < deadline) {
+            Thread.sleep(10);
+        }
+        assertTrue(condition.getAsBoolean(), message);
     }
 
     private interface TestListener extends AsyncStateListener<String> {}
@@ -138,9 +172,15 @@ class ViewInstanceStateTest {
         private final List<String> configs = new java.util.concurrent.CopyOnWriteArrayList<>();
         private volatile IllegalStateException failure;
         private volatile boolean blockFirstLoad;
+        private final BackgroundJobs backgroundJobs;
 
         private StateFixture() {
-            super("test", new BackgroundJobs());
+            this(new BackgroundJobs());
+        }
+
+        private StateFixture(final BackgroundJobs backgroundJobs) {
+            super("test", backgroundJobs);
+            this.backgroundJobs = backgroundJobs;
         }
 
         @Override
