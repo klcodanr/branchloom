@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 /** Polls the pull requests associated with agent sessions and reports meaningful transitions. */
 public final class PullRequestWatcher implements AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger(PullRequestWatcher.class);
-    private static final Duration POLL_INTERVAL = Duration.ofSeconds(30);
+    private static final Duration POLL_INTERVAL = Duration.ofMinutes(1);
 
     private final Supplier<Map<SessionId, Session>> sessions;
     private final ActionContext actionContext;
