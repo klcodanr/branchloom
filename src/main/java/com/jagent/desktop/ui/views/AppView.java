@@ -110,7 +110,7 @@ public final class AppView extends JFrame {
                                 projectTreePanel.updatePullRequestStatus(session, status);
                             }
                             if (currentView instanceof HomeView) {
-                                refreshCurrentView();
+                                currentView.refresh();
                             }
                         });
         bottomBar =
@@ -126,7 +126,6 @@ public final class AppView extends JFrame {
         add(shell(actionContext), BorderLayout.CENTER);
         installShortcuts();
         render();
-        pullRequestWatcher.start();
         if (loadResult.hasSettingsError()) {
             ErrorDialogs.show(this, "Settings could not be loaded", loadResult.settingsError());
         }
@@ -297,7 +296,6 @@ public final class AppView extends JFrame {
         closing = true;
         saveWindowState();
         windowStatePersistence.close();
-        pullRequestWatcher.close();
         ProgressOperation.run(
                         this.actionContext,
                         "Closing Branchloom",
@@ -393,7 +391,8 @@ public final class AppView extends JFrame {
         }
         currentView = topLevel;
         bottomBar.setRefreshVisible(
-                currentView instanceof SessionView
+                currentView instanceof HomeView
+                        || currentView instanceof SessionView
                         || currentView instanceof MyPullRequestsView
                         || currentView instanceof BoardView);
         content.removeAll();
@@ -405,6 +404,9 @@ public final class AppView extends JFrame {
     }
 
     private void refreshCurrentView() {
+        if (currentView instanceof HomeView) {
+            pullRequestWatcher.refresh();
+        }
         if (currentView != null) {
             currentView.refresh();
         }

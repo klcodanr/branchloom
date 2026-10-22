@@ -68,19 +68,18 @@ class PullRequestWatcherTest {
         final var context =
                 new ActionContext(
                         new ViewCoordinator(state), state, null, null, null, ignored -> github);
-        try (PullRequestWatcher watcher =
+        final PullRequestWatcher watcher =
                 new PullRequestWatcher(
                         context,
                         (renderedId, status) -> {
                             renderedSessionIds.add(renderedId);
                             rendered.add(status.status());
-                        })) {
-            watcher.poll();
-            watcher.poll();
-            watcher.poll();
-            watcher.poll();
-            SwingUtilities.invokeAndWait(() -> {});
-        }
+                        });
+        watcher.poll();
+        watcher.poll();
+        watcher.poll();
+        watcher.poll();
+        SwingUtilities.invokeAndWait(() -> {});
 
         assertEquals(4, rendered.size(), "each poll should update the PR status");
         assertEquals(
