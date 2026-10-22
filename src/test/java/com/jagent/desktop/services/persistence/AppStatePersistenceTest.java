@@ -1,9 +1,6 @@
 package com.jagent.desktop.services.persistence;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.AppSettings;
@@ -143,23 +140,25 @@ class AppStatePersistenceTest {
     }
 
     @Test
-    void invalidSettingsDoNotDiscardProjects(@TempDir final Path directory) throws IOException {
+    void invalidSettingsFailToLoad(@TempDir final Path directory) throws IOException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project(PROJECT_NAME, DEMO_PATH, null));
+        state.addProject(new Project(PROJECT_NAME, DEMO_PATH, null));
 
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
             persistence.persist();
         }
         Files.writeString(directory.resolve(SETTINGS_FILE), INVALID_JSON);
 
-        final AppState loaded = AppStatePersistence.load(directory);
+        final IllegalStateException exception =
+                assertThrows(
+                        IllegalStateException.class, () -> AppStatePersistence.load(directory));
 
-        assertEquals(
-                PROJECT_NAME, loaded.projects().get(projectId).name(), "project should still load");
-        assertEquals(
-                Defaults.appSettings().theme(),
-                loaded.appSettings().theme(),
-                "invalid settings should use the default theme");
+        assertTrue(
+                exception.getMessage().contains("could not load settings.json"),
+                "invalid settings should produce a descriptive failure");
+        assertTrue(
+                Files.exists(directory.resolve(PROJECTS_FILE)),
+                "project persistence should remain available for recovery");
     }
 
     @Test
@@ -189,25 +188,20 @@ class AppStatePersistenceTest {
     }
 
     @Test
-    void invalidSettingsFallBackToDefaults(@TempDir final Path directory) throws IOException {
+    void invalidSettingsFailInitialLoad(@TempDir final Path directory) throws IOException {
         Files.writeString(directory.resolve(SETTINGS_FILE), INVALID_JSON);
 
-        final AppStatePersistence.LoadResult result = AppStatePersistence.loadWithResult(directory);
-        final AppState loaded = result.state();
+        final IllegalStateException exception =
+                assertThrows(
+                        IllegalStateException.class, () -> AppStatePersistence.load(directory));
 
-        assertTrue(result.hasSettingsError(), "invalid settings should report an error");
+        assertTrue(
+                exception.getMessage().contains("could not load settings.json"),
+                "invalid settings should report an error");
         assertEquals(
                 INVALID_JSON,
                 Files.readString(directory.resolve(SETTINGS_FILE)),
                 "invalid settings should remain untouched");
-        assertEquals(
-                Defaults.appSettings().theme(),
-                loaded.appSettings().theme(),
-                "invalid settings should use the default theme");
-        assertEquals(
-                Defaults.appSettings().worktreeTemplate(),
-                loaded.appSettings().worktreeTemplate(),
-                "invalid settings should use the default worktree template");
     }
 
     @Test

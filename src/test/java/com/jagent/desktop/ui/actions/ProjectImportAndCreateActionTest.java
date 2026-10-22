@@ -7,7 +7,7 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import java.nio.file.Path;
 import java.util.Map;
@@ -21,7 +21,7 @@ class ProjectImportAndCreateActionTest {
     void createAndImportActionsExposeExpectedMetadata(@TempDir final Path tempDir) {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final ActionContext context =
-                new ActionContext(new ViewCoordinator(state), state, null, null, null);
+                new ActionContext(TestAppState.controller(state), state, null, null, null);
         final CreateProjectAction createAction = new CreateProjectAction(context);
         final ImportProjectAction importAction = new ImportProjectAction(context);
 

@@ -7,8 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.test.SwingTestSupport;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.test.TestGitRepository;
 import com.jagent.desktop.ui.Defaults;
 import com.jagent.desktop.ui.layout.WorkspaceTreePanel;
@@ -358,9 +358,9 @@ class WorkspaceTreePanelUiTest {
     private static WorkspaceTreePanel create(final Path workspace) {
         final var state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         return new WorkspaceTreePanel(
-                new ActionContext(new ViewCoordinator(state), state, null, null, null),
+                new ActionContext(TestAppState.controller(state), state, null, null, null),
                 workspace,
-                ignored -> {},
+                () -> {},
                 (ignored, filtered) -> {});
     }
 
@@ -370,9 +370,9 @@ class WorkspaceTreePanelUiTest {
             final java.util.function.BiConsumer<Path, Boolean> openFile) {
         final var state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         return new WorkspaceTreePanel(
-                new ActionContext(new ViewCoordinator(state), state, null, null, null),
+                new ActionContext(TestAppState.controller(state), state, null, null, null),
                 workspace,
-                openTerminal,
+                () -> openTerminal.accept(workspace),
                 openFile);
     }
 

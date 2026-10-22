@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import java.awt.Color;
 import java.util.Map;
@@ -36,9 +37,8 @@ class UiPanelsTest {
 
     @Test
     void contextEditorUsesMarkdownHighlightingAndEditingActions() throws BadLocationException {
-        final var editor =
-                new AgentContextEditor(
-                        new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of()));
+        final var state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var editor = new AgentContextEditor(state, TestAppState.controller(state));
         final var content =
                 (RSyntaxTextArea) ((JScrollPane) editor.getComponent(0)).getViewport().getView();
         final var actions = (JPanel) editor.getComponent(1);

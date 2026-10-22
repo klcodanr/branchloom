@@ -131,10 +131,10 @@ class TerminalPanelUiTest {
                 TerminalPanel.state(id),
                 "retained runtime should begin in starting state");
         panel.setResourceName("Renamed session");
-        TerminalPanel.reconcile(Set.of(id));
+        TerminalPanel.pruneRetainedPanels(Set.of(id));
         assertEquals(panel, TerminalPanel.existing(id), "reconcile should preserve active panels");
 
-        TerminalPanel.reconcile(Set.of());
+        TerminalPanel.pruneRetainedPanels(Set.of());
         assertTrue(TerminalPanel.existing(id) == null, "reconcile should remove stale panels");
     }
 

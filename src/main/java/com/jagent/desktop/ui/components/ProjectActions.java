@@ -17,9 +17,7 @@ import com.jagent.desktop.ui.actions.PasteSessionsAction;
 import com.jagent.desktop.ui.actions.RemoveProjectAction;
 import com.jagent.desktop.ui.actions.RunCommandAction;
 import com.jagent.desktop.ui.actions.UpdateBranchAction;
-import java.awt.Component;
 import java.awt.Container;
-import java.awt.Point;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
@@ -29,14 +27,6 @@ import javax.swing.JSeparator;
 public final class ProjectActions {
     private ProjectActions() {}
 
-    public static void show(
-            final ActionContext actionContext,
-            final ProjectId projectId,
-            final Component invoker,
-            final Point point) {
-        UiPopupMenus.show(menu(actionContext, projectId), invoker, point.x, point.y);
-    }
-
     public static JPopupMenu menu(final ActionContext actionContext, final ProjectId projectId) {
         final JPopupMenu menu = new JPopupMenu();
         populate(menu, actionContext, projectId);
@@ -45,7 +35,7 @@ public final class ProjectActions {
 
     public static void populate(
             final Container menu, final ActionContext actionContext, final ProjectId projectId) {
-        actionContext.appState().updateCurrentProject(projectId);
+        actionContext.viewController().selectProject(projectId);
 
         final var createSession = new CreateSessionAction(actionContext);
         menu.add(
@@ -152,8 +142,8 @@ public final class ProjectActions {
         item.setEnabled(action.enabled());
         item.addActionListener(
                 event -> {
-                    actionContext.appState().updateCurrentProject(projectId);
-                    actionContext.appState().updateCurrentSession(null);
+                    actionContext.viewController().selectProject(projectId);
+                    actionContext.viewController().selectSession(projectId, null);
                     action.execute();
                 });
         return item;

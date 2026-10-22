@@ -8,7 +8,7 @@ import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.BackgroundJobs.Handle;
 import com.jagent.desktop.services.SessionCreationService.CreatedSession;
-import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.services.ViewController.ViewState;
 import java.awt.GraphicsEnvironment;
 import java.nio.file.Path;
 import javax.swing.JOptionPane;
@@ -43,7 +43,7 @@ public final class SessionLauncher {
                                 + " > "
                                 + terminal.title());
         actionContext
-                .viewCoordinator()
+                .viewController()
                 .updateView(
                         ViewId.SESSION,
                         ViewState.sessionTerminal(
@@ -55,7 +55,7 @@ public final class SessionLauncher {
         } else {
             final Handle job =
                     actionContext
-                            .viewCoordinator()
+                            .viewController()
                             .backgroundJobs()
                             .start("Session setup", project.name(), created.session().name());
             runStartupCommand(
@@ -148,7 +148,8 @@ public final class SessionLauncher {
                 });
     }
 
-    /* package */ @FunctionalInterface
+    /* package */
+    @FunctionalInterface
     interface TerminalPanelFactory {
         TerminalPanel create(
                 TerminalId id, Terminal definition, Path directory, String resourceName);

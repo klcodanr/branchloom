@@ -8,7 +8,7 @@ import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.services.PlatformCommands;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.actions.ImportBranchAction;
@@ -309,6 +309,7 @@ public final class PullRequestCard extends CardPanel {
                                             "{prompt}", PlatformCommands.shellQuote(prompt));
                             final var terminalId =
                                     actionContext
+                                            .viewController()
                                             .appState()
                                             .addTerminal(
                                                     new Terminal(
@@ -317,10 +318,10 @@ public final class PullRequestCard extends CardPanel {
                                                             title,
                                                             command));
                             actionContext
-                                    .viewCoordinator()
+                                    .viewController()
                                     .updateView(
                                             ViewId.PROJECT,
-                                            ViewCoordinator.ViewState.projectTerminal(
+                                            ViewController.ViewState.projectTerminal(
                                                     request.projectId(), terminalId));
                         })
                 .setVisible(true);

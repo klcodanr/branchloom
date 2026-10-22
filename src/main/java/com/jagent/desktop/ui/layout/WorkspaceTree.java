@@ -109,7 +109,7 @@ public final class WorkspaceTree extends JTree {
                 ignored -> OpenDirectoryAction.open(parentPath(path).toString(), context.window()));
         menu.add(reveal);
         final JMenuItem terminal = new JMenuItem("Open terminal here");
-        terminal.addActionListener(ignored -> actions.onOpenInTerminal().accept(parentPath(path)));
+        terminal.addActionListener(ignored -> actions.onOpenInTerminal().run());
         menu.add(terminal);
         final JMenuItem copy = new JMenuItem("Copy path");
         copy.addActionListener(ignored -> CopyPathAction.copy(path.toAbsolutePath().toString()));
@@ -171,6 +171,6 @@ public final class WorkspaceTree extends JTree {
     public record Actions(
             Consumer<Path> onOpenSelectedPath,
             Consumer<Path> onOpenInEditor,
-            Consumer<Path> onOpenInTerminal,
+            Runnable onOpenInTerminal,
             Function<Path, String> statusForPath) {}
 }

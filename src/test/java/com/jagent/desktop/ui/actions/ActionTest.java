@@ -15,7 +15,7 @@ import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundJobs;
 import com.jagent.desktop.services.PlatformCommands;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.test.AsyncTestSupport;
 import com.jagent.desktop.test.TestAppState;
@@ -48,7 +48,7 @@ class ActionTest {
 
     @AfterEach
     void disposeRetainedTerminals() {
-        TerminalPanel.reconcile(Set.of());
+        TerminalPanel.pruneRetainedPanels(Set.of());
     }
 
     @Test
@@ -59,7 +59,9 @@ class ActionTest {
         final var sessionId =
                 state.addSession(
                         projectId, new Session(projectId, SESSION_NAME, "agent", "prompt", null));
-        final var coordinator = new ViewCoordinator(state);
+        final var coordinator = TestAppState.controller(state);
+        coordinator.selectProject(projectId);
+        coordinator.selectSession(projectId, sessionId);
         final var context = new ActionContext(coordinator, state, null, null, null);
 
         new ProblemsAction(context).execute();
@@ -67,13 +69,10 @@ class ActionTest {
         new ResourceUsageAction(context).execute();
         assertEquals(ViewId.RESOURCE_USAGE, coordinator.currentViewId(), ASSERTION_MESSAGE);
 
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
         new OpenProjectAction(context).execute();
         assertEquals(ViewId.PROJECT, coordinator.currentViewId(), ASSERTION_MESSAGE);
         new OpenProjectSettingsAction(context).execute();
         assertEquals(ViewId.PROJECT_SETTINGS, coordinator.currentViewId(), ASSERTION_MESSAGE);
-        state.updateCurrentSession(sessionId);
         new OpenSessionAction(context).execute();
         assertEquals(ViewId.SESSION, coordinator.currentViewId(), ASSERTION_MESSAGE);
     }
@@ -81,7 +80,7 @@ class ActionTest {
     @Test
     void selectionDependentActionsReportEnablement() throws InvalidObjectException {
         final AppState state = TestAppState.empty();
-        final var coordinator = new ViewCoordinator(state);
+        final var coordinator = TestAppState.controller(state);
         final var context = new ActionContext(coordinator, state, null, null, null);
         final var projectAction = new OpenProjectAction(context);
         final var sessionAction = new OpenSessionAction(context);
@@ -103,7 +102,7 @@ class ActionTest {
 
         final var projectId =
                 state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
-        state.updateCurrentProject(projectId);
+        coordinator.selectProject(projectId);
         assertTrue(projectAction.enabled(), ASSERTION_MESSAGE);
         assertTrue(terminalAction.enabled(), ASSERTION_MESSAGE);
         assertTrue(createSession.enabled(), ASSERTION_MESSAGE);
@@ -114,8 +113,8 @@ class ActionTest {
     @Test
     void importActionsRequireASelectedProject() {
         final AppState state = TestAppState.empty();
-        final var coordinator = new ViewCoordinator(state);
-        coordinator.updateView(ViewId.HOME, ViewCoordinator.ViewState.reset());
+        final var coordinator = TestAppState.controller(state);
+        coordinator.updateView(ViewId.HOME, ViewController.ViewState.reset());
         final var context = new ActionContext(coordinator, state, null, null, null);
         final var importBranch = new ImportBranchAction(context);
         final var importWorktree = new ImportWorktreeAction(context);
@@ -139,10 +138,10 @@ class ActionTest {
     @Test
     void selectionActionsIgnoreMissingSelectionsWithoutOpeningUi() {
         final AppState state = TestAppState.empty();
-        final var coordinator = new ViewCoordinator(state);
+        final var coordinator = TestAppState.controller(state);
         final var context = new ActionContext(coordinator, state, null, null, null);
 
-        coordinator.updateView(ViewId.HOME, ViewCoordinator.ViewState.reset());
+        coordinator.updateView(ViewId.HOME, ViewController.ViewState.reset());
         new OpenProjectAction(context).execute();
         new OpenSessionAction(context).execute();
         new RenameSessionAction(context).execute();
@@ -169,18 +168,18 @@ class ActionTest {
                                 "agent",
                                 "prompt",
                                 tempDirectory.toString()));
-        final var coordinator = new ViewCoordinator(state);
+        final var coordinator = TestAppState.controller(state);
+        coordinator.selectProject(projectId);
+        coordinator.selectSession(projectId, sessionId);
         final var context = new ActionContext(coordinator, state, null, null, null);
 
-        state.updateCurrentProject(projectId);
         new OpenProjectAction(context).execute();
         assertEquals(ViewId.PROJECT, coordinator.currentViewId(), ASSERTION_MESSAGE);
-        assertEquals(projectId, state.currentProjectId(), ASSERTION_MESSAGE);
+        assertEquals(projectId, coordinator.currentProjectId(), ASSERTION_MESSAGE);
 
-        state.updateCurrentSession(sessionId);
         new OpenSessionAction(context).execute();
         assertEquals(ViewId.SESSION, coordinator.currentViewId(), ASSERTION_MESSAGE);
-        assertEquals(sessionId, state.currentSessionId(), ASSERTION_MESSAGE);
+        assertEquals(sessionId, coordinator.currentSessionId(), ASSERTION_MESSAGE);
     }
 
     @Test
@@ -189,8 +188,9 @@ class ActionTest {
         final AppState state = TestAppState.empty();
         final var projectId =
                 state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
-        state.updateCurrentProject(projectId);
-        final var coordinator = new ViewCoordinator(state);
+
+        final var coordinator = TestAppState.controller(state);
+        coordinator.selectProject(projectId);
         final var context = new ActionContext(coordinator, state, null, null, null);
         final var action = new CreateTerminalAction(context, "Shell", "sh");
 
@@ -201,12 +201,14 @@ class ActionTest {
         final var terminalId = state.terminals().keySet().iterator().next();
         assertEquals(
                 terminalId,
-                coordinator.currentViewId() == ViewId.PROJECT ? state.currentTerminalId() : null,
+                coordinator.currentViewId() == ViewId.PROJECT
+                        ? coordinator.currentTerminalId()
+                        : null,
                 ASSERTION_MESSAGE);
 
         final var sessionId =
                 state.addSession(projectId, new Session(projectId, SESSION_NAME, null, null, null));
-        state.updateCurrentSession(sessionId);
+        coordinator.selectSession(projectId, sessionId);
         action.execute();
         assertEquals(ViewId.SESSION, coordinator.currentViewId(), ASSERTION_MESSAGE);
         assertEquals(2, state.terminals().size(), ASSERTION_MESSAGE);
@@ -242,8 +244,8 @@ class ActionTest {
                         null);
         final AppState state = TestAppState.empty();
         final var projectId = state.addProject(project);
-        state.updateCurrentProject(projectId);
-        final var coordinator = new ViewCoordinator(state);
+
+        final var coordinator = TestAppState.controller(state);
         final var context = new ActionContext(coordinator, state, null, null, null);
 
         new CreateSessionAction(context)
@@ -256,7 +258,7 @@ class ActionTest {
                 () ->
                         state.sessions().size() == 1
                                 && state.terminals().size() == 1
-                                && state.currentTerminalId() != null,
+                                && coordinator.currentTerminalId() != null,
                 "session and agent terminal should be persisted before setup completes");
         final var sessionId = state.sessions().keySet().iterator().next();
         final var terminalEntry = state.terminals().entrySet().iterator().next();
@@ -277,7 +279,7 @@ class ActionTest {
                 () -> {
                     try {
                         return "setup".equals(Files.readString(notes))
-                                && terminalId.equals(state.currentTerminalId());
+                                && terminalId.equals(coordinator.currentTerminalId());
                     } catch (IOException exception) {
                         return false;
                     }
@@ -313,9 +315,10 @@ class ActionTest {
                 state.addSession(
                         projectId,
                         new Session(projectId, SESSION_NAME, null, null, realWorktree.toString()));
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
-        final var coordinator = new ViewCoordinator(state);
+        // selection is initialized by the controller below
+
+        final var coordinator = TestAppState.controller(state);
+        coordinator.selectSession(projectId, sessionId);
         final var action =
                 new RemoveSessionActionStub(
                         new ActionContext(coordinator, state, null, null, null));
@@ -369,9 +372,10 @@ class ActionTest {
                 state.addSession(
                         projectId,
                         new Session(projectId, SESSION_NAME, null, null, realWorktree.toString()));
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
-        final var coordinator = new ViewCoordinator(state);
+        // selection is initialized by the controller below
+
+        final var coordinator = TestAppState.controller(state);
+        coordinator.selectSession(projectId, sessionId);
         final var action =
                 new RemoveSessionActionStub(
                         new ActionContext(coordinator, state, null, null, null), false);
@@ -401,17 +405,17 @@ class ActionTest {
                 state.addSession(projectId, new Session(projectId, "Removed", null, null, null));
         final var selectedSessionId =
                 state.addSession(projectId, new Session(projectId, "Selected", null, null, null));
-        final var coordinator = new ViewCoordinator(state);
+        final var coordinator = TestAppState.controller(state);
         coordinator.updateView(
-                ViewId.SESSION, ViewCoordinator.ViewState.session(projectId, selectedSessionId));
+                ViewId.SESSION, ViewController.ViewState.session(projectId, selectedSessionId));
         final var action =
                 new RemoveSessionActionStub(
                         new ActionContext(coordinator, state, null, null, null));
 
-        action.removeSessionForTest(state, removedSessionId, projectId);
+        action.removeSessionForTest(removedSessionId, projectId);
 
         assertEquals(ViewId.SESSION, coordinator.currentViewId(), ASSERTION_MESSAGE);
-        assertEquals(selectedSessionId, state.currentSessionId(), ASSERTION_MESSAGE);
+        assertEquals(selectedSessionId, coordinator.currentSessionId(), ASSERTION_MESSAGE);
         assertTrue(state.sessions().containsKey(selectedSessionId), ASSERTION_MESSAGE);
     }
 
@@ -431,9 +435,10 @@ class ActionTest {
                                 null,
                                 null,
                                 tempDirectory.resolve("missing-worktree").toString()));
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
-        final var coordinator = new ViewCoordinator(state);
+        // selection is initialized by the controller below
+
+        final var coordinator = TestAppState.controller(state);
+        coordinator.selectSession(projectId, sessionId);
         final var action =
                 new RemoveSessionActionStub(
                         new ActionContext(coordinator, state, null, null, null));
@@ -476,16 +481,16 @@ class ActionTest {
             job.fail(failure.getMessage());
         }
 
-        private void removeSessionForTest(
-                final AppState state, final SessionId sessionId, final ProjectId projectId) {
-            removeSession(state, sessionId, projectId);
+        private void removeSessionForTest(final SessionId sessionId, final ProjectId projectId) {
+            removeSession(sessionId, projectId);
         }
     }
 
     @Test
     void actionMetadataIsStable() {
         final AppState state = TestAppState.empty();
-        final var context = new ActionContext(new ViewCoordinator(state), state, null, null, null);
+        final var context =
+                new ActionContext(TestAppState.controller(state), state, null, null, null);
         final List<Action> actions =
                 List.of(
                         new CreateProjectAction(context),
@@ -517,8 +522,9 @@ class ActionTest {
         final AppState state = TestAppState.empty();
         final var projectId =
                 state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
-        state.updateCurrentProject(projectId);
-        final var coordinator = new ViewCoordinator(state);
+
+        final var coordinator = TestAppState.controller(state);
+        coordinator.selectProject(projectId);
         final var context = new ActionContext(coordinator, state, null, null, null);
         final var command = new RunCommandAction(context, "Run", "printf test");
         final var directory = new OpenDirectoryAction(context);
@@ -530,7 +536,7 @@ class ActionTest {
                 state.addSession(
                         projectId,
                         new Session(projectId, SESSION_NAME, null, null, tempDirectory.toString()));
-        state.updateCurrentSession(sessionId);
+        coordinator.selectSession(projectId, sessionId);
         assertTrue(command.enabled(), ASSERTION_MESSAGE);
         assertTrue(directory.enabled(), ASSERTION_MESSAGE);
         command.execute();

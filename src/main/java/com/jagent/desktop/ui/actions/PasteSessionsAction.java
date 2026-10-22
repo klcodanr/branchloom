@@ -4,7 +4,6 @@ import com.jagent.desktop.api.BaseAction;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
-import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.ui.components.BulkSessionCreator;
 import com.jagent.desktop.ui.dialogs.PasteSessionsDialog;
 import com.jagent.desktop.ui.utils.GitUtils;
@@ -31,13 +30,13 @@ public final class PasteSessionsAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.appState().currentProjectId() != null;
+        return actionContext.viewController().currentProjectId() != null;
     }
 
     @Override
     public void execute() {
-        final AppState state = actionContext.appState();
-        final ProjectId projectId = state.currentProjectId();
+        final var state = actionContext.appState();
+        final ProjectId projectId = actionContext.viewController().currentProjectId();
         final Project project = projectId == null ? null : state.projects().get(projectId);
         if (project == null) {
             return;

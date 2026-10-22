@@ -6,7 +6,6 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.github.Issue;
-import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.ui.components.BulkSessionCreator;
 import com.jagent.desktop.ui.dialogs.BulkSessionDialog;
@@ -36,13 +35,13 @@ public class BulkCreateSessionsAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.appState().currentProjectId() != null;
+        return actionContext.viewController().currentProjectId() != null;
     }
 
     @Override
     public void execute() {
-        final AppState state = actionContext.appState();
-        final ProjectId projectId = state.currentProjectId();
+        final var state = actionContext.appState();
+        final ProjectId projectId = actionContext.viewController().currentProjectId();
         if (projectId == null || state.projects().get(projectId) == null) {
             return;
         }

@@ -10,6 +10,7 @@ import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.board.BoardDefinition;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalState;
@@ -60,6 +61,24 @@ public final class ProjectTreePanel extends JPanel {
     public ProjectTreePanel(final ActionContext actionContext) {
         super();
         this.actionContext = actionContext;
+        actionContext
+                .appState()
+                .addEventListener(
+                        event -> {
+                            if (event.action() == AppState.Action.UPDATE
+                                    && event.target() instanceof SessionId sessionId) {
+                                final Session session =
+                                        actionContext.appState().sessions().get(sessionId);
+                                if (session != null) {
+                                    updatePullRequestStatus(
+                                            session,
+                                            actionContext
+                                                    .appState()
+                                                    .monitoringStatuses()
+                                                    .get(sessionId));
+                                }
+                            }
+                        });
         setOpaque(false);
         setBorder(UiBorders.contentArea());
         setPreferredSize(new Dimension(315, 0));
@@ -223,7 +242,9 @@ public final class ProjectTreePanel extends JPanel {
         }
     }
 
-    public void refresh(final Project selectedProject, final Session selectedSession) {
+    public void refresh() {
+        final Project selectedProject = actionContext.viewController().currentProject();
+        final Session selectedSession = actionContext.viewController().currentSession();
         final Map<ProjectId, Project> projects = actionContext.appState().projects();
         final Map<SessionId, Session> sessions = actionContext.appState().sessions();
         final List<BoardDefinition> boards = configuredBoards();
@@ -243,7 +264,7 @@ public final class ProjectTreePanel extends JPanel {
     private void filterTree(final String query) {
         searchQuery = query;
         rendered = false;
-        refresh(null, null);
+        refresh();
     }
 
     private void restoreSelection(final Project selectedProject, final Session selectedSession) {
@@ -255,7 +276,7 @@ public final class ProjectTreePanel extends JPanel {
     }
 
     private void restoreGlobalSelection() {
-        final ViewId currentView = actionContext.viewCoordinator().currentViewId();
+        final ViewId currentView = actionContext.viewController().currentViewId();
         if (currentView == ViewId.BOARD && restoreBoardSelection()) {
             return;
         }
@@ -274,7 +295,7 @@ public final class ProjectTreePanel extends JPanel {
         if (boards == null) {
             return false;
         }
-        final String boardName = actionContext.viewCoordinator().currentBoardName();
+        final String boardName = actionContext.viewController().currentBoardName();
         for (int index = 0; index < boards.getChildCount(); index++) {
             final DefaultMutableTreeNode child = (DefaultMutableTreeNode) boards.getChildAt(index);
             if (child.getUserObject() instanceof BoardDefinition board
@@ -298,12 +319,12 @@ public final class ProjectTreePanel extends JPanel {
     }
 
     private void restoreProjectSelection(final Session selectedSession) {
-        final ProjectId projectId = actionContext.appState().currentProjectId();
+        final ProjectId projectId = actionContext.viewController().currentProjectId();
         final DefaultMutableTreeNode projectNode = treeSynchronizer.projectNode(projectId);
         if (projectNode == null) {
             return;
         }
-        final SessionId sessionId = actionContext.appState().currentSessionId();
+        final SessionId sessionId = actionContext.viewController().currentSessionId();
         final DefaultMutableTreeNode sessionNode = treeSynchronizer.sessionNode(sessionId);
         tree.expandPath(new TreePath(projectNode.getPath()));
         selectNode(selectedSession == null || sessionNode == null ? projectNode : sessionNode);

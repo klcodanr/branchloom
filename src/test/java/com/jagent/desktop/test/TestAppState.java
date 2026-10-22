@@ -2,7 +2,7 @@ package com.jagent.desktop.test;
 
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.ui.Defaults;
 import java.awt.Window;
 import java.util.Map;
@@ -17,6 +17,10 @@ public final class TestAppState {
     }
 
     public static ActionContext context(final AppState state) {
-        return new ActionContext(new ViewCoordinator(state), state, (Window) null, null, null);
+        return new ActionContext(controller(state), state, (Window) null, null, null);
+    }
+
+    public static ViewController controller(final AppState state) {
+        return new ViewController(state, null, null, () -> {});
     }
 }

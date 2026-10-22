@@ -11,8 +11,8 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.services.terminal.TerminalState;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import java.awt.IllegalComponentStateException;
 import java.util.ArrayList;
@@ -43,7 +43,8 @@ class ProjectTreePanelUiTest {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(new Project(DEMO, PROJECT_PATH, null));
         final var changedViews = new ArrayList<ViewId>();
-        final var coordinator = new ViewCoordinator(state, changedViews::add);
+        final var coordinator = TestAppState.controller(state);
+        coordinator.onViewChanged(changedViews::add);
         final var panel =
                 GuiActionRunner.execute(
                         () -> {
@@ -51,7 +52,7 @@ class ProjectTreePanelUiTest {
                                     new ProjectTreePanel(
                                             new ActionContext(
                                                     coordinator, state, null, null, null));
-                            created.refresh(null, null);
+                            created.refresh();
                             return created;
                         });
 
@@ -63,7 +64,10 @@ class ProjectTreePanelUiTest {
                     panel.tree().setSelectionPath(new TreePath(project.getPath()));
                 });
 
-        assertEquals(projectId, state.currentProjectId(), "selected tree project should be stored");
+        assertEquals(
+                projectId,
+                coordinator.currentProjectId(),
+                "selected tree project should be stored");
         assertEquals(
                 ViewId.PROJECT, coordinator.currentViewId(), "project selection should navigate");
         assertEquals(List.of(ViewId.PROJECT), changedViews, "selection should notify navigation");
@@ -72,16 +76,12 @@ class ProjectTreePanelUiTest {
     @Test
     void projectTreeIsVerticallyScrollable() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var coordinator = TestAppState.controller(state);
         final var panel =
                 GuiActionRunner.execute(
                         () ->
                                 new ProjectTreePanel(
-                                        new ActionContext(
-                                                new ViewCoordinator(state),
-                                                state,
-                                                null,
-                                                null,
-                                                null)));
+                                        new ActionContext(coordinator, state, null, null, null)));
 
         final var treeContent = (JPanel) panel.getComponent(1);
         final var scroll = (JScrollPane) treeContent.getComponent(1);
@@ -102,18 +102,15 @@ class ProjectTreePanelUiTest {
     void contextMenuKeyOpensMenuForTheSelectedProject() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(new Project(DEMO, PROJECT_PATH, null));
+        final var coordinator = TestAppState.controller(state);
         final var panel =
                 GuiActionRunner.execute(
                         () -> {
                             final var created =
                                     new ProjectTreePanel(
                                             new ActionContext(
-                                                    new ViewCoordinator(state),
-                                                    state,
-                                                    null,
-                                                    null,
-                                                    null));
-                            created.refresh(null, null);
+                                                    coordinator, state, null, null, null));
+                            created.refresh();
                             final var root =
                                     (DefaultMutableTreeNode) created.tree().getModel().getRoot();
                             final var group = (DefaultMutableTreeNode) root.getChildAt(2);
@@ -122,7 +119,8 @@ class ProjectTreePanelUiTest {
                             return created;
                         });
 
-        assertEquals(projectId, state.currentProjectId(), "selected project should be active");
+        assertEquals(
+                projectId, coordinator.currentProjectId(), "selected project should be active");
         final Action action = panel.tree().getActionMap().get("show-context-menu");
         assertNotNull(action, "context menu action should exist");
         assertTrue(action.isEnabled(), "context menu action should be enabled");
@@ -141,12 +139,12 @@ class ProjectTreePanelUiTest {
                             final var created =
                                     new ProjectTreePanel(
                                             new ActionContext(
-                                                    new ViewCoordinator(state),
+                                                    TestAppState.controller(state),
                                                     state,
                                                     null,
                                                     null,
                                                     null));
-                            created.refresh(null, null);
+                            created.refresh();
                             return created;
                         });
         final Action action = panel.tree().getActionMap().get("show-context-menu");
@@ -188,8 +186,8 @@ class ProjectTreePanelUiTest {
     @Test
     void selectingPullRequestsClearsApplicationSelection() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project(DEMO, PROJECT_PATH, null));
-        final var coordinator = new ViewCoordinator(state);
+        state.addProject(new Project(DEMO, PROJECT_PATH, null));
+        final var coordinator = TestAppState.controller(state);
         final var panel =
                 GuiActionRunner.execute(
                         () -> {
@@ -197,7 +195,7 @@ class ProjectTreePanelUiTest {
                                     new ProjectTreePanel(
                                             new ActionContext(
                                                     coordinator, state, null, null, null));
-                            created.refresh(state.projects().get(projectId), null);
+                            created.refresh();
                             return created;
                         });
 
@@ -209,10 +207,10 @@ class ProjectTreePanelUiTest {
                 });
 
         assertNull(
-                state.currentProjectId(),
+                coordinator.currentProjectId(),
                 "pull requests selection should clear the current project");
         assertNull(
-                state.currentSessionId(),
+                coordinator.currentSessionId(),
                 "pull requests selection should clear the current session");
         assertEquals(
                 ViewId.MY_PULL_REQUESTS,
@@ -223,9 +221,8 @@ class ProjectTreePanelUiTest {
     @Test
     void typingDoesNotSelectTreeItems() throws java.io.InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project(DEMO, PROJECT_PATH, null));
-        state.updateCurrentProject(projectId);
-        final var coordinator = new ViewCoordinator(state);
+        state.addProject(new Project(DEMO, PROJECT_PATH, null));
+        final var coordinator = TestAppState.controller(state);
         final var panel =
                 GuiActionRunner.execute(
                         () -> {
@@ -233,7 +230,7 @@ class ProjectTreePanelUiTest {
                                     new ProjectTreePanel(
                                             new ActionContext(
                                                     coordinator, state, null, null, null));
-                            created.refresh(state.projects().get(projectId), null);
+                            created.refresh();
                             return created;
                         });
 
@@ -249,7 +246,7 @@ class ProjectTreePanelUiTest {
                                                 java.awt.event.KeyEvent.VK_UNDEFINED,
                                                 'h')));
 
-        assertEquals(projectId, state.currentProjectId(), "typing should not change selection");
+        assertEquals(null, coordinator.currentProjectId(), "typing should not change selection");
         assertNull(coordinator.currentViewId(), "typing should not navigate");
     }
 
@@ -257,7 +254,7 @@ class ProjectTreePanelUiTest {
     void searchSelectsRenderedNamesAndEnterOpensTheMatch() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(project(DEMO, PROJECT_PATH, GROUP));
-        final var coordinator = new ViewCoordinator(state);
+        final var coordinator = TestAppState.controller(state);
         final var panel =
                 GuiActionRunner.execute(
                         () -> {
@@ -265,7 +262,7 @@ class ProjectTreePanelUiTest {
                                     new ProjectTreePanel(
                                             new ActionContext(
                                                     coordinator, state, null, null, null));
-                            created.refresh(null, null);
+                            created.refresh();
                             return created;
                         });
         final var treeContent = (JPanel) panel.getComponent(1);
@@ -285,7 +282,7 @@ class ProjectTreePanelUiTest {
         assertEquals("D", search.getText(), "the first typed character should seed the search");
         GuiActionRunner.execute(() -> search.setText("emo"));
         assertNull(
-                state.currentProjectId(),
+                coordinator.currentProjectId(),
                 "search should not change the current project before confirmation");
         final var selectedNode =
                 (DefaultMutableTreeNode) panel.tree().getLastSelectedPathComponent();
@@ -296,7 +293,8 @@ class ProjectTreePanelUiTest {
 
         GuiActionRunner.execute(search::postActionEvent);
 
-        assertEquals(projectId, state.currentProjectId(), "Enter should open the search match");
+        assertEquals(
+                projectId, coordinator.currentProjectId(), "Enter should open the search match");
         assertEquals(ViewId.PROJECT, coordinator.currentViewId(), "Enter should navigate");
     }
 
@@ -304,7 +302,7 @@ class ProjectTreePanelUiTest {
     void searchWithNoMatchClearsSelectionAndDoesNotNavigate() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         state.addProject(project(DEMO, PROJECT_PATH, GROUP));
-        final var coordinator = new ViewCoordinator(state);
+        final var coordinator = TestAppState.controller(state);
         final var panel =
                 GuiActionRunner.execute(
                         () -> {
@@ -312,7 +310,7 @@ class ProjectTreePanelUiTest {
                                     new ProjectTreePanel(
                                             new ActionContext(
                                                     coordinator, state, null, null, null));
-                            created.refresh(null, null);
+                            created.refresh();
                             return created;
                         });
         final var treeContent = (JPanel) panel.getComponent(1);
@@ -360,12 +358,12 @@ class ProjectTreePanelUiTest {
                             final var created =
                                     new ProjectTreePanel(
                                             new ActionContext(
-                                                    new ViewCoordinator(state),
+                                                    TestAppState.controller(state),
                                                     state,
                                                     null,
                                                     null,
                                                     null));
-                            created.refresh(null, null);
+                            created.refresh();
                             return created;
                         });
         final var tree = panel.tree();
@@ -408,12 +406,12 @@ class ProjectTreePanelUiTest {
                             final var created =
                                     new ProjectTreePanel(
                                             new ActionContext(
-                                                    new ViewCoordinator(state),
+                                                    TestAppState.controller(state),
                                                     state,
                                                     null,
                                                     null,
                                                     null));
-                            created.refresh(null, null);
+                            created.refresh();
                             return created;
                         });
 
@@ -437,7 +435,7 @@ class ProjectTreePanelUiTest {
         state.addProject(project("Zulu", "/tmp/zulu", "z-group"));
         state.addProject(project("Defaulted", "/tmp/defaulted", " "));
         state.addProject(project("alpha", "/tmp/alpha", "A-group"));
-        final var coordinator = new ViewCoordinator(state);
+        final var coordinator = TestAppState.controller(state);
         final var panel =
                 GuiActionRunner.execute(
                         () -> {
@@ -445,7 +443,7 @@ class ProjectTreePanelUiTest {
                                     new ProjectTreePanel(
                                             new ActionContext(
                                                     coordinator, state, null, null, null));
-                            created.refresh(null, null);
+                            created.refresh();
                             return created;
                         });
 
@@ -475,12 +473,12 @@ class ProjectTreePanelUiTest {
                             final var created =
                                     new ProjectTreePanel(
                                             new ActionContext(
-                                                    new ViewCoordinator(state),
+                                                    TestAppState.controller(state),
                                                     state,
                                                     null,
                                                     null,
                                                     null));
-                            created.refresh(null, null);
+                            created.refresh();
                             return created;
                         });
 
@@ -507,12 +505,12 @@ class ProjectTreePanelUiTest {
                             final var created =
                                     new ProjectTreePanel(
                                             new ActionContext(
-                                                    new ViewCoordinator(state),
+                                                    TestAppState.controller(state),
                                                     state,
                                                     null,
                                                     null,
                                                     null));
-                            created.refresh(null, null);
+                            created.refresh();
                             return created;
                         });
 
@@ -530,7 +528,7 @@ class ProjectTreePanelUiTest {
                             .expandPath(
                                     new TreePath(
                                             ((DefaultMutableTreeNode) secondProject).getPath()));
-                    panel.refresh(null, null);
+                    panel.refresh();
 
                     Assertions.assertSame(
                             firstProject,
@@ -549,7 +547,7 @@ class ProjectTreePanelUiTest {
                                             .getKey();
                     state.updateProject(
                             firstNodeId, state.projects().get(firstNodeId).withName("Updated"));
-                    panel.refresh(null, null);
+                    panel.refresh();
                     Assertions.assertSame(
                             firstProject,
                             group.getChildAt(0),
@@ -585,7 +583,8 @@ class ProjectTreePanelUiTest {
     void refreshWithNoProjectsLeavesGlobalNavigationUnselected() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var changedViews = new ArrayList<ViewId>();
-        final var coordinator = new ViewCoordinator(state, changedViews::add);
+        final var coordinator = TestAppState.controller(state);
+        coordinator.onViewChanged(changedViews::add);
         final var panel =
                 GuiActionRunner.execute(
                         () -> {
@@ -593,7 +592,7 @@ class ProjectTreePanelUiTest {
                                     new ProjectTreePanel(
                                             new ActionContext(
                                                     coordinator, state, null, null, null));
-                            created.refresh(null, null);
+                            created.refresh();
                             return created;
                         });
 
@@ -615,7 +614,7 @@ class ProjectTreePanelUiTest {
     void projectRendererAndTooltipExposeProjectDetails() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         state.addProject(project("<" + DEMO + ">", "/tmp/project&path", GROUP));
-        final var coordinator = new ViewCoordinator(state);
+        final var coordinator = TestAppState.controller(state);
         final var panel =
                 GuiActionRunner.execute(
                         () -> {
@@ -623,7 +622,7 @@ class ProjectTreePanelUiTest {
                                     new ProjectTreePanel(
                                             new ActionContext(
                                                     coordinator, state, null, null, null));
-                            created.refresh(null, null);
+                            created.refresh();
                             return created;
                         });
         final JTree tree = panel.tree();
@@ -667,7 +666,7 @@ class ProjectTreePanelUiTest {
                 state.addSession(
                         projectId,
                         new Session(projectId, SESSION_NAME, "Agent", "prompt", PROJECT_PATH));
-        final var coordinator = new ViewCoordinator(state);
+        final var coordinator = TestAppState.controller(state);
         final var panel =
                 GuiActionRunner.execute(
                         () -> {
@@ -675,9 +674,7 @@ class ProjectTreePanelUiTest {
                                     new ProjectTreePanel(
                                             new ActionContext(
                                                     coordinator, state, null, null, null));
-                            created.refresh(
-                                    state.projects().get(projectId),
-                                    state.sessions().get(sessionId));
+                            created.refresh();
                             return created;
                         });
         final var root = (DefaultMutableTreeNode) panel.tree().getModel().getRoot();
@@ -689,7 +686,8 @@ class ProjectTreePanelUiTest {
         GuiActionRunner.execute(
                 () -> panel.tree().setSelectionPath(new TreePath(sessionNode.getPath())));
 
-        assertEquals(sessionId, state.currentSessionId(), "selected session should be stored");
+        assertEquals(
+                sessionId, coordinator.currentSessionId(), "selected session should be stored");
         assertEquals(ViewId.SESSION, coordinator.currentViewId(), "session should be opened");
         final var rendered =
                 panel.tree()
@@ -709,7 +707,7 @@ class ProjectTreePanelUiTest {
         final var sessionId =
                 state.addSession(
                         projectId, new Session(projectId, SESSION_NAME, AGENT, PROMPT, null));
-        final var coordinator = new ViewCoordinator(state);
+        final var coordinator = TestAppState.controller(state);
         final var panel =
                 GuiActionRunner.execute(
                         () -> {
@@ -717,9 +715,7 @@ class ProjectTreePanelUiTest {
                                     new ProjectTreePanel(
                                             new ActionContext(
                                                     coordinator, state, null, null, null));
-                            created.refresh(
-                                    state.projects().get(projectId),
-                                    state.sessions().get(sessionId));
+                            created.refresh();
                             return created;
                         });
 
@@ -740,8 +736,11 @@ class ProjectTreePanelUiTest {
                 () -> panel.tree().setSelectionPath(new TreePath(sessionNode.getPath())));
 
         assertEquals(
-                projectId, state.currentProjectId(), "session selection should retain project");
-        assertEquals(sessionId, state.currentSessionId(), "session selection should be stored");
+                projectId,
+                coordinator.currentProjectId(),
+                "session selection should retain project");
+        assertEquals(
+                sessionId, coordinator.currentSessionId(), "session selection should be stored");
         assertEquals(
                 ViewId.SESSION, coordinator.currentViewId(), "session selection should navigate");
     }

@@ -6,7 +6,6 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.ImportProjectAction;
 import com.jagent.desktop.ui.components.BaseButton;
@@ -65,7 +64,6 @@ public final class HomeView extends JPanel implements View {
     @Override
     public void detach() {}
 
-    @Override
     public void refresh() {
         scrollPane.setViewportView(body());
         revalidate();
@@ -177,11 +175,7 @@ public final class HomeView extends JPanel implements View {
     }
 
     private void openSession(final SessionId sessionId, final Session session) {
-        actionContext.appState().updateCurrentProject(session.projectId());
-        actionContext.appState().updateCurrentSession(sessionId);
-        actionContext
-                .viewCoordinator()
-                .updateView(ViewId.SESSION, ViewState.session(session.projectId(), sessionId));
+        actionContext.viewController().openSession(session.projectId(), sessionId);
     }
 
     private record SessionOption(SessionId sessionId, Session session) {}

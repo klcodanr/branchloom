@@ -39,6 +39,6 @@ public final class CopyPathAction extends BaseAction {
     }
 
     private String path() {
-        return PathUtils.resolve(actionContext.appState());
+        return PathUtils.resolve(actionContext.appState(), actionContext.viewController());
     }
 }

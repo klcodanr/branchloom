@@ -20,14 +20,10 @@ final class BoardTreeSynchronizer {
         if (boards == null) {
             return;
         }
-        final List<BoardDefinition> definitions = definitions(appState);
+        final List<BoardDefinition> definitions = appState.appSettings().boards();
         removeStale(boards, definitions, model);
         arrange(boards, definitions, model);
         tree.expandPath(new TreePath(boards.getPath()));
-    }
-
-    private static List<BoardDefinition> definitions(final AppState appState) {
-        return appState.appSettings().boards();
     }
 
     private static void removeStale(

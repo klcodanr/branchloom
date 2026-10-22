@@ -3,7 +3,7 @@ package com.jagent.desktop.ui.views;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import java.awt.Component;
 import java.awt.Container;
@@ -29,7 +29,7 @@ class AbstractWorkspaceViewTest {
             throws IOException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final ActionContext context =
-                new ActionContext(new ViewCoordinator(state), state, null, null, null);
+                new ActionContext(TestAppState.controller(state), state, null, null, null);
         final FakeWorkspaceView view = new FakeWorkspaceView(context, directory);
         final Path file = directory.resolve("notes.txt");
         Files.writeString(file, "hello");
@@ -57,7 +57,7 @@ class AbstractWorkspaceViewTest {
             throws InvocationTargetException, InterruptedException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final ActionContext context =
-                new ActionContext(new ViewCoordinator(state), state, null, null, null);
+                new ActionContext(TestAppState.controller(state), state, null, null, null);
         final FakeWorkspaceView view = new FakeWorkspaceView(context, directory);
 
         final JButton showFiles = buttonByName(view, SHOW_FILES_BUTTON);
@@ -87,7 +87,7 @@ class AbstractWorkspaceViewTest {
             throws IOException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final ActionContext context =
-                new ActionContext(new ViewCoordinator(state), state, null, null, null);
+                new ActionContext(TestAppState.controller(state), state, null, null, null);
         final Path fileWorkspace = directory.resolve("workspace.txt");
         Files.writeString(fileWorkspace, "not a directory");
         final FakeWorkspaceView view = new FakeWorkspaceView(context, fileWorkspace);
@@ -158,10 +158,12 @@ class AbstractWorkspaceViewTest {
         protected void showActions(final JButton button) {}
 
         @Override
-        protected void openTerminal(final Path path) {}
+        protected void openTerminal() {}
 
         @Override
-        public void refresh() {}
+        public java.util.concurrent.CompletableFuture<?> refresh() {
+            return java.util.concurrent.CompletableFuture.completedFuture(null);
+        }
 
         private void openWorkspaceFile(final Path file) {
             openFile(file, false);

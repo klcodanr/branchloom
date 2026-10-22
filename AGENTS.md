@@ -5,7 +5,7 @@
 - `src/main/java/com/jagent/desktop/async` contains async handing code. All asynchronous operations should use these classes to ensure consistency.
 - `src/main/java/com/jagent/desktop/models/` contains serializable domain data and small value objects. Models must not launch processes or depend on Swing.
 - `src/main/java/com/jagent/desktop/services/` contains application services and all external I/O. `Store` owns persistence, `GitRepository`/`GitNative` own Git repository and native Git operations, and `GitHub` owns GitHub CLI/API operations.
-- `src/main/java/com/jagent/desktop/ui/Branchloom.java` is the application bootstrap only. It configures the platform and launches `ui/views/AppView`.
+- `src/main/java/com/jagent/desktop/ui/Main.java` is the application entry point only. It configures logging and starts `BranchloomApplication`.
 - `src/main/java/com/jagent/desktop/ui/views/` contains application screens and view orchestration.
 - `src/main/java/com/jagent/desktop/ui/components/` contains reusable Swing components and presentation helpers.
 - `src/main/java/com/jagent/desktop/ui/dialogs/` contains focused modal dialogs and their input validation.
@@ -45,6 +45,7 @@
 - Do not reconstruct missing architecture from stale call sites.
 - If the repository contains contradictory APIs or cannot establish which version is authoritative, stop and ask one focused clarification question instead of guessing.
 - Do not introduce compaibility wrappers, shims or helpers when refactoring. Refactor the code cleanly.
+- Do not add production methods, fields, constructors, or accessors solely to support tests. Test production behavior through public behavior and test-side composition or observation instead of test-specific shims.
 - Treat explicit user constraints such as “no helpers,” “no indirection,” “only this file,” or “no functional changes” as hard requirements.
 - Always use braces for conditional, loop, and control-flow bodies, including single-line bodies.
 

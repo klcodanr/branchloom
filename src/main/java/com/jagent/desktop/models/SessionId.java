@@ -2,7 +2,7 @@ package com.jagent.desktop.models;
 
 import java.util.UUID;
 
-public record SessionId(UUID value) {
+public record SessionId(UUID value) implements IdType {
     public SessionId {
         if (value == null) {
             throw new IllegalArgumentException("Session ID cannot be null");

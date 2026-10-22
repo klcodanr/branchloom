@@ -30,20 +30,20 @@ public final class UpdateBranchAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.appState().currentProjectId() != null
-                || actionContext.appState().currentSessionId() != null;
+        return actionContext.viewController().currentProjectId() != null
+                || actionContext.viewController().currentSessionId() != null;
     }
 
     @Override
     public void execute() {
-        final Session session = actionContext.appState().currentSession();
+        final Session session = actionContext.viewController().currentSession();
         if (session != null) {
             chooseSessionUpdate(
                     session.worktreePath() == null ? null : Path.of(session.worktreePath()),
-                    actionContext.appState().currentProject());
+                    actionContext.viewController().currentProject());
             return;
         }
-        final ProjectId projectId = actionContext.appState().currentProjectId();
+        final ProjectId projectId = actionContext.viewController().currentProjectId();
         final Project project =
                 projectId == null ? null : actionContext.appState().projects().get(projectId);
         if (project != null) {

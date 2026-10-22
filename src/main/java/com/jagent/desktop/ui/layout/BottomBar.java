@@ -1,15 +1,22 @@
 package com.jagent.desktop.ui.layout;
 
+import com.jagent.desktop.api.RefreshableView;
+import com.jagent.desktop.api.View;
+import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.BackgroundOperations;
+import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.git.WorktreeStatusSummary;
-import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundJobs;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.services.git.GitRepository;
+import com.jagent.desktop.ui.actions.FindAction;
+import com.jagent.desktop.ui.actions.OpenSettingsAction;
+import com.jagent.desktop.ui.actions.ProblemsAction;
 import com.jagent.desktop.ui.components.GitStatusPanel;
 import com.jagent.desktop.ui.components.IconButton;
-import com.jagent.desktop.ui.components.RotatingIcon;
+import com.jagent.desktop.ui.components.RefreshButton;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiIcons;
@@ -26,7 +33,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
@@ -34,16 +40,10 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
-import javax.swing.Timer;
 
 /** Compact bottom bar for problems, workspace status, and background jobs. */
 public final class BottomBar extends JPanel {
-    private final transient AppState appState;
-    private final JButton settingsButton;
-    private final JButton homeButton;
-    private final JButton searchButton;
-    private final JButton problemsButton;
-    private final JButton refreshButton;
+    private final transient ViewController viewController;
     private final JLabel project = new JLabel();
     private final JLabel branchIcon = new JLabel(UiIcons.gitBranch());
     private final JLabel branch = new JLabel();
@@ -51,26 +51,14 @@ public final class BottomBar extends JPanel {
     private final JProgressBar jobsProgress = new JProgressBar();
     private final JLabel jobsStatus = new JLabel();
     private final AtomicLong refreshGeneration = new AtomicLong();
-    private final transient RotatingIcon refreshIcon = new RotatingIcon(UiIcons.refresh());
-    private final Timer refreshAnimation;
-    private final Runnable refreshCurrentViewAction;
-    private boolean refreshWorkObserved;
-    private int refreshAnimationTicks;
+    private final RefreshButton refreshButton = new RefreshButton();
     private List<BackgroundJobs.Job> jobs = List.of();
 
     private record StatusUpdate(WorktreeStatusSummary worktreeStatusSummary, String branchName) {}
 
-    public BottomBar(
-            final AppState appState,
-            final BackgroundJobs backgroundJobs,
-            final Runnable openHome,
-            final Runnable openSettings,
-            final Runnable openSearch,
-            final Runnable openProblems,
-            final Runnable refreshCurrentView) {
+    public BottomBar(final ActionContext actionContext) {
         super(new BorderLayout(12, 0));
-        this.appState = appState;
-        refreshCurrentViewAction = refreshCurrentView;
+        this.viewController = actionContext.viewController();
         project.setFont(Theme.font(Theme.FontSize.XS));
         branch.setFont(Theme.font(Theme.FontSize.XS));
         jobsStatus.setFont(Theme.font(Theme.FontSize.XS));
@@ -83,32 +71,30 @@ public final class BottomBar extends JPanel {
                                 UiConstants.SPACING_XS,
                                 UiConstants.CONTENT_PADDING)));
 
-        homeButton = iconButton(UiIcons.home(), "Go to home", openHome);
+        final JButton homeButton = new IconButton(UiIcons.home(), "Go to home");
+        homeButton.addActionListener(event -> viewController.updateView(ViewId.HOME, null));
         homeButton.setName("home-button");
-        settingsButton = iconButton(UiIcons.settings(), "Open settings", openSettings);
+        final JButton settingsButton = new IconButton(UiIcons.settings(), "Open settings");
+        settingsButton.addActionListener(event -> new OpenSettingsAction(actionContext).execute());
         settingsButton.setName("settings-button");
-        searchButton =
-                iconButton(UiIcons.search(), "Find projects, sessions, or terminals", openSearch);
+        final JButton searchButton =
+                new IconButton(UiIcons.search(), "Find projects, sessions, or terminals");
+        searchButton.addActionListener(event -> new FindAction(actionContext).execute());
         searchButton.setName("search-button");
-        problemsButton = iconButton(UiIcons.triangleAlert(), "Open problems", openProblems);
+        final JButton problemsButton = new IconButton(UiIcons.triangleAlert(), "Open problems");
+        problemsButton.addActionListener(event -> new ProblemsAction(actionContext).execute());
         problemsButton.setName("problems-button");
-        refreshButton = iconButton(refreshIcon, "Refresh current view", this::refreshCurrentView);
+        refreshButton.addActionListener(
+                event ->
+                        this.viewController
+                                .refreshCurrentView()
+                                .whenComplete((r, e) -> this.refreshButton.stop()));
         refreshButton.setName("refresh-button");
         refreshButton.setVisible(false);
-        refreshAnimation =
-                new Timer(
-                        75,
-                        event -> {
-                            refreshIcon.rotate();
-                            refreshButton.repaint();
-                            refreshAnimationTicks++;
-                            final boolean active =
-                                    !BackgroundOperations.summary().activeTasks().isEmpty();
-                            refreshWorkObserved |= active;
-                            if ((refreshWorkObserved && !active) || refreshAnimationTicks >= 20) {
-                                stopRefreshAnimation();
-                            }
-                        });
+        viewController.onViewChanged(
+                ignored -> {
+                    refresh();
+                });
 
         final JPanel left =
                 new JPanel(new FlowLayout(FlowLayout.LEFT, UiConstants.CONTENT_PADDING, 0));
@@ -149,24 +135,23 @@ public final class BottomBar extends JPanel {
         jobsStatusPanel.add(Box.createVerticalStrut(UiConstants.SPACING_XS));
         jobsStatusPanel.add(jobsStatus);
         add(jobsStatusPanel, BorderLayout.EAST);
-        backgroundJobs.listen(this::updateJobs);
+        viewController.backgroundJobs().listen(this::updateJobs);
         refresh();
     }
 
-    private JButton iconButton(final Icon icon, final String tooltip, final Runnable action) {
-        final JButton button = new IconButton(icon, tooltip);
-        button.addActionListener(event -> action.run());
-        return button;
+    public void updateView(final View view) {
+        updateRefreshVisibility(view);
     }
 
     public void refresh() {
         final long generation = refreshGeneration.incrementAndGet();
-        final Project currentProject = appState.currentProject();
-        final Session currentSession = appState.currentSession();
+        final Project currentProject = viewController.currentProject();
+        final Session currentSession = viewController.currentSession();
         if (currentProject == null) {
             clearWorkspaceStatus();
             return;
         }
+        clearGitStatus();
         final Path worktree =
                 currentSession == null || currentSession.worktreePath() == null
                         ? Path.of(currentProject.path())
@@ -196,41 +181,23 @@ public final class BottomBar extends JPanel {
                         });
     }
 
-    public void setRefreshVisible(final boolean visible) {
+    private void updateRefreshVisibility(final View view) {
+        final boolean visible = view instanceof RefreshableView;
+        refreshButton.stop();
         refreshButton.setVisible(visible);
-        if (visible && !BackgroundOperations.summary().activeTasks().isEmpty()) {
-            startRefreshAnimation();
-        }
-        if (!visible) {
-            stopRefreshAnimation();
-        }
-    }
-
-    private void refreshCurrentView() {
-        startRefreshAnimation();
-        refreshCurrentViewAction.run();
-    }
-
-    private void startRefreshAnimation() {
-        refreshWorkObserved = false;
-        refreshAnimationTicks = 0;
-        refreshAnimation.start();
-    }
-
-    private void stopRefreshAnimation() {
-        refreshAnimation.stop();
-        refreshAnimationTicks = 0;
-        refreshIcon.reset();
-        refreshButton.repaint();
     }
 
     private void clearWorkspaceStatus() {
         project.setText("");
+        clearGitStatus();
+        revalidate();
+        repaint();
+    }
+
+    private void clearGitStatus() {
         branchIcon.setVisible(false);
         branch.setText("");
         gitStatus.removeAll();
-        revalidate();
-        repaint();
     }
 
     private void updateGitStatus(
@@ -253,8 +220,16 @@ public final class BottomBar extends JPanel {
             final String projectName,
             final String branchName,
             final WorktreeStatusSummary status) {
-        if (generation == refreshGeneration.get()) {
-            updateGitStatus(projectName, branchName, status);
+        final Runnable update =
+                () -> {
+                    if (generation == refreshGeneration.get()) {
+                        updateGitStatus(projectName, branchName, status);
+                    }
+                };
+        if (SwingUtilities.isEventDispatchThread()) {
+            update.run();
+        } else {
+            SwingUtilities.invokeLater(update);
         }
     }
 

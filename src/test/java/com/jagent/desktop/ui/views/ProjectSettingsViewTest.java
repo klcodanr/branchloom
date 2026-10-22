@@ -9,7 +9,8 @@ import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.github.CliCredential;
 import com.jagent.desktop.models.github.Credential;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import java.util.List;
 import java.util.Map;
@@ -47,8 +48,8 @@ class ProjectSettingsViewTest {
     void rendersAndSavesTheSelectedProject() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final ProjectId projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
-        state.updateCurrentProject(projectId);
-        final ViewCoordinator coordinator = new ViewCoordinator(state);
+        final ViewController coordinator = TestAppState.controller(state);
+        coordinator.selectProject(projectId);
         final ActionContext context = new ActionContext(coordinator, state, null, null, null);
 
         final ProjectSettingsView view =
@@ -65,7 +66,7 @@ class ProjectSettingsViewTest {
     @Test
     void requiresASelectedProjectForConstruction() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ViewCoordinator coordinator = new ViewCoordinator(state);
+        final ViewController coordinator = TestAppState.controller(state);
 
         assertThrows(
                 RuntimeException.class,
@@ -87,11 +88,11 @@ class ProjectSettingsViewTest {
                         Map.of(projectId.value().toString(), project),
                         Map.of(),
                         Map.of());
-        state.updateCurrentProject(projectId);
+        final ViewController coordinator = TestAppState.controller(state);
+        coordinator.selectProject(projectId);
 
         final JComponent view =
-                ProjectSettingsView.create(
-                        new ActionContext(new ViewCoordinator(state), state, null, null, null));
+                ProjectSettingsView.create(new ActionContext(coordinator, state, null, null, null));
 
         assertNotNull(view, "settings view should render for selected project");
         assertTrue(view.getComponentCount() > 0, "settings view should include content");
@@ -129,9 +130,12 @@ class ProjectSettingsViewTest {
                 new JComboBox<>(
                         new Credential[] {new CliCredential(HOST, CONNECTION_NAME, CONNECTION_ID)});
         final AtomicBoolean closed = new AtomicBoolean();
+        final ViewController controller = TestAppState.controller(state);
+        controller.selectProject(projectId);
 
         ProjectSettingsView.saveProject(
                 state,
+                controller,
                 project,
                 name,
                 group,

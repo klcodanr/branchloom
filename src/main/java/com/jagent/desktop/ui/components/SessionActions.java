@@ -122,9 +122,8 @@ public final class SessionActions {
     private static void selectSession(
             final ActionContext actionContext, final SessionId sessionId) {
         final Session session = actionContext.appState().sessions().get(sessionId);
-        if (session != null) {
-            actionContext.appState().updateCurrentProject(session.projectId());
-        }
-        actionContext.appState().updateCurrentSession(sessionId);
+        actionContext
+                .viewController()
+                .selectSession(session == null ? null : session.projectId(), sessionId);
     }
 }

@@ -30,9 +30,7 @@ public final class PullRequestWatcher implements AutoCloseable {
     private final ScheduledExecutorService scheduler;
     private final Map<SessionId, PullRequestDetails> previous = new java.util.HashMap<>();
 
-    public PullRequestWatcher(
-            final ActionContext actionContext,
-            final BiConsumer<SessionId, PullRequestDetails> statusListener) {
+    public PullRequestWatcher(final ActionContext actionContext) {
         this.actionContext = actionContext;
         this.sessions = actionContext.appState()::sessions;
         this.statusListener =
@@ -42,9 +40,8 @@ public final class PullRequestWatcher implements AutoCloseable {
                     } else {
                         actionContext.appState().updateMonitoringStatus(sessionId, status);
                     }
-                    statusListener.accept(sessionId, status);
                 };
-        this.backgroundJobs = actionContext.viewCoordinator().backgroundJobs();
+        this.backgroundJobs = actionContext.viewController().backgroundJobs();
         this.scheduler = Executors.newSingleThreadScheduledExecutor();
     }
 

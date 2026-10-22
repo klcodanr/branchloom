@@ -11,7 +11,7 @@ import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.ui.Defaults;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,7 +37,8 @@ class NewSessionFlowIntegrationTest {
         final AppState state = stateWithAgent(agent);
         final Project project = new Project("Demo", directory.toString(), null);
         final var projectId = state.addProject(project);
-        state.updateCurrentProject(projectId);
+        final var controller = new ViewController(state, null, null, () -> {});
+        controller.selectProject(projectId);
         final AtomicReference<NewSessionDialog.Request> request = new AtomicReference<>();
         final Robot robot = BasicRobot.robotWithNewAwtHierarchy();
         final JFrame owner = GuiActionRunner.execute(() -> new JFrame());
@@ -45,12 +46,7 @@ class NewSessionFlowIntegrationTest {
                 GuiActionRunner.execute(
                         () ->
                                 new NewSessionDialog(
-                                        new ActionContext(
-                                                new ViewCoordinator(state),
-                                                state,
-                                                owner,
-                                                null,
-                                                null),
+                                        new ActionContext(controller, state, owner, null, null),
                                         request::set));
         final DialogFixture fixture = new DialogFixture(robot, dialog);
 
@@ -77,7 +73,8 @@ class NewSessionFlowIntegrationTest {
 
             assertTrue(Files.isDirectory(worktree), "successful session should have a worktree");
             assertEquals("demo-session\n", branch(worktree), "worktree branch should match");
-            assertEquals(projectId, state.currentProjectId(), "project should remain available");
+            assertEquals(
+                    projectId, controller.currentProjectId(), "project should remain available");
         } finally {
             fixture.cleanUp();
             owner.dispose();
@@ -97,7 +94,7 @@ class NewSessionFlowIntegrationTest {
                         () ->
                                 new NewSessionDialog(
                                         new ActionContext(
-                                                new ViewCoordinator(state),
+                                                new ViewController(state, null, null, () -> {}),
                                                 state,
                                                 owner,
                                                 null,
