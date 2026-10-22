@@ -5,8 +5,7 @@ import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
-import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.services.ViewController.ViewState;
 import javax.swing.JOptionPane;
 import javax.swing.JTextField;
 
@@ -30,13 +29,13 @@ public final class RenameSessionAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.appState().currentSession() != null;
+        return actionContext.viewController().currentSession() != null;
     }
 
     @Override
     public void execute() {
-        final AppState state = actionContext.appState();
-        final Session session = state.currentSession();
+        final var state = actionContext.appState();
+        final Session session = actionContext.viewController().currentSession();
         if (session == null) {
             return;
         }
@@ -73,13 +72,13 @@ public final class RenameSessionAction extends BaseAction {
                     JOptionPane.ERROR_MESSAGE);
             return;
         }
-        final var sessionId = state.currentSessionId();
+        final var sessionId = actionContext.viewController().currentSessionId();
         if (sessionId == null) {
             return;
         }
-        state.updateSession(sessionId, session.withName(updatedName));
+        actionContext.appState().updateSession(sessionId, session.withName(updatedName));
         actionContext
-                .viewCoordinator()
+                .viewController()
                 .updateView(ViewId.SESSION, ViewState.session(session.projectId(), sessionId));
     }
 }

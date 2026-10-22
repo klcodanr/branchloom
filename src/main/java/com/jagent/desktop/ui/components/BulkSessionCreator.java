@@ -40,7 +40,7 @@ public final class BulkSessionCreator {
             final String title) {
         final Handle job =
                 actionContext
-                        .viewCoordinator()
+                        .viewController()
                         .backgroundJobs()
                         .start(title, project.name(), "Multiple sessions");
         BackgroundOperations.submit(

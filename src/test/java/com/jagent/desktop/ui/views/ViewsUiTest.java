@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import java.util.Map;
 import javax.swing.JScrollPane;
@@ -37,7 +37,7 @@ class ViewsUiTest {
     @Test
     void homeViewBuildsItsDashboardForAnEmptyApplication() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var coordinator = new ViewCoordinator(state);
+        final var coordinator = TestAppState.controller(state);
         final var context = new ActionContext(coordinator, state, null, null, null);
 
         final var view = GuiActionRunner.execute(() -> new HomeView(context));

@@ -104,7 +104,6 @@ public final class ProblemsView extends JPanel implements View {
         return this;
     }
 
-    @Override
     public void refresh() {
         tableModel.fireTableDataChanged();
         table.clearSelection();

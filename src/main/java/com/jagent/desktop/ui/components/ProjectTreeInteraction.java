@@ -7,11 +7,9 @@ import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.board.BoardDefinition;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.ImportProjectAction;
-import com.jagent.desktop.ui.actions.OpenProjectAction;
-import com.jagent.desktop.ui.actions.OpenSessionAction;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
@@ -42,20 +40,16 @@ final class ProjectTreeInteraction {
         }
         final Object item = node.getUserObject();
         if (item instanceof Map.Entry<?, ?> entry && entry.getValue() instanceof Project) {
-            context.appState().updateCurrentProject((ProjectId) entry.getKey());
-            context.appState().updateCurrentSession(null);
-            new OpenProjectAction(context).execute();
+            context.viewController().openProject((ProjectId) entry.getKey());
         } else if (item instanceof Map.Entry<?, ?> entry
                 && entry.getValue() instanceof Session session) {
-            context.appState().updateCurrentProject(session.projectId());
-            context.appState().updateCurrentSession((SessionId) entry.getKey());
-            new OpenSessionAction(context).execute();
+            context.viewController().openSession(session.projectId(), (SessionId) entry.getKey());
         } else if (item == ProjectTreePanel.MyPullRequestsNode.INSTANCE) {
-            context.viewCoordinator()
-                    .updateView(ViewId.MY_PULL_REQUESTS, ViewCoordinator.ViewState.reset());
+            context.viewController()
+                    .updateView(ViewId.MY_PULL_REQUESTS, ViewController.ViewState.reset());
         } else if (item instanceof BoardDefinition board) {
-            context.viewCoordinator()
-                    .updateView(ViewId.BOARD, ViewCoordinator.ViewState.board(board.name()));
+            context.viewController()
+                    .updateView(ViewId.BOARD, ViewController.ViewState.board(board.name()));
         }
     }
 
@@ -97,13 +91,13 @@ final class ProjectTreeInteraction {
 
     @SuppressWarnings("unchecked")
     private void showProjectMenu(final Map.Entry<?, ?> entry, final Point point) {
-        ProjectActions.show(context, ((Map.Entry<ProjectId, Project>) entry).getKey(), tree, point);
+        final ProjectId projectId = ((Map.Entry<ProjectId, Project>) entry).getKey();
+        UiPopupMenus.show(ProjectActions.menu(context, projectId), tree, point.x, point.y);
     }
 
     private void showSessionMenu(final Map.Entry<?, ?> entry, final Point point) {
         final Map.Entry<SessionId, Session> session = (Map.Entry<SessionId, Session>) entry;
-        context.appState().updateCurrentProject(session.getValue().projectId());
-        context.appState().updateCurrentSession(session.getKey());
+        context.viewController().selectSession(session.getValue().projectId(), session.getKey());
         UiPopupMenus.show(SessionActions.menu(context, session.getKey()), tree, point.x, point.y);
     }
 

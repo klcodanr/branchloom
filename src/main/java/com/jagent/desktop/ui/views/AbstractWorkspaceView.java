@@ -1,11 +1,11 @@
 package com.jagent.desktop.ui.views;
 
-import com.jagent.desktop.api.View;
+import com.jagent.desktop.api.RefreshableView;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.ui.components.FileViewer;
 import com.jagent.desktop.ui.components.IconButton;
 import com.jagent.desktop.ui.components.TerminalPanel;
@@ -25,7 +25,6 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -36,9 +35,9 @@ import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
-abstract class AbstractWorkspaceView extends JPanel implements View {
+abstract class AbstractWorkspaceView extends JPanel implements RefreshableView {
     protected final transient ActionContext actionContext;
-    protected final transient ViewCoordinator viewCoordinator;
+    protected final transient ViewController viewController;
     protected final JTabbedPane tabs = new JTabbedPane();
     protected WorkspaceSplitPane contentSplit = new WorkspaceSplitPane(tabs);
     private final transient WorkspaceTreeSidebarController workspaceTreeSidebar =
@@ -52,7 +51,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
     protected AbstractWorkspaceView(final ActionContext actionContext, final ViewId viewId) {
         super(new BorderLayout(0, UiConstants.SECTION_PADDING));
         this.actionContext = actionContext;
-        this.viewCoordinator = actionContext.viewCoordinator();
+        this.viewController = actionContext.viewController();
         this.viewId = viewId;
     }
 
@@ -61,7 +60,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
         add(header(), BorderLayout.NORTH);
         tabs.putClientProperty("JTabbedPane.scrollButtonsPolicy", "asNeeded");
         final JButton addTerminal = new IconButton(UiIcons.plus(), "New terminal");
-        addTerminal.addActionListener(event -> openTerminal(workspacePath()));
+        addTerminal.addActionListener(event -> openTerminal());
         final JToolBar trailingComponent = new JToolBar();
         trailingComponent.setFloatable(false);
         trailingComponent.setBorder(null);
@@ -127,7 +126,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
 
     protected abstract void showActions(JButton button);
 
-    protected abstract void openTerminal(Path path);
+    protected abstract void openTerminal();
 
     protected void terminalClosed() {
         updateCurrentTerminal();
@@ -219,11 +218,11 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
                 && tabs.getComponentAt(selectedIndex) instanceof TerminalPanel terminal) {
             currentTerminal = terminalIds.get(terminal);
         }
-        actionContext.appState().updateCurrentTerminal(currentTerminal);
+        actionContext.viewController().selectTerminal(currentTerminal);
     }
 
     protected void updateSelectedTab(final int selectedIndex) {
-        viewCoordinator.updateSelectedTab(id(), selectedIndex);
+        viewController.updateSelectedTab(id(), selectedIndex);
     }
 
     protected final boolean selectTerminal(
@@ -297,7 +296,7 @@ abstract class AbstractWorkspaceView extends JPanel implements View {
                 final WorkspaceSplitPane splitPane,
                 final Path workspacePath,
                 final ActionContext actionContext,
-                final Consumer<Path> openTerminal,
+                final Runnable openTerminal,
                 final BiConsumer<Path, Boolean> openFile) {
             workspaceTreeContainer.removeAll();
             contentSplit = splitPane;

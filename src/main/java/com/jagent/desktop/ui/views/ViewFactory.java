@@ -7,42 +7,28 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.board.BoardDefinition;
 
-final class TopLevelViewFactory {
+public final class ViewFactory {
     private final ActionContext actionContext;
 
-    public TopLevelViewFactory(final ActionContext actionContext) {
+    public ViewFactory(final ActionContext actionContext) {
         this.actionContext = actionContext;
     }
 
-    public View create(
-            final ViewId view,
-            final Project project,
-            final Session session,
-            final String boardName) {
-        final ViewId resolvedView = resolveView(view, project, session);
-        if (isGlobalView(resolvedView)) {
-            return createGlobalView(resolvedView, boardName);
-        }
-        return switch (resolvedView) {
+    public View resolveView() {
+        final ViewId viewId = actionContext.viewController().currentViewId();
+        final Project project = actionContext.viewController().currentProject();
+        final Session session = actionContext.viewController().currentSession();
+        final String boardName = actionContext.viewController().currentBoardName();
+        final ViewId resolvedViewId = resolveView(viewId, project, session);
+        return switch (resolvedViewId) {
+            case HOME -> new HomeView(actionContext);
+            case MY_PULL_REQUESTS -> new MyPullRequestsView(actionContext);
+            case BOARD -> new BoardView(actionContext, board(boardName));
             case PROJECT -> new ProjectView(actionContext, project);
             case SESSION -> new SessionView(actionContext);
             case PROJECT_SETTINGS -> new ProjectSettingsView(actionContext);
             case PROBLEMS -> new ProblemsView();
             case RESOURCE_USAGE -> new ResourceUsageView();
-            default -> throw new IllegalStateException("Global view was not handled");
-        };
-    }
-
-    public View create(final ViewId view, final Project project, final Session session) {
-        return create(view, project, session, null);
-    }
-
-    private View createGlobalView(final ViewId view, final String boardName) {
-        return switch (view) {
-            case HOME -> new HomeView(actionContext);
-            case MY_PULL_REQUESTS -> new MyPullRequestsView(actionContext);
-            case BOARD -> new BoardView(actionContext, board(boardName));
-            default -> throw new IllegalStateException("Unexpected non-global view");
         };
     }
 
@@ -52,10 +38,6 @@ final class TopLevelViewFactory {
                 .filter(board -> board.name().equals(name))
                 .findFirst()
                 .orElseGet(boards::getFirst);
-    }
-
-    private boolean isGlobalView(final ViewId view) {
-        return view == ViewId.HOME || view == ViewId.MY_PULL_REQUESTS || view == ViewId.BOARD;
     }
 
     private ViewId resolveView(final ViewId view, final Project project, final Session session) {

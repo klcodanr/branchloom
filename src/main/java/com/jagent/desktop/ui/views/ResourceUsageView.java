@@ -1,6 +1,6 @@
 package com.jagent.desktop.ui.views;
 
-import com.jagent.desktop.api.View;
+import com.jagent.desktop.api.RefreshableView;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.services.TerminalResources;
@@ -12,6 +12,7 @@ import com.jagent.desktop.ui.components.UiConstants;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -25,7 +26,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 
 /** Runtime reports for background threads and terminal processes. */
-public final class ResourceUsageView extends JPanel implements View {
+public final class ResourceUsageView extends JPanel implements RefreshableView {
     private static final String UNAVAILABLE = "Unavailable";
     private final JLabel virtualThreads = metricValue();
     private final JLabel platformThreads = metricValue();
@@ -117,7 +118,7 @@ public final class ResourceUsageView extends JPanel implements View {
     }
 
     @Override
-    public void refresh() {
+    public CompletableFuture<?> refresh() {
         final BackgroundOperations.ThreadSummary summary = BackgroundOperations.summary();
         virtualThreads.setText(Long.toString(summary.virtualThreads()));
         platformThreads.setText(Long.toString(summary.platformThreads()));
@@ -145,7 +146,7 @@ public final class ResourceUsageView extends JPanel implements View {
         terminalMemory.setText("Loading...");
         clear(terminalModel);
         terminalModel.addRow(new Object[] {"Loading terminal resources...", "", "", "", ""});
-        BackgroundOperations.submit(
+        return BackgroundOperations.submit(
                         "Monitoring",
                         "terminal-resources",
                         Executors.callable(

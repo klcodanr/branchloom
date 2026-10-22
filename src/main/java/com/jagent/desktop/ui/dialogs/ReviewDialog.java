@@ -3,7 +3,6 @@ package com.jagent.desktop.ui.dialogs;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.PullRequest;
-import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.ui.components.AgentSelector;
 import com.jagent.desktop.ui.components.BaseTextArea;
 import com.jagent.desktop.ui.components.FormPanel;
@@ -29,7 +28,7 @@ public final class ReviewDialog extends FormDialog {
             final BiConsumer<Agent, String> onReview) {
         super(actionContext.window(), "Review pull request #" + request.number());
         setFocusTraversalPolicy(new ContainerOrderFocusTraversalPolicy());
-        final AppState state = actionContext.appState();
+        final var state = actionContext.appState();
         this.onReview = onReview;
         agent = new AgentSelector("review-agent", state.appSettings().agents());
         prompt.setText(

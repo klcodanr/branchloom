@@ -103,7 +103,7 @@ jacocoTestCoverageVerification {
 }
 
 application {
-    mainClass = 'com.jagent.desktop.ui.Branchloom'
+    mainClass = 'com.jagent.desktop.ui.Main'
     applicationDefaultJvmArgs = ['--enable-native-access=ALL-UNNAMED']
 }
 

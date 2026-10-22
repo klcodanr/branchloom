@@ -1,11 +1,9 @@
 package com.jagent.desktop.ui.actions;
 
 import com.jagent.desktop.api.BaseAction;
-import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
-import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.services.github.GitHubAuth;
 import com.jagent.desktop.ui.dialogs.ImportProjectDialog;
@@ -106,9 +104,7 @@ public final class ImportProjectAction extends BaseAction {
                                                     targetGroup == null
                                                             ? project
                                                             : project.withGroup(targetGroup));
-                            actionContext
-                                    .viewCoordinator()
-                                    .updateView(ViewId.PROJECT, ViewState.project(projectId));
+                            actionContext.viewController().openProject(projectId);
                         })
                 .exceptionally(
                         failure -> {

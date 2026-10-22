@@ -7,7 +7,6 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.git.Branch;
-import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.SessionCreationService;
 import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.components.SessionLauncher;
@@ -43,13 +42,13 @@ public final class CreateSessionAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.appState().currentProjectId() != null;
+        return actionContext.viewController().currentProjectId() != null;
     }
 
     @Override
     public void execute() {
-        final AppState state = actionContext.appState();
-        final ProjectId projectId = state.currentProjectId();
+        final var state = actionContext.appState();
+        final ProjectId projectId = actionContext.viewController().currentProjectId();
         if (projectId == null || state.projects().get(projectId) == null) {
             return;
         }
@@ -108,7 +107,7 @@ public final class CreateSessionAction extends BaseAction {
     }
 
     protected void addSession(final ProjectId projectId, final NewSessionDialog.Request request) {
-        final AppState state = actionContext.appState();
+        final var state = actionContext.appState();
         final Project project = state.projects().get(projectId);
         if (project.sessionIds().stream()
                 .map(state.sessions()::get)

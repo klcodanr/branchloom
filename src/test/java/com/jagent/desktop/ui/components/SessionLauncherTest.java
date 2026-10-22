@@ -57,15 +57,15 @@ class SessionLauncherTest {
 
         assertEquals(
                 ViewId.SESSION,
-                fixture.context().viewCoordinator().currentViewId(),
+                fixture.context().viewController().currentViewId(),
                 "session view should open");
         assertEquals(
                 fixture.sessionId(),
-                fixture.state().currentSessionId(),
+                fixture.context().viewController().currentSessionId(),
                 "session should be selected");
         assertEquals(
                 fixture.terminalId(),
-                fixture.state().currentTerminalId(),
+                fixture.context().viewController().currentTerminalId(),
                 "terminal should be selected");
         assertNotNull(fixture.panel(), "terminal panel should be created");
         AsyncTestSupport.await(
@@ -86,7 +86,7 @@ class SessionLauncherTest {
 
         AsyncTestSupport.await(
                 () ->
-                        fixture.context().viewCoordinator().backgroundJobs().jobs().stream()
+                        fixture.context().viewController().backgroundJobs().jobs().stream()
                                 .anyMatch(job -> job.status() == BackgroundJobs.Status.SUCCEEDED),
                 "startup job should complete");
         assertEquals(
@@ -95,7 +95,7 @@ class SessionLauncherTest {
                 "startup commands should run in order");
         assertEquals(
                 "Complete",
-                fixture.context().viewCoordinator().backgroundJobs().jobs().getFirst().message(),
+                fixture.context().viewController().backgroundJobs().jobs().getFirst().message(),
                 "startup completion should be reported");
         AsyncTestSupport.await(
                 () -> fixture.runtime().state() != TerminalState.STARTING,
@@ -116,11 +116,11 @@ class SessionLauncherTest {
 
         AsyncTestSupport.await(
                 () ->
-                        fixture.context().viewCoordinator().backgroundJobs().jobs().stream()
+                        fixture.context().viewController().backgroundJobs().jobs().stream()
                                 .anyMatch(job -> job.status() == BackgroundJobs.Status.FAILED),
                 "startup job should fail");
         final BackgroundJobs.Job job =
-                fixture.context().viewCoordinator().backgroundJobs().jobs().getFirst();
+                fixture.context().viewController().backgroundJobs().jobs().getFirst();
         assertEquals("failed-output", job.message(), "command output should explain the failure");
         assertFalse(Files.exists(directory.resolve("skipped")), "later commands should not run");
         assertEquals(
@@ -138,12 +138,12 @@ class SessionLauncherTest {
 
         AsyncTestSupport.await(
                 () ->
-                        fixture.context().viewCoordinator().backgroundJobs().jobs().stream()
+                        fixture.context().viewController().backgroundJobs().jobs().stream()
                                 .anyMatch(job -> job.status() == BackgroundJobs.Status.FAILED),
                 "startup job should fail");
         assertEquals(
                 "Setup command failed.",
-                fixture.context().viewCoordinator().backgroundJobs().jobs().getFirst().message(),
+                fixture.context().viewController().backgroundJobs().jobs().getFirst().message(),
                 "blank command output should use the fallback message");
         assertEquals(
                 0,

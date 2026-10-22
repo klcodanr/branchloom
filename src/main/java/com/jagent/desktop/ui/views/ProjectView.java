@@ -20,11 +20,13 @@ import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,12 +55,7 @@ public final class ProjectView extends AbstractWorkspaceView {
                                 .appSettings()
                                 .pullRequestFilters()
                                 .toArray(PullRequestFilter[]::new));
-        final PullRequestFilter initialFilter = (PullRequestFilter) this.filters.getSelectedItem();
-        this.pullRequests =
-                new PullRequestsBoard(
-                        actionContext,
-                        projectId,
-                        initialFilter == null ? "" : initialFilter.query());
+        this.pullRequests = new PullRequestsBoard(actionContext, projectId);
         this.filters.addActionListener(
                 event -> {
                     final PullRequestFilter selected =
@@ -68,15 +65,18 @@ public final class ProjectView extends AbstractWorkspaceView {
                     this.pullRequests.refresh();
                 });
         initializeWorkspace(project.name());
-        final TerminalId selectedTerminal = actionContext.appState().currentTerminalId();
+        final TerminalId selectedTerminal = actionContext.viewController().currentTerminalId();
         actionContext.appState().terminals().entrySet().stream()
-                .filter(entry -> belongsToProject(entry.getValue()))
+                .filter(entry -> entry.getValue() != null && entry.getKey() != null)
+                .filter(
+                        entry ->
+                                entry.getValue().sessionId() == null
+                                        && projectId.equals(entry.getValue().projectId()))
                 .forEach(
                         entry ->
                                 showTerminal(
                                         entry.getKey(),
                                         entry.getValue(),
-                                        Path.of(project.path()),
                                         entry.getKey().equals(selectedTerminal)));
         restoreSelectedTab();
     }
@@ -88,7 +88,6 @@ public final class ProjectView extends AbstractWorkspaceView {
 
     @Override
     protected void addTitleDetails(final JPanel titleArea) {
-        gitWarning.setOpaque(false);
         gitWarning.add(new JLabel("This folder is not a Git repository."));
         titleArea.add(gitWarning);
         gitWarning.setVisible(false);
@@ -111,9 +110,8 @@ public final class ProjectView extends AbstractWorkspaceView {
 
     @Override
     protected void addDefaultTabs() {
-        final JPanel tab = new JPanel(new BorderLayout(0, 8));
+        final JPanel tab = TabBody.wrap(new JPanel(new BorderLayout(0, 8)));
         final JPanel filterRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        filterRow.setOpaque(false);
         filterRow.add(new JLabel("Filter"));
         filterRow.add(filters);
         tab.add(filterRow, BorderLayout.NORTH);
@@ -130,51 +128,30 @@ public final class ProjectView extends AbstractWorkspaceView {
     }
 
     @Override
-    protected void openTerminal(final Path path) {
-        addTerminal("Terminal", PlatformCommands.userShell(), path);
-    }
-
-    private void addTerminal(final String title, final String command, final Path directory) {
-        final String tabTitle = title + " " + (++terminalNumber);
-        final Terminal definition = new Terminal(null, projectId, tabTitle, command);
+    protected void openTerminal() {
+        final String tabTitle = "Terminal " + (++terminalNumber);
+        final Terminal definition =
+                new Terminal(null, projectId, tabTitle, PlatformCommands.userShell());
         final TerminalId terminalId = actionContext.appState().addTerminal(definition);
-        showTerminal(terminalId, definition, directory, true);
-    }
-
-    private boolean belongsToProject(final Terminal terminal) {
-        return terminal.sessionId() == null && projectId.equals(terminal.projectId());
+        showTerminal(terminalId, definition, true);
     }
 
     private void showTerminal(
-            final TerminalId terminalId,
-            final Terminal terminalDefinition,
-            final Path directory,
+            @NotNull final TerminalId terminalId,
+            @NotNull final Terminal terminalDefinition,
             final boolean selected) {
-        if (terminalId == null || terminalDefinition == null) {
-            return;
-        }
         final TerminalPanel terminal =
                 TerminalPanel.retained(
                         terminalId,
                         terminalDefinition,
-                        directory,
+                        Path.of(project.path()),
                         project.name() + " > " + terminalDefinition.title());
         mountTerminal(terminalDefinition.title(), terminalId, terminal, selected);
     }
 
     @Override
-    protected void terminalClosed() {
-        updateCurrentTerminal();
-    }
-
-    @Override
-    public void refresh() {
-        pullRequests.refresh();
-    }
-
-    /** Adds a project terminal; project summary and pull-request tabs are not terminal tabs. */
-    public void createTerminal() {
-        addTerminal("Terminal", PlatformCommands.userShell(), Path.of(project.path()));
+    public CompletableFuture<?> refresh() {
+        return pullRequests.refresh();
     }
 
     public void openSummary() {
@@ -182,13 +159,13 @@ public final class ProjectView extends AbstractWorkspaceView {
     }
 
     private void restoreSelectedTab() {
-        if (actionContext.appState().currentTerminalId() != null) {
+        if (actionContext.viewController().currentTerminalId() != null) {
             return;
         }
-        if (!viewCoordinator.hasSelectedTab(id())) {
+        if (!viewController.hasSelectedTab(id())) {
             return;
         }
-        final int selectedTab = viewCoordinator.selectedTab(id());
+        final int selectedTab = viewController.selectedTab(id());
         if (selectedTab < tabs.getTabCount()) {
             tabs.setSelectedIndex(selectedTab);
         }

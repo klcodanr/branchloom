@@ -21,6 +21,6 @@ public final class ResourceUsageAction extends BaseAction {
 
     @Override
     public void execute() {
-        actionContext.viewCoordinator().updateView(ViewId.RESOURCE_USAGE, null);
+        actionContext.viewController().updateView(ViewId.RESOURCE_USAGE, null);
     }
 }

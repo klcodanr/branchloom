@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -17,7 +17,7 @@ class MyPullRequestsViewTest {
     void viewIdentityAndRefreshWorkWithoutProjects() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final ActionContext context =
-                new ActionContext(new ViewCoordinator(state), state, null, null, null);
+                new ActionContext(TestAppState.controller(state), state, null, null, null);
 
         final MyPullRequestsView view = new MyPullRequestsView(context);
         view.refresh();

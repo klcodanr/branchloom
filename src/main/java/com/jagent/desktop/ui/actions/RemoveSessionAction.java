@@ -1,16 +1,13 @@
 package com.jagent.desktop.ui.actions;
 
 import com.jagent.desktop.api.BaseAction;
-import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
-import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundJobs.Handle;
-import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.components.UiText;
 import com.jagent.desktop.ui.utils.ErrorDialogs;
@@ -47,14 +44,14 @@ public class RemoveSessionAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.appState().currentSessionId() != null;
+        return actionContext.viewController().currentSessionId() != null;
     }
 
     @Override
     public void execute() {
-        final AppState state = actionContext.appState();
-        final SessionId sessionId = state.currentSessionId();
-        final Session session = state.currentSession();
+        final var state = actionContext.appState();
+        final SessionId sessionId = actionContext.viewController().currentSessionId();
+        final Session session = actionContext.viewController().currentSession();
         final ProjectId projectId = session == null ? null : session.projectId();
         final Project project = projectId == null ? null : state.projects().get(projectId);
         if (session == null || project == null) {
@@ -67,11 +64,11 @@ public class RemoveSessionAction extends BaseAction {
         }
 
         if (choice == 2) {
-            removeWorktree(state, sessionId, projectId, project, session);
+            removeWorktree(sessionId, projectId, project, session);
             return;
         }
 
-        removeSession(state, sessionId, projectId);
+        removeSession(sessionId, projectId);
     }
 
     protected int removalChoice(final Session session) {
@@ -121,14 +118,13 @@ public class RemoveSessionAction extends BaseAction {
     }
 
     private void removeWorktree(
-            final AppState state,
             final SessionId sessionId,
             final ProjectId projectId,
             final Project project,
             final Session session) {
         final var job =
                 actionContext
-                        .viewCoordinator()
+                        .viewController()
                         .backgroundJobs()
                         .start(TITLE, project.name(), session.name());
         job.update("Checking worktree...");
@@ -180,7 +176,6 @@ public class RemoveSessionAction extends BaseAction {
                                             residualPath ->
                                                     finishWorktreeRemoval(
                                                             job,
-                                                            state,
                                                             sessionId,
                                                             projectId,
                                                             residualPath))
@@ -199,12 +194,11 @@ public class RemoveSessionAction extends BaseAction {
 
     private void finishWorktreeRemoval(
             final Handle job,
-            final AppState state,
             final SessionId sessionId,
             final ProjectId projectId,
             final Path residualPath) {
         if (residualPath != null && confirmResidualFolderDeletion(residualPath)) {
-            removeResidualFolder(job, state, sessionId, projectId, residualPath);
+            removeResidualFolder(job, sessionId, projectId, residualPath);
             return;
         }
         if (residualPath != null) {
@@ -212,12 +206,11 @@ public class RemoveSessionAction extends BaseAction {
         }
         job.output("Worktree removed.");
         job.complete();
-        removeSession(state, sessionId, projectId);
+        removeSession(sessionId, projectId);
     }
 
     private void removeResidualFolder(
             final Handle job,
-            final AppState state,
             final SessionId sessionId,
             final ProjectId projectId,
             final Path path) {
@@ -232,7 +225,7 @@ public class RemoveSessionAction extends BaseAction {
                         () -> {
                             job.output("Leftover worktree folder removed.");
                             job.complete();
-                            removeSession(state, sessionId, projectId);
+                            removeSession(sessionId, projectId);
                         })
                 .exceptionally(
                         failure -> {
@@ -262,14 +255,7 @@ public class RemoveSessionAction extends BaseAction {
         ErrorDialogs.show(actionContext.window(), TITLE, message);
     }
 
-    protected void removeSession(
-            final AppState state, final SessionId sessionId, final ProjectId projectId) {
-        final boolean selected = sessionId.equals(state.currentSessionId());
-        state.removeSession(sessionId);
-        if (selected) {
-            actionContext
-                    .viewCoordinator()
-                    .updateView(ViewId.PROJECT, ViewState.project(projectId));
-        }
+    protected void removeSession(final SessionId sessionId, final ProjectId projectId) {
+        actionContext.appState().removeSession(sessionId);
     }
 }

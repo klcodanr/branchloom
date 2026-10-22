@@ -38,7 +38,7 @@ public final class CopyBranchAction extends BaseAction {
     }
 
     private Session currentSession() {
-        final var sessionId = actionContext.appState().currentSessionId();
+        final var sessionId = actionContext.viewController().currentSessionId();
         return sessionId == null ? null : actionContext.appState().sessions().get(sessionId);
     }
 }

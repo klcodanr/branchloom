@@ -3,6 +3,7 @@ package com.jagent.desktop.ui.components;
 import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.services.AgentContext;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.ui.utils.ErrorMessages;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -16,12 +17,14 @@ import javax.swing.ScrollPaneConstants;
 /** Agent-context file and editor controls for a session summary. */
 public final class AgentContextEditor extends JPanel {
     private final transient AppState appState;
+    private final transient ViewController viewController;
     private final JTextArea content = new BaseTextArea("Loading context...");
     private final JButton save = new BaseButton("Save");
 
-    public AgentContextEditor(final AppState appState) {
+    public AgentContextEditor(final AppState appState, final ViewController viewController) {
         super(new BorderLayout(0, UiConstants.SPACING_XS));
         this.appState = appState;
+        this.viewController = viewController;
         content.setRows(10);
         showLoading();
         save.setFont(Theme.font(Theme.FontSize.XS));
@@ -60,8 +63,8 @@ public final class AgentContextEditor extends JPanel {
 
     private void save() {
         final String textContent = this.content.getText();
-        final var project = appState.currentProject();
-        final var session = appState.currentSession();
+        final var project = viewController.currentProject();
+        final var session = viewController.currentSession();
         if (project == null || session == null) {
             return;
         }

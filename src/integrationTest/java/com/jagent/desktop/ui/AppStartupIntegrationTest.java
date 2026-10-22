@@ -18,15 +18,14 @@ import com.jagent.desktop.ui.views.ResourceUsageView;
 import com.jagent.desktop.ui.views.SessionView;
 import java.awt.Component;
 import java.awt.Container;
-import java.awt.event.WindowEvent;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Enumeration;
 import java.util.Map;
 import javax.swing.JButton;
-import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
+import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -42,11 +41,15 @@ class AppStartupIntegrationTest {
 
     @Test
     void startsWithIsolatedDataDirectoryAndNavigatesToSettings() {
-        final AppView app = GuiActionRunner.execute(() -> new AppView(dataDirectory));
-        try {
-            assertEquals("Branchloom", app.getTitle(), "application title should match");
+        try (ApplicationTestHarness application =
+                GuiActionRunner.execute(() -> new ApplicationTestHarness(dataDirectory))) {
+            final AppView app = application.view();
+            assertEquals(
+                    "Branchloom",
+                    application.window().getTitle(),
+                    "application title should match");
 
-            GuiActionRunner.execute(() -> app.setVisible(true));
+            GuiActionRunner.execute(application::start);
             assertTrue(
                     find(app, HomeView.class) != null, "application should initially render home");
 
@@ -59,12 +62,6 @@ class AppStartupIntegrationTest {
             assertTrue(
                     find(app, HomeView.class) != null,
                     "home navigation should render the dashboard");
-        } finally {
-            GuiActionRunner.execute(
-                    () -> {
-                        app.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-                        app.dispatchEvent(new WindowEvent(app, WindowEvent.WINDOW_CLOSING));
-                    });
         }
 
         assertTrue(
@@ -83,14 +80,16 @@ class AppStartupIntegrationTest {
             persistence.update(saved);
         }
 
-        final AppView app = GuiActionRunner.execute(() -> new AppView(dataDirectory));
-        try {
-            assertEquals(123, app.getX(), "saved window x should be restored");
-            assertEquals(145, app.getY(), "saved window y should be restored");
-            assertEquals(1000, app.getWidth(), "saved window width should be restored");
-            assertEquals(650, app.getHeight(), "saved window height should be restored");
-        } finally {
-            close(app);
+        try (ApplicationTestHarness application =
+                GuiActionRunner.execute(() -> new ApplicationTestHarness(dataDirectory))) {
+            assertEquals(123, application.window().getX(), "saved window x should be restored");
+            assertEquals(145, application.window().getY(), "saved window y should be restored");
+            assertEquals(
+                    1000, application.window().getWidth(), "saved window width should be restored");
+            assertEquals(
+                    650,
+                    application.window().getHeight(),
+                    "saved window height should be restored");
         }
     }
 
@@ -115,9 +114,10 @@ class AppStartupIntegrationTest {
             persistence.persist();
         }
 
-        final AppView app = GuiActionRunner.execute(() -> new AppView(dataDirectory));
-        try {
-            GuiActionRunner.execute(() -> app.setVisible(true));
+        try (ApplicationTestHarness application =
+                GuiActionRunner.execute(() -> new ApplicationTestHarness(dataDirectory))) {
+            final AppView app = application.view();
+            GuiActionRunner.execute(application::start);
             final JTree tree = find(app, JTree.class);
             assertTrue(tree != null, "persisted project tree should be rendered");
 
@@ -132,8 +132,6 @@ class AppStartupIntegrationTest {
             assertTrue(
                     find(app, ProjectView.class) != null,
                     "selecting the project should open its view");
-        } finally {
-            close(app);
         }
     }
 
@@ -149,17 +147,16 @@ class AppStartupIntegrationTest {
             persistence.persist();
         }
 
-        final AppView app = GuiActionRunner.execute(() -> new AppView(dataDirectory));
-        try {
-            GuiActionRunner.execute(() -> app.setVisible(true));
+        try (ApplicationTestHarness application =
+                GuiActionRunner.execute(() -> new ApplicationTestHarness(dataDirectory))) {
+            final AppView app = application.view();
+            GuiActionRunner.execute(application::start);
             final JTree tree = find(app, JTree.class);
             GuiActionRunner.execute(() -> selectProject(tree));
 
             assertTrue(
                     findButton(app, "workspace-actions-button") == null,
                     "unavailable workspaces should not show workspace actions");
-        } finally {
-            close(app);
         }
     }
 
@@ -181,9 +178,10 @@ class AppStartupIntegrationTest {
             persistence.persist();
         }
 
-        final AppView app = GuiActionRunner.execute(() -> new AppView(dataDirectory));
-        try {
-            GuiActionRunner.execute(() -> app.setVisible(true));
+        try (ApplicationTestHarness application =
+                GuiActionRunner.execute(() -> new ApplicationTestHarness(dataDirectory))) {
+            final AppView app = application.view();
+            GuiActionRunner.execute(application::start);
             assertTrue(find(app, HomeView.class) != null, "startup should show home");
 
             final JTree tree = find(app, JTree.class);
@@ -192,7 +190,7 @@ class AppStartupIntegrationTest {
             assertTrue(
                     find(app, ProjectView.class) != null, "project selection should open project");
 
-            clickMenuItem(app, "Project", "Settings");
+            clickMenuItem(application.window(), "Project", "Settings");
             assertTrue(findLabel(app, "Project settings") != null, "project settings should open");
 
             GuiActionRunner.execute(() -> selectProject(tree));
@@ -200,30 +198,11 @@ class AppStartupIntegrationTest {
             assertTrue(
                     find(app, SessionView.class) != null, "session selection should open session");
 
-            clickMenuItem(app, "View", "Problems");
+            clickMenuItem(application.window(), "View", "Problems");
             assertTrue(find(app, ProblemsView.class) != null, "problems should open");
 
-            clickMenuItem(app, "View", "Resource Usage");
+            clickMenuItem(application.window(), "View", "Resource Usage");
             assertTrue(find(app, ResourceUsageView.class) != null, "resource usage should open");
-        } finally {
-            close(app);
-        }
-    }
-
-    private static void close(final AppView app) {
-        GuiActionRunner.execute(
-                () -> {
-                    app.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-                    app.dispatchEvent(new WindowEvent(app, WindowEvent.WINDOW_CLOSING));
-                });
-        final long deadline = System.nanoTime() + CLOSE_TIMEOUT_NANOS;
-        while (app.isDisplayable() && System.nanoTime() < deadline) {
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return;
-            }
         }
     }
 
@@ -314,6 +293,12 @@ class AppStartupIntegrationTest {
     }
 
     private static JMenu findMenu(final Container root, final String text) {
+        if (root instanceof javax.swing.JFrame frame) {
+            final JMenuBar menuBar = frame.getJMenuBar();
+            if (menuBar != null) {
+                return findMenu(menuBar, text);
+            }
+        }
         for (final Component child : root.getComponents()) {
             if (child instanceof JMenu menu && text.equals(menu.getText())) {
                 return menu;

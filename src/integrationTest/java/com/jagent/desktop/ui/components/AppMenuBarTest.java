@@ -10,7 +10,7 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.ui.Defaults;
 import java.awt.Toolkit;
 import java.awt.event.InputEvent;
@@ -68,9 +68,10 @@ class AppMenuBarTest {
         final var sessionId =
                 state.addSession(
                         projectId, new Session(projectId, "Feature", null, null, PROJECT_PATH));
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
-        final ActionContext context = context(state);
+        final var controller = new ViewController(state, null, null, () -> {});
+        controller.selectProject(projectId);
+        controller.selectSession(projectId, sessionId);
+        final ActionContext context = new ActionContext(controller, state, null, null, null);
 
         final JMenuBar bar = GuiActionRunner.execute(() -> AppMenuBar.create(context));
 
@@ -111,9 +112,9 @@ class AppMenuBarTest {
         final var sessionId =
                 state.addSession(
                         projectId, new Session(projectId, "Feature", null, null, PROJECT_PATH));
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
-        final var coordinator = new ViewCoordinator(state);
+        final var coordinator = new ViewController(state, null, null, () -> {});
+        coordinator.selectProject(projectId);
+        coordinator.selectSession(projectId, sessionId);
         final ActionContext context = new ActionContext(coordinator, state, null, null, null);
         final JMenuBar bar = GuiActionRunner.execute(() -> AppMenuBar.create(context));
 
@@ -130,7 +131,8 @@ class AppMenuBarTest {
     }
 
     private static ActionContext context(final AppState state) {
-        return new ActionContext(new ViewCoordinator(state), state, null, null, null);
+        return new ActionContext(
+                new ViewController(state, null, null, () -> {}), state, null, null, null);
     }
 
     private static boolean hasMenu(final JMenuBar bar, final String label) {

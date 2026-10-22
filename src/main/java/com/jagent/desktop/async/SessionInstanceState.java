@@ -34,8 +34,8 @@ public class SessionInstanceState
     @Override
     protected SessionSummaryInfo load(
             final SessionId instance, final Session session, final Handle jobHandle) {
-        final GitHub gitHub = GitHub.forProject(appState, appState.currentProjectId());
-        final Project project = appState.currentProject();
+        final GitHub gitHub = GitHub.forProject(appState, session.projectId());
+        final Project project = appState.projects().get(session.projectId());
 
         final CompletableFuture<PullRequestDetails> pullRequestDetails =
                 CompletableFuture.supplyAsync(

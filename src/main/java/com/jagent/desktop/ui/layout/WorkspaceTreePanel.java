@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -72,7 +71,7 @@ public final class WorkspaceTreePanel extends JPanel {
     public WorkspaceTreePanel(
             final ActionContext actionContext,
             final Path workspace,
-            final Consumer<Path> openTerminal,
+            final Runnable openTerminal,
             final BiConsumer<Path, Boolean> openFile) {
         super(new BorderLayout());
         this.actionContext = actionContext;
@@ -92,7 +91,7 @@ public final class WorkspaceTreePanel extends JPanel {
                                         openFile.accept(path, changedOnlyButton.isSelected());
                                     }
                                 },
-                                path -> {
+                                (path) -> {
                                     if (PathUtils.directory(path)) {
                                         return;
                                     }
@@ -111,7 +110,7 @@ public final class WorkspaceTreePanel extends JPanel {
                                             editor.label(),
                                             actionContext.window());
                                 },
-                                openTerminal::accept,
+                                openTerminal::run,
                                 this::statusCode));
         this.tree.addTreeWillExpandListener(
                 new TreeWillExpandListener() {
@@ -205,7 +204,7 @@ public final class WorkspaceTreePanel extends JPanel {
 
     private void refreshStatus() {
         final boolean includeSourceBranch = compareSourceBranch;
-        final ProjectId projectId = actionContext.appState().currentProjectId();
+        final ProjectId projectId = actionContext.viewController().currentProjectId();
         final Project project =
                 projectId == null ? null : actionContext.appState().projects().get(projectId);
         refreshButton.setSelected(false);

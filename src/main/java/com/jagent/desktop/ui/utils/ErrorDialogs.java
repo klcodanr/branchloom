@@ -27,4 +27,26 @@ public final class ErrorDialogs {
             SwingUtilities.invokeLater(action);
         }
     }
+
+    public static void showAndWait(
+            final Component owner, final String title, final String message) {
+        LOG.error("{}: {}", title, message);
+        if (GraphicsEnvironment.isHeadless()) {
+            return;
+        }
+        if (SwingUtilities.isEventDispatchThread()) {
+            JOptionPane.showMessageDialog(owner, message, title, JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        try {
+            SwingUtilities.invokeAndWait(
+                    () ->
+                            JOptionPane.showMessageDialog(
+                                    owner, message, title, JOptionPane.ERROR_MESSAGE));
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+        } catch (java.lang.reflect.InvocationTargetException exception) {
+            throw new IllegalStateException("Could not show error dialog", exception.getCause());
+        }
+    }
 }

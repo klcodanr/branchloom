@@ -1,9 +1,6 @@
 package com.jagent.desktop.services;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
@@ -56,8 +53,7 @@ class AppStateTest {
 
         final var snapshot = state.snapshotForPersistence();
 
-        org.junit.jupiter.api.Assertions.assertNotNull(
-                snapshot, "changed state should produce a snapshot");
+        assertNotNull(snapshot, "changed state should produce a snapshot");
         assertEquals(1, snapshot.projects().size(), "snapshot should contain the project");
         assertNull(state.snapshotForPersistence(), "snapshot should clear pending changes");
     }
@@ -142,22 +138,21 @@ class AppStateTest {
         final var snapshot = state.snapshotForPersistence();
 
         assertEquals(
-                List.of(new AppState.TerminalEvent(AppState.TerminalAction.ADD, terminalId)),
+                List.of(new AppState.TerminalEvent(AppState.Action.ADD, terminalId)),
                 snapshot.terminalEvents(),
                 "terminal additions should be persisted as events");
 
         state.restorePersistenceUpdates(
-                false,
-                List.of(new AppState.TerminalEvent(AppState.TerminalAction.REMOVE, terminalId)));
+                false, List.of(new AppState.TerminalEvent(AppState.Action.REMOVE, terminalId)));
         final var restored = state.snapshotForPersistence();
         assertEquals(
-                List.of(new AppState.TerminalEvent(AppState.TerminalAction.REMOVE, terminalId)),
+                List.of(new AppState.TerminalEvent(AppState.Action.REMOVE, terminalId)),
                 restored.terminalEvents(),
                 "restored terminal events should remain pending");
     }
 
     @Test
-    void currentSelectionsAreClearedWhenTheirEntitiesAreRemoved() throws InvalidObjectException {
+    void removingProjectRemovesItsEntities() throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final ProjectId projectId = state.addProject(new Project(DEMO, DEMO_PATH, null));
         final SessionId sessionId =
@@ -166,14 +161,10 @@ class AppStateTest {
         final var terminalId =
                 state.addTerminal(
                         sessionId, new com.jagent.desktop.models.Terminal(sessionId, SHELL, "sh"));
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
-        state.updateCurrentTerminal(terminalId);
-
         state.removeProject(projectId);
 
-        assertNull(state.currentProjectId(), "current project should be cleared");
-        assertNull(state.currentSessionId(), "current session should be cleared");
-        assertNull(state.currentTerminalId(), "current terminal should be cleared");
+        assertFalse(state.projects().containsKey(projectId), "project should be removed");
+        assertFalse(state.sessions().containsKey(sessionId), "session should be removed");
+        assertFalse(state.terminals().containsKey(terminalId), "terminal should be removed");
     }
 }

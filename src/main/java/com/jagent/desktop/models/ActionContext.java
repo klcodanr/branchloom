@@ -1,14 +1,13 @@
 package com.jagent.desktop.models;
 
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
-import com.jagent.desktop.services.persistence.AppStatePersistence;
+import com.jagent.desktop.services.ViewController;
 import java.awt.Window;
 import java.nio.file.Path;
 
 public record ActionContext(
-        ViewCoordinator viewCoordinator,
+        ViewController viewController,
         AppState appState,
         Window window,
         Path dataDirectory,
-        AppStatePersistence persistence) {}
+        Runnable refreshSettings) {}
