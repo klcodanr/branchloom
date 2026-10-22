@@ -2,6 +2,7 @@ package com.jagent.desktop.services;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.GitHubUser;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
@@ -11,6 +12,10 @@ import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
+import com.jagent.desktop.services.github.GitHub;
+import com.jagent.desktop.test.TestAppState;
+import com.jagent.desktop.ui.Defaults;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayDeque;
@@ -19,7 +24,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.Executors;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 
@@ -33,21 +37,35 @@ class PullRequestWatcherTest {
         final SessionId sessionId = SessionId.create();
         final Session session = new Session(projectId, "agent", "agent", "prompt", "/tmp/worktree");
         final PullRequest request = request(projectId);
-        final Queue<PullRequestWatcher.PullRequestStatus> statuses =
+        final Queue<PullRequestDetails> statuses =
                 new ArrayDeque<>(
                         List.of(
                                 status(request, false, "clean", PullRequestChecks.Status.PENDING),
                                 status(request, false, "dirty", PullRequestChecks.Status.PENDING),
                                 status(request, false, "dirty", PullRequestChecks.Status.FAILING),
                                 status(request, true, "clean", PullRequestChecks.Status.PASSING)));
-        final List<PullRequestDetails.Status> rendered = new ArrayList<>();
-        final Map<SessionId, Session> sessions = Map.of(sessionId, session);
-        try (PullRequestWatcher watcher =
-                new PullRequestWatcher(
-                        () -> sessions,
-                        ignored -> statuses.remove(),
-                        (ignored, status) -> rendered.add(status.details().status()),
-                        Executors.newSingleThreadScheduledExecutor())) {
+        final Project project = request.project();
+        final var state =
+                new AppState(
+                        Defaults.appSettings(),
+                        Map.of(projectId.value().toString(), project),
+                        Map.of(sessionId.value().toString(), session),
+                        Map.of());
+        final GitHub github =
+                new GitHub(state, projectId) {
+                    @Override
+                    public PullRequest getPullRequest(final java.nio.file.Path worktree)
+                            throws IOException {
+                        return request;
+                    }
+
+                    @Override
+                    public PullRequestDetails getPullRequestDetails(final PullRequest ignored) {
+                        return statuses.remove();
+                    }
+                };
+        final var context = new ActionContext(TestAppState.controller(state), state, null, null, null);
+        try (PullRequestWatcher watcher = new PullRequestWatcher(context)) {
             watcher.poll();
             watcher.poll();
             watcher.poll();
@@ -55,7 +73,10 @@ class PullRequestWatcherTest {
             SwingUtilities.invokeAndWait(() -> {});
         }
 
-        assertEquals(4, rendered.size(), "each poll should update the PR status");
+        assertEquals(
+                PullRequestDetails.Status.READY,
+                state.monitoringStatuses().get(sessionId).status(),
+                "each poll should update the PR status");
     }
 
     private static PullRequest request(final ProjectId projectId) throws MalformedURLException {
@@ -76,15 +97,13 @@ class PullRequestWatcherTest {
                 "main");
     }
 
-    private static PullRequestWatcher.PullRequestStatus status(
+    private static PullRequestDetails status(
             final PullRequest request,
             final boolean mergeable,
             final String mergeableState,
             final PullRequestChecks.Status checksStatus) {
-        return new PullRequestWatcher.PullRequestStatus(
-                request,
-                new PullRequestDetails(
-                        request, false, mergeable, mergeableState, 1, 1, 1, checks(checksStatus)));
+        return new PullRequestDetails(
+                request, false, mergeable, mergeableState, 1, 1, 1, checks(checksStatus));
     }
 
     private static PullRequestChecks checks(final PullRequestChecks.Status status) {

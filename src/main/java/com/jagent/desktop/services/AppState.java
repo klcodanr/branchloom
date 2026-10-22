@@ -4,6 +4,7 @@ import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.IdType;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.Terminal;
@@ -22,11 +23,13 @@ public class AppState {
     private final Map<ProjectId, Project> projects;
     private final Map<SessionId, Session> sessions;
     private final Map<TerminalId, Terminal> terminals;
+    private final Map<SessionId, PullRequestDetails> monitoringStatuses = new java.util.HashMap<>();
     private final List<TerminalEvent> terminalEvents = new ArrayList<>();
     private final List<Consumer<StateEvent>> stateEventListeners = new ArrayList<>();
 
     public enum Action {
         ADD,
+        UPDATE,
         REMOVE
     }
 
@@ -81,6 +84,20 @@ public class AppState {
 
     public Map<TerminalId, Terminal> terminals() {
         return Map.copyOf(this.terminals);
+    }
+
+    public Map<SessionId, PullRequestDetails> monitoringStatuses() {
+        return Map.copyOf(this.monitoringStatuses);
+    }
+
+    public void updateMonitoringStatus(final SessionId sessionId, final PullRequestDetails status) {
+        this.monitoringStatuses.put(sessionId, status);
+        notifyStateEvent(new StateEvent(Action.UPDATE, sessionId));
+    }
+
+    public void removeMonitoringStatus(final SessionId sessionId) {
+        this.monitoringStatuses.remove(sessionId);
+        notifyStateEvent(new StateEvent(Action.UPDATE, sessionId));
     }
 
     public void updateAppSettings(final AppSettings appSettings) {
@@ -153,6 +170,7 @@ public class AppState {
 
     public void removeSession(final SessionId sessionId) {
         final Session session = this.sessions.remove(sessionId);
+        this.monitoringStatuses.remove(sessionId);
         if (session == null) {
             return;
         }

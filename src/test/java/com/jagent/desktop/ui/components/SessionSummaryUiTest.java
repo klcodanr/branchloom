@@ -23,8 +23,8 @@ import org.junit.jupiter.api.Test;
 class SessionSummaryUiTest {
     @Test
     void cleanupAlertRequiresMergedPullRequestAndCleanWorktree() throws MalformedURLException {
-        final PullRequestDetails merged = details(PullRequest.State.MERGED);
-        final PullRequestDetails open = details(PullRequest.State.OPEN);
+        final PullRequestDetails merged = details(PullRequest.State.CLOSED, true);
+        final PullRequestDetails open = details(PullRequest.State.OPEN, false);
         final GitRepository.WorktreeStatus clean = status(Set.of());
         final GitRepository.WorktreeStatus dirty = status(Set.of("changed.txt"));
 
@@ -56,7 +56,7 @@ class SessionSummaryUiTest {
                 "feature/test", Set.of(), Set.of(), changed, Set.of(), Set.of(), Set.of());
     }
 
-    private static PullRequestDetails details(final PullRequest.State state)
+    private static PullRequestDetails details(final PullRequest.State state, final boolean merged)
             throws MalformedURLException {
         final Project project = new Project("Demo", "/tmp/demo", null);
         final PullRequest request =
@@ -74,6 +74,6 @@ class SessionSummaryUiTest {
                         "feature/test",
                         "abc123",
                         "main");
-        return new PullRequestDetails(request, false, true, "clean", 0, 0, 0);
+        return new PullRequestDetails(request, false, merged, true, "clean", 0, 0, 0);
     }
 }

@@ -129,7 +129,6 @@ public class PullRequest implements BoardItem {
 
     public enum State {
         OPEN,
-        CLOSED,
-        MERGED
+        CLOSED
     }
 }

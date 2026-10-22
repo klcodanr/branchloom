@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 public final class PullRequestDetails extends PullRequest {
     private static final Logger LOG = LoggerFactory.getLogger(PullRequestDetails.class);
     private final boolean draft;
+    private final boolean merged;
     private final boolean mergeable;
     private final String mergableState;
     private final int additions;
@@ -21,6 +22,7 @@ public final class PullRequestDetails extends PullRequest {
     public PullRequestDetails(
             final PullRequest pullRequest,
             final boolean draft,
+            final boolean merged,
             final boolean mergeable,
             final String mergableState,
             final int additions,
@@ -29,6 +31,7 @@ public final class PullRequestDetails extends PullRequest {
         this(
                 pullRequest,
                 draft,
+                merged,
                 mergeable,
                 mergableState,
                 additions,
@@ -40,6 +43,7 @@ public final class PullRequestDetails extends PullRequest {
     public PullRequestDetails(
             final PullRequest pullRequest,
             final boolean draft,
+            final boolean merged,
             final boolean mergeable,
             final String mergableState,
             final int additions,
@@ -61,6 +65,7 @@ public final class PullRequestDetails extends PullRequest {
                 pullRequest.headSha(),
                 pullRequest.baseBranch());
         this.draft = draft;
+        this.merged = merged;
         this.mergeable = mergeable;
         this.mergableState = mergableState;
         this.additions = additions;
@@ -68,6 +73,46 @@ public final class PullRequestDetails extends PullRequest {
         this.changedFiles = changedFiles;
         this.checks = checks == null ? new PullRequestChecks(List.of()) : checks;
         this.status = calculateStatus();
+    }
+
+    public PullRequestDetails(
+            final PullRequest pullRequest,
+            final boolean draft,
+            final boolean mergeable,
+            final String mergableState,
+            final int additions,
+            final int deletions,
+            final int changedFiles) {
+        this(
+                pullRequest,
+                draft,
+                false,
+                mergeable,
+                mergableState,
+                additions,
+                deletions,
+                changedFiles);
+    }
+
+    public PullRequestDetails(
+            final PullRequest pullRequest,
+            final boolean draft,
+            final boolean mergeable,
+            final String mergableState,
+            final int additions,
+            final int deletions,
+            final int changedFiles,
+            final PullRequestChecks checks) {
+        this(
+                pullRequest,
+                draft,
+                false,
+                mergeable,
+                mergableState,
+                additions,
+                deletions,
+                changedFiles,
+                checks);
     }
 
     public boolean draft() {
@@ -99,6 +144,7 @@ public final class PullRequestDetails extends PullRequest {
     }
 
     public enum Status {
+        MERGED,
         READY,
         CONFLICTED,
         DRAFT,
@@ -119,6 +165,9 @@ public final class PullRequestDetails extends PullRequest {
                 draft,
                 mergeable,
                 mergableState);
+        if (merged) {
+            return Status.MERGED;
+        }
         final Status checkStatus = checkStatus();
         if (checkStatus != null) {
             return checkStatus;
@@ -158,7 +207,7 @@ public final class PullRequestDetails extends PullRequest {
 
     public Color indicatorColor() {
         final Status stat = status();
-        if (stat == Status.READY) {
+        if (stat == Status.READY || stat == Status.MERGED) {
             return Theme.Colors.success();
         } else if (stat == Status.PENDING || stat == Status.BLOCKED) {
             return Theme.Colors.warning();

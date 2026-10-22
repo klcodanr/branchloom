@@ -65,7 +65,7 @@ public final class BranchloomApplication {
                     window.setJMenuBar(AppMenuBar.create(actionContext));
                     view.render();
                 });
-        pullRequestWatcher = new PullRequestWatcher(state, view::updatePullRequestStatus);
+        pullRequestWatcher = new PullRequestWatcher(actionContext);
     }
 
     public void start() {

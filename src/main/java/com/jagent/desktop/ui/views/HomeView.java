@@ -9,11 +9,13 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.ImportProjectAction;
 import com.jagent.desktop.ui.components.BaseButton;
+import com.jagent.desktop.ui.components.SessionMonitoringPanel;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
 import com.jagent.desktop.ui.components.UiIcons;
 import com.jagent.desktop.ui.components.UiText;
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.util.Comparator;
@@ -33,12 +35,13 @@ import javax.swing.SwingConstants;
 public final class HomeView extends JPanel implements View {
     private final transient ActionContext actionContext;
     private final transient AppState appState;
+    private final JScrollPane scrollPane;
 
     public HomeView(final ActionContext actionContext) {
         super(new BorderLayout());
         this.actionContext = actionContext;
         this.appState = actionContext.appState();
-        final JScrollPane scrollPane = new JScrollPane(body());
+        scrollPane = new JScrollPane(body());
         scrollPane.setBorder(null);
         add(scrollPane, BorderLayout.CENTER);
     }
@@ -61,6 +64,12 @@ public final class HomeView extends JPanel implements View {
     @Override
     public void detach() {}
 
+    public void refresh() {
+        scrollPane.setViewportView(body());
+        revalidate();
+        repaint();
+    }
+
     private JPanel body() {
         final JPanel body = new JPanel();
         body.setOpaque(false);
@@ -73,9 +82,32 @@ public final class HomeView extends JPanel implements View {
             cards.add(continueCard());
         }
         cards.add(getStartedCard());
-        body.add(cards);
+        cards.setAlignmentX(CENTER_ALIGNMENT);
+        cards.setMaximumSize(cards.getPreferredSize());
+        final JPanel dashboard = new JPanel();
+        dashboard.setOpaque(false);
+        dashboard.setLayout(new BoxLayout(dashboard, BoxLayout.Y_AXIS));
+        dashboard.setAlignmentX(CENTER_ALIGNMENT);
+        dashboard.add(cards);
+        if (!appState.sessions().isEmpty()) {
+            dashboard.add(Box.createVerticalStrut(UiConstants.SECTION_PADDING));
+            final JPanel monitoring = monitoringTable();
+            monitoring.setPreferredSize(
+                    new Dimension(
+                            cards.getPreferredSize().width, monitoring.getPreferredSize().height));
+            monitoring.setMaximumSize(
+                    new Dimension(
+                            cards.getPreferredSize().width, monitoring.getPreferredSize().height));
+            monitoring.setAlignmentX(CENTER_ALIGNMENT);
+            dashboard.add(monitoring);
+        }
+        body.add(dashboard);
         body.add(Box.createVerticalGlue());
         return body;
+    }
+
+    private JPanel monitoringTable() {
+        return new SessionMonitoringPanel(actionContext);
     }
 
     private JPanel continueCard() {
@@ -135,7 +167,7 @@ public final class HomeView extends JPanel implements View {
         return card;
     }
 
-    private JPanel centered(final java.awt.Component component) {
+    private JPanel centered(final Component component) {
         final JPanel content = new JPanel(new FlowLayout(FlowLayout.CENTER));
         content.setOpaque(false);
         content.add(component);

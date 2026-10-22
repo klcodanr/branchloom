@@ -4,7 +4,6 @@ import com.jagent.desktop.api.Action;
 import com.jagent.desktop.api.View;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Session;
-import com.jagent.desktop.services.PullRequestWatcher.PullRequestStatus;
 import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.CreateSessionAction;
@@ -199,10 +198,6 @@ public final class AppView extends JPanel {
                     .removeKeyEventDispatcher(terminalShortcutDispatcher);
             terminalShortcutDispatcher = null;
         }
-    }
-
-    public void updatePullRequestStatus(final Session session, final PullRequestStatus status) {
-        projectTreePanel.updatePullRequestStatus(session, status);
     }
 
     private JPanel shell() {
