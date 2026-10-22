@@ -8,11 +8,10 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.git.Branch;
-import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.SessionCreationService;
 import com.jagent.desktop.services.SessionCreationService.SessionDetails;
 import com.jagent.desktop.services.SessionCreationService.WorktreeRequest;
-import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.services.ViewController.ViewState;
 import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.ui.components.FormPanel;
@@ -56,13 +55,13 @@ public final class ImportBranchAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.appState().currentProjectId() != null;
+        return actionContext.viewController().currentProjectId() != null;
     }
 
     @Override
     public void execute() {
-        final AppState state = actionContext.appState();
-        final ProjectId projectId = state.currentProjectId();
+        final var state = actionContext.appState();
+        final ProjectId projectId = actionContext.viewController().currentProjectId();
         final Project project = projectId == null ? null : state.projects().get(projectId);
         if (project == null) {
             return;
@@ -135,7 +134,7 @@ public final class ImportBranchAction extends BaseAction {
 
     public static void importPullRequest(
             final ActionContext actionContext, final PullRequest request) {
-        final AppState state = actionContext.appState();
+        final var state = actionContext.appState();
         final ProjectId projectId = request.projectId();
         final Project project = state.projects().get(projectId);
         if (project == null) {
@@ -195,14 +194,15 @@ public final class ImportBranchAction extends BaseAction {
             final ProjectId projectId,
             final BranchChoice branch,
             final String sessionName) {
-        final AppState state = actionContext.appState();
+        final var state = actionContext.appState();
         final Project project = state.projects().get(projectId);
         if (project == null) {
             return;
         }
 
         final Path worktree;
-        final SessionCreationService sessionCreator = new SessionCreationService(state);
+        final SessionCreationService sessionCreator =
+                new SessionCreationService(actionContext.appState());
         try {
             worktree =
                     sessionCreator.prepareWorktreePath(
@@ -245,7 +245,7 @@ public final class ImportBranchAction extends BaseAction {
                 .thenAccept(
                         sessionId -> {
                             actionContext
-                                    .viewCoordinator()
+                                    .viewController()
                                     .updateView(
                                             ViewId.SESSION,
                                             ViewState.session(projectId, sessionId));

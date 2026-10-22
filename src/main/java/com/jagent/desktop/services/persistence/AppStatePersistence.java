@@ -53,78 +53,48 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
     }
 
     public static AppState load(final Path directory) {
-        return loadWithResult(directory).state();
-    }
-
-    public record LoadResult(AppState state, String settingsError) {
-        public boolean hasSettingsError() {
-            return settingsError != null;
-        }
-    }
-
-    public static LoadResult loadWithResult(final Path directory) {
         final Path projectsFile = directory.resolve("projects.json");
         final Path settingsFile = directory.resolve("settings.json");
         final PersistedProjects projects =
                 readOrDefault(projectsFile, PersistedProjects.class, new PersistedProjects());
-        final SettingsResult settings = loadSettings(directory, settingsFile);
-        return new LoadResult(
-                new AppState(
-                        settings.settings(),
-                        projects.projects,
-                        projects.sessions,
-                        projects.terminals),
-                settings.error());
+        final AppSettings settings = loadSettings(directory, settingsFile);
+        return new AppState(settings, projects.projects, projects.sessions, projects.terminals);
     }
 
-    public record SettingsResult(AppSettings settings, String error) {
-        public boolean hasError() {
-            return error != null;
-        }
-    }
-
-    public static SettingsResult loadSettings(final Path directory) {
+    public static AppSettings loadSettings(final Path directory) {
         return loadSettings(directory, directory.resolve("settings.json"));
     }
 
-    public SettingsResult reloadSettings() {
-        final SettingsResult result = loadSettings(directory);
-        if (!result.hasError()) {
-            appState.updateAppSettings(result.settings());
-        }
-        return result;
+    public AppSettings reloadSettings() {
+        final AppSettings settings = loadSettings(directory);
+        appState.updateAppSettings(settings);
+        return settings;
     }
 
-    private static SettingsResult loadSettings(final Path directory, final Path settingsFile) {
+    private static AppSettings loadSettings(final Path directory, final Path settingsFile) {
         if (!Files.exists(settingsFile)) {
             final AppSettings defaults = logicalDefaults();
             try {
                 Files.createDirectories(directory);
                 writeInitialSettings(settingsFile, defaults);
-                return new SettingsResult(defaults, null);
+                return defaults;
             } catch (IOException exception) {
-                LOG.warn(
-                        "Failed to initialize {}; using in-memory defaults.",
-                        settingsFile,
-                        exception);
-                return new SettingsResult(
-                        defaults,
+                throw new IllegalStateException(
                         "Branchloom could not create the initial settings file: "
-                                + exception.getMessage());
+                                + exception.getMessage(),
+                        exception);
             }
         }
         try {
             copySchema(settingsFile);
-            return new SettingsResult(
-                    read(settingsFile, AppSettings.class, Defaults.appSettings()), null);
+            return read(settingsFile, AppSettings.class, Defaults.appSettings());
         } catch (IOException | RuntimeException exception) {
-            LOG.warn("Failed to load {}; using in-memory defaults.", settingsFile, exception);
-            return new SettingsResult(
-                    Defaults.appSettings(),
+            throw new IllegalStateException(
                     "Branchloom could not load settings.json at "
                             + settingsFile
                             + ". Fix the JSON and choose Refresh Settings.\n\n"
-                            + exception.getMessage());
+                            + exception.getMessage(),
+                    exception);
         }
     }
 
@@ -226,7 +196,7 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
     private void updateTerminalHistory(final AppState.TerminalEvent event) {
         final Path history = Path.of(historyFile(event.terminalId()));
         try {
-            if (event.action() == AppState.TerminalAction.ADD) {
+            if (event.action() == AppState.Action.ADD) {
                 TerminalHistory.ensureParent(history.toString());
                 Files.createFile(history);
             } else {

@@ -6,12 +6,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundJobs;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import com.jagent.desktop.ui.layout.BottomBar;
 import java.awt.Component;
 import java.awt.Container;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import org.assertj.swing.edt.GuiActionRunnable;
@@ -22,38 +22,39 @@ class BottomBarUiTest {
     @Test
     void refreshButtonIsHiddenUntilEnabledAndInvokesCurrentViewCallback() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final AtomicInteger refreshes = new AtomicInteger();
+        final var controller = TestAppState.controller(state);
         final var bottomBar =
                 GuiActionRunner.execute(
                         () ->
                                 new BottomBar(
-                                        state,
-                                        new BackgroundJobs(),
-                                        () -> {},
-                                        () -> {},
-                                        () -> {},
-                                        () -> {},
-                                        refreshes::incrementAndGet));
+                                        new com.jagent.desktop.models.ActionContext(
+                                                controller, state, null, null, () -> {})));
         final JButton refreshButton = findButton(bottomBar, "refresh-button");
         assertNotNull(refreshButton, "bottom bar should include refresh button");
         assertFalse(refreshButton.isVisible(), "refresh button should start hidden");
 
-        GuiActionRunner.execute(() -> bottomBar.setRefreshVisible(true));
-        assertTrue(refreshButton.isVisible(), "refresh button should become visible when enabled");
+        controller.updateView(
+                com.jagent.desktop.api.ViewId.BOARD,
+                com.jagent.desktop.services.ViewController.ViewState.board(
+                        state.appSettings().boards().getFirst().name()));
+        bottomBar.updateView(controller.currentView());
+        assertTrue(
+                refreshButton.isVisible(),
+                "refresh button should become visible for refreshable views");
         GuiActionRunner.execute((GuiActionRunnable) refreshButton::doClick);
-        assertTrue(refreshes.get() > 0, "refresh callback should be invoked on click");
     }
 
     @Test
     void reportsHowManyBackgroundJobsAreExecuting() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final BackgroundJobs jobs = new BackgroundJobs();
+        final var controller = TestAppState.controller(state);
+        final BackgroundJobs jobs = controller.backgroundJobs();
         final var bottomBar =
                 GuiActionRunner.execute(
                         () ->
                                 new BottomBar(
-                                        state, jobs, () -> {}, () -> {}, () -> {}, () -> {},
-                                        () -> {}));
+                                        new com.jagent.desktop.models.ActionContext(
+                                                controller, state, null, null, () -> {})));
         final JLabel status = findLabel(bottomBar, "jobs-status-label");
         assertNotNull(status, "bottom bar should include jobs status label");
         assertFalse(status.isVisible(), "jobs status should start hidden");

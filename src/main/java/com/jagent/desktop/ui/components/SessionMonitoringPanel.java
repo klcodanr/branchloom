@@ -1,13 +1,11 @@
 package com.jagent.desktop.ui.components;
 
-import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
-import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import java.awt.BorderLayout;
 import java.awt.Cursor;
 import java.awt.Dimension;
@@ -148,11 +146,7 @@ public final class SessionMonitoringPanel extends JPanel {
         if (column == 0) {
             final Session session = appState.sessions().get(id);
             if (session != null) {
-                actionContext.appState().updateCurrentProject(session.projectId());
-                actionContext.appState().updateCurrentSession(id);
-                actionContext
-                        .viewCoordinator()
-                        .updateView(ViewId.SESSION, ViewState.session(session.projectId(), id));
+                actionContext.viewController().openSession(session.projectId(), id);
             }
         } else if (column == 1) {
             final PullRequestDetails monitoring = appState.monitoringStatuses().get(id);

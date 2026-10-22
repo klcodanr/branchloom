@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.test.TestAppState;
@@ -40,8 +41,10 @@ class PasteSessionsActionTest {
     void actionIsEnabledForASelectedProject() {
         final AppState state = TestAppState.empty();
         final var projectId = state.addProject(new Project("Demo", "/tmp", null));
-        state.updateCurrentProject(projectId);
-        final PasteSessionsAction action = new PasteSessionsAction(TestAppState.context(state));
+        final var controller = TestAppState.controller(state);
+        controller.selectProject(projectId);
+        final PasteSessionsAction action =
+                new PasteSessionsAction(new ActionContext(controller, state, null, null, null));
 
         assertTrue(action.enabled(), "paste action should be enabled for a selected project");
     }

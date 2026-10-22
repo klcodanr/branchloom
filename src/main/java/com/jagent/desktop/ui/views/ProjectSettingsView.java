@@ -6,7 +6,7 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.github.Credential;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.services.github.GitHubAuth;
 import com.jagent.desktop.ui.Defaults;
 import com.jagent.desktop.ui.actions.OpenDirectoryAction;
@@ -60,19 +60,20 @@ public final class ProjectSettingsView extends JPanel implements View {
     }
 
     public static JComponent create(final ActionContext actionContext) {
-        final AppState state = actionContext.appState();
-        final Project project = state.projects().get(state.currentProjectId());
+        final var state = actionContext.appState();
+        final Project project =
+                state.projects().get(actionContext.viewController().currentProjectId());
         if (project == null) {
             throw new IllegalStateException("A project must be selected.");
         }
         final Runnable close =
                 () ->
                         actionContext
-                                .viewCoordinator()
+                                .viewController()
                                 .updateView(
                                         ViewId.PROJECT,
-                                        ViewCoordinator.ViewState.project(
-                                                state.currentProjectId()));
+                                        ViewController.ViewState.project(
+                                                actionContext.viewController().currentProjectId()));
         final JTextField name = new JTextField(project.name(), 45);
         final JTextField group = new JTextField(project.group(), 45);
         final JTextField template = new JTextField(project.worktreeTemplate(), 45);
@@ -126,6 +127,7 @@ public final class ProjectSettingsView extends JPanel implements View {
                 () ->
                         saveProject(
                                 state,
+                                actionContext.viewController(),
                                 project,
                                 name,
                                 group,
@@ -166,8 +168,10 @@ public final class ProjectSettingsView extends JPanel implements View {
         return repository;
     }
 
+    @SuppressWarnings("PMD.ExcessiveParameterList")
     /* package */ static void saveProject(
             final AppState state,
+            final ViewController viewController,
             final Project project,
             final JTextField name,
             final JTextField group,

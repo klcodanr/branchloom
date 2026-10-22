@@ -1,43 +1,21 @@
 package com.jagent.desktop.ui.views;
 
-import com.jagent.desktop.api.View;
+import com.jagent.desktop.api.RefreshableView;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.models.PullRequestFilter;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
 import java.awt.BorderLayout;
-import java.awt.FlowLayout;
-import javax.swing.JComboBox;
-import javax.swing.JLabel;
+import java.util.concurrent.CompletableFuture;
 import javax.swing.JPanel;
 
 /** Pull requests authored by the current user across all projects. */
-public final class MyPullRequestsView extends JPanel implements View {
-    private static final String DEFAULT_FILTER = "My PRs";
-    private final JComboBox<PullRequestFilter> filters;
+public final class MyPullRequestsView extends JPanel implements RefreshableView {
     private final PullRequestsBoard board;
 
     public MyPullRequestsView(final ActionContext actionContext) {
         super(new BorderLayout());
-        filters =
-                new JComboBox<>(
-                        actionContext
-                                .appState()
-                                .appSettings()
-                                .pullRequestFilters()
-                                .toArray(PullRequestFilter[]::new));
-        board = new PullRequestsBoard(actionContext, selectedFilter().query());
-        filters.addActionListener(
-                event -> {
-                    board.setQuery(selectedFilter().query());
-                    board.refresh();
-                });
-        final JPanel filterRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        filterRow.setOpaque(false);
-        filterRow.add(new JLabel("Filter"));
-        filterRow.add(filters);
-        add(filterRow, BorderLayout.NORTH);
+        board = new PullRequestsBoard(actionContext);
         add(TabBody.wrap(board), BorderLayout.CENTER);
     }
 
@@ -57,18 +35,10 @@ public final class MyPullRequestsView extends JPanel implements View {
     }
 
     @Override
-    public void refresh() {
-        board.refresh();
+    public CompletableFuture<?> refresh() {
+        return board.refresh();
     }
 
     @Override
     public void detach() {}
-
-    private PullRequestFilter selectedFilter() {
-        final PullRequestFilter selected = (PullRequestFilter) filters.getSelectedItem();
-        if (selected != null) {
-            return selected;
-        }
-        return new PullRequestFilter(DEFAULT_FILTER, "");
-    }
 }

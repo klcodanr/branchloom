@@ -33,20 +33,20 @@ public final class AppMenuBar {
 
     public static JMenuBar create(final ActionContext actionContext) {
         final JMenuBar bar = new JMenuBar();
-        final boolean projectSelected = actionContext.appState().currentProjectId() != null;
-        final boolean sessionSelected = actionContext.appState().currentSessionId() != null;
+        final boolean projectSelected = actionContext.viewController().currentProjectId() != null;
+        final boolean sessionSelected = actionContext.viewController().currentSessionId() != null;
         bar.add(fileMenu(actionContext, projectSelected));
         bar.add(viewMenu(actionContext));
         if (projectSelected) {
             final JMenu project = new JMenu("Project");
             ProjectActions.populate(
-                    project, actionContext, actionContext.appState().currentProjectId());
+                    project, actionContext, actionContext.viewController().currentProjectId());
             bar.add(project);
         }
         if (sessionSelected) {
             final JMenu session = new JMenu("Session");
             SessionActions.populate(
-                    session, actionContext, actionContext.appState().currentSessionId());
+                    session, actionContext, actionContext.viewController().currentSessionId());
             bar.add(session);
         }
         bar.add(helpMenu(actionContext));
@@ -102,10 +102,10 @@ public final class AppMenuBar {
                             board.name(),
                             () ->
                                     actionContext
-                                            .viewCoordinator()
+                                            .viewController()
                                             .updateView(
                                                     ViewId.BOARD,
-                                                    com.jagent.desktop.services.ViewCoordinator
+                                                    com.jagent.desktop.services.ViewController
                                                             .ViewState.board(board.name()))));
         }
         return view;

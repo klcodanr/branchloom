@@ -166,8 +166,7 @@ public final class TerminalPanel extends JPanel {
         return TerminalManager.get().state(id);
     }
 
-    public static void reconcile(final Set<TerminalId> terminalIds) {
-        TerminalManager.get().reconcile(terminalIds);
+    public static void pruneRetainedPanels(final Set<TerminalId> terminalIds) {
         RETAINED_PANELS
                 .entrySet()
                 .removeIf(

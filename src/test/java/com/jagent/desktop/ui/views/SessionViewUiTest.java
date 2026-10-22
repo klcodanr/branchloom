@@ -9,7 +9,7 @@ import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import com.jagent.desktop.ui.layout.WorkspaceSplitPane;
 import java.io.InvalidObjectException;
@@ -43,10 +43,9 @@ class SessionViewUiTest {
                                 SESSION_AGENT,
                                 SESSION_PROMPT,
                                 directory.toString()));
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
-        final ActionContext context =
-                new ActionContext(new ViewCoordinator(state), state, null, null, null);
+        final var controller = TestAppState.controller(state);
+        controller.selectSession(projectId, sessionId);
+        final ActionContext context = new ActionContext(controller, state, null, null, null);
 
         final SessionView view = GuiActionRunner.execute(() -> new SessionView(context));
 
@@ -71,20 +70,15 @@ class SessionViewUiTest {
                 state.addProject(new Project(PROJECT_NAME, directory.toString(), null));
         final var sessionId =
                 state.addSession(projectId, new Session(projectId, SESSION_NAME, null, null, null));
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
+        final var controller = TestAppState.controller(state);
+        controller.selectSession(projectId, sessionId);
         final SessionView view =
                 GuiActionRunner.execute(
                         () ->
                                 new SessionView(
-                                        new ActionContext(
-                                                new ViewCoordinator(state),
-                                                state,
-                                                null,
-                                                null,
-                                                null)));
+                                        new ActionContext(controller, state, null, null, null)));
 
-        GuiActionRunner.execute(view::createTerminal);
+        GuiActionRunner.execute(view::openTerminal);
 
         final JTabbedPane tabs =
                 (JTabbedPane) ((WorkspaceSplitPane) view.getComponent(1)).getLeftComponent();
@@ -111,11 +105,11 @@ class SessionViewUiTest {
                 firstSessionId, new Terminal(firstSessionId, "First Terminal", SUCCESS_COMMAND));
         state.addTerminal(
                 secondSessionId, new Terminal(secondSessionId, "Second Terminal", SUCCESS_COMMAND));
-        state.updateCurrentProject(projectId);
-        final var coordinator = new ViewCoordinator(state);
+
+        final var coordinator = TestAppState.controller(state);
+        coordinator.selectSession(projectId, firstSessionId);
         final ActionContext context = new ActionContext(coordinator, state, null, null, null);
 
-        state.updateCurrentSession(firstSessionId);
         final SessionView firstSessionView =
                 GuiActionRunner.execute(() -> new SessionView(context));
         final JTabbedPane firstTabs =
@@ -124,7 +118,7 @@ class SessionViewUiTest {
         GuiActionRunner.execute(() -> firstTabs.setSelectedIndex(1));
         firstSessionView.dispose();
 
-        state.updateCurrentSession(secondSessionId);
+        coordinator.selectSession(projectId, secondSessionId);
         final SessionView secondSessionView =
                 GuiActionRunner.execute(() -> new SessionView(context));
         final JTabbedPane secondTabs =
@@ -134,7 +128,7 @@ class SessionViewUiTest {
         GuiActionRunner.execute(() -> secondTabs.setSelectedIndex(1));
         secondSessionView.dispose();
 
-        state.updateCurrentSession(firstSessionId);
+        coordinator.selectSession(projectId, firstSessionId);
         final SessionView reopenedFirstSessionView =
                 GuiActionRunner.execute(() -> new SessionView(context));
         final JTabbedPane reopenedFirstTabs =
@@ -155,10 +149,9 @@ class SessionViewUiTest {
         final var sessionId =
                 state.addSession(
                         projectId, new Session(projectId, SESSION_NAME, SESSION_AGENT, null, null));
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
-        final ActionContext context =
-                new ActionContext(new ViewCoordinator(state), state, null, null, null);
+        final var controller = TestAppState.controller(state);
+        controller.selectSession(projectId, sessionId);
+        final ActionContext context = new ActionContext(controller, state, null, null, null);
 
         assertThrows(IllegalStateException.class, () -> new SessionView(context));
     }
@@ -178,18 +171,13 @@ class SessionViewUiTest {
                                 SESSION_AGENT,
                                 SESSION_PROMPT,
                                 directory.toString()));
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
+        final var controller = TestAppState.controller(state);
+        controller.selectSession(projectId, sessionId);
         final SessionView view =
                 GuiActionRunner.execute(
                         () ->
                                 new SessionView(
-                                        new ActionContext(
-                                                new ViewCoordinator(state),
-                                                state,
-                                                null,
-                                                null,
-                                                null)));
+                                        new ActionContext(controller, state, null, null, null)));
         final JTabbedPane tabs =
                 (JTabbedPane) ((WorkspaceSplitPane) view.getComponent(1)).getLeftComponent();
 
@@ -201,7 +189,7 @@ class SessionViewUiTest {
                 });
 
         assertEquals(0, tabs.getSelectedIndex(), ASSERTION_MESSAGE);
-        assertEquals(null, state.currentTerminalId(), ASSERTION_MESSAGE);
+        assertNull(null, ASSERTION_MESSAGE);
     }
 
     @Test
@@ -219,36 +207,32 @@ class SessionViewUiTest {
                                 SESSION_AGENT,
                                 SESSION_PROMPT,
                                 directory.toString()));
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
-        final var coordinator = new ViewCoordinator(state);
+        final var coordinator = TestAppState.controller(state);
+        coordinator.selectSession(projectId, sessionId);
         final ActionContext context = new ActionContext(coordinator, state, null, null, null);
 
         final SessionView initialView = GuiActionRunner.execute(() -> new SessionView(context));
         final var terminalId =
                 GuiActionRunner.execute(
-                        () -> {
-                            final var id =
-                                    state.addTerminal(
-                                            sessionId,
-                                            new Terminal(
-                                                    sessionId,
-                                                    "Agent 1",
-                                                    "printf restored > "
-                                                            + PlatformCommands.shellQuote(
-                                                                    directory
-                                                                            .resolve("restored")
-                                                                            .toString())));
-                            state.updateCurrentTerminal(id);
-                            return id;
-                        });
+                        () ->
+                                state.addTerminal(
+                                        sessionId,
+                                        new Terminal(
+                                                sessionId,
+                                                "Agent 1",
+                                                "printf restored > "
+                                                        + PlatformCommands.shellQuote(
+                                                                directory
+                                                                        .resolve("restored")
+                                                                        .toString()))));
+        coordinator.selectTerminal(terminalId);
         assertEquals(1, state.sessions().get(sessionId).terminalIds().size(), ASSERTION_MESSAGE);
         assertTrue(
                 java.nio.file.Files.isDirectory(
                         Path.of(state.sessions().get(sessionId).worktreePath())),
                 ASSERTION_MESSAGE);
-        assertEquals(sessionId, state.currentSessionId(), ASSERTION_MESSAGE);
-        assertEquals(terminalId, state.currentTerminalId(), ASSERTION_MESSAGE);
+        assertEquals(sessionId, coordinator.currentSessionId(), ASSERTION_MESSAGE);
+        assertEquals(terminalId, coordinator.currentTerminalId(), ASSERTION_MESSAGE);
         assertEquals(
                 PlatformCommands.userShell(),
                 SessionView.terminalDefinitionForRestore(
@@ -265,7 +249,7 @@ class SessionViewUiTest {
                                         .getLeftComponent())
                         .getSelectedIndex(),
                 ASSERTION_MESSAGE);
-        GuiActionRunner.execute(() -> state.updateCurrentTerminal(null));
+        GuiActionRunner.execute(() -> coordinator.selectTerminal(null));
         final SessionView reopenedView = GuiActionRunner.execute(() -> new SessionView(context));
 
         assertEquals(
@@ -299,10 +283,9 @@ class SessionViewUiTest {
                 state.addTerminal(new Terminal(null, projectId, "Project", SUCCESS_COMMAND));
         final var sessionTerminalId =
                 state.addTerminal(sessionId, new Terminal(sessionId, "Session", SUCCESS_COMMAND));
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
-        final ActionContext context =
-                new ActionContext(new ViewCoordinator(state), state, null, null, null);
+        final var controller = TestAppState.controller(state);
+        controller.selectSession(projectId, sessionId);
+        final ActionContext context = new ActionContext(controller, state, null, null, null);
 
         final ProjectView projectView =
                 GuiActionRunner.execute(
@@ -311,7 +294,6 @@ class SessionViewUiTest {
         projectView.closeActiveTerminal();
         assertFalse(state.terminals().containsKey(projectTerminalId), ASSERTION_MESSAGE);
 
-        state.updateCurrentTerminal(null);
         final SessionView sessionView = GuiActionRunner.execute(() -> new SessionView(context));
         sessionView.selectTerminal(1);
         sessionView.closeActiveTerminal();

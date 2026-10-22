@@ -1,13 +1,11 @@
 package com.jagent.desktop.ui.actions;
 
 import com.jagent.desktop.api.BaseAction;
-import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.ProgressOperation;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.github.Credential;
-import com.jagent.desktop.services.ViewCoordinator.ViewState;
 import com.jagent.desktop.services.github.GitHubAuth;
 import com.jagent.desktop.ui.components.BaseButton;
 import com.jagent.desktop.ui.components.FormPanel;
@@ -138,7 +136,9 @@ public class CreateProjectAction extends BaseAction {
                 githubAuth.getSelectedItem() instanceof Credential selected ? selected : null;
         final Project project = new Project(projectName, projectPath.toString(), auth);
         final ProjectId projectId =
-                appState.addProject(targetGroup == null ? project : project.withGroup(targetGroup));
-        actionContext.viewCoordinator().updateView(ViewId.PROJECT, ViewState.project(projectId));
+                actionContext
+                        .appState()
+                        .addProject(targetGroup == null ? project : project.withGroup(targetGroup));
+        actionContext.viewController().openProject(projectId);
     }
 }

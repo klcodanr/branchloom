@@ -2,7 +2,7 @@ package com.jagent.desktop.models;
 
 import java.util.UUID;
 
-public record ProjectId(UUID value) {
+public record ProjectId(UUID value) implements IdType {
     public ProjectId {
         if (value == null) {
             throw new IllegalArgumentException("Project ID cannot be null");

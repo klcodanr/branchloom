@@ -9,7 +9,7 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import java.net.MalformedURLException;
 import java.nio.file.Path;
@@ -29,9 +29,9 @@ class ProjectViewCoverageTest {
                         Map.of(projectId.value().toString(), persisted),
                         Map.of(),
                         Map.of());
-        state.updateCurrentProject(projectId);
-        final ActionContext context =
-                new ActionContext(new ViewCoordinator(state), state, null, null, null);
+        final var controller = TestAppState.controller(state);
+        controller.selectProject(projectId);
+        final ActionContext context = new ActionContext(controller, state, null, null, null);
 
         final Project passedToView = new Project("Unmapped", directory.toString(), null);
         final ProjectView view = new ProjectView(context, passedToView);

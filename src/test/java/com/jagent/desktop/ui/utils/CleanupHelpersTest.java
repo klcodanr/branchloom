@@ -18,26 +18,32 @@ class CleanupHelpersTest {
     @Test
     void resolvesCurrentSessionWorktreeBeforeProjectPath() throws InvalidObjectException {
         final AppState state = TestAppState.empty();
+        final var controller = TestAppState.controller(state);
         final var projectId = state.addProject(new Project("Demo", PROJECT_PATH, null));
         final var sessionId =
                 state.addSession(
                         projectId, new Session(projectId, SESSION_NAME, null, null, "/worktree"));
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
+        controller.selectProject(projectId);
+        controller.selectSession(projectId, sessionId);
 
-        assertEquals("/worktree", PathUtils.resolve(state), "session worktree should win");
+        assertEquals(
+                "/worktree", PathUtils.resolve(state, controller), "session worktree should win");
     }
 
     @Test
     void resolvesProjectPathWhenSessionHasNoWorktree() throws InvalidObjectException {
         final AppState state = TestAppState.empty();
+        final var controller = TestAppState.controller(state);
         final var projectId = state.addProject(new Project("Demo", PROJECT_PATH, null));
         final var sessionId =
                 state.addSession(projectId, new Session(projectId, SESSION_NAME, null, null, null));
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
+        controller.selectProject(projectId);
+        controller.selectSession(projectId, sessionId);
 
-        assertEquals(PROJECT_PATH, PathUtils.resolve(state), "project path should be the fallback");
+        assertEquals(
+                PROJECT_PATH,
+                PathUtils.resolve(state, controller),
+                "project path should be the fallback");
     }
 
     @Test
@@ -55,11 +61,12 @@ class CleanupHelpersTest {
         final AppState state = TestAppState.empty();
         final var projectId = state.addProject(new Project("Demo", PROJECT_PATH, null));
         state.addSession(projectId, new Session(projectId, SESSION_NAME, null, null, null));
-        state.updateCurrentProject(projectId);
+        final var controller = TestAppState.controller(state);
+        controller.selectProject(projectId);
 
         assertEquals(
                 Set.of("feature"),
-                SessionNames.existing(state, state.currentProject()),
+                SessionNames.existing(state, controller.currentProject()),
                 "existing names should be normalized");
     }
 

@@ -24,9 +24,7 @@ public final class PullRequestWatcher {
     private final BiConsumer<SessionId, PullRequestDetails> statusListener;
     private final Map<SessionId, PullRequestDetails> previous = new java.util.HashMap<>();
 
-    public PullRequestWatcher(
-            final ActionContext actionContext,
-            final BiConsumer<SessionId, PullRequestDetails> statusListener) {
+    public PullRequestWatcher(final ActionContext actionContext) {
         this.actionContext = actionContext;
         this.sessions = actionContext.appState()::sessions;
         this.statusListener =
@@ -36,12 +34,11 @@ public final class PullRequestWatcher {
                     } else {
                         actionContext.appState().updateMonitoringStatus(sessionId, status);
                     }
-                    statusListener.accept(sessionId, status);
                 };
     }
 
-    public void refresh() {
-        BackgroundOperations.submit(
+    public java.util.concurrent.CompletableFuture<Void> refresh() {
+        return BackgroundOperations.submit(
                 "Pull request monitoring",
                 "Refresh pull request status",
                 () -> {

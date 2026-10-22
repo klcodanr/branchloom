@@ -1,9 +1,7 @@
 package com.jagent.desktop.ui.actions;
 
 import com.jagent.desktop.api.BaseAction;
-import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.services.ViewCoordinator.ViewState;
 
 /** Opens the selected project. */
 public final class OpenProjectAction extends BaseAction {
@@ -23,15 +21,15 @@ public final class OpenProjectAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.appState().currentProjectId() != null;
+        return actionContext.viewController().currentProjectId() != null;
     }
 
     @Override
     public void execute() {
-        final var projectId = actionContext.appState().currentProjectId();
+        final var projectId = actionContext.viewController().currentProjectId();
         if (projectId == null) {
             return;
         }
-        actionContext.viewCoordinator().updateView(ViewId.PROJECT, ViewState.project(projectId));
+        actionContext.viewController().openProject(projectId);
     }
 }

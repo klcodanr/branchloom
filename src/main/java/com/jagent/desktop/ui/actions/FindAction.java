@@ -5,8 +5,7 @@ import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
-import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.services.ViewController.ViewState;
 import com.jagent.desktop.ui.components.CommandPalette;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +27,7 @@ public final class FindAction extends BaseAction {
 
     @Override
     public void execute() {
-        final AppState state = actionContext.appState();
+        final var state = actionContext.appState();
 
         final List<CommandPalette.Choice> choices = new ArrayList<>();
         state.projects()
@@ -39,7 +38,7 @@ public final class FindAction extends BaseAction {
                                             "Project: " + project.name(),
                                             () ->
                                                     actionContext
-                                                            .viewCoordinator()
+                                                            .viewController()
                                                             .updateView(
                                                                     ViewId.PROJECT,
                                                                     ViewState.project(projectId))));
@@ -59,7 +58,7 @@ public final class FindAction extends BaseAction {
                                                                         + session.name(),
                                                                 () ->
                                                                         actionContext
-                                                                                .viewCoordinator()
+                                                                                .viewController()
                                                                                 .updateView(
                                                                                         ViewId
                                                                                                 .SESSION,
@@ -91,7 +90,7 @@ public final class FindAction extends BaseAction {
                                                                                                     .title(),
                                                                                     () -> {
                                                                                         actionContext
-                                                                                                .viewCoordinator()
+                                                                                                .viewController()
                                                                                                 .updateView(
                                                                                                         ViewId
                                                                                                                 .SESSION,

@@ -11,7 +11,7 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Tool;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import java.awt.Font;
 import java.util.List;
@@ -39,12 +39,13 @@ class ContextMenuAndThemeTest {
                         Defaults.appSettings().worktreeTemplate(),
                         "");
         final AppState state = new AppState(settings, Map.of(), Map.of(), Map.of());
+        final var coordinator = TestAppState.controller(state);
         final var projectId = state.addProject(new Project("Demo", "/tmp", null));
         final var sessionId =
                 state.addSession(projectId, new Session(projectId, "Feature", null, null, null));
-        state.updateCurrentProject(projectId);
-        state.updateCurrentSession(sessionId);
-        final var context = new ActionContext(new ViewCoordinator(state), state, null, null, null);
+        coordinator.selectProject(projectId);
+        coordinator.selectSession(projectId, sessionId);
+        final var context = new ActionContext(coordinator, state, null, null, null);
 
         final var projectMenu =
                 GuiActionRunner.execute(() -> ProjectActions.menu(context, projectId));
@@ -100,7 +101,9 @@ class ContextMenuAndThemeTest {
         assertNotNull(updateBranch, "session update branch action should exist");
         GuiActionRunner.execute((GuiActionRunnable) updateBranch::doClick);
         assertEquals(
-                sessionId, state.currentSessionId(), "session action should select the session");
+                sessionId,
+                coordinator.currentSessionId(),
+                "session action should select the session");
     }
 
     @Test
@@ -108,11 +111,13 @@ class ContextMenuAndThemeTest {
             throws java.io.InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(new Project("Demo", "/tmp", null));
-        final var context = new ActionContext(new ViewCoordinator(state), state, null, null, null);
+        final var coordinator = TestAppState.controller(state);
+        final var context = new ActionContext(coordinator, state, null, null, null);
 
         final var menu = GuiActionRunner.execute(() -> ProjectActions.menu(context, projectId));
 
-        assertEquals(projectId, state.currentProjectId(), "menu should select its target project");
+        assertEquals(
+                projectId, coordinator.currentProjectId(), "menu should select its target project");
         assertNotNull(findItem(menu, "Start agent session"), "project action should be present");
         assertTrue(
                 findItem(menu, "Start agent session").isEnabled(),
@@ -133,11 +138,15 @@ class ContextMenuAndThemeTest {
         final var projectId = state.addProject(new Project("Demo", "/tmp", null));
         final var sessionId =
                 state.addSession(projectId, new Session(projectId, "Feature", null, null, null));
-        final var context = new ActionContext(new ViewCoordinator(state), state, null, null, null);
+        final var coordinator = TestAppState.controller(state);
+        final var context = new ActionContext(coordinator, state, null, null, null);
 
         final var menu = GuiActionRunner.execute(() -> SessionActions.menu(context, sessionId));
 
-        assertEquals(projectId, state.currentProjectId(), "menu should select the session project");
+        assertEquals(
+                projectId,
+                coordinator.currentProjectId(),
+                "menu should select the session project");
         final javax.swing.JMenuItem agentsHeading = findItem(menu, AGENTS_LABEL);
         assertNotNull(agentsHeading, "session agents heading should exist");
         assertTrue(!agentsHeading.isEnabled(), "session agents heading should be disabled");

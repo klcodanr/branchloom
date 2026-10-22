@@ -43,11 +43,13 @@ public final class OpenDirectoryAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return PathUtils.resolve(actionContext.appState()) != null;
+        return PathUtils.resolve(actionContext.appState(), actionContext.viewController()) != null;
     }
 
     @Override
     public void execute() {
-        open(PathUtils.resolve(actionContext.appState()), actionContext.window());
+        open(
+                PathUtils.resolve(actionContext.appState(), actionContext.viewController()),
+                actionContext.window());
     }
 }

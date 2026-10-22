@@ -8,7 +8,7 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import com.jagent.desktop.ui.layout.WorkspaceSplitPane;
 import java.io.IOException;
@@ -34,7 +34,7 @@ class ProjectViewUiTest {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
         final ActionContext context =
-                new ActionContext(new ViewCoordinator(state), state, null, null, null);
+                new ActionContext(TestAppState.controller(state), state, null, null, null);
         final Project project = state.projects().get(projectId);
 
         final ProjectView view = GuiActionRunner.execute(() -> new ProjectView(context, project));
@@ -59,7 +59,7 @@ class ProjectViewUiTest {
         final var projectId =
                 state.addProject(new Project(PROJECT_NAME, directory.toString(), null));
         final ActionContext context =
-                new ActionContext(new ViewCoordinator(state), state, null, null, null);
+                new ActionContext(TestAppState.controller(state), state, null, null, null);
         final var firstFile =
                 java.nio.file.Files.writeString(directory.resolve("first.txt"), "first");
         final var secondFile =
@@ -101,7 +101,7 @@ class ProjectViewUiTest {
         state.addTerminal(
                 sessionId, new Terminal(sessionId, projectId, "Dual owner", SUCCESS_COMMAND));
         final ActionContext context =
-                new ActionContext(new ViewCoordinator(state), state, null, null, null);
+                new ActionContext(TestAppState.controller(state), state, null, null, null);
 
         final ProjectView view =
                 GuiActionRunner.execute(
@@ -125,7 +125,7 @@ class ProjectViewUiTest {
                         () ->
                                 new ProjectView(
                                         new ActionContext(
-                                                new ViewCoordinator(state),
+                                                TestAppState.controller(state),
                                                 state,
                                                 null,
                                                 null,
