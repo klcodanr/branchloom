@@ -3,7 +3,6 @@ package com.jagent.desktop.ui.views;
 import com.jagent.desktop.api.Action;
 import com.jagent.desktop.api.View;
 import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.CreateSessionAction;

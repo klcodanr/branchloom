@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +63,9 @@ class PullRequestWatcherTest {
                         return statuses.remove();
                     }
                 };
-        final var context = new ActionContext(TestAppState.controller(state), state, null, null, null);
+        final var context =
+                new ActionContext(
+                        TestAppState.controller(state), state, null, null, null, ignored -> github);
         try (PullRequestWatcher watcher = new PullRequestWatcher(context)) {
             watcher.poll();
             watcher.poll();

@@ -10,8 +10,8 @@ import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.board.BoardDefinition;
-import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
@@ -61,7 +61,24 @@ public final class ProjectTreePanel extends JPanel {
     public ProjectTreePanel(final ActionContext actionContext) {
         super();
         this.actionContext = actionContext;
-        actionContext.appState().addEventListener(this::handleStateEvent);
+        actionContext
+                .appState()
+                .addEventListener(
+                        event -> {
+                            if (event.action() == AppState.Action.UPDATE
+                                    && event.target() instanceof SessionId sessionId) {
+                                final Session session =
+                                        actionContext.appState().sessions().get(sessionId);
+                                if (session != null) {
+                                    updatePullRequestStatus(
+                                            session,
+                                            actionContext
+                                                    .appState()
+                                                    .monitoringStatuses()
+                                                    .get(sessionId));
+                                }
+                            }
+                        });
         setOpaque(false);
         setBorder(UiBorders.contentArea());
         setPreferredSize(new Dimension(315, 0));
@@ -88,18 +105,6 @@ public final class ProjectTreePanel extends JPanel {
         treeScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         treeContent.add(treeScroll, BorderLayout.CENTER);
         add(treeContent, BorderLayout.CENTER);
-    }
-
-    private void handleStateEvent(final AppState.StateEvent event) {
-        if (event.action() != AppState.Action.UPDATE
-                || !(event.target() instanceof SessionId sessionId)) {
-            return;
-        }
-        final Session session = actionContext.appState().sessions().get(sessionId);
-        if (session != null) {
-            updatePullRequestStatus(
-                    session, actionContext.appState().monitoringStatuses().get(sessionId));
-        }
     }
 
     public void updatePullRequestStatus(final Session session, final PullRequestDetails status) {

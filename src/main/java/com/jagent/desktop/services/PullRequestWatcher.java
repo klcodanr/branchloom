@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import javax.swing.SwingUtilities;
 import org.slf4j.Logger;
@@ -144,9 +145,7 @@ public final class PullRequestWatcher implements AutoCloseable {
 
     private PullRequestDetails load(final Session session) {
         try {
-            final var github =
-                    com.jagent.desktop.services.github.GitHub.forProject(
-                            actionContext.appState(), session.projectId());
+            final var github = actionContext.githubProvider().forProject(session.projectId());
             final PullRequest request =
                     github.getPullRequest(java.nio.file.Path.of(session.worktreePath()));
             return github.getPullRequestDetails(request);
