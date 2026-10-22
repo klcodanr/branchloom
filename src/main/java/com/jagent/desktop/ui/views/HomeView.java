@@ -64,6 +64,7 @@ public final class HomeView extends JPanel implements RefreshableView {
     @Override
     public void detach() {}
 
+    @Override
     public java.util.concurrent.CompletableFuture<?> refresh() {
         return actionContext
                 .viewController()
