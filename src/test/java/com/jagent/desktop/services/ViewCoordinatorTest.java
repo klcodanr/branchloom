@@ -95,6 +95,38 @@ class ViewControllerTest {
     }
 
     @Test
+    void openingTheCurrentProjectFromASessionClearsSessionAndTerminalSelection() {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var controller = TestAppState.controller(state);
+        final var projectId = ProjectId.create();
+        final var session = SessionId.create();
+        final var terminal = TerminalId.create();
+
+        controller.updateView(
+                ViewId.SESSION,
+                ViewController.ViewState.sessionTerminal(projectId, session, terminal));
+        controller.openProject(projectId);
+
+        assertEquals(projectId, controller.currentProjectId(), "project should remain selected");
+        assertNull(controller.currentSessionId(), "session should be cleared");
+        assertNull(controller.currentTerminalId(), "session terminal should be cleared");
+        assertEquals(ViewId.PROJECT, controller.currentViewId(), "project view should be opened");
+    }
+
+    @Test
+    void openingTheCurrentProjectAlwaysClearsSessionSelection() {
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var controller = TestAppState.controller(state);
+        final var projectId = ProjectId.create();
+        final var session = SessionId.create();
+
+        controller.updateView(ViewId.PROJECT, ViewController.ViewState.session(projectId, session));
+        controller.openProject(projectId);
+
+        assertNull(controller.currentSessionId(), "project navigation should clear session");
+    }
+
+    @Test
     void selectedTabIsPreservedPerView() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var coordinator = TestAppState.controller(state);

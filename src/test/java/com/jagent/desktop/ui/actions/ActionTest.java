@@ -2,6 +2,7 @@ package com.jagent.desktop.ui.actions;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.api.Action;
@@ -74,7 +75,7 @@ class ActionTest {
         new OpenProjectSettingsAction(context).execute();
         assertEquals(ViewId.PROJECT_SETTINGS, coordinator.currentViewId(), ASSERTION_MESSAGE);
         new OpenSessionAction(context).execute();
-        assertEquals(ViewId.SESSION, coordinator.currentViewId(), ASSERTION_MESSAGE);
+        assertEquals(ViewId.PROJECT_SETTINGS, coordinator.currentViewId(), ASSERTION_MESSAGE);
     }
 
     @Test
@@ -176,10 +177,11 @@ class ActionTest {
         new OpenProjectAction(context).execute();
         assertEquals(ViewId.PROJECT, coordinator.currentViewId(), ASSERTION_MESSAGE);
         assertEquals(projectId, coordinator.currentProjectId(), ASSERTION_MESSAGE);
+        assertNull(coordinator.currentSessionId(), ASSERTION_MESSAGE);
 
         new OpenSessionAction(context).execute();
-        assertEquals(ViewId.SESSION, coordinator.currentViewId(), ASSERTION_MESSAGE);
-        assertEquals(sessionId, coordinator.currentSessionId(), ASSERTION_MESSAGE);
+        assertEquals(ViewId.PROJECT, coordinator.currentViewId(), ASSERTION_MESSAGE);
+        assertNull(coordinator.currentSessionId(), ASSERTION_MESSAGE);
     }
 
     @Test
