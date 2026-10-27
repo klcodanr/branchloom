@@ -17,6 +17,7 @@ public final class PullRequestDetails extends PullRequest {
     private final int deletions;
     private final int changedFiles;
     private final PullRequestChecks checks;
+    private final PullRequestReviews reviews;
     private final Status status;
 
     public PullRequestDetails(
@@ -27,29 +28,9 @@ public final class PullRequestDetails extends PullRequest {
             final String mergableState,
             final int additions,
             final int deletions,
-            final int changedFiles) {
-        this(
-                pullRequest,
-                draft,
-                merged,
-                mergeable,
-                mergableState,
-                additions,
-                deletions,
-                changedFiles,
-                new PullRequestChecks(List.of()));
-    }
-
-    public PullRequestDetails(
-            final PullRequest pullRequest,
-            final boolean draft,
-            final boolean merged,
-            final boolean mergeable,
-            final String mergableState,
-            final int additions,
-            final int deletions,
             final int changedFiles,
-            final PullRequestChecks checks) {
+            final PullRequestChecks checks,
+            final PullRequestReviews reviews) {
         super(
                 pullRequest.projectId(),
                 pullRequest.project(),
@@ -72,47 +53,8 @@ public final class PullRequestDetails extends PullRequest {
         this.deletions = deletions;
         this.changedFiles = changedFiles;
         this.checks = checks == null ? new PullRequestChecks(List.of()) : checks;
+        this.reviews = reviews == null ? new PullRequestReviews(List.of()) : reviews;
         this.status = calculateStatus();
-    }
-
-    public PullRequestDetails(
-            final PullRequest pullRequest,
-            final boolean draft,
-            final boolean mergeable,
-            final String mergableState,
-            final int additions,
-            final int deletions,
-            final int changedFiles) {
-        this(
-                pullRequest,
-                draft,
-                false,
-                mergeable,
-                mergableState,
-                additions,
-                deletions,
-                changedFiles);
-    }
-
-    public PullRequestDetails(
-            final PullRequest pullRequest,
-            final boolean draft,
-            final boolean mergeable,
-            final String mergableState,
-            final int additions,
-            final int deletions,
-            final int changedFiles,
-            final PullRequestChecks checks) {
-        this(
-                pullRequest,
-                draft,
-                false,
-                mergeable,
-                mergableState,
-                additions,
-                deletions,
-                changedFiles,
-                checks);
     }
 
     public boolean draft() {
@@ -141,6 +83,10 @@ public final class PullRequestDetails extends PullRequest {
 
     public PullRequestChecks checks() {
         return checks;
+    }
+
+    public PullRequestReviews reviews() {
+        return reviews;
     }
 
     public enum Status {

@@ -70,7 +70,7 @@ public final class BoardView extends JPanel implements RefreshableView {
         boardInstanceState = actionContext.viewController().getAsyncLoadingState(ViewId.BOARD);
         board =
                 new KanbanBoard(
-                        definition.config(), actionContext, this::refresh, this::selectItem);
+                        definition.config(), actionContext, ignored -> refresh(), this::selectItem);
         configureFilters();
         final JPanel header = header();
         add(header, BorderLayout.NORTH);

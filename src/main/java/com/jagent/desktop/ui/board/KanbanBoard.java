@@ -1,6 +1,7 @@
 package com.jagent.desktop.ui.board;
 
 import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.board.BoardColumn;
 import com.jagent.desktop.models.board.BoardConfig;
 import com.jagent.desktop.models.board.BoardItem;
@@ -10,7 +11,9 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -21,29 +24,27 @@ import javax.swing.ScrollPaneConstants;
 public final class KanbanBoard extends JPanel {
     private transient BoardConfig config;
     private final transient ActionContext actionContext;
-    private final transient Runnable onRefresh;
+    private final transient Function<ProjectId, CompletableFuture<?>> refreshProject;
     private final transient Consumer<BoardItem> onSelect;
     private final transient BoardRuleEvaluator ruleEvaluator = new BoardRuleEvaluator();
     private List<BoardItem> items = List.of();
 
-    public KanbanBoard(final BoardConfig config) {
-        this(config, null, () -> {});
-    }
-
     public KanbanBoard(
-            final BoardConfig config, final ActionContext actionContext, final Runnable onRefresh) {
-        this(config, actionContext, onRefresh, ignored -> {});
+            final BoardConfig config,
+            final ActionContext actionContext,
+            final Function<ProjectId, CompletableFuture<?>> refreshProject) {
+        this(config, actionContext, refreshProject, ignored -> {});
     }
 
     public KanbanBoard(
             final BoardConfig config,
             final ActionContext actionContext,
-            final Runnable onRefresh,
+            final Function<ProjectId, CompletableFuture<?>> refreshProject,
             final Consumer<BoardItem> onSelect) {
         super(new BorderLayout());
         this.config = config;
         this.actionContext = actionContext;
-        this.onRefresh = onRefresh;
+        this.refreshProject = refreshProject;
         this.onSelect = onSelect;
         render();
     }
@@ -75,7 +76,7 @@ public final class KanbanBoard extends JPanel {
                 cardRow.setMaximumSize(
                         new Dimension(Integer.MAX_VALUE, UiConstants.PR_CARD_HEIGHT + 4));
                 cardRow.add(
-                        BoardCardFactory.create(item, actionContext, onRefresh, onSelect),
+                        BoardCardFactory.create(item, actionContext, refreshProject, onSelect),
                         BorderLayout.CENTER);
                 cards.add(cardRow);
             }

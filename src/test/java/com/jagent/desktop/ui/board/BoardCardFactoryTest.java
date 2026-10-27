@@ -21,6 +21,11 @@ class BoardCardFactoryTest {
                         null,
                         "project");
 
-        assertInstanceOf(BoardCard.class, BoardCardFactory.create(item, null, () -> {}));
+        assertInstanceOf(
+                BoardCard.class,
+                BoardCardFactory.create(
+                        item,
+                        null,
+                        ignored -> java.util.concurrent.CompletableFuture.completedFuture(null)));
     }
 }

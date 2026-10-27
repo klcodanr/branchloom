@@ -5,6 +5,10 @@ import java.util.List;
 /** A collection of reviews reported for a pull request. */
 public record PullRequestReviews(List<PullRequestReview> reviews) {
 
+    public PullRequestReviews {
+        reviews = List.copyOf(reviews);
+    }
+
     public enum Status {
         PENDING,
 
@@ -29,5 +33,15 @@ public record PullRequestReviews(List<PullRequestReview> reviews) {
             return Status.APPROVED;
         }
         return Status.PENDING;
+    }
+
+    public PullRequestReview.Status statusFor(final String login) {
+        for (int index = reviews.size() - 1; index >= 0; index--) {
+            final PullRequestReview review = reviews.get(index);
+            if (review.user().login().equalsIgnoreCase(login)) {
+                return review.status();
+            }
+        }
+        return null;
     }
 }
