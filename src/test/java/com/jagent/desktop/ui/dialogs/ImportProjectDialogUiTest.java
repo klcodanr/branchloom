@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import java.awt.GraphicsEnvironment;
 import java.io.IOException;
@@ -88,7 +88,7 @@ class ImportProjectDialogUiTest {
                         () ->
                                 new ImportProjectDialog(
                                         new ActionContext(
-                                                new ViewCoordinator(state),
+                                                TestAppState.controller(state),
                                                 state,
                                                 owner,
                                                 null,

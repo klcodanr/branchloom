@@ -13,12 +13,12 @@ import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.github.GitHub;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -43,8 +43,6 @@ class PullRequestWatcherTest {
                                 status(request, false, "dirty", PullRequestChecks.Status.PENDING),
                                 status(request, false, "dirty", PullRequestChecks.Status.FAILING),
                                 status(request, true, "clean", PullRequestChecks.Status.PASSING)));
-        final List<PullRequestDetails.Status> rendered = new ArrayList<>();
-        final List<SessionId> renderedSessionIds = new ArrayList<>();
         final Project project = request.project();
         final var state =
                 new AppState(
@@ -67,26 +65,18 @@ class PullRequestWatcherTest {
                 };
         final var context =
                 new ActionContext(
-                        new ViewCoordinator(state), state, null, null, null, ignored -> github);
-        try (PullRequestWatcher watcher =
-                new PullRequestWatcher(
-                        context,
-                        (renderedId, status) -> {
-                            renderedSessionIds.add(renderedId);
-                            rendered.add(status.status());
-                        })) {
-            watcher.poll();
-            watcher.poll();
-            watcher.poll();
-            watcher.poll();
-            SwingUtilities.invokeAndWait(() -> {});
-        }
+                        TestAppState.controller(state), state, null, null, null, ignored -> github);
+        final PullRequestWatcher watcher = new PullRequestWatcher(context);
+        watcher.poll();
+        watcher.poll();
+        watcher.poll();
+        watcher.poll();
+        SwingUtilities.invokeAndWait(() -> {});
 
-        assertEquals(4, rendered.size(), "each poll should update the PR status");
         assertEquals(
-                List.of(sessionId, sessionId, sessionId, sessionId),
-                renderedSessionIds,
-                "each update should retain the session ID");
+                PullRequestDetails.Status.READY,
+                state.monitoringStatuses().get(sessionId).status(),
+                "each poll should update the PR status");
     }
 
     private static PullRequest request(final ProjectId projectId) throws MalformedURLException {

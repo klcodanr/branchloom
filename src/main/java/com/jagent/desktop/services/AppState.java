@@ -1,6 +1,7 @@
 package com.jagent.desktop.services;
 
 import com.jagent.desktop.models.AppSettings;
+import com.jagent.desktop.models.IdType;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequestDetails;
@@ -15,26 +16,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
-import org.jetbrains.annotations.Nullable;
 
 public class AppState {
     private AppSettings appSettings;
     private boolean projectsUpdated;
-    private ProjectId currentProject;
-    private SessionId currentSession;
-    private TerminalId currentTerminal;
     private final Map<ProjectId, Project> projects;
     private final Map<SessionId, Session> sessions;
     private final Map<TerminalId, Terminal> terminals;
     private final Map<SessionId, PullRequestDetails> monitoringStatuses = new java.util.HashMap<>();
     private final List<TerminalEvent> terminalEvents = new ArrayList<>();
+    private final List<Consumer<StateEvent>> stateEventListeners = new ArrayList<>();
 
-    public enum TerminalAction {
+    public enum Action {
         ADD,
+        UPDATE,
         REMOVE
     }
 
-    public record TerminalEvent(TerminalAction action, TerminalId terminalId) {}
+    public record StateEvent(Action action, IdType target) {}
+
+    public record TerminalEvent(Action action, TerminalId terminalId) {}
 
     public record PersistenceSnapshot(
             boolean projectsUpdated,
@@ -73,26 +74,6 @@ public class AppState {
         return this.appSettings;
     }
 
-    public @Nullable ProjectId currentProjectId() {
-        return this.currentProject;
-    }
-
-    public @Nullable Project currentProject() {
-        return this.currentProject == null ? null : this.projects.get(this.currentProject);
-    }
-
-    public @Nullable SessionId currentSessionId() {
-        return this.currentSession;
-    }
-
-    public @Nullable Session currentSession() {
-        return this.currentSession == null ? null : this.sessions.get(this.currentSession);
-    }
-
-    public @Nullable TerminalId currentTerminalId() {
-        return this.currentTerminal;
-    }
-
     public Map<ProjectId, Project> projects() {
         return Map.copyOf(this.projects);
     }
@@ -111,10 +92,12 @@ public class AppState {
 
     public void updateMonitoringStatus(final SessionId sessionId, final PullRequestDetails status) {
         this.monitoringStatuses.put(sessionId, status);
+        notifyStateEvent(new StateEvent(Action.UPDATE, sessionId));
     }
 
     public void removeMonitoringStatus(final SessionId sessionId) {
         this.monitoringStatuses.remove(sessionId);
+        notifyStateEvent(new StateEvent(Action.UPDATE, sessionId));
     }
 
     public void updateAppSettings(final AppSettings appSettings) {
@@ -144,18 +127,6 @@ public class AppState {
         this.terminalEvents.addAll(0, terminalEvents);
     }
 
-    public void updateCurrentProject(final ProjectId currentProject) {
-        this.currentProject = currentProject;
-    }
-
-    public void updateCurrentSession(final SessionId currentSession) {
-        this.currentSession = currentSession;
-    }
-
-    public void updateCurrentTerminal(final TerminalId currentTerminal) {
-        this.currentTerminal = currentTerminal;
-    }
-
     public ProjectId addProject(final Project project) {
         final var projectId = ProjectId.create();
         this.projects.put(projectId, project);
@@ -169,10 +140,6 @@ public class AppState {
             return;
         }
         project.sessionIds().forEach(this::removeSession);
-        if (projectId.equals(this.currentProject)) {
-            updateCurrentProject(null);
-        }
-
         terminals.entrySet().stream()
                 .filter(entry -> projectId.equals(entry.getValue().projectId()))
                 .map(Map.Entry::getKey)
@@ -180,6 +147,7 @@ public class AppState {
                 .forEach(this::removeTerminal);
 
         this.projectsUpdated = true;
+        notifyStateEvent(new StateEvent(Action.REMOVE, projectId));
     }
 
     public void updateProject(final ProjectId projectId, final Project project) {
@@ -211,10 +179,8 @@ public class AppState {
         if (project != null) {
             this.updateProject(session.projectId(), project.withRemovedSession(sessionId));
         }
-        if (sessionId.equals(this.currentSession)) {
-            updateCurrentSession(null);
-        }
         this.projectsUpdated = true;
+        notifyStateEvent(new StateEvent(Action.REMOVE, sessionId));
     }
 
     public void updateSession(final SessionId sessionId, final Session session) {
@@ -245,7 +211,7 @@ public class AppState {
         this.terminals.put(terminalId, terminal);
         updateOwner.accept(terminalId);
         this.projectsUpdated = true;
-        this.terminalEvents.add(new TerminalEvent(TerminalAction.ADD, terminalId));
+        this.terminalEvents.add(new TerminalEvent(Action.ADD, terminalId));
         return terminalId;
     }
 
@@ -256,19 +222,25 @@ public class AppState {
         }
 
         terminals.remove(terminalId);
-        this.terminalEvents.add(new TerminalEvent(TerminalAction.REMOVE, terminalId));
-        if (terminalId.equals(this.currentTerminal)) {
-            updateCurrentTerminal(null);
-        }
+        this.terminalEvents.add(new TerminalEvent(Action.REMOVE, terminalId));
         final var session = this.sessions.get(terminal.sessionId());
         if (session != null) {
             this.updateSession(terminal.sessionId(), session.withRemovedTerminal(terminalId));
         }
         this.projectsUpdated = true;
+        notifyStateEvent(new StateEvent(Action.REMOVE, terminalId));
     }
 
     public void updateTerminal(final TerminalId terminalId, final Terminal terminal) {
         this.terminals.put(terminalId, terminal);
         this.projectsUpdated = true;
+    }
+
+    public void addEventListener(final Consumer<StateEvent> listener) {
+        this.stateEventListeners.add(listener);
+    }
+
+    private void notifyStateEvent(final StateEvent event) {
+        stateEventListeners.forEach(listener -> listener.accept(event));
     }
 }

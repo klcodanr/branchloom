@@ -6,11 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.persistence.AppStatePersistence;
+import com.jagent.desktop.ui.ApplicationTestHarness;
 import com.jagent.desktop.ui.Defaults;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.event.ActionEvent;
-import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,7 +18,6 @@ import java.util.Enumeration;
 import java.util.Map;
 import java.util.function.IntConsumer;
 import javax.swing.JComponent;
-import javax.swing.JFrame;
 import javax.swing.JTabbedPane;
 import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -28,8 +27,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class AppViewShortcutIntegrationTest {
-    private static final long CLOSE_TIMEOUT_NANOS = 5_000_000_000L;
-
     @TempDir private Path dataDirectory;
 
     @Test
@@ -41,8 +38,10 @@ class AppViewShortcutIntegrationTest {
             persistence.persist();
         }
 
-        final AppView app = GuiActionRunner.execute(() -> new AppView(dataDirectory));
-        try {
+        try (ApplicationTestHarness application =
+                GuiActionRunner.execute(() -> new ApplicationTestHarness(dataDirectory))) {
+            final AppView app = application.view();
+            GuiActionRunner.execute(application::start);
             final JTree tree = find(app, JTree.class);
             assertNotNull(tree, "project tree should be present");
             GuiActionRunner.execute(() -> selectProject(tree));
@@ -82,8 +81,6 @@ class AppViewShortcutIntegrationTest {
                     tabs.getTabCount(),
                     "default tabs should remain after closing the file");
             projectView.openFile(dataDirectory.getRoot(), false);
-        } finally {
-            close(app);
         }
     }
 
@@ -94,8 +91,7 @@ class AppViewShortcutIntegrationTest {
     private static void invokeAction(final AppView app, final String actionId) {
         GuiActionRunner.execute(
                 () ->
-                        app.getRootPane()
-                                .getActionMap()
+                        app.getActionMap()
                                 .get(actionId)
                                 .actionPerformed(
                                         new ActionEvent(app, ActionEvent.ACTION_PERFORMED, "")));
@@ -119,23 +115,6 @@ class AppViewShortcutIntegrationTest {
             }
         }
         return null;
-    }
-
-    private static void close(final AppView app) {
-        GuiActionRunner.execute(
-                () -> {
-                    app.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-                    app.dispatchEvent(new WindowEvent(app, WindowEvent.WINDOW_CLOSING));
-                });
-        final long deadline = System.nanoTime() + CLOSE_TIMEOUT_NANOS;
-        while (app.isDisplayable() && System.nanoTime() < deadline) {
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
     }
 
     private static <T extends Component> T find(final Container root, final Class<T> type) {

@@ -51,38 +51,22 @@ public abstract class AsyncLoadingState<I, C, V, L extends AsyncStateListener<V>
 
     private CompletableFuture<V> fetch(
             final I instance, final C config, final boolean notifyListener) {
-        if (viewLoadingMap.getOrDefault(instance, false)) {
+        if (viewLoadingMap.putIfAbsent(instance, true) != null) {
             viewLoadingQueuedMap.put(instance, config);
             return CompletableFuture.completedFuture(null);
         }
+        viewLoadingMap.put(instance, true);
         final BackgroundJobs.Handle handle = this.backgroundJobs.start("View Data: " + name);
-        return BackgroundOperations.submit(
-                        "View Data",
-                        name,
-                        () -> {
-                            viewLoadingMap.put(instance, true);
-                            try {
-                                final V data = load(instance, config, handle);
-                                cache.put(instance, data);
-                                handle.complete();
-                                return data;
-                            } catch (Exception err) {
-                                handle.fail("View Data: " + name + " failed: " + err.getMessage());
-                                throw err;
-                            } finally {
-                                viewLoadingMap.put(instance, false);
-                            }
-                        })
-                .thenCompose(
-                        (V value) -> {
-                            final C queuedConfig = viewLoadingQueuedMap.remove(instance);
-                            if (queuedConfig != null) {
-                                return fetch(instance, queuedConfig, false);
-                            }
-                            return CompletableFuture.completedFuture(value);
-                        })
+        return loadLatest(instance, config, handle)
                 .whenComplete(
                         (value, error) -> {
+                            viewLoadingMap.remove(instance);
+                            if (error == null) {
+                                handle.complete();
+                            } else {
+                                handle.fail(
+                                        "View Data: " + name + " failed: " + error.getMessage());
+                            }
                             if (!notifyListener) {
                                 return;
                             }
@@ -98,6 +82,26 @@ public abstract class AsyncLoadingState<I, C, V, L extends AsyncStateListener<V>
                                             listener.onFailure(unwrap(error));
                                         }
                                     });
+                        });
+    }
+
+    private CompletableFuture<V> loadLatest(
+            final I instance, final C config, final BackgroundJobs.Handle handle) {
+        return BackgroundOperations.submit(
+                        "View Data",
+                        name,
+                        () -> {
+                            final V data = load(instance, config, handle);
+                            cache.put(instance, data);
+                            return data;
+                        })
+                .thenCompose(
+                        value -> {
+                            final C queuedConfig = viewLoadingQueuedMap.remove(instance);
+                            if (queuedConfig == null) {
+                                return CompletableFuture.completedFuture(value);
+                            }
+                            return loadLatest(instance, queuedConfig, handle);
                         });
     }
 

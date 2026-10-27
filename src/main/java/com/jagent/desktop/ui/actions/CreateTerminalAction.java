@@ -6,9 +6,8 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.Terminal;
-import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
-import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.services.ViewController.ViewState;
 import java.util.Locale;
 
 /** Creates a terminal tab in the current project or session view. */
@@ -39,23 +38,26 @@ public final class CreateTerminalAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.appState().currentProjectId() != null;
+        return actionContext.viewController().currentProjectId() != null;
     }
 
     @Override
     public void execute() {
-        final AppState state = actionContext.appState();
-        final ProjectId projectId = state.currentProjectId();
+        final ProjectId projectId = actionContext.viewController().currentProjectId();
         if (projectId == null) {
             return;
         }
-        final SessionId sessionId = state.currentSessionId();
+        final SessionId sessionId = actionContext.viewController().currentSessionId();
         final var terminalId =
                 sessionId == null
-                        ? state.addTerminal(new Terminal(null, projectId, title, command))
-                        : state.addTerminal(sessionId, new Terminal(sessionId, title, command));
+                        ? actionContext
+                                .appState()
+                                .addTerminal(new Terminal(null, projectId, title, command))
+                        : actionContext
+                                .appState()
+                                .addTerminal(sessionId, new Terminal(sessionId, title, command));
         actionContext
-                .viewCoordinator()
+                .viewController()
                 .updateView(
                         sessionId == null ? ViewId.PROJECT : ViewId.SESSION,
                         sessionId == null

@@ -2,7 +2,7 @@ package com.jagent.desktop.models;
 
 import java.util.UUID;
 
-public record TerminalId(UUID value) {
+public record TerminalId(UUID value) implements IdType {
     public TerminalId {
         if (value == null) {
             throw new IllegalArgumentException("Terminal ID cannot be null");

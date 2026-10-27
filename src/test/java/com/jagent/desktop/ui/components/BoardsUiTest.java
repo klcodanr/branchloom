@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import java.util.Map;
 import org.assertj.swing.edt.GuiActionRunner;
@@ -19,9 +19,10 @@ class BoardsUiTest {
     @Test
     void emptyPullRequestBoardShowsAndAcceptsFilters() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var context = new ActionContext(new ViewCoordinator(state), state, null, null, null);
+        final var context =
+                new ActionContext(TestAppState.controller(state), state, null, null, null);
         final PullRequestsBoard board =
-                GuiActionRunner.execute(() -> new PullRequestsBoard(context, ""));
+                GuiActionRunner.execute(() -> new PullRequestsBoard(context));
         board.setFilter(null);
         board.setFilter("missing");
         assertTrue(board.isVisible(), "board should remain visible after filter changes");
@@ -31,9 +32,10 @@ class BoardsUiTest {
     void blankInitialQueryDoesNotLoadPullRequests() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
-        final var context = new ActionContext(new ViewCoordinator(state), state, null, null, null);
+        final var context =
+                new ActionContext(TestAppState.controller(state), state, null, null, null);
         final PullRequestsBoard board =
-                GuiActionRunner.execute(() -> new PullRequestsBoard(context, ""));
+                GuiActionRunner.execute(() -> new PullRequestsBoard(context));
 
         assertFalse(
                 componentText(board).contains("Refreshing"),

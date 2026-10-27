@@ -1,9 +1,7 @@
 package com.jagent.desktop.ui.actions;
 
 import com.jagent.desktop.api.BaseAction;
-import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.services.ViewCoordinator.ViewState;
 
 public final class OpenSessionAction extends BaseAction {
     public OpenSessionAction(final ActionContext actionContext) {
@@ -22,18 +20,16 @@ public final class OpenSessionAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.appState().currentSessionId() != null;
+        return actionContext.viewController().currentSessionId() != null;
     }
 
     @Override
     public void execute() {
-        final var projectId = actionContext.appState().currentProjectId();
-        final var sessionId = actionContext.appState().currentSessionId();
+        final var projectId = actionContext.viewController().currentProjectId();
+        final var sessionId = actionContext.viewController().currentSessionId();
         if (projectId == null || sessionId == null) {
             return;
         }
-        actionContext
-                .viewCoordinator()
-                .updateView(ViewId.SESSION, ViewState.session(projectId, sessionId));
+        actionContext.viewController().openSession(projectId, sessionId);
     }
 }

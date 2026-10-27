@@ -13,8 +13,8 @@ import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.github.CliCredential;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.ViewCoordinator;
 import com.jagent.desktop.test.SwingTestSupport;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -100,7 +100,7 @@ class PullRequestCardUiTest {
                         () ->
                                 new PullRequestCard(
                                         new ActionContext(
-                                                new ViewCoordinator(state),
+                                                TestAppState.controller(state),
                                                 state,
                                                 null,
                                                 null,
@@ -140,7 +140,7 @@ class PullRequestCardUiTest {
                         () ->
                                 new PullRequestCard(
                                         new ActionContext(
-                                                new ViewCoordinator(state),
+                                                TestAppState.controller(state),
                                                 state,
                                                 null,
                                                 null,
@@ -177,7 +177,7 @@ class PullRequestCardUiTest {
                         () ->
                                 new PullRequestCard(
                                         new ActionContext(
-                                                new ViewCoordinator(state),
+                                                TestAppState.controller(state),
                                                 state,
                                                 null,
                                                 null,
@@ -206,7 +206,7 @@ class PullRequestCardUiTest {
                         Map.of(projectId.value().toString(), project),
                         Map.of(),
                         Map.of());
-        return new ActionContext(new ViewCoordinator(state), state, null, null, null);
+        return new ActionContext(TestAppState.controller(state), state, null, null, null);
     }
 
     private static PullRequest request(

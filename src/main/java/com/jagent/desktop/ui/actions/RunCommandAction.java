@@ -61,18 +61,19 @@ public final class RunCommandAction extends BaseAction {
     @Override
     public boolean enabled() {
         final var appState = actionContext.appState();
-        return PathUtils.resolve(appState) != null;
+        return PathUtils.resolve(appState, actionContext.viewController()) != null;
     }
 
     @Override
     public void execute() {
         try {
-            final Project project = actionContext.appState().currentProject();
+            final Project project = actionContext.viewController().currentProject();
             if (project == null) {
                 return;
             }
-            final Session session = this.actionContext.appState().currentSession();
-            final String path = PathUtils.resolve(actionContext.appState());
+            final Session session = this.actionContext.viewController().currentSession();
+            final String path =
+                    PathUtils.resolve(actionContext.appState(), actionContext.viewController());
             if (path == null) {
                 return;
             }

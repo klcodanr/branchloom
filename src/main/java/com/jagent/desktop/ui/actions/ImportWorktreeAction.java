@@ -7,9 +7,8 @@ import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.git.Worktree;
-import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.SessionCreationService;
-import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.services.ViewController.ViewState;
 import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.components.FormPanel;
 import com.jagent.desktop.ui.components.SearchableList;
@@ -44,13 +43,13 @@ public final class ImportWorktreeAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.appState().currentProjectId() != null;
+        return actionContext.viewController().currentProjectId() != null;
     }
 
     @Override
     public void execute() {
-        final AppState state = actionContext.appState();
-        final ProjectId projectId = state.currentProjectId();
+        final var state = actionContext.appState();
+        final ProjectId projectId = actionContext.viewController().currentProjectId();
         final Project project = projectId == null ? null : state.projects().get(projectId);
         if (project == null) {
             return;
@@ -124,12 +123,13 @@ public final class ImportWorktreeAction extends BaseAction {
 
     private void addSession(
             final ProjectId projectId, final String sessionName, final String worktreePath) {
-        final AppState state = this.actionContext.appState();
+        final var state = this.actionContext.appState();
         final Project project = state.projects().get(projectId);
         if (project == null) {
             return;
         }
-        final SessionCreationService sessionCreationService = new SessionCreationService(state);
+        final SessionCreationService sessionCreationService =
+                new SessionCreationService(actionContext.appState());
         final Path normalizedPath = Path.of(worktreePath).toAbsolutePath().normalize();
         try {
             sessionCreationService.checkCreateSession(project, sessionName, normalizedPath);
@@ -137,7 +137,7 @@ public final class ImportWorktreeAction extends BaseAction {
                     sessionCreationService.createSession(
                             projectId, sessionName, "Imported worktree", "", normalizedPath);
             actionContext
-                    .viewCoordinator()
+                    .viewController()
                     .updateView(ViewId.SESSION, ViewState.session(projectId, sessionId));
         } catch (IOException exception) {
             ErrorDialogs.show(

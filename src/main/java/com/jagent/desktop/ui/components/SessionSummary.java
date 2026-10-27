@@ -7,10 +7,12 @@ import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.SessionSummaryInfo;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewController;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -34,6 +36,7 @@ public final class SessionSummary extends ScrollablePanel {
     public SessionSummary(
             final SessionId sessionId,
             final AppState appState,
+            final ViewController viewController,
             final Runnable removeSessionAndWorktree,
             final SessionInstanceState sessionInstanceState) {
         super();
@@ -41,7 +44,7 @@ public final class SessionSummary extends ScrollablePanel {
         this.sessionInstanceState = sessionInstanceState;
         this.session = appState.sessions().get(sessionId);
 
-        agentContext = new AgentContextEditor(appState);
+        agentContext = new AgentContextEditor(appState, viewController);
         branch = new SessionBranchPanel();
         pullRequest = new PullRequestSummaryButton();
         diff = new SessionDiffPanel();
@@ -135,7 +138,7 @@ public final class SessionSummary extends ScrollablePanel {
         return scroll;
     }
 
-    public void refresh() {
-        this.sessionInstanceState.fetch(this.sessionId, this.session);
+    public CompletableFuture<?> refresh() {
+        return this.sessionInstanceState.fetch(this.sessionId, this.session);
     }
 }

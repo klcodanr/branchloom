@@ -18,6 +18,7 @@ import com.jagent.desktop.ui.components.UiPopupMenus;
 import com.jagent.desktop.ui.dialogs.MissingWorktreeRecovery;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -39,9 +40,9 @@ public final class SessionView extends AbstractWorkspaceView {
     public SessionView(final ActionContext actionContext) {
         super(actionContext, ViewId.SESSION);
         final var state = actionContext.appState();
-        final var selectedSessionId = state.currentSessionId();
+        final var selectedSessionId = actionContext.viewController().currentSessionId();
         this.sessionId = selectedSessionId;
-        this.project = state.projects().get(state.currentProjectId());
+        this.project = state.projects().get(actionContext.viewController().currentProjectId());
         final Session persistedSession =
                 selectedSessionId == null ? null : state.sessions().get(selectedSessionId);
         this.session = persistedSession;
@@ -61,8 +62,8 @@ public final class SessionView extends AbstractWorkspaceView {
 
     private void restoreSession(final ActionContext actionContext, final AppState state) {
         MissingWorktreeRecovery.check(actionContext, project, session);
-        final boolean hasSelectedTab = viewCoordinator.hasSelectedSessionTab(sessionId);
-        final int selectedTab = viewCoordinator.selectedSessionTab(sessionId);
+        final boolean hasSelectedTab = viewController.hasSelectedSessionTab(sessionId);
+        final int selectedTab = viewController.selectedSessionTab(sessionId);
         initializeWorkspace(session.name());
         restoreTerminals(state);
         restoreSelectedTabOrSummary(actionContext, hasSelectedTab, selectedTab);
@@ -78,7 +79,6 @@ public final class SessionView extends AbstractWorkspaceView {
                     addTerminal(
                             terminalId,
                             terminalDefinitionForRestore(session, terminalId, terminal),
-                            workspacePath(),
                             false);
                 } catch (RuntimeException exception) {
                     LOG.error("Failed to restore terminal tab {}", terminalId, exception);
@@ -98,32 +98,9 @@ public final class SessionView extends AbstractWorkspaceView {
             final ActionContext actionContext,
             final boolean hasSelectedTab,
             final int selectedTab) {
-        if (!selectTerminal(actionContext.appState().currentTerminalId(), terminalIds)
+        if (!selectTerminal(actionContext.viewController().currentTerminalId(), terminalIds)
                 && !restoreSelectedTab(hasSelectedTab, selectedTab)) {
             openSummary();
-        }
-    }
-
-    private void addSummary() {
-        try {
-            summary =
-                    new SessionSummary(
-                            sessionId,
-                            actionContext.appState(),
-                            () -> new RemoveSessionAction(actionContext).execute(),
-                            viewCoordinator.getAsyncLoadingState(ViewId.SESSION));
-            final JScrollPane summaryScroll = new JScrollPane(summary);
-            summaryScroll.setBorder(null);
-            summaryScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-            summaryScroll.getVerticalScrollBar().setUnitIncrement(14);
-            tabs.addTab("Summary", summaryScroll);
-        } catch (RuntimeException exception) {
-            LOG.error("Failed to create session summary for {}", sessionId, exception);
-            tabs.addTab(
-                    "Summary",
-                    new EmptyStatePanel(
-                            "Could not load session summary",
-                            exception.getClass().getSimpleName() + ": " + exception.getMessage()));
         }
     }
 
@@ -143,25 +120,52 @@ public final class SessionView extends AbstractWorkspaceView {
 
     @Override
     protected void addDefaultTabs() {
-        addSummary();
+        try {
+            summary =
+                    new SessionSummary(
+                            sessionId,
+                            actionContext.appState(),
+                            viewController,
+                            () -> new RemoveSessionAction(actionContext).execute(),
+                            viewController.getAsyncLoadingState(ViewId.SESSION));
+            final JScrollPane summaryScroll = new JScrollPane(summary);
+            summaryScroll.setBorder(null);
+            summaryScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+            summaryScroll.getVerticalScrollBar().setUnitIncrement(14);
+            tabs.addTab("Summary", summaryScroll);
+        } catch (RuntimeException exception) {
+            LOG.error("Failed to create session summary for {}", sessionId, exception);
+            tabs.addTab(
+                    "Summary",
+                    new EmptyStatePanel(
+                            "Could not load session summary",
+                            exception.getClass().getSimpleName() + ": " + exception.getMessage()));
+        }
     }
 
     @Override
     protected void showActions(final JButton button) {
         UiPopupMenus.show(
-                SessionActions.menu(actionContext, actionContext.appState().currentSessionId()),
+                SessionActions.menu(
+                        actionContext, actionContext.viewController().currentSessionId()),
                 button,
                 0,
                 button.getHeight());
     }
 
     @Override
-    protected void openTerminal(final Path path) {
-        addTerminal("Terminal", PlatformCommands.userShell(), path);
-    }
-
-    public void createTerminal() {
-        addTerminal("Terminal", PlatformCommands.userShell(), workspacePath());
+    protected void openTerminal() {
+        final String tabTitle = "Terminal " + (++terminalNumber);
+        final TerminalId terminalId =
+                actionContext
+                        .appState()
+                        .addTerminal(
+                                actionContext.viewController().currentSessionId(),
+                                new Terminal(
+                                        actionContext.viewController().currentSessionId(),
+                                        tabTitle,
+                                        PlatformCommands.userShell()));
+        addTerminal(terminalId, actionContext.appState().terminals().get(terminalId), true);
     }
 
     public void openSummary() {
@@ -170,15 +174,16 @@ public final class SessionView extends AbstractWorkspaceView {
 
     @Override
     protected void updateSelectedTab(final int selectedIndex) {
-        viewCoordinator.updateSelectedSessionTab(sessionId, selectedIndex);
+        viewController.updateSelectedSessionTab(sessionId, selectedIndex);
         super.updateSelectedTab(selectedIndex);
     }
 
     @Override
-    public void refresh() {
+    public CompletableFuture<?> refresh() {
         if (summary != null) {
-            summary.refresh();
+            return summary.refresh();
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     public void renameSession() {
@@ -199,7 +204,7 @@ public final class SessionView extends AbstractWorkspaceView {
         actionContext
                 .appState()
                 .updateSession(
-                        actionContext.appState().currentSessionId(),
+                        actionContext.viewController().currentSessionId(),
                         new Session(
                                 session.projectId(),
                                 updated.trim(),
@@ -210,30 +215,14 @@ public final class SessionView extends AbstractWorkspaceView {
                                 session.terminalIds()));
     }
 
-    private void addTerminal(final String title, final String command, final Path directory) {
-        final String tabTitle = title + " " + (++terminalNumber);
-        final TerminalId terminalId =
-                actionContext
-                        .appState()
-                        .addTerminal(
-                                actionContext.appState().currentSessionId(),
-                                new Terminal(
-                                        actionContext.appState().currentSessionId(),
-                                        tabTitle,
-                                        command));
-        addTerminal(
-                terminalId, actionContext.appState().terminals().get(terminalId), directory, true);
-    }
-
     private void addTerminal(
-            final TerminalId terminalId,
-            final Terminal persistedTerminal,
-            final Path directory,
-            final boolean selected) {
-        if (terminalId == null || persistedTerminal == null || !Files.isDirectory(directory)) {
+            final TerminalId terminalId, final Terminal persistedTerminal, final boolean selected) {
+        if (terminalId == null
+                || persistedTerminal == null
+                || !Files.isDirectory(workspacePath())) {
             return;
         }
-        final Path worktree = directory.toAbsolutePath().normalize();
+        final Path worktree = workspacePath().toAbsolutePath().normalize();
         TerminalPanel terminal = TerminalPanel.existing(terminalId);
         if (terminal == null) {
             terminal =
@@ -268,10 +257,5 @@ public final class SessionView extends AbstractWorkspaceView {
                 persistedTerminal.projectId(),
                 persistedTerminal.title(),
                 PlatformCommands.userShell());
-    }
-
-    @Override
-    protected void terminalClosed() {
-        updateCurrentTerminal();
     }
 }

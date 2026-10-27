@@ -1,6 +1,6 @@
 package com.jagent.desktop.ui.views;
 
-import com.jagent.desktop.api.View;
+import com.jagent.desktop.api.RefreshableView;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.BatchListener;
 import com.jagent.desktop.async.BoardInstanceState;
@@ -12,10 +12,8 @@ import com.jagent.desktop.models.board.BoardSource;
 import com.jagent.desktop.models.board.sources.SourceConfigs;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.ui.board.KanbanBoard;
-import com.jagent.desktop.ui.components.IconButton;
-import com.jagent.desktop.ui.components.RotatingIcon;
+import com.jagent.desktop.ui.components.RefreshButton;
 import com.jagent.desktop.ui.components.SearchInput;
-import com.jagent.desktop.ui.components.UiIcons;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.net.URI;
@@ -24,16 +22,16 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.Timer;
 import org.jetbrains.annotations.Nullable;
 
 /** Global board combining pull requests, GitHub issues, Jira issues, and agent sessions. */
-public final class BoardView extends JPanel implements View {
+public final class BoardView extends JPanel implements RefreshableView {
     private static final String ALL = "All";
     private final transient ActionContext actionContext;
     private final transient BoardInstanceState boardInstanceState;
@@ -56,15 +54,7 @@ public final class BoardView extends JPanel implements View {
                         "Name (A-Z)",
                         "Name (Z-A)"
                     });
-    private final transient RotatingIcon refreshIcon = new RotatingIcon(UiIcons.refresh());
-    private final IconButton refreshButton = new IconButton(refreshIcon, "Refresh board");
-    private final Timer refreshAnimation =
-            new Timer(
-                    75,
-                    event -> {
-                        refreshIcon.rotate();
-                        refreshButton.repaint();
-                    });
+    private final RefreshButton refreshButton = new RefreshButton();
     private String message;
     private final AtomicInteger total = new AtomicInteger(0);
     private final AtomicInteger progress = new AtomicInteger(0);
@@ -77,7 +67,7 @@ public final class BoardView extends JPanel implements View {
         super(new BorderLayout(0, 8));
         this.actionContext = actionContext;
         this.definition = definition;
-        boardInstanceState = actionContext.viewCoordinator().getAsyncLoadingState(ViewId.BOARD);
+        boardInstanceState = actionContext.viewController().getAsyncLoadingState(ViewId.BOARD);
         board =
                 new KanbanBoard(
                         definition.config(), actionContext, this::refresh, this::selectItem);
@@ -97,7 +87,7 @@ public final class BoardView extends JPanel implements View {
                                 actionContext, items, projectFilter, groupFilter);
                         applyPresentation();
                         refreshButton.setEnabled(true);
-                        stopRefreshAnimation();
+                        refreshButton.stop();
                         status.setText("");
                     }
 
@@ -124,7 +114,7 @@ public final class BoardView extends JPanel implements View {
                         items.clear();
                         applyPresentation();
                         refreshButton.setEnabled(false);
-                        startRefreshAnimation();
+                        refreshButton.start();
                         total.set(t);
                         progress.set(0);
                     }
@@ -132,7 +122,7 @@ public final class BoardView extends JPanel implements View {
                     @Override
                     public void onFailure(final Throwable error) {
                         refreshButton.setEnabled(true);
-                        stopRefreshAnimation();
+                        refreshButton.stop();
                         status.setText("Failed to fetch board items: " + error.getMessage());
                     }
                 });
@@ -158,17 +148,6 @@ public final class BoardView extends JPanel implements View {
                 String.format(
                         "%s Progress: %d/%d",
                         message != null ? message : "", progress.get(), total.get()));
-    }
-
-    private void startRefreshAnimation() {
-        refreshIcon.reset();
-        refreshAnimation.start();
-    }
-
-    private void stopRefreshAnimation() {
-        refreshAnimation.stop();
-        refreshIcon.reset();
-        refreshButton.repaint();
     }
 
     private JPanel header() {
@@ -264,8 +243,8 @@ public final class BoardView extends JPanel implements View {
     }
 
     @Override
-    public void refresh() {
-        boardInstanceState.fetch(this.definition.name(), this.definition.config().sources());
+    public CompletableFuture<?> refresh() {
+        return boardInstanceState.fetch(this.definition.name(), this.definition.config().sources());
     }
 
     private static BoardDefinition firstBoard(final ActionContext actionContext) {
@@ -286,10 +265,10 @@ public final class BoardView extends JPanel implements View {
     private void openSession(final AgentSessionBoardItem item) {
         if (actionContext.appState().sessions().containsKey(item.sessionId())) {
             actionContext
-                    .viewCoordinator()
+                    .viewController()
                     .updateView(
                             ViewId.SESSION,
-                            com.jagent.desktop.services.ViewCoordinator.ViewState.session(
+                            com.jagent.desktop.services.ViewController.ViewState.session(
                                     item.projectId(), item.sessionId()));
         }
     }

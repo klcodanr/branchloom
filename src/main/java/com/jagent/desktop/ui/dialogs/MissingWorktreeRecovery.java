@@ -7,7 +7,7 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.git.Worktree;
-import com.jagent.desktop.services.ViewCoordinator.ViewState;
+import com.jagent.desktop.services.ViewController.ViewState;
 import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.components.UiText;
 import java.awt.Window;
@@ -116,12 +116,16 @@ public final class MissingWorktreeRecovery {
                 .thenAccept(
                         ignored -> {
                             actionContext
-                                    .viewCoordinator()
+                                    .viewController()
                                     .updateView(
                                             ViewId.SESSION,
                                             ViewState.session(
-                                                    actionContext.appState().currentProjectId(),
-                                                    actionContext.appState().currentSessionId()));
+                                                    actionContext
+                                                            .viewController()
+                                                            .currentProjectId(),
+                                                    actionContext
+                                                            .viewController()
+                                                            .currentSessionId()));
                         })
                 .exceptionally(
                         failure -> {
@@ -144,14 +148,15 @@ public final class MissingWorktreeRecovery {
                         })
                 .thenAccept(
                         ignored -> {
-                            final SessionId sessionId = actionContext.appState().currentSessionId();
+                            final SessionId sessionId =
+                                    actionContext.viewController().currentSessionId();
                             if (sessionId == null) {
                                 return;
                             }
                             final var currentProjectId =
-                                    actionContext.appState().currentProjectId();
+                                    actionContext.viewController().currentProjectId();
                             final Session currentSession =
-                                    actionContext.appState().currentSession();
+                                    actionContext.viewController().currentSession();
                             if (currentProjectId == null
                                     || currentSession == null
                                     || !currentProjectId.equals(session.projectId())
@@ -162,7 +167,7 @@ public final class MissingWorktreeRecovery {
                             }
                             actionContext.appState().removeSession(sessionId);
                             actionContext
-                                    .viewCoordinator()
+                                    .viewController()
                                     .updateView(
                                             ViewId.PROJECT, ViewState.project(session.projectId()));
                         })
