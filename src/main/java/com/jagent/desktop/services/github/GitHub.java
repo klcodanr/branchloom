@@ -7,6 +7,8 @@ import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestCheck;
 import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
+import com.jagent.desktop.models.PullRequestReview;
+import com.jagent.desktop.models.PullRequestReviews;
 import com.jagent.desktop.models.github.Auth;
 import com.jagent.desktop.models.github.Issue;
 import com.jagent.desktop.services.AppState;
@@ -302,10 +304,37 @@ public class GitHub {
                     ghPullRequest.getAdditions(),
                     ghPullRequest.getDeletions(),
                     ghPullRequest.getChangedFiles(),
-                    checks);
+                    checks,
+                    loadReviews(ghPullRequest));
         } catch (IOException exception) {
             throw new IllegalStateException(
                     "Could not load pull request details " + request.number(), exception);
+        }
+    }
+
+    private PullRequestReviews loadReviews(final GHPullRequest pullRequest) {
+        try {
+            return new PullRequestReviews(
+                    pullRequest.listReviews().toList().stream()
+                            .map(
+                                    review -> {
+                                        try {
+                                            return PullRequestReview.from(review);
+                                        } catch (IOException exception) {
+                                            LOG.warn(
+                                                    "Failed to load a pull request review",
+                                                    exception);
+                                            return null;
+                                        }
+                                    })
+                            .filter(Objects::nonNull)
+                            .toList());
+        } catch (IOException exception) {
+            LOG.warn(
+                    "Failed to load reviews for pull request {}",
+                    pullRequest.getNumber(),
+                    exception);
+            return new PullRequestReviews(List.of());
         }
     }
 

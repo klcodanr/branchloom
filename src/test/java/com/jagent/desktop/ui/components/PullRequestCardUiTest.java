@@ -11,6 +11,8 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestDetails;
+import com.jagent.desktop.models.PullRequestReview;
+import com.jagent.desktop.models.PullRequestReviews;
 import com.jagent.desktop.models.github.CliCredential;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.test.SwingTestSupport;
@@ -21,6 +23,7 @@ import java.net.URL;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import org.assertj.swing.edt.GuiActionRunner;
@@ -29,6 +32,8 @@ import org.junit.jupiter.api.Test;
 class PullRequestCardUiTest {
     private static final String FIX_LOGIN = "Fix login";
     private static final String AUTHOR = "author";
+    private static final String GITHUB_HOST = "github.com";
+    private static final String REVIEWER = "reviewer";
     private static final String PROJECT_NAME = "Test";
     private static final String PROJECT_PATH = "/tmp/test";
 
@@ -43,7 +48,10 @@ class PullRequestCardUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestCard(
-                                        context(projectId, project), request, details, () -> {}));
+                                        context(projectId, project),
+                                        request,
+                                        details,
+                                        ignored -> completedRefresh()));
 
         final JLabel title =
                 SwingTestSupport.find(
@@ -64,7 +72,10 @@ class PullRequestCardUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestCard(
-                                        context(projectId, project), request, details, () -> {}));
+                                        context(projectId, project),
+                                        request,
+                                        details,
+                                        ignored -> completedRefresh()));
 
         assertNotNull(
                 card.getComponentPopupMenu(), "pull request card should expose a context menu");
@@ -84,9 +95,7 @@ class PullRequestCardUiTest {
         final ProjectId projectId = ProjectId.create();
         final Project project =
                 new Project(
-                        PROJECT_NAME,
-                        PROJECT_PATH,
-                        new CliCredential("github.com", AUTHOR, AUTHOR));
+                        PROJECT_NAME, PROJECT_PATH, new CliCredential(GITHUB_HOST, AUTHOR, AUTHOR));
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
@@ -107,7 +116,7 @@ class PullRequestCardUiTest {
                                                 null),
                                         request,
                                         details,
-                                        () -> {}));
+                                        ignored -> completedRefresh()));
 
         final var actions =
                 java.util.Arrays.stream(card.getComponentPopupMenu().getComponents())
@@ -147,7 +156,7 @@ class PullRequestCardUiTest {
                                                 null),
                                         request,
                                         details,
-                                        () -> {}));
+                                        ignored -> completedRefresh()));
 
         final var actions = menuActions(card);
         assertTrue(actions.contains("Merge PR"), "ready open PRs should expose merge action");
@@ -163,7 +172,7 @@ class PullRequestCardUiTest {
                 new Project(
                         PROJECT_NAME,
                         PROJECT_PATH,
-                        new CliCredential("github.com", "reviewer", "reviewer"));
+                        new CliCredential(GITHUB_HOST, REVIEWER, REVIEWER));
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
@@ -184,7 +193,7 @@ class PullRequestCardUiTest {
                                                 null),
                                         request,
                                         details,
-                                        () -> {}));
+                                        ignored -> completedRefresh()));
 
         final var actions = menuActions(card);
         assertFalse(actions.contains("Approve"), "approve action requires resolved GitHub login");
@@ -192,11 +201,66 @@ class PullRequestCardUiTest {
         assertFalse(actions.contains("Make draft"), "reviewers should not toggle draft state");
     }
 
+    @Test
+    void reviewerPullRequestHidesApproveAfterCurrentUserApproved() throws MalformedURLException {
+        final ProjectId projectId = ProjectId.create();
+        final Project project =
+                new Project(
+                        PROJECT_NAME,
+                        PROJECT_PATH,
+                        new CliCredential(GITHUB_HOST, REVIEWER, REVIEWER));
+        final AppState state =
+                new AppState(
+                        Defaults.appSettings(),
+                        Map.of(projectId.value().toString(), project),
+                        Map.of(),
+                        Map.of());
+        final PullRequest request = request(projectId, FIX_LOGIN, AUTHOR, project);
+        final PullRequestDetails details =
+                new PullRequestDetails(
+                        request,
+                        false,
+                        false,
+                        false,
+                        "blocked",
+                        0,
+                        0,
+                        0,
+                        new com.jagent.desktop.models.PullRequestChecks(List.of()),
+                        new PullRequestReviews(
+                                List.of(
+                                        new PullRequestReview(
+                                                new GitHubUser(
+                                                        REVIEWER, new URL("https://example.test")),
+                                                PullRequestReview.Status.APPROVED))));
+        final PullRequestCard card =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestCard(
+                                        new ActionContext(
+                                                TestAppState.controller(state),
+                                                state,
+                                                null,
+                                                null,
+                                                null),
+                                        request,
+                                        details,
+                                        ignored -> completedRefresh()));
+
+        assertFalse(
+                menuActions(card).contains("Approve"),
+                "approve should be hidden after the current user approved the PR");
+    }
+
     private static List<String> menuActions(final PullRequestCard card) {
         return java.util.Arrays.stream(card.getComponentPopupMenu().getComponents())
                 .filter(JMenuItem.class::isInstance)
                 .map(component -> ((JMenuItem) component).getText())
                 .toList();
+    }
+
+    private CompletableFuture<Void> completedRefresh() {
+        return CompletableFuture.completedFuture(null);
     }
 
     private static ActionContext context(final ProjectId projectId, final Project project) {
@@ -241,11 +305,14 @@ class PullRequestCardUiTest {
             return new PullRequestDetails(
                     request(projectId, "Test", AUTHOR, project),
                     draft,
+                    false,
                     mergeable,
                     mergeableState,
                     9,
                     3,
-                    2);
+                    2,
+                    new com.jagent.desktop.models.PullRequestChecks(List.of()),
+                    new PullRequestReviews(List.of()));
         } catch (MalformedURLException exception) {
             throw new IllegalStateException(exception);
         }

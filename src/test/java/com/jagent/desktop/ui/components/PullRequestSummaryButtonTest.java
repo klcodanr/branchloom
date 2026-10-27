@@ -6,10 +6,13 @@ import com.jagent.desktop.models.GitHubUser;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
+import com.jagent.desktop.models.PullRequestReviews;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Date;
+import java.util.List;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
@@ -53,7 +56,17 @@ class PullRequestSummaryButtonTest {
                         "abc123",
                         "main");
         final PullRequestDetails details =
-                new PullRequestDetails(request, false, true, "clean", 1, 0, 1);
+                new PullRequestDetails(
+                        request,
+                        false,
+                        false,
+                        true,
+                        "clean",
+                        1,
+                        0,
+                        1,
+                        new PullRequestChecks(List.of()),
+                        new PullRequestReviews(List.of()));
 
         GuiActionRunner.execute(() -> button.setPullRequest(details));
 

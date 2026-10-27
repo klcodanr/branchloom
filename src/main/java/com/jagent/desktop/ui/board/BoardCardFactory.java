@@ -1,12 +1,15 @@
 package com.jagent.desktop.ui.board;
 
 import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.board.BoardItem;
 import com.jagent.desktop.ui.components.CardPanel;
 import com.jagent.desktop.ui.components.PullRequestCard;
 import java.awt.Cursor;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import javax.swing.SwingUtilities;
 import org.eclipse.jgit.annotations.NonNull;
 
@@ -16,18 +19,18 @@ public final class BoardCardFactory {
     public static CardPanel create(
             final BoardItem item,
             @NonNull final ActionContext actionContext,
-            final Runnable onRefresh) {
-        return create(item, actionContext, onRefresh, ignored -> {});
+            final Function<ProjectId, CompletableFuture<?>> refreshProject) {
+        return create(item, actionContext, refreshProject, ignored -> {});
     }
 
     public static CardPanel create(
             final BoardItem item,
             @NonNull final ActionContext actionContext,
-            final Runnable onRefresh,
+            final Function<ProjectId, CompletableFuture<?>> refreshProject,
             final Consumer<BoardItem> onSelect) {
         final CardPanel card;
         if (item instanceof PullRequestDetails request) {
-            card = new PullRequestCard(actionContext, request, request, onRefresh);
+            card = new PullRequestCard(actionContext, request, request, refreshProject);
         } else {
             card = new BoardCard(item);
         }

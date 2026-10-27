@@ -166,7 +166,16 @@ class PullRequestDetailsModelTest {
                             "sha",
                             "main");
             return new PullRequestDetails(
-                    request, draft, mergeable, mergeableState, 1, 1, 1, checks);
+                    request,
+                    draft,
+                    false,
+                    mergeable,
+                    mergeableState,
+                    1,
+                    1,
+                    1,
+                    checks,
+                    new PullRequestReviews(List.of()));
         } catch (MalformedURLException exception) {
             throw new IllegalStateException(exception);
         }

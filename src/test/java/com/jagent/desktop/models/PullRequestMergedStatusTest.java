@@ -23,7 +23,8 @@ class PullRequestMergedStatusTest {
                         1,
                         1,
                         1,
-                        new PullRequestChecks(List.of()));
+                        new PullRequestChecks(List.of()),
+                        new PullRequestReviews(List.of()));
 
         assertEquals(
                 PullRequest.State.CLOSED,

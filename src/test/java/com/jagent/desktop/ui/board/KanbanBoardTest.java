@@ -24,7 +24,15 @@ class KanbanBoardTest {
                                 new BoardColumn("Todo", Map.of(BoardSource.JIRA, "true")),
                                 new BoardColumn("Done", Map.of(BoardSource.JIRA, "true"))),
                         null);
-        final KanbanBoard board = GuiActionRunner.execute(() -> new KanbanBoard(config));
+        final KanbanBoard board =
+                GuiActionRunner.execute(
+                        () ->
+                                new KanbanBoard(
+                                        config,
+                                        null,
+                                        ignored ->
+                                                java.util.concurrent.CompletableFuture
+                                                        .completedFuture(null)));
 
         GuiActionRunner.execute(
                 () -> board.setItems(List.of(item("Open issue"), item("Closed issue"))));

@@ -11,6 +11,7 @@ import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestCheck;
 import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
+import com.jagent.desktop.models.PullRequestReviews;
 import java.awt.Color;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -146,7 +147,16 @@ class PullRequestPresentationTest {
     private static PullRequestDetails details(final String mergeState, final boolean draft) {
         try {
             return new PullRequestDetails(
-                    request("Test", "author"), draft, false, mergeState, 2, 1, 1);
+                    request("Test", "author"),
+                    draft,
+                    false,
+                    false,
+                    mergeState,
+                    2,
+                    1,
+                    1,
+                    new PullRequestChecks(List.of()),
+                    new PullRequestReviews(List.of()));
         } catch (MalformedURLException exception) {
             throw new IllegalStateException(exception);
         }

@@ -1,6 +1,5 @@
 package com.jagent.desktop.ui.components;
 
-import com.jagent.desktop.async.AsyncStateListener;
 import com.jagent.desktop.async.PullRequestInstanceState;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.ProjectId;
@@ -168,6 +167,10 @@ public final class PullRequestsBoard extends JPanel {
     }
 
     public CompletableFuture<?> refresh() {
+        return refresh(null);
+    }
+
+    public CompletableFuture<?> refresh(final ProjectId projectId) {
         if (refreshInFlight) {
             refreshQueued = true;
             refreshStatus.setText("Refreshing PRs... (queued)");
@@ -202,31 +205,28 @@ public final class PullRequestsBoard extends JPanel {
             completeRefresh("PRs refreshed", started);
             return CompletableFuture.completedFuture(null);
         }
-        final CompletableFuture<Void> future = new CompletableFuture<>();
-        for (final Map.Entry<ProjectId, PullRequestInstanceState> entry :
-                pullRequestStates.entrySet()) {
-            final PullRequestInstanceState state = entry.getValue();
-            final PullRequestInstanceState.PullRequestKey key =
-                    new PullRequestInstanceState.PullRequestKey(entry.getKey(), currentQuery);
-            state.setListener(
-                    key,
-                    new AsyncStateListener<>() {
-                        @Override
-                        public void onComplete(final List<PullRequestDetails> ignored) {
-                            completeRefresh("PRs refreshed", started);
-                            future.complete(null);
-                        }
-
-                        @Override
-                        public void onFailure(final Throwable failure) {
-                            LOG.warn("PR board load failed", failure);
-                            completeRefresh("PR refresh failed", started);
-                            future.completeExceptionally(failure);
-                        }
-                    });
-            state.fetch(key, key);
-        }
-        return future;
+        final List<Map.Entry<ProjectId, PullRequestInstanceState>> entries =
+                pullRequestStates.entrySet().stream()
+                        .filter(entry -> projectId == null || entry.getKey().equals(projectId))
+                        .toList();
+        final List<CompletableFuture<List<PullRequestDetails>>> loads =
+                entries.stream()
+                        .map(
+                                entry ->
+                                        entry.getValue()
+                                                .fetch(
+                                                        new PullRequestInstanceState.PullRequestKey(
+                                                                entry.getKey(), currentQuery),
+                                                        new PullRequestInstanceState.PullRequestKey(
+                                                                entry.getKey(), currentQuery)))
+                        .toList();
+        return CompletableFuture.allOf(loads.toArray(CompletableFuture[]::new))
+                .whenComplete(
+                        (ignored, failure) -> {
+                            completeRefresh(
+                                    failure == null ? "PRs refreshed" : "PR refresh failed",
+                                    started);
+                        });
     }
 
     private PullRequestInstanceState stateFor(final ProjectId project) {

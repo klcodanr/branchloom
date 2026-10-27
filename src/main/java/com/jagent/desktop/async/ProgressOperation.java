@@ -7,6 +7,7 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Window;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import javax.swing.JDialog;
 
 /**
@@ -85,5 +86,29 @@ public final class ProgressOperation {
                         progress.close();
                     }
                 });
+    }
+
+    /**
+     * Runs a background operation and keeps the progress UI visible until a follow-up operation
+     * completes.
+     *
+     * @param <T> result type produced by the background operation
+     * @param actionContext source context that provides the parent window
+     * @param title progress dialog title and background task name
+     * @param message progress message shown in the loading panel
+     * @param operation blocking operation to run off the EDT
+     * @param completion follow-up operation whose completion closes the progress UI
+     * @return future completed when the follow-up operation finishes
+     */
+    public static <T> CompletableFuture<Void> runWithCompletion(
+            final ActionContext actionContext,
+            final String title,
+            final String message,
+            final Callable<T> operation,
+            final Function<T, CompletableFuture<?>> completion) {
+        final ProgressOperation progress = new ProgressOperation(actionContext, title, message);
+        return BackgroundOperations.submit("Operations", title, operation)
+                .thenCompose(value -> completion.apply(value).thenApply(ignored -> (Void) null))
+                .whenComplete((ignored, failure) -> progress.close());
     }
 }

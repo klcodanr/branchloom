@@ -8,7 +8,9 @@ import com.jagent.desktop.models.GitHubUser;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
+import com.jagent.desktop.models.PullRequestReviews;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionSummaryInfo;
 import com.jagent.desktop.services.AppState;
@@ -17,6 +19,7 @@ import com.jagent.desktop.test.TestAppState;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Date;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -74,6 +77,16 @@ class SessionSummaryUiTest {
                         "feature/test",
                         "abc123",
                         "main");
-        return new PullRequestDetails(request, false, merged, true, "clean", 0, 0, 0);
+        return new PullRequestDetails(
+                request,
+                false,
+                merged,
+                true,
+                "clean",
+                0,
+                0,
+                0,
+                new PullRequestChecks(List.of()),
+                new PullRequestReviews(List.of()));
     }
 }

@@ -10,6 +10,7 @@ import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestCheck;
 import com.jagent.desktop.models.PullRequestChecks;
 import com.jagent.desktop.models.PullRequestDetails;
+import com.jagent.desktop.models.PullRequestReviews;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.github.GitHub;
@@ -103,7 +104,16 @@ class PullRequestWatcherTest {
             final String mergeableState,
             final PullRequestChecks.Status checksStatus) {
         return new PullRequestDetails(
-                request, false, mergeable, mergeableState, 1, 1, 1, checks(checksStatus));
+                request,
+                false,
+                false,
+                mergeable,
+                mergeableState,
+                1,
+                1,
+                1,
+                checks(checksStatus),
+                new PullRequestReviews(List.of()));
     }
 
     private static PullRequestChecks checks(final PullRequestChecks.Status status) {
