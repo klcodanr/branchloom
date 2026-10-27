@@ -16,6 +16,8 @@ import java.io.InvalidObjectException;
 import java.net.MalformedURLException;
 import java.nio.file.Path;
 import java.util.Map;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
 import javax.swing.JTabbedPane;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
@@ -44,12 +46,33 @@ class ProjectViewUiTest {
         final WorkspaceSplitPane split = (WorkspaceSplitPane) view.getComponent(1);
         assertEquals(1, ((JTabbedPane) split.getLeftComponent()).getTabCount(), ASSERTION_MESSAGE);
         assertNotNull(split.getRightComponent(), ASSERTION_MESSAGE);
+        assertEquals(
+                1,
+                countComponents(view, JLabel.class, label -> "Filter".equals(label.getText())),
+                ASSERTION_MESSAGE);
+        assertEquals(1, countComponents(view, JComboBox.class, ignored -> true), ASSERTION_MESSAGE);
         assertSame(view, view.render(), ASSERTION_MESSAGE);
         view.openSummary();
         view.selectTerminal(0);
         view.closeActiveTerminal();
         view.renameActiveTerminal();
         view.dispose();
+    }
+
+    private static <T extends java.awt.Component> int countComponents(
+            final java.awt.Container root,
+            final Class<T> type,
+            final java.util.function.Predicate<T> predicate) {
+        int count = 0;
+        for (final java.awt.Component component : root.getComponents()) {
+            if (type.isInstance(component) && predicate.test(type.cast(component))) {
+                count++;
+            }
+            if (component instanceof java.awt.Container container) {
+                count += countComponents(container, type, predicate);
+            }
+        }
+        return count;
     }
 
     @Test

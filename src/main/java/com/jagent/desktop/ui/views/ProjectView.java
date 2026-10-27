@@ -5,7 +5,6 @@ import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
-import com.jagent.desktop.models.PullRequestFilter;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.PlatformCommands;
@@ -15,14 +14,11 @@ import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
 import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.UiPopupMenus;
-import com.jagent.desktop.ui.components.UiText;
-import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
@@ -35,7 +31,6 @@ public final class ProjectView extends AbstractWorkspaceView {
     private final transient Project project;
     private final transient ProjectId projectId;
     private final PullRequestsBoard pullRequests;
-    private final JComboBox<PullRequestFilter> filters;
     private final JPanel gitWarning = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
     private int terminalNumber;
 
@@ -48,22 +43,7 @@ public final class ProjectView extends AbstractWorkspaceView {
                         .map(Map.Entry::getKey)
                         .findFirst()
                         .orElse(null);
-        this.filters =
-                new JComboBox<>(
-                        actionContext
-                                .appState()
-                                .appSettings()
-                                .pullRequestFilters()
-                                .toArray(PullRequestFilter[]::new));
         this.pullRequests = new PullRequestsBoard(actionContext, projectId);
-        this.filters.addActionListener(
-                event -> {
-                    final PullRequestFilter selected =
-                            (PullRequestFilter) this.filters.getSelectedItem();
-                    this.pullRequests.setQuery(
-                            UiText.valueOrDefault(selected == null ? null : selected.query(), ""));
-                    this.pullRequests.refresh();
-                });
         initializeWorkspace(project.name());
         final TerminalId selectedTerminal = actionContext.viewController().currentTerminalId();
         actionContext.appState().terminals().entrySet().stream()
@@ -110,12 +90,7 @@ public final class ProjectView extends AbstractWorkspaceView {
 
     @Override
     protected void addDefaultTabs() {
-        final JPanel tab = TabBody.wrap(new JPanel(new BorderLayout(0, 8)));
-        final JPanel filterRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        filterRow.add(new JLabel("Filter"));
-        filterRow.add(filters);
-        tab.add(filterRow, BorderLayout.NORTH);
-        tab.add(TabBody.wrap(pullRequests), BorderLayout.CENTER);
+        final JPanel tab = TabBody.wrap(pullRequests);
         tabs.addTab("Pull Requests", tab);
     }
 
