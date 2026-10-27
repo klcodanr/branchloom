@@ -165,9 +165,10 @@ public final class ViewController {
     }
 
     public void openProject(final ProjectId projectId) {
-        final SessionId session = projectId.equals(currentProject) ? currentSession : null;
-        final TerminalId terminal = projectId.equals(currentProject) ? currentTerminal : null;
-        updateView(ViewId.PROJECT, new ViewState(projectId, session, terminal, currentBoardName));
+        final boolean leavingSession = currentViewId == ViewId.SESSION;
+        final TerminalId terminal =
+                !leavingSession && projectId.equals(currentProject) ? currentTerminal : null;
+        updateView(ViewId.PROJECT, new ViewState(projectId, null, terminal, currentBoardName));
     }
 
     public void openSession(final ProjectId projectId, final SessionId sessionId) {
