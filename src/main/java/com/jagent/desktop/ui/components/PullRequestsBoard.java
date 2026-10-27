@@ -329,7 +329,7 @@ public final class PullRequestsBoard extends JPanel {
             final Runnable onSelect =
                     () -> {
                         this.selectedRequest = request;
-                        this.refresh();
+                        this.render();
                     };
             addSelectionListener(cardRow, onSelect);
             attachSelectionListeners(cardRow, onSelect);
