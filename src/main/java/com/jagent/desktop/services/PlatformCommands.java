@@ -53,6 +53,13 @@ public final class PlatformCommands {
         return "x-terminal-emulator .";
     }
 
+    public static Process openTerminal(final Path directory) throws IOException {
+        return prepare(
+                        new ProcessBuilder(shell(terminalCommand()))
+                                .directory(directory.toAbsolutePath().normalize().toFile()))
+                .start();
+    }
+
     public static void openUrl(final String url) {
         try {
             Desktop.getDesktop().browse(URI.create(url));

@@ -7,11 +7,14 @@ import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.BackgroundJobs.Handle;
+import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.SessionCreationService.CreatedSession;
 import com.jagent.desktop.services.ViewController.ViewState;
 import java.awt.GraphicsEnvironment;
 import java.nio.file.Path;
 import javax.swing.JOptionPane;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 
 /** Opens a newly created session and runs its configured setup commands. */
@@ -108,7 +111,8 @@ public final class SessionLauncher {
                                     index,
                                     onComplete,
                                     terminalPanel,
-                                    UiText.valueOrDefault(message, ""));
+                                    UiText.valueOrDefault(message, ""),
+                                    project.startupCommands().get(index));
                             return null;
                         });
     }
@@ -120,7 +124,8 @@ public final class SessionLauncher {
             final int index,
             final Runnable onComplete,
             final TerminalPanel terminalPanel,
-            final String output) {
+            final String output,
+            final String command) {
         final String message = UiText.valueOrDefault(output, "Setup command failed.");
         job.fail(message);
         if (GraphicsEnvironment.isHeadless()) {
@@ -129,10 +134,17 @@ public final class SessionLauncher {
         SwingUtilities.invokeLater(
                 () -> {
                     final Object[] options = {"Open terminal", "Retry setup"};
+                    final JTextArea details =
+                            new JTextArea(failureDetails(index, command, message));
+                    details.setEditable(false);
+                    details.setLineWrap(true);
+                    details.setWrapStyleWord(true);
+                    details.setRows(10);
+                    details.setColumns(60);
                     final int choice =
                             JOptionPane.showOptionDialog(
                                     actionContext.window(),
-                                    "Startup setup failed. Choose how to continue.",
+                                    new JScrollPane(details),
                                     "Session setup failed",
                                     JOptionPane.DEFAULT_OPTION,
                                     JOptionPane.WARNING_MESSAGE,
@@ -141,11 +153,51 @@ public final class SessionLauncher {
                                     options[0]);
                     if (choice == 1) {
                         runStartupCommand(
-                                project, worktreePath, job, index, onComplete, terminalPanel);
+                                project,
+                                worktreePath,
+                                actionContext
+                                        .viewController()
+                                        .backgroundJobs()
+                                        .start("Session setup", project.name(), ""),
+                                index,
+                                onComplete,
+                                terminalPanel);
                     } else if (choice == 0) {
-                        terminalPanel.start();
+                        openExternalTerminal(worktreePath);
                     }
                 });
+    }
+
+    private String failureDetails(final int index, final String command, final String output) {
+        return "Startup command "
+                + (index + 1)
+                + " failed:\n\n"
+                + command
+                + "\n\nOutput:\n"
+                + output;
+    }
+
+    private void openExternalTerminal(final String worktreePath) {
+        BackgroundOperations.submit(
+                        "Terminals",
+                        "open-session-terminal",
+                        () -> PlatformCommands.openTerminal(Path.of(worktreePath)))
+                .exceptionally(
+                        exception -> {
+                            final Throwable cause =
+                                    exception.getCause() == null ? exception : exception.getCause();
+                            SwingUtilities.invokeLater(
+                                    () ->
+                                            JOptionPane.showMessageDialog(
+                                                    actionContext.window(),
+                                                    "Could not open terminal: "
+                                                            + UiText.valueOrDefault(
+                                                                    cause.getMessage(),
+                                                                    "Unknown error."),
+                                                    "Open terminal failed",
+                                                    JOptionPane.ERROR_MESSAGE));
+                            return null;
+                        });
     }
 
     /* package */
