@@ -48,6 +48,6 @@ public final class ApplicationTestHarness implements AutoCloseable {
 
     @Override
     public void close() {
-        application.close();
+        application.close().join();
     }
 }

@@ -131,40 +131,28 @@ class ViewInstanceStateTest {
     }
 
     @Test
-    void reservesInstanceBeforeSubmittingWorker() throws InterruptedException {
+    void reservesInstanceBeforeSubmittingWorker()
+            throws InterruptedException, ExecutionException, TimeoutException {
         final StateFixture state = new StateFixture();
         state.blockFirstLoad = true;
 
-        state.fetch(SESSION, FIRST);
+        final var firstLoad = state.fetch(SESSION, FIRST);
         state.fetch(SESSION, LATEST);
         assertTrue(
                 state.firstLoadStarted.await(TIMEOUT_SECONDS, TimeUnit.SECONDS),
                 "first load should start");
         state.releaseFirstLoad.countDown();
 
-        await(
-                () -> state.configs.equals(List.of(FIRST, LATEST)),
+        firstLoad.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        assertEquals(
+                List.of(FIRST, LATEST),
+                state.configs,
                 "queued refresh should be loaded exactly once after the first load");
-        await(
-                () ->
-                        state.backgroundJobs.jobs().getFirst().status()
-                                == BackgroundJobs.Status.SUCCEEDED,
-                "shared job should complete after the latest refresh");
         assertEquals(1, state.backgroundJobs.jobs().size(), "refreshes should share one job");
         assertEquals(
                 BackgroundJobs.Status.SUCCEEDED,
                 state.backgroundJobs.jobs().getFirst().status(),
                 "shared job should complete after the latest refresh");
-    }
-
-    private static void await(
-            final java.util.function.BooleanSupplier condition, final String message)
-            throws InterruptedException {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
-        while (!condition.getAsBoolean() && System.nanoTime() < deadline) {
-            Thread.sleep(10);
-        }
-        assertTrue(condition.getAsBoolean(), message);
     }
 
     private interface TestListener extends AsyncStateListener<String> {}
