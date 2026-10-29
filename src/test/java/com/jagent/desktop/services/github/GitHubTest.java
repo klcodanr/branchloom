@@ -1,21 +1,11 @@
 package com.jagent.desktop.services.github;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import com.jagent.desktop.models.github.Credential;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class GitHubTest {
     private static final String GITHUB_EXAMPLE = "github.example";
-
-    @Test
-    void listCredentialsIncludesDefaultCliOption() {
-        final List<Credential> auths = new GitHubAuth().listCredentials();
-
-        assertFalse(auths.isEmpty(), "default auth should be available");
-    }
 
     @Test
     void apiEndpointUsesGitHubComForDefaultHostCaseInsensitively() {

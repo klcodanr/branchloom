@@ -153,7 +153,12 @@ class SessionViewUiTest {
         controller.selectSession(projectId, sessionId);
         final ActionContext context = new ActionContext(controller, state, null, null, null);
 
-        assertThrows(IllegalStateException.class, () -> new SessionView(context));
+        final IllegalStateException exception =
+                assertThrows(IllegalStateException.class, () -> new SessionView(context));
+        assertEquals(
+                "An agent session must have a worktree path.",
+                exception.getMessage(),
+                "sessions without worktrees should be rejected");
     }
 
     @Test

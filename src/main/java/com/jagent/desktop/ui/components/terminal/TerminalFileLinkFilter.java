@@ -1,4 +1,4 @@
-package com.jagent.desktop.ui.components;
+package com.jagent.desktop.ui.components.terminal;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -15,7 +15,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Detects existing files and compiler-style line and column suffixes. */
-final class TerminalFileLinkFilter implements HyperlinkFilter {
+public final class TerminalFileLinkFilter implements HyperlinkFilter {
     private static final long FILE_CHECK_CACHE_TTL_MILLIS = 30_000;
     private static final int FILE_CHECK_CACHE_SIZE = 4_096;
     private static final Pattern TOKEN = Pattern.compile("(?<!\\S)[^\\s<>\\[\\]{}\"']+");

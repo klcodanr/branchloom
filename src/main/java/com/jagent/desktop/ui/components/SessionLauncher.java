@@ -10,6 +10,7 @@ import com.jagent.desktop.services.BackgroundJobs.Handle;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.SessionCreationService.CreatedSession;
 import com.jagent.desktop.services.ViewController.ViewState;
+import com.jagent.desktop.ui.components.terminal.TerminalPanel;
 import java.awt.GraphicsEnvironment;
 import java.nio.file.Path;
 import javax.swing.JOptionPane;

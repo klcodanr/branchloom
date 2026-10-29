@@ -1,6 +1,7 @@
 package com.jagent.desktop.services;
 
 import com.jagent.desktop.models.AppSettings;
+import com.jagent.desktop.models.AppSettingsId;
 import com.jagent.desktop.models.IdType;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
@@ -102,6 +103,7 @@ public class AppState {
 
     public void updateAppSettings(final AppSettings appSettings) {
         this.appSettings = appSettings;
+        notifyStateEvent(new StateEvent(Action.UPDATE, AppSettingsId.CURRENT));
     }
 
     public PersistenceSnapshot snapshotForPersistence() {
@@ -131,6 +133,7 @@ public class AppState {
         final var projectId = ProjectId.create();
         this.projects.put(projectId, project);
         this.projectsUpdated = true;
+        notifyStateEvent(new StateEvent(Action.ADD, projectId));
         return projectId;
     }
 
@@ -153,6 +156,7 @@ public class AppState {
     public void updateProject(final ProjectId projectId, final Project project) {
         this.projects.put(projectId, project);
         this.projectsUpdated = true;
+        notifyStateEvent(new StateEvent(Action.UPDATE, projectId));
     }
 
     public SessionId addSession(final ProjectId projectId, final Session session)
@@ -165,6 +169,7 @@ public class AppState {
         this.sessions.put(sessionId, session);
         this.projects.put(projectId, project.withNewSession(sessionId));
         this.projectsUpdated = true;
+        notifyStateEvent(new StateEvent(Action.ADD, sessionId));
         return sessionId;
     }
 
@@ -186,6 +191,7 @@ public class AppState {
     public void updateSession(final SessionId sessionId, final Session session) {
         this.sessions.put(sessionId, session);
         this.projectsUpdated = true;
+        notifyStateEvent(new StateEvent(Action.UPDATE, sessionId));
     }
 
     public TerminalId addTerminal(final SessionId sessionId, final Terminal terminal) {
@@ -202,7 +208,7 @@ public class AppState {
         if (terminal.projectId() == null || !this.projects.containsKey(terminal.projectId())) {
             throw new IllegalArgumentException("Project terminal must have a project ID.");
         }
-        return registerTerminal(terminal, ignored -> {});
+        return registerTerminal(terminal, (ignored) -> {});
     }
 
     private TerminalId registerTerminal(

@@ -235,10 +235,12 @@ public final class ViewController {
         return pullRequestWatcher;
     }
 
+    @SuppressWarnings("unchecked")
     public <V extends AsyncLoadingState<?, ?, ?, ?>> V getAsyncLoadingState(final Object key) {
         return (V) asyncLoadingStates.get(key);
     }
 
+    @SuppressWarnings("unchecked")
     public <V extends AsyncLoadingState<?, ?, ?, ?>> V getOrDefaultAsyncLoadingState(
             final Object key, final V defaultState) {
         if (!asyncLoadingStates.containsKey(key)) {

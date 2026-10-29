@@ -12,7 +12,8 @@ public record AppSettings(
         String agentContextPath,
         List<PullRequestFilter> pullRequestFilters,
         List<BoardDefinition> boards,
-        String jiraEndpoint) {
+        String jiraEndpoint,
+        List<String> projectGroups) {
     private static final String DEFAULT_WORKTREE_TEMPLATE =
             "{projectPath}/../{projectName}-{sessionSlug}";
     private static final PullRequestFilter ACTIVE_FILTER =
@@ -41,7 +42,8 @@ public record AppSettings(
                 "",
                 defaultPullRequestFilters(),
                 List.of(),
-                "");
+                "",
+                List.of());
     }
 
     public AppSettings(
@@ -60,7 +62,8 @@ public record AppSettings(
                 agentContextPath,
                 defaultPullRequestFilters(),
                 List.of(),
-                "");
+                "",
+                List.of());
     }
 
     public AppSettings {

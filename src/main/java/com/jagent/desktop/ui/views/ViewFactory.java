@@ -22,7 +22,7 @@ public final class ViewFactory {
         final ViewId resolvedViewId = resolveView(viewId, project, session);
         return switch (resolvedViewId) {
             case HOME -> new HomeView(actionContext);
-            case MY_PULL_REQUESTS -> new MyPullRequestsView(actionContext);
+            case PULL_REQUESTS -> new MyPullRequestsView(actionContext);
             case BOARD -> new BoardView(actionContext, board(boardName));
             case PROJECT -> new ProjectView(actionContext, project);
             case SESSION -> new SessionView(actionContext);

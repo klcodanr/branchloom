@@ -1,4 +1,4 @@
-package com.jagent.desktop.ui.components;
+package com.jagent.desktop.ui.components.terminal;
 
 import com.jediterm.terminal.model.hyperlinks.HyperlinkFilter;
 import com.jediterm.terminal.model.hyperlinks.LinkResult;
@@ -10,7 +10,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Detects web URLs in terminal output and delegates their navigation. */
-final class TerminalLinkFilter implements HyperlinkFilter {
+public final class TerminalLinkFilter implements HyperlinkFilter {
     private static final Pattern URL_PATTERN =
             Pattern.compile("(?i)\\bhttps?://(?:[^\\s<>\\[\\]{}\"']|\\R)+");
     private final Consumer<String> openUrl;

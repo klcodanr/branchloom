@@ -1,4 +1,4 @@
-package com.jagent.desktop.ui.components;
+package com.jagent.desktop.ui.components.terminal;
 
 import java.nio.file.Path;
 

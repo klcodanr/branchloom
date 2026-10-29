@@ -10,6 +10,8 @@ import com.jagent.desktop.models.WindowState;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.persistence.AppStatePersistence;
 import com.jagent.desktop.services.persistence.WindowStatePersistence;
+import com.jagent.desktop.ui.components.tree.items.ProjectTreeItem;
+import com.jagent.desktop.ui.components.tree.items.SessionTreeItem;
 import com.jagent.desktop.ui.views.AppView;
 import com.jagent.desktop.ui.views.HomeView;
 import com.jagent.desktop.ui.views.ProblemsView;
@@ -109,7 +111,9 @@ class AppStartupIntegrationTest {
     @Test
     void reloadsPersistedProjectAndOpensItFromTheProjectTree() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project("Demo", dataDirectory.toString(), null));
+        final var projectId =
+                state.addProject(
+                        new Project("Demo", dataDirectory.toString(), null).withGroup(null));
         try (AppStatePersistence persistence = new AppStatePersistence(state, dataDirectory)) {
             persistence.persist();
         }
@@ -140,9 +144,10 @@ class AppStartupIntegrationTest {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         state.addProject(
                 new Project(
-                        "Unavailable",
-                        dataDirectory.resolve("missing-workspace").toString(),
-                        null));
+                                "Unavailable",
+                                dataDirectory.resolve("missing-workspace").toString(),
+                                null)
+                        .withGroup(null));
         try (AppStatePersistence persistence = new AppStatePersistence(state, dataDirectory)) {
             persistence.persist();
         }
@@ -163,7 +168,9 @@ class AppStartupIntegrationTest {
     @Test
     void walksTheMainApplicationScreens() throws java.io.InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project("Demo", dataDirectory.toString(), null));
+        final var projectId =
+                state.addProject(
+                        new Project("Demo", dataDirectory.toString(), null).withGroup(null));
         final var sessionId =
                 state.addSession(
                         projectId,
@@ -227,8 +234,7 @@ class AppStartupIntegrationTest {
         while (traversal.hasMoreElements()) {
             final Object current = traversal.nextElement();
             if (current instanceof DefaultMutableTreeNode node
-                    && node.getUserObject() instanceof Map.Entry<?, ?> entry
-                    && entry.getValue() instanceof Project) {
+                    && node.getUserObject() instanceof ProjectTreeItem) {
                 return node;
             }
         }
@@ -239,8 +245,7 @@ class AppStartupIntegrationTest {
         for (int index = 0; index < project.getChildCount(); index++) {
             final Object child = project.getChildAt(index);
             if (child instanceof DefaultMutableTreeNode node
-                    && node.getUserObject() instanceof Map.Entry<?, ?> entry
-                    && entry.getValue() instanceof Session) {
+                    && node.getUserObject() instanceof SessionTreeItem) {
                 return node;
             }
         }

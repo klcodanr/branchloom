@@ -112,6 +112,30 @@ class TerminalShortcutDispatcherTest {
         assertEquals(0, invocations.get(), "ignored events should not invoke actions");
     }
 
+    @Test
+    void ignoresUnmappedKeysAndKeysWithoutActions() {
+        final InputMap inputMap = new InputMap();
+        final ActionMap actionMap = new ActionMap();
+        final var terminal = new JPanel();
+        final var dispatcher =
+                new TerminalShortcutDispatcher(inputMap, actionMap, terminal::equals);
+        final KeyStroke unmapped = KeyStroke.getKeyStroke(KeyEvent.VK_A, SHORTCUT_MODIFIERS);
+        final KeyStroke missingAction = KeyStroke.getKeyStroke(KeyEvent.VK_B, SHORTCUT_MODIFIERS);
+        inputMap.put(missingAction, "missing");
+
+        assertFalse(
+                dispatcher.dispatchKeyEvent(
+                        keyPressed(terminal, unmapped.getKeyCode(), unmapped.getModifiers())),
+                "unmapped keys should pass through");
+        assertFalse(
+                dispatcher.dispatchKeyEvent(
+                        keyPressed(
+                                terminal,
+                                missingAction.getKeyCode(),
+                                missingAction.getModifiers())),
+                "keys without actions should pass through");
+    }
+
     private static AbstractAction action(final AtomicInteger invocations) {
         return new AbstractAction() {
             @Override

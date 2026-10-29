@@ -1,5 +1,6 @@
 package com.jagent.desktop.ui.components;
 
+import com.jagent.desktop.ui.components.terminal.TerminalPanel;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.JComponent;

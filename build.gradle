@@ -94,10 +94,16 @@ jacocoTestCoverageVerification {
     violationRules {
         rule {
             limit {
-                counter = 'LINE'
+                counter = 'INSTRUCTION'
                 value = 'COVEREDRATIO'
-                minimum = 0.6
+                minimum = 0.70
             }
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.55
+            }
+
         }
     }
 }

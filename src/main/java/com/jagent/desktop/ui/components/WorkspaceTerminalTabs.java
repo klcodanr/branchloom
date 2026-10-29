@@ -1,6 +1,7 @@
 package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.models.TerminalId;
+import com.jagent.desktop.ui.components.terminal.TerminalPanel;
 import java.awt.Component;
 import java.util.Collection;
 import java.util.Collections;

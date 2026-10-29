@@ -235,8 +235,8 @@ public final class PullRequestsBoard extends JPanel {
                 .getOrDefaultAsyncLoadingState(
                         project,
                         new PullRequestInstanceState(
-                                actionContext.appState(),
-                                actionContext.viewController().backgroundJobs()));
+                                actionContext.viewController().backgroundJobs(),
+                                actionContext.githubProvider()));
     }
 
     private void completeRefresh(final String status, final long started) {

@@ -16,9 +16,9 @@ import com.jagent.desktop.ui.actions.ResourceUsageAction;
 import com.jagent.desktop.ui.components.CommandPalette;
 import com.jagent.desktop.ui.components.EmptyStatePanel;
 import com.jagent.desktop.ui.components.ProjectTreePanel;
-import com.jagent.desktop.ui.components.TerminalPanel;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiBorders;
+import com.jagent.desktop.ui.components.terminal.TerminalPanel;
 import com.jagent.desktop.ui.layout.BottomBar;
 import com.jagent.desktop.ui.utils.TerminalShortcutDispatcher;
 import java.awt.BorderLayout;
@@ -247,7 +247,6 @@ public final class AppView extends JPanel {
         }
         content.removeAll();
         content.add(rendered, BorderLayout.CENTER);
-        projectTreePanel.refresh();
         revalidate();
         repaint();
     }

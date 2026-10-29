@@ -2,7 +2,7 @@ package com.jagent.desktop.api;
 
 public enum ViewId {
     HOME,
-    MY_PULL_REQUESTS,
+    PULL_REQUESTS,
     BOARD,
     PROJECT,
     SESSION,

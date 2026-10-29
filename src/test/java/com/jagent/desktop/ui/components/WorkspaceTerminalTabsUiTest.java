@@ -1,4 +1,4 @@
-package com.jagent.desktop.ui.components;
+package com.jagent.desktop.ui.components.terminal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
 import com.jagent.desktop.services.terminal.TerminalState;
+import com.jagent.desktop.ui.components.Theme;
+import com.jagent.desktop.ui.components.WorkspaceTerminalTabs;
 import com.jediterm.terminal.TtyConnector;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicReference;
@@ -217,6 +219,109 @@ class WorkspaceTerminalTabsUiTest {
 
         assertEquals(1, tabs.getTabCount(), "idle terminal should close without confirmation");
         assertEquals(Boolean.TRUE, closed.get(), "close should notify the owner");
+    }
+
+    @Test
+    void ignoresInvalidSelectionAndCloseIndexes() {
+        final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
+        final WorkspaceTerminalTabs terminalTabs =
+                GuiActionRunner.execute(
+                        () -> new WorkspaceTerminalTabs(tabs, (terminal, id) -> {}, (t, n) -> {}));
+
+        GuiActionRunner.execute(
+                () -> {
+                    terminalTabs.select(0);
+                    terminalTabs.select(3);
+                    terminalTabs.close(-1);
+                    terminalTabs.close(0);
+                });
+
+        assertEquals(0, tabs.getTabCount(), "invalid tab operations should be ignored");
+        assertTrue(terminalTabs.ids().isEmpty(), "invalid operations should not add terminals");
+    }
+
+    @Test
+    void removesExistingParentBeforeMountingAndIgnoresInvalidTitles() {
+        final CountingTerminalRuntime runtime = new CountingTerminalRuntime();
+        final TerminalPanel panel =
+                GuiActionRunner.execute(() -> new TerminalPanel(runtime, ignored -> {}));
+        final JPanel originalParent = GuiActionRunner.execute(() -> new JPanel());
+        final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
+        final WorkspaceTerminalTabs terminalTabs =
+                GuiActionRunner.execute(
+                        () -> new WorkspaceTerminalTabs(tabs, (terminal, id) -> {}, (t, n) -> {}));
+
+        GuiActionRunner.execute(
+                () -> {
+                    originalParent.add(panel);
+                    terminalTabs.mount(TERMINAL_TAB, TerminalId.create(), panel, false);
+                    panel.applicationTitleChanged(" ");
+                    panel.applicationTitleChanged(null);
+                });
+
+        assertEquals(0, originalParent.getComponentCount(), "mount should remove the old parent");
+        assertEquals(
+                TERMINAL_TAB, tabs.getTitleAt(0), "invalid titles should not replace tab title");
+        GuiActionRunner.execute(panel::dispose);
+    }
+
+    @Test
+    void exposesMountedTerminalIdsAndClosesByIndex() {
+        final CountingTerminalRuntime runtime = new CountingTerminalRuntime();
+        final TerminalPanel panel =
+                GuiActionRunner.execute(() -> new TerminalPanel(runtime, ignored -> {}));
+        final TerminalId terminalId = TerminalId.create();
+        final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
+        final AtomicReference<TerminalId> closedId = new AtomicReference<>();
+        final WorkspaceTerminalTabs terminalTabs =
+                GuiActionRunner.execute(
+                        () ->
+                                new WorkspaceTerminalTabs(
+                                        tabs,
+                                        (terminal, id) -> closedId.set(id),
+                                        (terminal, title) -> {}));
+
+        GuiActionRunner.execute(() -> terminalTabs.mount(TERMINAL_TAB, terminalId, panel, false));
+        assertEquals(
+                terminalId, terminalTabs.ids().get(panel), "mounted terminal ID should be tracked");
+
+        GuiActionRunner.execute(() -> terminalTabs.close(0));
+        assertEquals(terminalId, closedId.get(), "closing by index should notify the owner ID");
+        assertTrue(
+                terminalTabs.ids().isEmpty(), "closed terminals should be removed from the ID map");
+    }
+
+    @Test
+    void ignoresDuplicateTitleInstallationAndUnknownTitleUpdates() {
+        final CountingTerminalRuntime runtime = new CountingTerminalRuntime();
+        final TerminalPanel panel =
+                GuiActionRunner.execute(() -> new TerminalPanel(runtime, ignored -> {}));
+        final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
+        final AtomicReference<String> renamed = new AtomicReference<>();
+        final WorkspaceTerminalTabs terminalTabs =
+                GuiActionRunner.execute(
+                        () ->
+                                new WorkspaceTerminalTabs(
+                                        tabs,
+                                        (terminal, id) -> {},
+                                        (terminal, title) -> renamed.set(title)));
+
+        GuiActionRunner.execute(
+                () -> {
+                    terminalTabs.mount("First", TerminalId.create(), panel, false);
+                    terminalTabs.mount("Second", TerminalId.create(), panel, false);
+                    panel.applicationTitleChanged("Updated");
+                });
+        GuiActionRunner.execute(() -> {});
+
+        assertEquals(
+                1, tabs.getTabCount(), "mounting the same panel should not duplicate its parent");
+        assertEquals("Updated", tabs.getTitleAt(0), "known terminal title should update");
+        assertEquals("Updated", renamed.get(), "known title updates should notify the owner");
+
+        GuiActionRunner.execute(terminalTabs::detach);
+        assertTrue(terminalTabs.ids().isEmpty(), "detach should clear terminal IDs");
+        GuiActionRunner.execute(panel::dispose);
     }
 
     private static final class CountingTerminalRuntime extends TerminalRuntime {
