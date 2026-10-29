@@ -1,32 +1,44 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
+import com.jagent.desktop.api.Action;
 import com.jagent.desktop.async.BackgroundOperations;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.Template;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.components.UiText;
-import com.jagent.desktop.ui.utils.ErrorDialogs;
 import com.jagent.desktop.ui.utils.PathUtils;
-import java.awt.Window;
 import java.nio.file.Path;
 import java.util.Locale;
 
 /** Runs a command at the current session worktree or project path. */
-public final class RunCommandAction extends BaseAction {
+public final class RunCommandAction implements Action {
+    private final ViewController viewController;
+    private final AppState appState;
+    private final DialogService dialogService;
     private final String label;
     private final String command;
 
     public RunCommandAction(
-            final ActionContext actionContext, final String label, final String command) {
-        super(actionContext);
+            final ViewController viewController,
+            final AppState appState,
+            final DialogService dialogService,
+            final String label,
+            final String command) {
+        this.viewController = viewController;
+        this.appState = appState;
+        this.dialogService = dialogService;
         this.label = label;
         this.command = command;
     }
 
     public static void run(
-            final String command, final String path, final String title, final Window owner) {
+            final String command,
+            final String path,
+            final String title,
+            final DialogService dialogs) {
         try {
             BackgroundOperations.runCommand("Commands", "run-command", command, Path.of(path), null)
                     .exceptionally(
@@ -35,16 +47,14 @@ public final class RunCommandAction extends BaseAction {
                                         exception.getCause() == null
                                                 ? exception.getMessage()
                                                 : exception.getCause().getMessage();
-                                ErrorDialogs.show(
-                                        owner,
-                                        title,
-                                        UiText.valueOrDefault(message, "Could not run command."));
+                                dialogs.errorMessage(
+                                        UiText.valueOrDefault(message, "Could not run command."),
+                                        title);
                                 return null;
                             });
         } catch (RuntimeException exception) {
             final String message = exception.getMessage();
-            ErrorDialogs.show(
-                    owner, title, UiText.valueOrDefault(message, "Could not run command."));
+            dialogs.errorMessage(UiText.valueOrDefault(message, "Could not run command."), title);
         }
     }
 
@@ -60,34 +70,26 @@ public final class RunCommandAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        final var appState = actionContext.appState();
-        return PathUtils.resolve(appState, actionContext.viewController()) != null;
+        return PathUtils.resolve(appState, viewController) != null;
     }
 
     @Override
     public void execute() {
         try {
-            final Project project = actionContext.viewController().currentProject();
+            final Project project = viewController.currentProject();
             if (project == null) {
                 return;
             }
-            final Session session = this.actionContext.viewController().currentSession();
-            final String path =
-                    PathUtils.resolve(actionContext.appState(), actionContext.viewController());
+            final Session session = this.viewController.currentSession();
+            final String path = PathUtils.resolve(appState, viewController);
             if (path == null) {
                 return;
             }
-            run(
-                    Template.expand(command, project, session, true),
-                    path,
-                    label,
-                    actionContext.window());
+            run(Template.expand(command, project, session, true), path, label, dialogService);
         } catch (RuntimeException exception) {
             final String message = exception.getMessage();
-            ErrorDialogs.show(
-                    actionContext.window(),
-                    label,
-                    UiText.valueOrDefault(message, "Could not run command."));
+            dialogService.errorMessage(
+                    UiText.valueOrDefault(message, "Could not run command."), label);
         }
     }
 }

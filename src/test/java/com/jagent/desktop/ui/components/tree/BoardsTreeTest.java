@@ -13,7 +13,7 @@ class BoardsTreeTest {
     @Test
     void createsSortedBoardNodesAndRebuildsThem() {
         final var state = TestAppState.empty();
-        final var tree = new BoardsTree(TestAppState.context(state));
+        final var tree = new BoardsTree(TestAppState.controller(state), state);
         final var root = tree.getNode();
 
         assertInstanceOf(

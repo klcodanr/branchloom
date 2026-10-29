@@ -60,6 +60,14 @@ public final class PlatformCommands {
                 .start();
     }
 
+    public static void openPath(final String path) {
+        try {
+            Desktop.getDesktop().open(Path.of(path).toFile());
+        } catch (Exception exception) {
+            LOG.error("Failed to open path: {}", path, exception);
+        }
+    }
+
     public static void openUrl(final String url) {
         try {
             Desktop.getDesktop().browse(URI.create(url));
@@ -127,34 +135,6 @@ public final class PlatformCommands {
     public static ProcessBuilder prepare(final ProcessBuilder builder) {
         builder.environment().put("PATH", toolPath());
         return builder;
-    }
-
-    public static void logFailure(
-            final ProcessBuilder builder, final int exitCode, final String output) {
-        LOG.warn(
-                "Command failed (exit code "
-                        + exitCode
-                        + "): "
-                        + describe(builder)
-                        + System.lineSeparator()
-                        + "Output: "
-                        + UiText.valueOrDefault(output, "<none>").trim()
-                        + System.lineSeparator()
-                        + "Reproduce: "
-                        + reproduce(builder));
-    }
-
-    public static void logStartFailure(final ProcessBuilder builder, final IOException exception) {
-        LOG.warn(
-                "Could not start command: "
-                        + describe(builder)
-                        + System.lineSeparator()
-                        + "Reason: "
-                        + exception.getMessage()
-                        + System.lineSeparator()
-                        + "Reproduce: "
-                        + reproduce(builder),
-                exception);
     }
 
     public static String executable(final String name) {
@@ -245,29 +225,6 @@ public final class PlatformCommands {
             LOG.warn("Shell environment discovery was interrupted", exception);
         }
         return null;
-    }
-
-    private static String describe(final ProcessBuilder builder) {
-        return commandLine(builder.command())
-                + " (directory: "
-                + (builder.directory() == null
-                        ? Path.of(".").toAbsolutePath()
-                        : builder.directory())
-                + ")";
-    }
-
-    private static String reproduce(final ProcessBuilder builder) {
-        final String directory =
-                builder.directory() == null
-                        ? Path.of(".").toAbsolutePath().toString()
-                        : builder.directory().toString();
-        return "cd " + shellQuote(directory) + " && " + commandLine(builder.command());
-    }
-
-    private static String commandLine(final List<String> command) {
-        return command.stream()
-                .map(PlatformCommands::shellQuote)
-                .collect(java.util.stream.Collectors.joining(" "));
     }
 
     public static String shellQuote(final String value) {

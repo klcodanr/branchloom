@@ -3,11 +3,11 @@ package com.jagent.desktop.ui.views;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.jagent.desktop.models.ActionContext;
+import com.google.inject.Guice;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ApplicationModule;
 import com.jagent.desktop.services.persistence.AppStatePersistence;
 import com.jagent.desktop.services.persistence.WindowStatePersistence;
-import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.ApplicationWindow;
 import java.awt.GraphicsEnvironment;
 import java.nio.file.Path;
@@ -28,15 +28,8 @@ class AppViewSmokeTest {
                     GuiActionRunner.execute(
                             () -> new ApplicationWindow(windowPersistence, () -> {}));
             final AppView view =
-                    GuiActionRunner.execute(
-                            () ->
-                                    new AppView(
-                                            new ActionContext(
-                                                    TestAppState.controller(state),
-                                                    state,
-                                                    window,
-                                                    directory,
-                                                    () -> {})));
+                    Guice.createInjector(new ApplicationModule(directory, state, window, () -> {}))
+                            .getInstance(AppView.class);
             GuiActionRunner.execute(
                     () -> {
                         window.setContentPane(view);

@@ -31,9 +31,9 @@ class SessionMonitoringPanelUiTest {
         final ProjectId projectId = ProjectId.create();
         final SessionId firstId = SessionId.create();
         final SessionId secondId = SessionId.create();
-        final Project project = new Project("Alpha", "/tmp/alpha", null);
-        final Session first = new Session(projectId, "zulu", null, null, null);
-        final Session second = new Session(projectId, "Bravo", null, null, null);
+        final Project project = Project.create("Alpha", "/tmp/alpha", null);
+        final Session first = Session.create(projectId, "zulu", null, null, null);
+        final Session second = Session.create(projectId, "Bravo", null, null, null);
         final PullRequestDetails details = details(projectId, project);
         final AppState state =
                 new AppState(
@@ -45,9 +45,9 @@ class SessionMonitoringPanelUiTest {
                         Map.of());
         state.updateMonitoringStatus(firstId, details);
 
-        final var context = TestAppState.context(state);
+        final var controller = TestAppState.controller(state);
         final SessionMonitoringPanel panel =
-                GuiActionRunner.execute(() -> new SessionMonitoringPanel(context));
+                GuiActionRunner.execute(() -> new SessionMonitoringPanel(controller, state));
         final JTable table = SwingTestSupport.find(panel, JTable.class);
 
         assertNotNull(table, "monitoring panel should contain a table");
@@ -76,10 +76,7 @@ class SessionMonitoringPanelUiTest {
         for (final var listener : table.getMouseListeners()) {
             listener.mouseClicked(click);
         }
-        assertEquals(
-                secondId,
-                context.viewController().currentSessionId(),
-                "clicking a session should open it");
+        assertEquals(secondId, controller.currentSessionId(), "clicking a session should open it");
 
         final MouseEvent doubleClick =
                 new MouseEvent(table, MouseEvent.MOUSE_CLICKED, 1, 0, 5, 5, 2, false);
@@ -92,7 +89,7 @@ class SessionMonitoringPanelUiTest {
     void usesFallbackNameWhenSessionProjectIsMissing() {
         final ProjectId projectId = ProjectId.create();
         final SessionId sessionId = SessionId.create();
-        final Session session = new Session(projectId, "orphan", null, null, null);
+        final Session session = Session.create(projectId, "orphan", null, null, null);
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
@@ -101,7 +98,7 @@ class SessionMonitoringPanelUiTest {
                         Map.of());
         final SessionMonitoringPanel panel =
                 GuiActionRunner.execute(
-                        () -> new SessionMonitoringPanel(TestAppState.context(state)));
+                        () -> new SessionMonitoringPanel(TestAppState.controller(state), state));
         final JTable table = SwingTestSupport.find(panel, JTable.class);
 
         assertNotNull(table, "monitoring panel should contain a table");

@@ -1,12 +1,14 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
-import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.api.Action;
+import com.jagent.desktop.services.ViewController;
 
 /** Opens the selected project. */
-public final class OpenProjectAction extends BaseAction {
-    public OpenProjectAction(final ActionContext actionContext) {
-        super(actionContext);
+public final class OpenProjectAction implements Action {
+    private final ViewController viewController;
+
+    public OpenProjectAction(final ViewController viewController) {
+        this.viewController = viewController;
     }
 
     @Override
@@ -21,15 +23,15 @@ public final class OpenProjectAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.viewController().currentProjectId() != null;
+        return viewController.currentProjectId() != null;
     }
 
     @Override
     public void execute() {
-        final var projectId = actionContext.viewController().currentProjectId();
+        final var projectId = viewController.currentProjectId();
         if (projectId == null) {
             return;
         }
-        actionContext.viewController().openProject(projectId);
+        viewController.openProject(projectId);
     }
 }

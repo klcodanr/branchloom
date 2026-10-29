@@ -1,14 +1,21 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
-import com.jagent.desktop.models.ActionContext;
+import com.google.inject.Inject;
+import com.jagent.desktop.api.Action;
 import com.jagent.desktop.models.Session;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.ui.utils.GitUtils;
 
 /** Copies the current session's branch name. */
-public final class CopyBranchAction extends BaseAction {
-    public CopyBranchAction(final ActionContext actionContext) {
-        super(actionContext);
+public final class CopyBranchAction implements Action {
+    private final ViewController viewController;
+    private final AppState appState;
+
+    @Inject
+    public CopyBranchAction(final ViewController viewController, final AppState appState) {
+        this.viewController = viewController;
+        this.appState = appState;
     }
 
     @Override
@@ -38,7 +45,7 @@ public final class CopyBranchAction extends BaseAction {
     }
 
     private Session currentSession() {
-        final var sessionId = actionContext.viewController().currentSessionId();
-        return sessionId == null ? null : actionContext.appState().sessions().get(sessionId);
+        final var sessionId = viewController.currentSessionId();
+        return sessionId == null ? null : appState.sessions().get(sessionId);
     }
 }

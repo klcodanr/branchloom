@@ -1,33 +1,46 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
+import com.google.inject.Inject;
+import com.jagent.desktop.api.Action;
 import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.async.ProgressOperation;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.git.Branch;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.BackgroundJobs;
 import com.jagent.desktop.services.SessionCreationService;
+import com.jagent.desktop.services.SessionLauncher;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.services.git.GitRepository;
-import com.jagent.desktop.ui.components.SessionLauncher;
 import com.jagent.desktop.ui.dialogs.NewSessionDialog;
-import com.jagent.desktop.ui.utils.ErrorDialogs;
 import com.jagent.desktop.ui.utils.ErrorMessages;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
-import javax.swing.JOptionPane;
 
 /** Starts the session creation workflow. */
-public final class CreateSessionAction extends BaseAction {
+public final class CreateSessionAction implements Action {
+    private final ViewController viewController;
+    private final AppState appState;
+    private final DialogService dialogService;
     private static final String CREATE_SESSION = "Create session";
     private final SessionCreationService sessionCreator;
     private final SessionLauncher sessionLauncher;
 
-    public CreateSessionAction(final ActionContext actionContext) {
-        super(actionContext);
-        sessionCreator = new SessionCreationService(actionContext.appState());
-        sessionLauncher = new SessionLauncher(actionContext);
+    @Inject
+    public CreateSessionAction(
+            final ViewController viewController,
+            final AppState appState,
+            final BackgroundJobs backgroundJobs,
+            final DialogService dialogService) {
+        this.viewController = viewController;
+        this.appState = appState;
+        this.dialogService = dialogService;
+        sessionCreator = new SessionCreationService(appState);
+        sessionLauncher =
+                new SessionLauncher(viewController, appState, dialogService, backgroundJobs);
     }
 
     @Override
@@ -42,22 +55,21 @@ public final class CreateSessionAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.viewController().currentProjectId() != null;
+        return viewController.currentProjectId() != null;
     }
 
     @Override
     public void execute() {
-        final var state = actionContext.appState();
-        final ProjectId projectId = actionContext.viewController().currentProjectId();
+        final var state = appState;
+        final ProjectId projectId = viewController.currentProjectId();
         if (projectId == null || state.projects().get(projectId) == null) {
             return;
         }
         if (state.appSettings().agents().isEmpty()) {
-            JOptionPane.showMessageDialog(
-                    actionContext.window(),
+            dialogService.message(
                     "Configure an agent in Settings before starting a session.",
                     "No agents configured",
-                    JOptionPane.INFORMATION_MESSAGE);
+                    DialogService.MessageType.INFORMATION);
             return;
         }
         final Project project = state.projects().get(projectId);
@@ -73,19 +85,22 @@ public final class CreateSessionAction extends BaseAction {
                         })
                 .thenAccept(
                         branches -> {
-                            new NewSessionDialog(
-                                            actionContext,
+                            dialogService.show(
+                                    "New agent session",
+                                    new NewSessionDialog(
+                                            appState,
+                                            dialogService,
                                             preferredBranches(branches),
-                                            request -> addSession(projectId, request))
-                                    .setVisible(true);
+                                            request -> addSession(projectId, request)),
+                                    "OK");
                         })
                 .exceptionally(
                         failure -> {
                             final String message =
                                     ErrorMessages.deepestCause(
                                             failure, "Git could not list branches.");
-                            ErrorDialogs.show(
-                                    actionContext.window(), "Load base branches", message);
+                            dialogService.message(
+                                    message, "Load base branches", DialogService.MessageType.ERROR);
                             return null;
                         });
     }
@@ -106,8 +121,9 @@ public final class CreateSessionAction extends BaseAction {
         };
     }
 
-    protected void addSession(final ProjectId projectId, final NewSessionDialog.Request request) {
-        final var state = actionContext.appState();
+    // Public for action integration tests and dialog callbacks.
+    public void addSession(final ProjectId projectId, final NewSessionDialog.Request request) {
+        final var state = appState;
         final Project project = state.projects().get(projectId);
         if (project.sessionIds().stream()
                 .map(state.sessions()::get)
@@ -115,15 +131,14 @@ public final class CreateSessionAction extends BaseAction {
                         session ->
                                 session != null
                                         && session.name().equalsIgnoreCase(request.name()))) {
-            ErrorDialogs.show(
-                    actionContext.window(),
+            dialogService.message(
+                    "A session with that name already exists.",
                     CREATE_SESSION,
-                    "A session with that name already exists.");
+                    DialogService.MessageType.ERROR);
             return;
         }
 
         ProgressOperation.run(
-                        actionContext,
                         CREATE_SESSION,
                         "Creating agent session...",
                         () ->
@@ -143,7 +158,8 @@ public final class CreateSessionAction extends BaseAction {
                             final String message =
                                     ErrorMessages.deepestCause(
                                             failure, "Could not create the session.");
-                            ErrorDialogs.show(actionContext.window(), CREATE_SESSION, message);
+                            dialogService.message(
+                                    message, CREATE_SESSION, DialogService.MessageType.ERROR);
                             return null;
                         });
     }

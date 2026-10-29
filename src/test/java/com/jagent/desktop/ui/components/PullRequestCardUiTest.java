@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.GitHubUser;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
@@ -15,7 +14,9 @@ import com.jagent.desktop.models.PullRequestReview;
 import com.jagent.desktop.models.PullRequestReviews;
 import com.jagent.desktop.models.github.CliCredential;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.services.github.GitHub;
+import com.jagent.desktop.services.github.GitHubProvider;
 import com.jagent.desktop.test.SwingTestSupport;
 import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
@@ -44,14 +45,14 @@ class PullRequestCardUiTest {
     @Test
     void rendersPullRequestIdentityMetadataAndStatus() throws MalformedURLException {
         final ProjectId projectId = ProjectId.create();
-        final Project project = new Project(PROJECT_NAME, PROJECT_PATH, null);
+        final Project project = Project.create(PROJECT_NAME, PROJECT_PATH, null);
         final PullRequest request = request(projectId, FIX_LOGIN, AUTHOR, project);
         final PullRequestDetails details =
                 details(request.projectId(), request.project(), true, false, "clean");
         final PullRequestCard card =
                 GuiActionRunner.execute(
                         () ->
-                                new PullRequestCard(
+                                card(
                                         context(projectId, project),
                                         request,
                                         details,
@@ -68,14 +69,14 @@ class PullRequestCardUiTest {
     @Test
     void contextMenuContainsSupportedPullRequestActions() throws MalformedURLException {
         final ProjectId projectId = ProjectId.create();
-        final Project project = new Project(PROJECT_NAME, PROJECT_PATH, null);
+        final Project project = Project.create(PROJECT_NAME, PROJECT_PATH, null);
         final PullRequest request = request(projectId, FIX_LOGIN, AUTHOR, project);
         final PullRequestDetails details =
                 details(request.projectId(), request.project(), false, false, "dirty");
         final PullRequestCard card =
                 GuiActionRunner.execute(
                         () ->
-                                new PullRequestCard(
+                                card(
                                         context(projectId, project),
                                         request,
                                         details,
@@ -98,7 +99,7 @@ class PullRequestCardUiTest {
             throws MalformedURLException {
         final ProjectId projectId = ProjectId.create();
         final Project project =
-                new Project(
+                Project.create(
                         PROJECT_NAME, PROJECT_PATH, new CliCredential(GITHUB_HOST, AUTHOR, AUTHOR));
         final AppState state =
                 new AppState(
@@ -111,7 +112,7 @@ class PullRequestCardUiTest {
         final PullRequestCard card =
                 GuiActionRunner.execute(
                         () ->
-                                new PullRequestCard(
+                                card(
                                         context(state, unavailableGithub(state, projectId)),
                                         request,
                                         details,
@@ -131,7 +132,7 @@ class PullRequestCardUiTest {
     void authoredReadyPullRequestShowsMergeAction() throws MalformedURLException {
         final ProjectId projectId = ProjectId.create();
         final Project project =
-                new Project(
+                Project.create(
                         PROJECT_NAME,
                         PROJECT_PATH,
                         new CliCredential("github.com", AUTHOR, AUTHOR));
@@ -146,7 +147,7 @@ class PullRequestCardUiTest {
         final PullRequestCard card =
                 GuiActionRunner.execute(
                         () ->
-                                new PullRequestCard(
+                                card(
                                         context(state, github(state, projectId, "author")),
                                         request,
                                         details,
@@ -170,7 +171,7 @@ class PullRequestCardUiTest {
         final PullRequestCard card =
                 GuiActionRunner.execute(
                         () ->
-                                new PullRequestCard(
+                                card(
                                         context(state, github(state, projectId, AUTHOR)),
                                         request,
                                         details,
@@ -192,7 +193,7 @@ class PullRequestCardUiTest {
         final PullRequestCard card =
                 GuiActionRunner.execute(
                         () ->
-                                new PullRequestCard(
+                                card(
                                         context(state, github(state, projectId, AUTHOR)),
                                         request,
                                         details,
@@ -215,7 +216,7 @@ class PullRequestCardUiTest {
         final PullRequestCard card =
                 GuiActionRunner.execute(
                         () ->
-                                new PullRequestCard(
+                                card(
                                         context(state, github(state, projectId, REVIEWER)),
                                         request,
                                         details,
@@ -229,13 +230,13 @@ class PullRequestCardUiTest {
     @Test
     void missingProjectDoesNotAddProjectActions() throws MalformedURLException {
         final ProjectId projectId = ProjectId.create();
-        final Project project = new Project(PROJECT_NAME, PROJECT_PATH, null);
+        final Project project = Project.create(PROJECT_NAME, PROJECT_PATH, null);
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final PullRequest request = request(projectId, FIX_LOGIN, AUTHOR, project);
         final PullRequestCard card =
                 GuiActionRunner.execute(
                         () ->
-                                new PullRequestCard(
+                                card(
                                         context(state, github(state, projectId, REVIEWER)),
                                         request,
                                         null,
@@ -253,7 +254,7 @@ class PullRequestCardUiTest {
     void reviewerPullRequestHidesApproveWhenLoginUnavailable() throws MalformedURLException {
         final ProjectId projectId = ProjectId.create();
         final Project project =
-                new Project(
+                Project.create(
                         PROJECT_NAME,
                         PROJECT_PATH,
                         new CliCredential(GITHUB_HOST, REVIEWER, REVIEWER));
@@ -268,7 +269,7 @@ class PullRequestCardUiTest {
         final PullRequestCard card =
                 GuiActionRunner.execute(
                         () ->
-                                new PullRequestCard(
+                                card(
                                         context(state, unavailableGithub(state, projectId)),
                                         request,
                                         details,
@@ -286,7 +287,7 @@ class PullRequestCardUiTest {
     void reviewerPullRequestHidesApproveAfterCurrentUserApproved() throws MalformedURLException {
         final ProjectId projectId = ProjectId.create();
         final Project project =
-                new Project(
+                Project.create(
                         PROJECT_NAME,
                         PROJECT_PATH,
                         new CliCredential(GITHUB_HOST, REVIEWER, REVIEWER));
@@ -317,7 +318,7 @@ class PullRequestCardUiTest {
         final PullRequestCard card =
                 GuiActionRunner.execute(
                         () ->
-                                new PullRequestCard(
+                                card(
                                         context(state, github(state, projectId, REVIEWER)),
                                         request,
                                         details,
@@ -339,7 +340,28 @@ class PullRequestCardUiTest {
         return CompletableFuture.completedFuture(null);
     }
 
-    private static ActionContext context(final ProjectId projectId, final Project project) {
+    private static PullRequestCard card(
+            final Dependencies dependencies,
+            final PullRequest request,
+            final PullRequestDetails details,
+            final java.util.function.Function<ProjectId, CompletableFuture<?>> refreshProject) {
+        return new PullRequestCard(
+                dependencies.controller(),
+                dependencies.state(),
+                dependencies.githubProvider(),
+                dependencies.dialogService(),
+                request,
+                details,
+                refreshProject);
+    }
+
+    private record Dependencies(
+            ViewController controller,
+            AppState state,
+            GitHubProvider githubProvider,
+            com.jagent.desktop.services.dialog.DialogService dialogService) {}
+
+    private static Dependencies context(final ProjectId projectId, final Project project) {
         final AppState state = state(projectId, project);
         return context(state, unavailableGithub(state, projectId));
     }
@@ -353,13 +375,16 @@ class PullRequestCardUiTest {
     }
 
     private static Project projectWithCredential(final String login) {
-        return new Project(
+        return Project.create(
                 PROJECT_NAME, PROJECT_PATH, new CliCredential(GITHUB_HOST, login, login));
     }
 
-    private static ActionContext context(final AppState state, final GitHub github) {
-        return new ActionContext(
-                TestAppState.controller(state), state, null, null, null, ignored -> github);
+    private static Dependencies context(final AppState state, final GitHub github) {
+        return new Dependencies(
+                TestAppState.controller(state),
+                state,
+                ignored -> github,
+                TestAppState.dialogService());
     }
 
     private static GitHub github(

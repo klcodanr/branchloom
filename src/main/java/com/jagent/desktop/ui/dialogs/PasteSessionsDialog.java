@@ -1,7 +1,8 @@
 package com.jagent.desktop.ui.dialogs;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.components.AgentSelector;
 import com.jagent.desktop.ui.components.BaseTextArea;
 import com.jagent.desktop.ui.components.FormPanel;
@@ -9,7 +10,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 import javax.swing.JComboBox;
-import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 
@@ -22,15 +22,16 @@ public final class PasteSessionsDialog extends FormDialog {
 
     public record Request(List<String> lines, Agent agent, String basePrompt) {}
 
-    public PasteSessionsDialog(final ActionContext actionContext, final Consumer<Request> onValid) {
-        super(actionContext.window(), "Start sessions from pasted lines");
+    public PasteSessionsDialog(
+            final AppState appState,
+            final DialogService dialogService,
+            final Consumer<Request> onValid) {
+        super();
         this.onValid = onValid;
         lines.setName("paste-session-lines");
         basePrompt.setName("paste-session-base-prompt");
         basePrompt.setText("{prompt}");
-        agent =
-                new AgentSelector(
-                        "paste-session-agent", actionContext.appState().appSettings().agents());
+        agent = new AgentSelector("paste-session-agent", appState.appSettings().agents());
         initialize(
                 new FormPanel(
                         "Prompt template (use {prompt})",
@@ -43,7 +44,7 @@ public final class PasteSessionsDialog extends FormDialog {
                 "paste-session-cancel",
                 "paste-session-create",
                 this::submit,
-                actionContext.window());
+                dialogService);
     }
 
     /* package */
@@ -62,14 +63,10 @@ public final class PasteSessionsDialog extends FormDialog {
     private void submit() {
         final List<String> values = nonBlankLines(lines.getText());
         if (values.isEmpty()) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Enter at least one non-blank line.",
-                    "Start sessions from pasted lines",
-                    JOptionPane.ERROR_MESSAGE);
+            dialogService.errorMessage(
+                    "Enter at least one non-blank line", "Start sessions from pasted lines");
             return;
         }
-        dispose();
         onValid.accept(
                 request(lines.getText(), (Agent) agent.getSelectedItem(), basePrompt.getText()));
     }

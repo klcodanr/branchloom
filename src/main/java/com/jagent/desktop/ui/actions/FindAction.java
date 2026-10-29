@@ -1,18 +1,25 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
+import com.google.inject.Inject;
+import com.jagent.desktop.api.Action;
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.services.ViewController.ViewState;
-import com.jagent.desktop.ui.components.CommandPalette;
+import com.jagent.desktop.services.dialog.DialogService;
+import com.jagent.desktop.ui.components.OptionPicker;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class FindAction extends BaseAction {
-    public FindAction(final ActionContext actionContext) {
-        super(actionContext);
+public final class FindAction implements Action {
+    private final ViewController viewController;
+    private final OptionPicker commandPalette;
+
+    @Inject
+    public FindAction(final ViewController viewController, final DialogService dialogService) {
+        this.viewController = viewController;
+        this.commandPalette = new OptionPicker(dialogService);
     }
 
     @Override
@@ -27,21 +34,19 @@ public final class FindAction extends BaseAction {
 
     @Override
     public void execute() {
-        final var state = actionContext.appState();
+        final var state = viewController.appState();
 
-        final List<CommandPalette.Choice> choices = new ArrayList<>();
+        final List<OptionPicker.Choice> choices = new ArrayList<>();
         state.projects()
                 .forEach(
                         (projectId, project) -> {
                             choices.add(
-                                    new CommandPalette.Choice(
+                                    new OptionPicker.Choice(
                                             "Project: " + project.name(),
                                             () ->
-                                                    actionContext
-                                                            .viewController()
-                                                            .updateView(
-                                                                    ViewId.PROJECT,
-                                                                    ViewState.project(projectId))));
+                                                    viewController.updateView(
+                                                            ViewId.PROJECT,
+                                                            ViewState.project(projectId))));
                             project.sessionIds()
                                     .forEach(
                                             sessionId -> {
@@ -51,21 +56,17 @@ public final class FindAction extends BaseAction {
                                                     return;
                                                 }
                                                 choices.add(
-                                                        new CommandPalette.Choice(
+                                                        new OptionPicker.Choice(
                                                                 "Session: "
                                                                         + project.name()
                                                                         + " / "
                                                                         + session.name(),
                                                                 () ->
-                                                                        actionContext
-                                                                                .viewController()
-                                                                                .updateView(
-                                                                                        ViewId
-                                                                                                .SESSION,
-                                                                                        ViewState
-                                                                                                .session(
-                                                                                                        projectId,
-                                                                                                        sessionId))));
+                                                                        viewController.updateView(
+                                                                                ViewId.SESSION,
+                                                                                ViewState.session(
+                                                                                        projectId,
+                                                                                        sessionId))));
                                                 session.terminalIds()
                                                         .forEach(
                                                                 terminalId -> {
@@ -77,8 +78,7 @@ public final class FindAction extends BaseAction {
                                                                         return;
                                                                     }
                                                                     choices.add(
-                                                                            new CommandPalette
-                                                                                    .Choice(
+                                                                            new OptionPicker.Choice(
                                                                                     "Terminal: "
                                                                                             + project
                                                                                                     .name()
@@ -89,8 +89,7 @@ public final class FindAction extends BaseAction {
                                                                                             + terminal
                                                                                                     .title(),
                                                                                     () -> {
-                                                                                        actionContext
-                                                                                                .viewController()
+                                                                                        viewController
                                                                                                 .updateView(
                                                                                                         ViewId
                                                                                                                 .SESSION,
@@ -102,6 +101,6 @@ public final class FindAction extends BaseAction {
                                                                 });
                                             });
                         });
-        CommandPalette.open(actionContext.window(), "Find project, session, or terminal", choices);
+        commandPalette.open("Find project, session, or terminal", choices);
     }
 }

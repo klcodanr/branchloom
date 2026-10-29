@@ -3,22 +3,18 @@ package com.jagent.desktop.ui.dialogs;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.test.TestAppState;
-import com.jagent.desktop.ui.Defaults;
 import java.awt.GraphicsEnvironment;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.JFrame;
 import org.assertj.swing.core.BasicRobot;
 import org.assertj.swing.core.Robot;
 import org.assertj.swing.edt.GuiActionRunner;
-import org.assertj.swing.fixture.DialogFixture;
+import org.assertj.swing.fixture.JPanelFixture;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -36,28 +32,41 @@ class ImportProjectDialogUiTest {
 
         assertEquals(
                 "Enter a Git remote URL.",
-                ImportProjectDialog.validationFailure(" ", destination.toString()),
+                validationFailure("", destination),
                 "remote URL should be required");
         assertEquals(
                 "Choose a destination directory.",
-                ImportProjectDialog.validationFailure(REMOTE, " "),
+                validationFailure(REMOTE, null),
                 "destination should be required");
         assertEquals(
                 "The destination must be a directory.",
-                ImportProjectDialog.validationFailure(REMOTE, file.toString()),
+                validationFailure(REMOTE, file),
                 "parent folder should be a directory");
         assertEquals(
                 "The destination's parent directory must already exist.",
-                ImportProjectDialog.validationFailure(REMOTE, missingParent.toString()),
+                validationFailure(REMOTE, missingParent),
                 "parent folder should exist");
         assertEquals(
                 "The destination directory must be empty.",
-                ImportProjectDialog.validationFailure(REMOTE, populated.toString()),
+                validationFailure(REMOTE, populated),
                 "destination should be empty");
         assertEquals(
                 null,
-                ImportProjectDialog.validationFailure(REMOTE, destination.toString()),
+                validationFailure(REMOTE, destination),
                 "empty destination should be accepted");
+    }
+
+    private static String validationFailure(final String remote, final Path destination) {
+        try {
+            final var method =
+                    ImportProjectDialog.class.getDeclaredMethod(
+                            "validationFailure", String.class, String.class);
+            method.trySetAccessible();
+            return (String)
+                    method.invoke(null, remote, destination == null ? "" : destination.toString());
+        } catch (ReflectiveOperationException exception) {
+            throw new AssertionError("Could not validate import details", exception);
+        }
     }
 
     @Test
@@ -78,7 +87,6 @@ class ImportProjectDialogUiTest {
         Assumptions.assumeFalse(GraphicsEnvironment.isHeadless());
 
         final Path destination = Files.createDirectory(tempDirectory.resolve("project"));
-        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final AtomicReference<ImportProjectDialog.Request> request = new AtomicReference<>();
         final Robot robot = BasicRobot.robotWithNewAwtHierarchy();
         final JFrame owner = GuiActionRunner.execute(() -> new JFrame());
@@ -87,21 +95,19 @@ class ImportProjectDialogUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new ImportProjectDialog(
-                                        new ActionContext(
-                                                TestAppState.controller(state),
-                                                state,
-                                                owner,
-                                                null,
-                                                null),
-                                        List.of(),
-                                        request::set));
-        final DialogFixture fixture = new DialogFixture(robot, dialog);
+                                        TestAppState.dialogService(), List.of(), request::set));
+        final JPanelFixture fixture = new JPanelFixture(robot, dialog);
 
         try {
-            fixture.show();
+            GuiActionRunner.execute(
+                    () -> {
+                        owner.setContentPane(dialog);
+                        owner.pack();
+                        owner.setVisible(true);
+                    });
             fixture.textBox("import-remote").enterText(" git@github.com:example/project.git ");
             fixture.textBox("import-destination").enterText(destination.toString());
-            GuiActionRunner.execute(() -> dialog.getRootPane().getDefaultButton().doClick());
+            GuiActionRunner.execute(() -> fixture.button("import-ok").target().doClick());
 
             assertNotNull(request.get(), "accepting the dialog should submit a request");
             assertEquals(
@@ -113,7 +119,6 @@ class ImportProjectDialogUiTest {
                     request.get().destination(),
                     "destination should be normalized before submission");
         } finally {
-            fixture.cleanUp();
             owner.dispose();
             robot.cleanUp();
         }

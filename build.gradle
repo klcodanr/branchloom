@@ -33,6 +33,8 @@ dependencies {
     implementation 'com.fifesoft:rsyntaxtextarea:4.0.1'
     implementation 'org.eclipse.jgit:org.eclipse.jgit:7.8.0.202609011348-r'
     implementation 'org.apache.commons:commons-jexl3:3.7.1'
+    implementation 'com.google.inject:guice:7.0.0'
+    implementation 'com.google.inject.extensions:guice-assistedinject:7.0.0'
     implementation 'org.slf4j:slf4j-jdk14:2.0.20'
     runtimeOnly 'org.slf4j:slf4j-jdk14:2.0.20'
     testImplementation 'org.assertj:assertj-swing:3.17.1'
@@ -132,7 +134,7 @@ def macIconPath = file('src/main/resources/Branchloom.icns').absolutePath
 def configuredJarName = tasks.named('jar').get().archiveFileName.get()
 
 java {
-    toolchain { languageVersion = JavaLanguageVersion.of(25) }
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
 }
 
 spotless {
@@ -225,7 +227,7 @@ tasks.register('ciTest') {
 
 
 def jpackageJava = javaToolchains.launcherFor {
-    languageVersion = JavaLanguageVersion.of(25)
+    languageVersion = JavaLanguageVersion.of(21)
 }
 
 def jpackageExecutable = {
@@ -360,7 +362,7 @@ tasks.register('dev') {
         }
 
         def javaExecutable = javaToolchains.launcherFor {
-            languageVersion = JavaLanguageVersion.of(25)
+            languageVersion = JavaLanguageVersion.of(21)
         }.get().executablePath.asFile.absolutePath
         def classpath = sourceSets.main.runtimeClasspath.asPath
         def startApplication = {

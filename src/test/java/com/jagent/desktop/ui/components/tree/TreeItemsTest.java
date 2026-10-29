@@ -28,29 +28,30 @@ class TreeItemsTest {
     @Test
     void simpleItemsExposeTheirNavigationMetadata() {
         final AppState state = TestAppState.empty();
-        final var context = TestAppState.context(state);
+        final var controller = TestAppState.controller(state);
+        final var dialogService = TestAppState.dialogService();
 
         final var boards = new BoardsTreeItem();
         assertItem(boards, "boards", "Boards", "Boards");
         assertNull(boards.getMenu(), "boards should not have a context menu");
 
-        final var pullRequests = new PullRequestsItem(context);
+        final var pullRequests = new PullRequestsItem(controller);
         assertItem(pullRequests, "pull_requests", "Pull Requests", "Pull Requests");
         assertNull(pullRequests.getMenu(), "pull requests should not have a context menu");
         pullRequests.select();
         assertEquals(
                 ViewId.PULL_REQUESTS,
-                context.viewController().currentViewId(),
+                controller.currentViewId(),
                 "pull requests should open its view");
 
-        final var group = new GroupTreeItem(context, WORK_GROUP);
+        final var group = new GroupTreeItem(controller, state, dialogService, WORK_GROUP);
         assertItem(group, WORK_GROUP, WORK_GROUP, WORK_GROUP);
         assertMenuLabels(
                 group.getMenu(),
                 "Add local project to " + WORK_GROUP,
                 "Clone remote project to " + WORK_GROUP);
 
-        final var defaultItem = new DefaultTreeItem(context);
+        final var defaultItem = new DefaultTreeItem(controller, state, dialogService);
         assertNull(defaultItem.getId(), "default item has no ID");
         assertNull(defaultItem.getTooltip(), "default item has no tooltip");
         assertNull(defaultItem.getCellRenderContents(), "default item has no rendered text");
@@ -60,13 +61,15 @@ class TreeItemsTest {
     @Test
     void projectSessionAndBoardItemsRenderAndNavigate() throws InvalidObjectException {
         final AppState state = TestAppState.empty();
-        final var context = TestAppState.context(state);
-        final var projectId = state.addProject(new Project("Demo", "/tmp/demo", null));
+        final var controller = TestAppState.controller(state);
+        final var projectId = state.addProject(Project.create("Demo", "/tmp/demo", null));
         final var sessionId =
                 state.addSession(
-                        projectId, new Session(projectId, "Feature", "Agent", "Prompt", null));
+                        projectId, Session.create(projectId, "Feature", "Agent", "Prompt", null));
 
-        final var project = new ProjectTreeItem(context, projectId);
+        final var project =
+                new ProjectTreeItem(
+                        controller, state, TestAppState.projectActions(state), projectId);
         assertEquals(projectId.toString(), project.getId(), "project ID should be rendered");
         assertEquals(
                 "Demo", project.getCellRenderContents().text(), "project name should be rendered");
@@ -76,16 +79,12 @@ class TreeItemsTest {
                 "session count should be rendered");
         assertNotNull(project.getMenu(), "project should have a context menu");
         project.select();
-        assertEquals(
-                projectId,
-                context.viewController().currentProjectId(),
-                "project should be selected");
-        assertEquals(
-                ViewId.PROJECT,
-                context.viewController().currentViewId(),
-                "project view should open");
+        assertEquals(projectId, controller.currentProjectId(), "project should be selected");
+        assertEquals(ViewId.PROJECT, controller.currentViewId(), "project view should open");
 
-        final var session = new SessionTreeItem(context, sessionId);
+        final var session =
+                new SessionTreeItem(
+                        controller, state, TestAppState.sessionActions(state), sessionId);
         assertEquals(sessionId.toString(), session.getId(), "session ID should be rendered");
         assertEquals(sessionId, session.getSessionId(), "session ID should be exposed");
         assertEquals(
@@ -99,19 +98,11 @@ class TreeItemsTest {
         assertNotNull(session.getMenu(), "session should have a context menu");
         session.select();
         assertEquals(
-                projectId,
-                context.viewController().currentProjectId(),
-                "session project should be selected");
-        assertEquals(
-                sessionId,
-                context.viewController().currentSessionId(),
-                "session should be selected");
-        assertEquals(
-                ViewId.SESSION,
-                context.viewController().currentViewId(),
-                "session view should open");
+                projectId, controller.currentProjectId(), "session project should be selected");
+        assertEquals(sessionId, controller.currentSessionId(), "session should be selected");
+        assertEquals(ViewId.SESSION, controller.currentViewId(), "session view should open");
 
-        final var board = new BoardTreeItem(context, new BoardDefinition("Review", null));
+        final var board = new BoardTreeItem(controller, new BoardDefinition("Review", null));
         assertEquals("Review", board.getId(), "board name should be the ID");
         assertEquals("Review", board.getTooltip(), "board name should be the tooltip");
         assertThrows(
@@ -119,20 +110,22 @@ class TreeItemsTest {
                 board::getMenu,
                 "board menu is not implemented");
         board.select();
-        assertEquals(
-                ViewId.BOARD, context.viewController().currentViewId(), "board view should open");
+        assertEquals(ViewId.BOARD, controller.currentViewId(), "board view should open");
     }
 
     @Test
     void sessionTooltipOmitsEmptyMetadataAndTruncatesLongPrompts() throws InvalidObjectException {
         final AppState state = TestAppState.empty();
-        final var context = TestAppState.context(state);
-        final var projectId = state.addProject(new Project("Demo", "/tmp/demo", null));
+        final var controller = TestAppState.controller(state);
+        final var projectId = state.addProject(Project.create("Demo", "/tmp/demo", null));
         final var prompt = "p".repeat(150);
         final var sessionId =
-                state.addSession(projectId, new Session(projectId, "Feature", " ", prompt, " "));
+                state.addSession(projectId, Session.create(projectId, "Feature", " ", prompt, " "));
 
-        final var tooltip = new SessionTreeItem(context, sessionId).getTooltip();
+        final var tooltip =
+                new SessionTreeItem(
+                                controller, state, TestAppState.sessionActions(state), sessionId)
+                        .getTooltip();
 
         assertEquals(
                 140,

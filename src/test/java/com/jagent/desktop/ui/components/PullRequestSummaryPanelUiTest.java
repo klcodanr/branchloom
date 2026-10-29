@@ -88,7 +88,7 @@ class PullRequestSummaryPanelUiTest {
 
     private static PullRequest request() throws MalformedURLException {
         final var projectId = ProjectId.create();
-        final var project = new Project("Project", "/tmp/project", null);
+        final var project = Project.create("Project", "/tmp/project", null);
         return new PullRequest(
                 projectId,
                 project,

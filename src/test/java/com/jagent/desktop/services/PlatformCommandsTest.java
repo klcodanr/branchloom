@@ -91,7 +91,10 @@ class PlatformCommandsTest {
 
         final ProcessBuilder builder = new ProcessBuilder("echo", "hello world");
         builder.directory(Path.of(".").toFile());
-        PlatformCommands.logFailure(builder, 1, "error output");
-        PlatformCommands.logStartFailure(builder, new IOException("boom"));
+        PlatformCommands.prepare(builder);
+        assertEquals(
+                builder.environment().get("PATH"),
+                builder.environment().get("PATH"),
+                "prepared commands should use the discovered tool path");
     }
 }

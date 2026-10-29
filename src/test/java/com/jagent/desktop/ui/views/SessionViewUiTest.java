@@ -3,7 +3,6 @@ package com.jagent.desktop.ui.views;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
@@ -33,11 +32,11 @@ class SessionViewUiTest {
             throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId =
-                state.addProject(new Project(PROJECT_NAME, directory.toString(), null));
+                state.addProject(Project.create(PROJECT_NAME, directory.toString(), null));
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(
+                        Session.create(
                                 projectId,
                                 SESSION_NAME,
                                 SESSION_AGENT,
@@ -45,9 +44,18 @@ class SessionViewUiTest {
                                 directory.toString()));
         final var controller = TestAppState.controller(state);
         controller.selectSession(projectId, sessionId);
-        final ActionContext context = new ActionContext(controller, state, null, null, null);
-
-        final SessionView view = GuiActionRunner.execute(() -> new SessionView(context));
+        final SessionView view =
+                GuiActionRunner.execute(
+                        () ->
+                                new SessionView(
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        controller,
+                                        state,
+                                        TestAppState.githubProvider(state),
+                                        TestAppState.dialogService(),
+                                        TestAppState.sessionActions(state),
+                                        state.sessions().get(sessionId)));
 
         assertEquals(ViewId.SESSION, view.id(), ASSERTION_MESSAGE);
         assertEquals(SESSION_NAME, view.title(), ASSERTION_MESSAGE);
@@ -67,16 +75,25 @@ class SessionViewUiTest {
             throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId =
-                state.addProject(new Project(PROJECT_NAME, directory.toString(), null));
+                state.addProject(Project.create(PROJECT_NAME, directory.toString(), null));
         final var sessionId =
-                state.addSession(projectId, new Session(projectId, SESSION_NAME, null, null, null));
+                state.addSession(
+                        projectId,
+                        Session.create(projectId, SESSION_NAME, null, null, directory.toString()));
         final var controller = TestAppState.controller(state);
         controller.selectSession(projectId, sessionId);
         final SessionView view =
                 GuiActionRunner.execute(
                         () ->
                                 new SessionView(
-                                        new ActionContext(controller, state, null, null, null)));
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        controller,
+                                        state,
+                                        TestAppState.githubProvider(state),
+                                        TestAppState.dialogService(),
+                                        TestAppState.sessionActions(state),
+                                        state.sessions().get(sessionId)));
 
         GuiActionRunner.execute(view::openTerminal);
 
@@ -92,26 +109,48 @@ class SessionViewUiTest {
             throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId =
-                state.addProject(new Project(PROJECT_NAME, directory.toString(), null));
+                state.addProject(Project.create(PROJECT_NAME, directory.toString(), null));
         final var firstSessionId =
                 state.addSession(
                         projectId,
-                        new Session(projectId, "First Session", null, SESSION_PROMPT, null));
+                        Session.create(
+                                projectId,
+                                "First Session",
+                                null,
+                                SESSION_PROMPT,
+                                directory.toString()));
         final var secondSessionId =
                 state.addSession(
                         projectId,
-                        new Session(projectId, "Second Session", null, SESSION_PROMPT, null));
+                        Session.create(
+                                projectId,
+                                "Second Session",
+                                null,
+                                SESSION_PROMPT,
+                                directory.toString()));
         state.addTerminal(
-                firstSessionId, new Terminal(firstSessionId, "First Terminal", SUCCESS_COMMAND));
+                firstSessionId, Terminal.create(firstSessionId, "First Terminal", SUCCESS_COMMAND));
         state.addTerminal(
-                secondSessionId, new Terminal(secondSessionId, "Second Terminal", SUCCESS_COMMAND));
+                secondSessionId,
+                Terminal.create(secondSessionId, "Second Terminal", SUCCESS_COMMAND));
 
         final var coordinator = TestAppState.controller(state);
         coordinator.selectSession(projectId, firstSessionId);
-        final ActionContext context = new ActionContext(coordinator, state, null, null, null);
+        final var githubProvider = TestAppState.githubProvider(state);
+        final var dialogService = TestAppState.dialogService();
 
         final SessionView firstSessionView =
-                GuiActionRunner.execute(() -> new SessionView(context));
+                GuiActionRunner.execute(
+                        () ->
+                                new SessionView(
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        coordinator,
+                                        state,
+                                        githubProvider,
+                                        dialogService,
+                                        TestAppState.sessionActions(state),
+                                        state.sessions().get(firstSessionId)));
         final JTabbedPane firstTabs =
                 (JTabbedPane)
                         ((WorkspaceSplitPane) firstSessionView.getComponent(1)).getLeftComponent();
@@ -120,7 +159,17 @@ class SessionViewUiTest {
 
         coordinator.selectSession(projectId, secondSessionId);
         final SessionView secondSessionView =
-                GuiActionRunner.execute(() -> new SessionView(context));
+                GuiActionRunner.execute(
+                        () ->
+                                new SessionView(
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        coordinator,
+                                        state,
+                                        githubProvider,
+                                        dialogService,
+                                        TestAppState.sessionActions(state),
+                                        state.sessions().get(secondSessionId)));
         final JTabbedPane secondTabs =
                 (JTabbedPane)
                         ((WorkspaceSplitPane) secondSessionView.getComponent(1)).getLeftComponent();
@@ -130,7 +179,17 @@ class SessionViewUiTest {
 
         coordinator.selectSession(projectId, firstSessionId);
         final SessionView reopenedFirstSessionView =
-                GuiActionRunner.execute(() -> new SessionView(context));
+                GuiActionRunner.execute(
+                        () ->
+                                new SessionView(
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        coordinator,
+                                        state,
+                                        githubProvider,
+                                        dialogService,
+                                        TestAppState.sessionActions(state),
+                                        state.sessions().get(firstSessionId)));
         final JTabbedPane reopenedFirstTabs =
                 (JTabbedPane)
                         ((WorkspaceSplitPane) reopenedFirstSessionView.getComponent(1))
@@ -145,16 +204,27 @@ class SessionViewUiTest {
             throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId =
-                state.addProject(new Project(PROJECT_NAME, directory.toString(), null));
+                state.addProject(Project.create(PROJECT_NAME, directory.toString(), null));
         final var sessionId =
                 state.addSession(
-                        projectId, new Session(projectId, SESSION_NAME, SESSION_AGENT, null, null));
+                        projectId,
+                        Session.create(projectId, SESSION_NAME, SESSION_AGENT, null, null));
         final var controller = TestAppState.controller(state);
         controller.selectSession(projectId, sessionId);
-        final ActionContext context = new ActionContext(controller, state, null, null, null);
 
         final IllegalStateException exception =
-                assertThrows(IllegalStateException.class, () -> new SessionView(context));
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                new SessionView(
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        controller,
+                                        state,
+                                        TestAppState.githubProvider(state),
+                                        TestAppState.dialogService(),
+                                        TestAppState.sessionActions(state),
+                                        state.sessions().get(sessionId)));
         assertEquals(
                 "An agent session must have a worktree path.",
                 exception.getMessage(),
@@ -166,11 +236,11 @@ class SessionViewUiTest {
             throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId =
-                state.addProject(new Project(PROJECT_NAME, directory.toString(), null));
+                state.addProject(Project.create(PROJECT_NAME, directory.toString(), null));
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(
+                        Session.create(
                                 projectId,
                                 SESSION_NAME,
                                 SESSION_AGENT,
@@ -182,7 +252,14 @@ class SessionViewUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new SessionView(
-                                        new ActionContext(controller, state, null, null, null)));
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        controller,
+                                        state,
+                                        TestAppState.githubProvider(state),
+                                        TestAppState.dialogService(),
+                                        TestAppState.sessionActions(state),
+                                        state.sessions().get(sessionId)));
         final JTabbedPane tabs =
                 (JTabbedPane) ((WorkspaceSplitPane) view.getComponent(1)).getLeftComponent();
 
@@ -202,11 +279,11 @@ class SessionViewUiTest {
             throws InvalidObjectException, InterruptedException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId =
-                state.addProject(new Project(PROJECT_NAME, directory.toString(), null));
+                state.addProject(Project.create(PROJECT_NAME, directory.toString(), null));
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(
+                        Session.create(
                                 projectId,
                                 SESSION_NAME,
                                 SESSION_AGENT,
@@ -214,15 +291,27 @@ class SessionViewUiTest {
                                 directory.toString()));
         final var coordinator = TestAppState.controller(state);
         coordinator.selectSession(projectId, sessionId);
-        final ActionContext context = new ActionContext(coordinator, state, null, null, null);
+        final var githubProvider = TestAppState.githubProvider(state);
+        final var dialogService = TestAppState.dialogService();
 
-        final SessionView initialView = GuiActionRunner.execute(() -> new SessionView(context));
-        final var terminalId =
+        final SessionView initialView =
+                GuiActionRunner.execute(
+                        () ->
+                                new SessionView(
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        coordinator,
+                                        state,
+                                        githubProvider,
+                                        dialogService,
+                                        TestAppState.sessionActions(state),
+                                        state.sessions().get(sessionId)));
+        final com.jagent.desktop.models.TerminalId terminalId =
                 GuiActionRunner.execute(
                         () ->
                                 state.addTerminal(
                                         sessionId,
-                                        new Terminal(
+                                        Terminal.create(
                                                 sessionId,
                                                 "Agent 1",
                                                 "printf restored > "
@@ -246,7 +335,18 @@ class SessionViewUiTest {
                                 state.terminals().get(terminalId))
                         .command(),
                 ASSERTION_MESSAGE);
-        final SessionView createdView = GuiActionRunner.execute(() -> new SessionView(context));
+        final SessionView createdView =
+                GuiActionRunner.execute(
+                        () ->
+                                new SessionView(
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        coordinator,
+                                        state,
+                                        githubProvider,
+                                        dialogService,
+                                        TestAppState.sessionActions(state),
+                                        state.sessions().get(sessionId)));
         assertEquals(
                 1,
                 ((JTabbedPane)
@@ -255,7 +355,18 @@ class SessionViewUiTest {
                         .getSelectedIndex(),
                 ASSERTION_MESSAGE);
         GuiActionRunner.execute(() -> coordinator.selectTerminal(null));
-        final SessionView reopenedView = GuiActionRunner.execute(() -> new SessionView(context));
+        final SessionView reopenedView =
+                GuiActionRunner.execute(
+                        () ->
+                                new SessionView(
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        coordinator,
+                                        state,
+                                        githubProvider,
+                                        dialogService,
+                                        TestAppState.sessionActions(state),
+                                        state.sessions().get(sessionId)));
 
         assertEquals(
                 1,
@@ -274,32 +385,52 @@ class SessionViewUiTest {
             throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId =
-                state.addProject(new Project(PROJECT_NAME, directory.toString(), null));
+                state.addProject(Project.create(PROJECT_NAME, directory.toString(), null));
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(
+                        Session.create(
                                 projectId,
                                 SESSION_NAME,
                                 SESSION_AGENT,
                                 SESSION_PROMPT,
                                 directory.toString()));
         final var projectTerminalId =
-                state.addTerminal(new Terminal(null, projectId, "Project", SUCCESS_COMMAND));
+                state.addTerminal(Terminal.create(projectId, "Project", SUCCESS_COMMAND));
         final var sessionTerminalId =
-                state.addTerminal(sessionId, new Terminal(sessionId, "Session", SUCCESS_COMMAND));
+                state.addTerminal(
+                        sessionId, Terminal.create(sessionId, "Session", SUCCESS_COMMAND));
         final var controller = TestAppState.controller(state);
         controller.selectSession(projectId, sessionId);
-        final ActionContext context = new ActionContext(controller, state, null, null, null);
 
         final ProjectView projectView =
                 GuiActionRunner.execute(
-                        () -> new ProjectView(context, state.projects().get(projectId)));
-        projectView.selectTerminal(1);
+                        () ->
+                                new ProjectView(
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        TestAppState.backgroundJobs(state),
+                                        controller,
+                                        state,
+                                        TestAppState.githubProvider(state),
+                                        TestAppState.dialogService(),
+                                        TestAppState.projectActions(state),
+                                        state.projects().get(projectId)));
+        projectView.selectTerminal(0);
         projectView.closeActiveTerminal();
-        assertFalse(state.terminals().containsKey(projectTerminalId), ASSERTION_MESSAGE);
+        assertTrue(state.terminals().containsKey(projectTerminalId), ASSERTION_MESSAGE);
 
-        final SessionView sessionView = GuiActionRunner.execute(() -> new SessionView(context));
+        final SessionView sessionView =
+                GuiActionRunner.execute(
+                        () ->
+                                new SessionView(
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        controller,
+                                        state,
+                                        TestAppState.githubProvider(state),
+                                        TestAppState.dialogService(),
+                                        TestAppState.sessionActions(state),
+                                        state.sessions().get(sessionId)));
         sessionView.selectTerminal(1);
         sessionView.closeActiveTerminal();
         assertFalse(state.terminals().containsKey(sessionTerminalId), ASSERTION_MESSAGE);

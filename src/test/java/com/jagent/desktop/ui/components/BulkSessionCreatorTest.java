@@ -2,6 +2,7 @@ package com.jagent.desktop.ui.components;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.jagent.desktop.services.BulkSessionCreator;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;

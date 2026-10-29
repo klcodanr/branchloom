@@ -1,7 +1,8 @@
 package com.jagent.desktop.ui;
 
 import com.jagent.desktop.services.JsonLogging;
-import com.jagent.desktop.ui.utils.ErrorDialogs;
+import com.jagent.desktop.services.dialog.DialogService;
+import com.jagent.desktop.services.dialog.SwingDialogService;
 import java.nio.file.Path;
 import javax.swing.SwingUtilities;
 
@@ -22,8 +23,11 @@ public final class Main {
                                         Path.of(System.getProperty("user.home"), ".branchloom"))
                                 .start();
                     } catch (IllegalStateException exception) {
-                        ErrorDialogs.showAndWait(
-                                null, "Settings could not be loaded", exception.getMessage());
+                        new SwingDialogService(null)
+                                .message(
+                                        exception.getMessage(),
+                                        "Settings could not be loaded",
+                                        DialogService.MessageType.ERROR);
                         System.exit(1);
                     }
                 });

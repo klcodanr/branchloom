@@ -1,14 +1,20 @@
 package com.jagent.desktop.ui.views;
 
+import com.google.inject.assistedinject.Assisted;
+import com.google.inject.assistedinject.AssistedInject;
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.AsyncLoadingStateFactory;
 import com.jagent.desktop.async.BackgroundOperations;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
-import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.BackgroundJobs;
 import com.jagent.desktop.services.PlatformCommands;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.services.git.GitRepository;
+import com.jagent.desktop.services.github.GitHubProvider;
 import com.jagent.desktop.ui.components.ProjectActions;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
@@ -16,7 +22,6 @@ import com.jagent.desktop.ui.components.UiPopupMenus;
 import com.jagent.desktop.ui.components.terminal.TerminalPanel;
 import java.awt.FlowLayout;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -29,29 +34,38 @@ import org.slf4j.LoggerFactory;
 public final class ProjectView extends AbstractWorkspaceView {
     private static final Logger LOG = LoggerFactory.getLogger(ProjectView.class);
     private final transient Project project;
-    private final transient ProjectId projectId;
     private final PullRequestsBoard pullRequests;
     private final JPanel gitWarning = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+    private final transient ProjectActions projectActions;
     private int terminalNumber;
 
-    public ProjectView(final ActionContext actionContext, final Project project) {
-        super(actionContext, ViewId.PROJECT);
+    @AssistedInject
+    public ProjectView(
+            final AsyncLoadingStateFactory asyncLoadingStateFactory,
+            final BackgroundJobs backgroundJobs,
+            final ViewController viewController,
+            final AppState appState,
+            final GitHubProvider githubProvider,
+            final DialogService dialogService,
+            final ProjectActions projectActions,
+            final @Assisted Project project) {
+        super(viewController, appState, githubProvider, dialogService, ViewId.PROJECT);
         this.project = project;
-        this.projectId =
-                actionContext.appState().projects().entrySet().stream()
-                        .filter(entry -> entry.getValue().equals(project))
-                        .map(Map.Entry::getKey)
-                        .findFirst()
-                        .orElse(null);
-        this.pullRequests = new PullRequestsBoard(actionContext, projectId);
+        this.projectActions = projectActions;
+        this.pullRequests =
+                new PullRequestsBoard(
+                        asyncLoadingStateFactory,
+                        backgroundJobs,
+                        viewController,
+                        appState,
+                        githubProvider,
+                        dialogService,
+                        project.id());
         initializeWorkspace(project.name());
-        final TerminalId selectedTerminal = actionContext.viewController().currentTerminalId();
-        actionContext.appState().terminals().entrySet().stream()
+        final TerminalId selectedTerminal = viewController.currentTerminalId();
+        appState.terminals().entrySet().stream()
                 .filter(entry -> entry.getValue() != null && entry.getKey() != null)
-                .filter(
-                        entry ->
-                                entry.getValue().sessionId() == null
-                                        && projectId.equals(entry.getValue().projectId()))
+                .filter(entry -> project.id().equals(entry.getValue().owner()))
                 .forEach(
                         entry ->
                                 showTerminal(
@@ -59,6 +73,11 @@ public final class ProjectView extends AbstractWorkspaceView {
                                         entry.getValue(),
                                         entry.getKey().equals(selectedTerminal)));
         restoreSelectedTab();
+    }
+
+    @FunctionalInterface
+    public interface Factory {
+        ProjectView create(Project project);
     }
 
     @Override
@@ -96,18 +115,16 @@ public final class ProjectView extends AbstractWorkspaceView {
 
     @Override
     protected void showActions(final JButton actions) {
-        if (projectId != null) {
-            UiPopupMenus.show(
-                    ProjectActions.menu(actionContext, projectId), actions, 0, actions.getHeight());
-        }
+
+        UiPopupMenus.show(projectActions.menu(project.id()), actions, 0, actions.getHeight());
     }
 
     @Override
     protected void openTerminal() {
         final String tabTitle = "Terminal " + (++terminalNumber);
         final Terminal definition =
-                new Terminal(null, projectId, tabTitle, PlatformCommands.userShell());
-        final TerminalId terminalId = actionContext.appState().addTerminal(definition);
+                Terminal.create(project.id(), tabTitle, PlatformCommands.userShell());
+        final TerminalId terminalId = appState.addTerminal(definition);
         showTerminal(terminalId, definition, true);
     }
 
@@ -120,7 +137,8 @@ public final class ProjectView extends AbstractWorkspaceView {
                         terminalId,
                         terminalDefinition,
                         Path.of(project.path()),
-                        project.name() + " > " + terminalDefinition.title());
+                        project.name() + " > " + terminalDefinition.title(),
+                        this.dialogService);
         mountTerminal(terminalDefinition.title(), terminalId, terminal, selected);
     }
 
@@ -134,7 +152,7 @@ public final class ProjectView extends AbstractWorkspaceView {
     }
 
     private void restoreSelectedTab() {
-        if (actionContext.viewController().currentTerminalId() != null) {
+        if (viewController.currentTerminalId() != null) {
             return;
         }
         if (!viewController.hasSelectedTab(id())) {

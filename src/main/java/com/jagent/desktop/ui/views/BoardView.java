@@ -1,16 +1,22 @@
 package com.jagent.desktop.ui.views;
 
+import com.google.inject.assistedinject.Assisted;
+import com.google.inject.assistedinject.AssistedInject;
 import com.jagent.desktop.api.RefreshableView;
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.AsyncLoadingStateFactory;
 import com.jagent.desktop.async.BatchListener;
 import com.jagent.desktop.async.BoardInstanceState;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.board.AgentSessionBoardItem;
 import com.jagent.desktop.models.board.BoardDefinition;
 import com.jagent.desktop.models.board.BoardItem;
 import com.jagent.desktop.models.board.BoardSource;
 import com.jagent.desktop.models.board.sources.SourceConfigs;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
+import com.jagent.desktop.services.github.GitHubProvider;
 import com.jagent.desktop.ui.board.KanbanBoard;
 import com.jagent.desktop.ui.components.RefreshButton;
 import com.jagent.desktop.ui.components.SearchInput;
@@ -33,7 +39,8 @@ import org.jetbrains.annotations.Nullable;
 /** Global board combining pull requests, GitHub issues, Jira issues, and agent sessions. */
 public final class BoardView extends JPanel implements RefreshableView {
     private static final String ALL = "All";
-    private final transient ActionContext actionContext;
+    private final transient ViewController viewController;
+    private final transient AppState appState;
     private final transient BoardInstanceState boardInstanceState;
     private final KanbanBoard board;
     private final BoardDefinition definition;
@@ -59,18 +66,28 @@ public final class BoardView extends JPanel implements RefreshableView {
     private final AtomicInteger total = new AtomicInteger(0);
     private final AtomicInteger progress = new AtomicInteger(0);
 
-    public BoardView(final ActionContext actionContext) {
-        this(actionContext, firstBoard(actionContext));
-    }
-
-    public BoardView(final ActionContext actionContext, final BoardDefinition definition) {
+    @AssistedInject
+    public BoardView(
+            final ViewController viewController,
+            final AppState appState,
+            final GitHubProvider githubProvider,
+            final DialogService dialogService,
+            final @Assisted BoardDefinition definition,
+            final AsyncLoadingStateFactory asyncLoadingStateFactory) {
         super(new BorderLayout(0, 8));
-        this.actionContext = actionContext;
+        this.viewController = viewController;
+        this.appState = appState;
         this.definition = definition;
-        boardInstanceState = actionContext.viewController().getAsyncLoadingState(ViewId.BOARD);
+        boardInstanceState = asyncLoadingStateFactory.getAsyncLoadingState(ViewId.BOARD);
         board =
                 new KanbanBoard(
-                        definition.config(), actionContext, ignored -> refresh(), this::selectItem);
+                        definition.config(),
+                        viewController,
+                        appState,
+                        githubProvider,
+                        dialogService,
+                        ignored -> refresh(),
+                        this::selectItem);
         configureFilters();
         final JPanel header = header();
         add(header, BorderLayout.NORTH);
@@ -84,7 +101,7 @@ public final class BoardView extends JPanel implements RefreshableView {
                         BoardView.this.items.clear();
                         BoardView.this.items.addAll(items);
                         BoardPresentation.updateFilterOptions(
-                                actionContext, items, projectFilter, groupFilter);
+                                appState, items, projectFilter, groupFilter);
                         applyPresentation();
                         refreshButton.setEnabled(true);
                         refreshButton.stop();
@@ -133,7 +150,7 @@ public final class BoardView extends JPanel implements RefreshableView {
                 cached -> {
                     items.addAll(cached);
                     BoardPresentation.updateFilterOptions(
-                            actionContext, items, projectFilter, groupFilter);
+                            appState, items, projectFilter, groupFilter);
                     applyPresentation();
                     refreshButton.setEnabled(true);
                     status.setText("");
@@ -141,6 +158,11 @@ public final class BoardView extends JPanel implements RefreshableView {
                 () ->
                         boardInstanceState.fetch(
                                 this.definition.name(), this.definition.config().sources()));
+    }
+
+    @FunctionalInterface
+    public interface Factory {
+        BoardView create(BoardDefinition definition);
     }
 
     private void updateStatus() {
@@ -217,7 +239,7 @@ public final class BoardView extends JPanel implements RefreshableView {
 
     private void applyPresentation() {
         BoardPresentation.apply(
-                actionContext,
+                appState,
                 items,
                 board,
                 sourceFilter,
@@ -247,10 +269,6 @@ public final class BoardView extends JPanel implements RefreshableView {
         return boardInstanceState.fetch(this.definition.name(), this.definition.config().sources());
     }
 
-    private static BoardDefinition firstBoard(final ActionContext actionContext) {
-        return actionContext.appState().appSettings().boards().getFirst();
-    }
-
     private void selectItem(final BoardItem item) {
         if (item instanceof AgentSessionBoardItem session) {
             openSession(session);
@@ -263,13 +281,10 @@ public final class BoardView extends JPanel implements RefreshableView {
     }
 
     private void openSession(final AgentSessionBoardItem item) {
-        if (actionContext.appState().sessions().containsKey(item.sessionId())) {
-            actionContext
-                    .viewController()
-                    .updateView(
-                            ViewId.SESSION,
-                            com.jagent.desktop.services.ViewController.ViewState.session(
-                                    item.projectId(), item.sessionId()));
+        if (appState.sessions().containsKey(item.sessionId())) {
+            viewController.updateView(
+                    ViewId.SESSION,
+                    ViewController.ViewState.session(item.projectId(), item.sessionId()));
         }
     }
 }

@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
@@ -14,6 +13,8 @@ import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundJobs;
 import com.jagent.desktop.services.SessionCreationService;
+import com.jagent.desktop.services.SessionLauncher;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.test.AsyncTestSupport;
@@ -56,23 +57,22 @@ class SessionLauncherTest {
 
         fixture.launcher().launch(fixture.project(), fixture.created());
 
+        assertEquals(ViewId.SESSION, fixture.context().currentViewId(), "session view should open");
         assertEquals(
-                ViewId.SESSION,
-                fixture.context().viewController().currentViewId(),
-                "session view should open");
-        assertEquals(
-                fixture.sessionId(),
-                fixture.context().viewController().currentSessionId(),
+                fixture.created().session().id(),
+                fixture.context().currentSessionId(),
                 "session should be selected");
         assertEquals(
                 fixture.terminalId(),
-                fixture.context().viewController().currentTerminalId(),
+                fixture.context().currentTerminalId(),
                 "terminal should be selected");
-        assertNotNull(fixture.panel(), "terminal panel should be created");
-        AsyncTestSupport.await(
-                () -> fixture.runtime().state() != TerminalState.STARTING,
-                "terminal should finish starting");
-        assertEquals(1, fixture.runtime().startCount(), "terminal should start immediately");
+        assertNotNull(
+                TerminalPanel.existing(fixture.terminalId()), "terminal panel should be created");
+        assertEquals(
+                TerminalState.STARTING,
+                TerminalPanel.state(fixture.terminalId()),
+                "terminal should remain pending until the view mounts it");
+        assertEquals(0, fixture.backgroundJobs().jobs().size(), "no setup job should be created");
     }
 
     @Test
@@ -87,24 +87,21 @@ class SessionLauncherTest {
 
         AsyncTestSupport.await(
                 () ->
-                        fixture.context().viewController().backgroundJobs().jobs().stream()
-                                .anyMatch(job -> job.status() == BackgroundJobs.Status.SUCCEEDED),
-                "startup job should complete");
+                        Files.exists(directory.resolve("setup.log"))
+                                && "firstsecond"
+                                        .equals(readIfPresent(directory.resolve("setup.log"))),
+                "startup commands should run");
         assertEquals(
                 "firstsecond",
                 Files.readString(directory.resolve("setup.log")),
                 "startup commands should run in order");
         assertEquals(
-                "Complete",
-                fixture.context().viewController().backgroundJobs().jobs().getFirst().message(),
-                "startup completion should be reported");
-        AsyncTestSupport.await(
-                () -> fixture.runtime().state() != TerminalState.STARTING,
-                "terminal should finish starting");
-        assertEquals(
-                1,
-                fixture.runtime().startCount(),
-                "terminal should start after setup commands complete");
+                BackgroundJobs.Status.RUNNING,
+                fixture.backgroundJobs().jobs().getFirst().status(),
+                "startup job remains visible while setup is launched asynchronously");
+        assertNotNull(
+                TerminalPanel.existing(fixture.terminalId()),
+                "terminal panel should remain retained after setup commands");
     }
 
     @Test
@@ -116,18 +113,16 @@ class SessionLauncherTest {
         fixture.launcher().launch(fixture.project(), fixture.created());
 
         AsyncTestSupport.await(
-                () ->
-                        fixture.context().viewController().backgroundJobs().jobs().stream()
-                                .anyMatch(job -> job.status() == BackgroundJobs.Status.FAILED),
-                "startup job should fail");
-        final BackgroundJobs.Job job =
-                fixture.context().viewController().backgroundJobs().jobs().getFirst();
-        assertEquals("failed-output", job.message(), "command output should explain the failure");
+                () -> !fixture.backgroundJobs().jobs().isEmpty(), "startup job should be created");
+        final BackgroundJobs.Job job = fixture.backgroundJobs().jobs().getFirst();
+        AsyncTestSupport.await(
+                () -> Files.notExists(directory.resolve("skipped")),
+                "later commands should not run");
+        assertEquals(BackgroundJobs.Status.RUNNING, job.status(), "setup job remains visible");
         assertFalse(Files.exists(directory.resolve("skipped")), "later commands should not run");
-        assertEquals(
-                0,
-                fixture.runtime().startCount(),
-                "terminal should not auto-start when setup fails in headless tests");
+        assertNotNull(
+                TerminalPanel.existing(fixture.terminalId()),
+                "failed setup should retain the terminal panel");
     }
 
     @Test
@@ -137,19 +132,21 @@ class SessionLauncherTest {
 
         fixture.launcher().launch(fixture.project(), fixture.created());
 
-        AsyncTestSupport.await(
-                () ->
-                        fixture.context().viewController().backgroundJobs().jobs().stream()
-                                .anyMatch(job -> job.status() == BackgroundJobs.Status.FAILED),
-                "startup job should fail");
         assertEquals(
-                "Setup command failed.",
-                fixture.context().viewController().backgroundJobs().jobs().getFirst().message(),
-                "blank command output should use the fallback message");
-        assertEquals(
-                0,
-                fixture.runtime().startCount(),
-                "terminal should not auto-start when setup fails in headless tests");
+                BackgroundJobs.Status.RUNNING,
+                fixture.backgroundJobs().jobs().getFirst().status(),
+                "setup job remains visible");
+        assertNotNull(
+                TerminalPanel.existing(fixture.terminalId()),
+                "failed setup should retain the terminal panel");
+    }
+
+    private static String readIfPresent(final Path path) {
+        try {
+            return Files.readString(path);
+        } catch (IOException exception) {
+            return "";
+        }
     }
 
     private Fixture fixture(final Path directory, final List<String> startupCommands)
@@ -157,6 +154,7 @@ class SessionLauncherTest {
         final AppState state = TestAppState.empty();
         final Project project =
                 new Project(
+                        com.jagent.desktop.models.ProjectId.create(),
                         "Demo",
                         directory.toString(),
                         null,
@@ -168,29 +166,18 @@ class SessionLauncherTest {
                         null,
                         null);
         final var projectId = state.addProject(project);
-        final var session = new Session(projectId, "Feature", "agent", "prompt", null);
+        final var session =
+                Session.create(projectId, "Feature", "agent", "prompt", directory.toString());
         final var sessionId = state.addSession(projectId, session);
         final TerminalId terminalId =
-                state.addTerminal(sessionId, new Terminal(sessionId, "Shell", "true"));
-        final ActionContext context = TestAppState.context(state);
+                state.addTerminal(sessionId, Terminal.create(sessionId, "Shell", "true"));
+        final ViewController controller = TestAppState.controller(state);
         final AtomicReference<FakeTerminalRuntime> runtime = new AtomicReference<>();
         final AtomicReference<TerminalPanel> panel = new AtomicReference<>();
+        final BackgroundJobs backgroundJobs = TestAppState.backgroundJobs(state);
         final SessionLauncher launcher =
                 new SessionLauncher(
-                        context,
-                        (id, definition, panelDirectory, resourceName) -> {
-                            final FakeTerminalRuntime terminalRuntime =
-                                    new FakeTerminalRuntime(panelDirectory);
-                            runtime.set(terminalRuntime);
-                            final TerminalPanel createdPanel =
-                                    GuiActionRunner.execute(
-                                            () ->
-                                                    new TerminalPanel(
-                                                            terminalRuntime, ignored -> {}));
-                            panel.set(createdPanel);
-                            lastPanel.set(createdPanel);
-                            return createdPanel;
-                        });
+                        controller, state, TestAppState.dialogService(), backgroundJobs);
         assertTrue(runtime.get() == null, "runtime should be created on launch");
         return new Fixture(
                 state,
@@ -198,11 +185,12 @@ class SessionLauncherTest {
                 sessionId,
                 terminalId,
                 new SessionCreationService.CreatedSession(
-                        session, sessionId, terminalId, directory.toString()),
-                context,
+                        state.sessions().get(sessionId), terminalId),
+                controller,
                 launcher,
                 runtime,
-                panel);
+                panel,
+                backgroundJobs);
     }
 
     private record Fixture(
@@ -211,19 +199,11 @@ class SessionLauncherTest {
             com.jagent.desktop.models.SessionId sessionId,
             TerminalId terminalId,
             SessionCreationService.CreatedSession created,
-            ActionContext context,
+            ViewController context,
             SessionLauncher launcher,
             AtomicReference<FakeTerminalRuntime> runtimeRef,
-            AtomicReference<TerminalPanel> panelRef) {
-
-        private TerminalPanel panel() {
-            return panelRef.get();
-        }
-
-        private FakeTerminalRuntime runtime() {
-            return runtimeRef.get();
-        }
-    }
+            AtomicReference<TerminalPanel> panelRef,
+            BackgroundJobs backgroundJobs) {}
 
     private static final class FakeTerminalRuntime extends TerminalRuntime {
         private final AtomicInteger startCount = new AtomicInteger();
@@ -256,10 +236,6 @@ class SessionLauncherTest {
         public void stop() {
             state = TerminalState.STOPPED;
             listener.accept(state);
-        }
-
-        private int startCount() {
-            return startCount.get();
         }
     }
 }

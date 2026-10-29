@@ -1,10 +1,13 @@
 package com.jagent.desktop.ui.board;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.board.BoardColumn;
 import com.jagent.desktop.models.board.BoardConfig;
 import com.jagent.desktop.models.board.BoardItem;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
+import com.jagent.desktop.services.github.GitHubProvider;
 import com.jagent.desktop.ui.components.UiBorders;
 import com.jagent.desktop.ui.components.UiConstants;
 import java.awt.BorderLayout;
@@ -23,7 +26,10 @@ import javax.swing.ScrollPaneConstants;
 
 public final class KanbanBoard extends JPanel {
     private transient BoardConfig config;
-    private final transient ActionContext actionContext;
+    private final transient ViewController viewController;
+    private final transient AppState appState;
+    private final transient GitHubProvider githubProvider;
+    private final transient DialogService dialogService;
     private final transient Function<ProjectId, CompletableFuture<?>> refreshProject;
     private final transient Consumer<BoardItem> onSelect;
     private final transient BoardRuleEvaluator ruleEvaluator = new BoardRuleEvaluator();
@@ -31,19 +37,18 @@ public final class KanbanBoard extends JPanel {
 
     public KanbanBoard(
             final BoardConfig config,
-            final ActionContext actionContext,
-            final Function<ProjectId, CompletableFuture<?>> refreshProject) {
-        this(config, actionContext, refreshProject, ignored -> {});
-    }
-
-    public KanbanBoard(
-            final BoardConfig config,
-            final ActionContext actionContext,
+            final ViewController viewController,
+            final AppState appState,
+            final GitHubProvider githubProvider,
+            final DialogService dialogService,
             final Function<ProjectId, CompletableFuture<?>> refreshProject,
             final Consumer<BoardItem> onSelect) {
         super(new BorderLayout());
         this.config = config;
-        this.actionContext = actionContext;
+        this.viewController = viewController;
+        this.appState = appState;
+        this.githubProvider = githubProvider;
+        this.dialogService = dialogService;
         this.refreshProject = refreshProject;
         this.onSelect = onSelect;
         render();
@@ -71,12 +76,18 @@ public final class KanbanBoard extends JPanel {
             cards.setAlignmentY(TOP_ALIGNMENT);
             for (final var item : assignedItems.get(columnIndex)) {
                 final JPanel cardRow = new JPanel(new BorderLayout());
-                cardRow.setOpaque(false);
                 cardRow.setBorder(UiBorders.cardRow());
                 cardRow.setMaximumSize(
                         new Dimension(Integer.MAX_VALUE, UiConstants.PR_CARD_HEIGHT + 4));
                 cardRow.add(
-                        BoardCardFactory.create(item, actionContext, refreshProject, onSelect),
+                        BoardCardFactory.create(
+                                item,
+                                viewController,
+                                appState,
+                                githubProvider,
+                                dialogService,
+                                refreshProject,
+                                onSelect),
                         BorderLayout.CENTER);
                 cards.add(cardRow);
             }

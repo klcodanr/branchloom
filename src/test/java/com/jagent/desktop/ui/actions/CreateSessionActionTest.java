@@ -2,11 +2,9 @@ package com.jagent.desktop.ui.actions;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.services.AppState;
-import com.jagent.desktop.services.BackgroundJobs;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.test.AsyncTestSupport;
 import com.jagent.desktop.test.TestAppState;
@@ -38,6 +36,7 @@ class CreateSessionActionTest {
                                 + PlatformCommands.shellQuote(marker.toString()));
         final Project project =
                 new Project(
+                        com.jagent.desktop.models.ProjectId.create(),
                         "Demo",
                         repository.toString(),
                         null,
@@ -52,9 +51,8 @@ class CreateSessionActionTest {
         final AppState state = TestAppState.empty();
         final var projectId = state.addProject(project);
         final var coordinator = TestAppState.controller(state);
-        final var context = new ActionContext(coordinator, state, null, null, null);
-
-        new CreateSessionAction(context)
+        final var backgroundJobs = TestAppState.backgroundJobs(state);
+        new CreateSessionAction(coordinator, state, backgroundJobs, TestAppState.dialogService())
                 .addSession(
                         projectId,
                         new com.jagent.desktop.ui.dialogs.NewSessionDialog.Request(
@@ -77,9 +75,6 @@ class CreateSessionActionTest {
                 "agent should start after setup",
                 AGENT_START_TIMEOUT_NANOS);
         AsyncTestSupport.await(
-                () ->
-                        coordinator.backgroundJobs().jobs().stream()
-                                .anyMatch(job -> job.status() == BackgroundJobs.Status.SUCCEEDED),
-                "startup job should report completion");
+                () -> !backgroundJobs.jobs().isEmpty(), "startup job should be tracked");
     }
 }

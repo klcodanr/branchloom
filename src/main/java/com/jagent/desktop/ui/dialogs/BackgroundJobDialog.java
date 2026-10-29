@@ -1,6 +1,8 @@
 package com.jagent.desktop.ui.dialogs;
 
+import com.google.inject.Inject;
 import com.jagent.desktop.services.BackgroundJobs;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.components.BaseButton;
 import com.jagent.desktop.ui.components.SelectableTextLabel;
 import com.jagent.desktop.ui.components.Theme;
@@ -8,37 +10,29 @@ import com.jagent.desktop.ui.components.UiConstants;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Dialog;
-import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Window;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
-import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.SwingUtilities;
 
 /** Shows the full context and output for a background job. */
 public final class BackgroundJobDialog {
-    private BackgroundJobDialog() {}
+    private final DialogService dialogService;
 
-    public static void show(final Component parent, final BackgroundJobs.Job job) {
-        final Window owner = SwingUtilities.getWindowAncestor(parent);
-        final JDialog dialog =
-                new JDialog(owner, job.title(), Dialog.ModalityType.APPLICATION_MODAL);
-        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-        dialog.setContentPane(content(job, dialog));
-        dialog.pack();
-        dialog.setMinimumSize(new Dimension(520, 360));
-        dialog.setLocationRelativeTo(owner == null ? parent : owner);
-        dialog.setVisible(true);
+    @Inject
+    public BackgroundJobDialog(final DialogService dialogService) {
+        this.dialogService = dialogService;
     }
 
-    /* package */ static JPanel content(final BackgroundJobs.Job job, final JDialog dialog) {
+    public void show(final BackgroundJobs.Job job) {
+        dialogService.show(job.title(), content(job), "Close");
+    }
+
+    private JPanel content(final BackgroundJobs.Job job) {
         final JPanel content = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
         content.setBorder(
                 BorderFactory.createEmptyBorder(
@@ -86,12 +80,7 @@ public final class BackgroundJobDialog {
         content.add(details, BorderLayout.CENTER);
 
         final JButton close = new BaseButton("Close");
-        close.addActionListener(
-                event -> {
-                    if (dialog != null) {
-                        dialog.dispose();
-                    }
-                });
+        close.addActionListener(event -> content.putClientProperty("dialog.completed", true));
         final JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         footer.setOpaque(false);
         footer.add(close);

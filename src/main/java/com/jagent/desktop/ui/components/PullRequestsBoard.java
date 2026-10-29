@@ -1,10 +1,15 @@
 package com.jagent.desktop.ui.components;
 
+import com.jagent.desktop.async.AsyncLoadingStateFactory;
 import com.jagent.desktop.async.PullRequestInstanceState;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.PullRequestFilter;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.BackgroundJobs;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
+import com.jagent.desktop.services.github.GitHubProvider;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
@@ -37,7 +42,10 @@ import org.slf4j.LoggerFactory;
 public final class PullRequestsBoard extends JPanel {
 
     private static final Logger LOG = LoggerFactory.getLogger(PullRequestsBoard.class);
-    private final transient ActionContext actionContext;
+    private final transient ViewController viewController;
+    private final transient AppState appState;
+    private final transient GitHubProvider githubProvider;
+    private final transient DialogService dialogService;
     private final Map<ProjectId, PullRequestInstanceState> pullRequestStates = new HashMap<>();
     private final RefreshButton refreshButton = new RefreshButton();
     private final JLabel refreshStatus;
@@ -47,6 +55,8 @@ public final class PullRequestsBoard extends JPanel {
     private final JPanel list = new JPanel();
     private final PullRequestSummaryPanel summary;
     private final JSplitPane splitPane;
+    private final transient BackgroundJobs backgroundJobs;
+    private final transient AsyncLoadingStateFactory asyncLoadingStateFactory;
 
     private transient List<PullRequestDetails> requests = List.of();
     private transient PullRequestDetails selectedRequest;
@@ -55,21 +65,42 @@ public final class PullRequestsBoard extends JPanel {
     private String localFilter = "";
     private String currentQuery = "";
 
-    public PullRequestsBoard(final ActionContext actionContext) {
-        this(actionContext, null);
+    public PullRequestsBoard(
+            final AsyncLoadingStateFactory asyncLoadingStateFactory,
+            final BackgroundJobs backgroundJobs,
+            final ViewController viewController,
+            final AppState appState,
+            final GitHubProvider githubProvider,
+            final DialogService dialogService) {
+        this(
+                asyncLoadingStateFactory,
+                backgroundJobs,
+                viewController,
+                appState,
+                githubProvider,
+                dialogService,
+                null);
     }
 
-    public PullRequestsBoard(final ActionContext actionContext, final ProjectId projectId) {
+    public PullRequestsBoard(
+            final AsyncLoadingStateFactory asyncLoadingStateFactory,
+            final BackgroundJobs backgroundJobs,
+            final ViewController viewController,
+            final AppState appState,
+            final GitHubProvider githubProvider,
+            final DialogService dialogService,
+            final ProjectId projectId) {
         super();
-        this.actionContext = actionContext;
+        this.backgroundJobs = backgroundJobs;
+        this.asyncLoadingStateFactory = asyncLoadingStateFactory;
+        this.viewController = viewController;
+        this.appState = appState;
+        this.githubProvider = githubProvider;
+        this.dialogService = dialogService;
         if (projectId != null) {
             pullRequestStates.put(projectId, stateFor(projectId));
         } else {
-            actionContext
-                    .appState()
-                    .projects()
-                    .keySet()
-                    .forEach(id -> pullRequestStates.put(id, stateFor(id)));
+            appState.projects().keySet().forEach(id -> pullRequestStates.put(id, stateFor(id)));
         }
         setLayout(new BorderLayout(0, UiConstants.CONTENT_PADDING));
 
@@ -79,9 +110,7 @@ public final class PullRequestsBoard extends JPanel {
         controls.setOpaque(false);
         filters =
                 new JComboBox<>(
-                        actionContext
-                                .appState()
-                                .appSettings()
+                        appState.appSettings()
                                 .pullRequestFilters()
                                 .toArray(PullRequestFilter[]::new));
         controls.add(new JLabel("Filter"));
@@ -190,9 +219,7 @@ public final class PullRequestsBoard extends JPanel {
         }
         refreshInFlight = true;
         final long started = System.nanoTime();
-        LOG.info(
-                "PR board refresh started: projects={}",
-                this.actionContext.appState().projects().size());
+        LOG.info("PR board refresh started: projects={}", this.appState.projects().size());
         refreshButton.setEnabled(false);
         refreshButton.start();
         refreshStatus.setText("Refreshing PRs...");
@@ -230,13 +257,8 @@ public final class PullRequestsBoard extends JPanel {
     }
 
     private PullRequestInstanceState stateFor(final ProjectId project) {
-        return actionContext
-                .viewController()
-                .getOrDefaultAsyncLoadingState(
-                        project,
-                        new PullRequestInstanceState(
-                                actionContext.viewController().backgroundJobs(),
-                                actionContext.githubProvider()));
+        return this.asyncLoadingStateFactory.getOrDefaultAsyncLoadingState(
+                project, new PullRequestInstanceState(backgroundJobs, githubProvider));
     }
 
     private void completeRefresh(final String status, final long started) {
@@ -311,7 +333,14 @@ public final class PullRequestsBoard extends JPanel {
         }
         for (final PullRequestDetails request : requests) {
             final PullRequestCard card =
-                    new PullRequestCard(actionContext, request, request, this::refresh);
+                    new PullRequestCard(
+                            viewController,
+                            appState,
+                            githubProvider,
+                            dialogService,
+                            request,
+                            request,
+                            this::refresh);
             final JPanel cardRow = new JPanel(new BorderLayout());
             cardRow.setOpaque(false);
             cardRow.putClientProperty("pullRequest", request);

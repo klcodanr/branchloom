@@ -11,7 +11,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class PullRequestDetailsModelTest {
-    private static final Project PROJECT = new Project("Demo", "/tmp/demo", null);
+    private static final Project PROJECT = Project.create("Demo", "/tmp/demo", null);
     private static final ProjectId PROJECT_ID = ProjectId.create();
 
     @Test

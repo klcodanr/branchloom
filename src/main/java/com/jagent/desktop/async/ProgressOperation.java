@@ -1,10 +1,8 @@
 package com.jagent.desktop.async;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.ui.components.LoadingPanel;
-import java.awt.Cursor;
+import java.awt.Frame;
 import java.awt.GraphicsEnvironment;
-import java.awt.Window;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -18,42 +16,31 @@ import javax.swing.JDialog;
  * {@link BackgroundOperations} directly.
  */
 public final class ProgressOperation {
-    private final Window window;
     private final ProgressDialog progress;
 
-    private ProgressOperation(
-            final ActionContext actionContext, final String title, final String message) {
-        this.window = actionContext == null ? null : actionContext.window();
-        if (this.window != null) {
-            this.window.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-        }
+    private ProgressOperation(final String title, final String message) {
         this.progress =
-                GraphicsEnvironment.isHeadless()
-                        ? null
-                        : new ProgressDialog(this.window, title, message);
+                GraphicsEnvironment.isHeadless() ? null : new ProgressDialog(title, message);
         if (this.progress != null) {
             this.progress.setVisible(true);
         }
     }
 
     private static final class ProgressDialog extends JDialog {
-        public ProgressDialog(final Window owner, final String title, final String message) {
-            super(owner, title, ModalityType.MODELESS);
+        public ProgressDialog(final String title, final String message) {
+            super((Frame) null, title, ModalityType.MODELESS);
             setUndecorated(true);
             setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
             add(new LoadingPanel(message));
             setResizable(false);
             pack();
-            setLocationRelativeTo(owner);
+            setLocationRelativeTo(null);
         }
     }
 
     public void close() {
         if (progress != null) {
             progress.dispose();
-        }
-        if (window != null) {
-            window.setCursor(Cursor.getDefaultCursor());
         }
     }
 
@@ -64,18 +51,14 @@ public final class ProgressOperation {
      * the EDT. The dialog and cursor are always cleaned up, even when the operation fails.
      *
      * @param <T> result type produced by the background operation
-     * @param actionContext source context that provides the parent window
      * @param title progress dialog title and background task name
      * @param message progress message shown in the loading panel
      * @param operation blocking operation to run off the EDT
      * @return future completed on the EDT with the operation result or failure
      */
     public static <T> CompletableFuture<T> run(
-            final ActionContext actionContext,
-            final String title,
-            final String message,
-            final Callable<T> operation) {
-        final ProgressOperation progress = new ProgressOperation(actionContext, title, message);
+            final String title, final String message, final Callable<T> operation) {
+        final ProgressOperation progress = new ProgressOperation(title, message);
         return BackgroundOperations.submit(
                 "Operations",
                 title,
@@ -93,7 +76,6 @@ public final class ProgressOperation {
      * completes.
      *
      * @param <T> result type produced by the background operation
-     * @param actionContext source context that provides the parent window
      * @param title progress dialog title and background task name
      * @param message progress message shown in the loading panel
      * @param operation blocking operation to run off the EDT
@@ -101,12 +83,11 @@ public final class ProgressOperation {
      * @return future completed when the follow-up operation finishes
      */
     public static <T> CompletableFuture<Void> runWithCompletion(
-            final ActionContext actionContext,
             final String title,
             final String message,
             final Callable<T> operation,
             final Function<T, CompletableFuture<?>> completion) {
-        final ProgressOperation progress = new ProgressOperation(actionContext, title, message);
+        final ProgressOperation progress = new ProgressOperation(title, message);
         return BackgroundOperations.submit("Operations", title, operation)
                 .thenCompose(value -> completion.apply(value).thenApply(ignored -> (Void) null))
                 .whenComplete((ignored, failure) -> progress.close());

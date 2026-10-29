@@ -1,6 +1,9 @@
 package com.jagent.desktop.ui.components;
 
-import com.jagent.desktop.models.ActionContext;
+import com.google.inject.Inject;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.components.tree.LeftNavTree;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -13,13 +16,19 @@ public final class ProjectTreePanel extends JPanel {
     private final LeftNavTree tree;
     private final SearchInput search;
 
-    public ProjectTreePanel(final ActionContext actionContext) {
+    @Inject
+    public ProjectTreePanel(
+            final ViewController viewController,
+            final AppState appState,
+            final DialogService dialogService,
+            final SessionActions sessionActions,
+            final ProjectActions projectActions) {
         super();
         setBorder(UiBorders.contentArea());
         setPreferredSize(new Dimension(315, 0));
         setLayout(new BorderLayout(0, UiConstants.COMPONENT_GAP));
 
-        add(new NewProjectsHeader(actionContext), BorderLayout.NORTH);
+        add(new NewProjectsHeader(viewController, appState, dialogService), BorderLayout.NORTH);
         search =
                 new SearchInput(
                         new SearchInput.Text(
@@ -34,7 +43,11 @@ public final class ProjectTreePanel extends JPanel {
                             search.setText(searchQuery);
                             search.setVisible(true);
                         },
-                        actionContext);
+                        viewController,
+                        appState,
+                        dialogService,
+                        sessionActions,
+                        projectActions);
 
         search.onChange(tree::setSearchQuery);
         search.onCancel(

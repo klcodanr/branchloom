@@ -145,6 +145,11 @@ class ViewInstanceStateTest {
         await(
                 () -> state.configs.equals(List.of(FIRST, LATEST)),
                 "queued refresh should be loaded exactly once after the first load");
+        await(
+                () ->
+                        state.backgroundJobs.jobs().getFirst().status()
+                                == BackgroundJobs.Status.SUCCEEDED,
+                "shared job should complete after the latest refresh");
         assertEquals(1, state.backgroundJobs.jobs().size(), "refreshes should share one job");
         assertEquals(
                 BackgroundJobs.Status.SUCCEEDED,

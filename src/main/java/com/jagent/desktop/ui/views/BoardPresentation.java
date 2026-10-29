@@ -1,11 +1,11 @@
 package com.jagent.desktop.ui.views;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.board.AgentSessionBoardItem;
 import com.jagent.desktop.models.board.BoardItem;
 import com.jagent.desktop.models.board.GithubIssueBoardItem;
 import com.jagent.desktop.models.board.JiraIssueBoardItem;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.ui.board.KanbanBoard;
 import java.util.Comparator;
 import java.util.List;
@@ -20,7 +20,7 @@ final class BoardPresentation {
     private BoardPresentation() {}
 
     public static void updateFilterOptions(
-            final ActionContext context,
+            final AppState appState,
             final List<BoardItem> items,
             final JComboBox<String> projectFilter,
             final JComboBox<String> groupFilter) {
@@ -29,7 +29,7 @@ final class BoardPresentation {
         replaceOptions(
                 projectFilter,
                 items.stream()
-                        .map(item -> projectName(context, item))
+                        .map(item -> projectName(appState, item))
                         .filter(name -> !name.isBlank())
                         .distinct()
                         .sorted(String.CASE_INSENSITIVE_ORDER)
@@ -38,7 +38,7 @@ final class BoardPresentation {
         replaceOptions(
                 groupFilter,
                 items.stream()
-                        .map(item -> projectGroup(context, item))
+                        .map(item -> projectGroup(appState, item))
                         .filter(group -> !group.isBlank())
                         .distinct()
                         .sorted(String.CASE_INSENSITIVE_ORDER)
@@ -47,7 +47,7 @@ final class BoardPresentation {
     }
 
     public static void apply(
-            final ActionContext context,
+            final AppState appState,
             final List<BoardItem> items,
             final KanbanBoard board,
             final JComboBox<String> sourceFilter,
@@ -68,12 +68,12 @@ final class BoardPresentation {
                         .filter(
                                 item ->
                                         ALL.equals(selectedProject)
-                                                || projectName(context, item)
+                                                || projectName(appState, item)
                                                         .equals(selectedProject))
                         .filter(
                                 item ->
                                         ALL.equals(selectedGroup)
-                                                || projectGroup(context, item)
+                                                || projectGroup(appState, item)
                                                         .equals(selectedGroup))
                         .filter(item -> matchesSearch(item, searchText))
                         .sorted(sortComparator(sortOrder))
@@ -152,7 +152,7 @@ final class BoardPresentation {
         return values;
     }
 
-    private static String projectName(final ActionContext context, final BoardItem item) {
+    private static String projectName(final AppState appState, final BoardItem item) {
         if (item instanceof PullRequest request) {
             return request.project().name();
         }
@@ -162,17 +162,17 @@ final class BoardPresentation {
         if (item instanceof AgentSessionBoardItem session) {
             return session.project();
         }
-        return projectForId(context, item).map(com.jagent.desktop.models.Project::name).orElse("");
+        return projectForId(appState, item).map(com.jagent.desktop.models.Project::name).orElse("");
     }
 
-    private static String projectGroup(final ActionContext context, final BoardItem item) {
-        return projectForId(context, item)
+    private static String projectGroup(final AppState appState, final BoardItem item) {
+        return projectForId(appState, item)
                 .map(value -> Objects.requireNonNullElse(value.group(), ""))
                 .orElse("");
     }
 
     private static Optional<com.jagent.desktop.models.Project> projectForId(
-            final ActionContext context, final BoardItem item) {
+            final AppState appState, final BoardItem item) {
         final String id =
                 switch (item) {
                     case PullRequest request -> request.projectId().value().toString();
@@ -183,7 +183,7 @@ final class BoardPresentation {
                                     ? item.id().substring(0, item.id().indexOf(':'))
                                     : item.id();
                 };
-        return context.appState().projects().entrySet().stream()
+        return appState.projects().entrySet().stream()
                 .filter(
                         entry ->
                                 entry.getKey().value().toString().equals(id)

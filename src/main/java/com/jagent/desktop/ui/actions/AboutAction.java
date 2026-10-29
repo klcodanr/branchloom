@@ -1,13 +1,15 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
-import com.jagent.desktop.models.ActionContext;
-import javax.swing.JOptionPane;
+import com.google.inject.Inject;
+import com.jagent.desktop.api.Action;
+import com.jagent.desktop.services.dialog.DialogService;
 
-public final class AboutAction extends BaseAction {
+public final class AboutAction implements Action {
+    private final DialogService dialogService;
 
-    public AboutAction(final ActionContext actionContext) {
-        super(actionContext);
+    @Inject
+    public AboutAction(final DialogService dialogService) {
+        this.dialogService = dialogService;
     }
 
     @Override
@@ -22,10 +24,9 @@ public final class AboutAction extends BaseAction {
 
     @Override
     public void execute() {
-        JOptionPane.showMessageDialog(
-                actionContext.window(),
+        dialogService.message(
                 "Branchloom\nGit projects, worktrees, and agent sessions",
                 "About Branchloom",
-                JOptionPane.INFORMATION_MESSAGE);
+                DialogService.MessageType.INFORMATION);
     }
 }

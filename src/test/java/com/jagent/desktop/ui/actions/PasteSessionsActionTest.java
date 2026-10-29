@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.test.TestAppState;
@@ -31,7 +30,12 @@ class PasteSessionsActionTest {
     @Test
     void actionRequiresASelectedProject() {
         final AppState state = TestAppState.empty();
-        final PasteSessionsAction action = new PasteSessionsAction(TestAppState.context(state));
+        final PasteSessionsAction action =
+                new PasteSessionsAction(
+                        TestAppState.controller(state),
+                        state,
+                        null,
+                        TestAppState.bulkSessionCreator(state));
 
         assertFalse(action.enabled(), "paste action should require a selected project");
         action.execute();
@@ -40,11 +44,12 @@ class PasteSessionsActionTest {
     @Test
     void actionIsEnabledForASelectedProject() {
         final AppState state = TestAppState.empty();
-        final var projectId = state.addProject(new Project("Demo", "/tmp", null));
+        final var projectId = state.addProject(Project.create("Demo", "/tmp", null));
         final var controller = TestAppState.controller(state);
         controller.selectProject(projectId);
         final PasteSessionsAction action =
-                new PasteSessionsAction(new ActionContext(controller, state, null, null, null));
+                new PasteSessionsAction(
+                        controller, state, null, TestAppState.bulkSessionCreator(state));
 
         assertTrue(action.enabled(), "paste action should be enabled for a selected project");
     }

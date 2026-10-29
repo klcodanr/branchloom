@@ -48,7 +48,7 @@ class SessionSummaryUiTest {
 
     private static PullRequestDetails details(final PullRequest.State state, final boolean merged)
             throws MalformedURLException {
-        final Project project = new Project("Demo", "/tmp/demo", null);
+        final Project project = Project.create("Demo", "/tmp/demo", null);
         final PullRequest request =
                 new PullRequest(
                         ProjectId.create(),

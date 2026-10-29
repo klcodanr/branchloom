@@ -41,7 +41,7 @@ class PullRequestMergedStatusTest {
     }
 
     private static PullRequest request() throws MalformedURLException {
-        final Project project = new Project("Demo", "/tmp/demo", null);
+        final Project project = Project.create("Demo", "/tmp/demo", null);
         return new PullRequest(
                 ProjectId.create(),
                 project,

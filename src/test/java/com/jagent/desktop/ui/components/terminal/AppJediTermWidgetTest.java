@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import com.jediterm.terminal.ui.TerminalPanel;
 import java.awt.event.KeyEvent;
 import java.nio.file.Path;
-import javax.swing.JPanel;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.Test;
 
@@ -16,7 +15,6 @@ class AppJediTermWidgetTest {
 
     @Test
     void createsApplicationTerminalComponents() {
-        final JPanel owner = new JPanel();
         final AppJediTermWidget widget =
                 GuiActionRunner.execute(
                         () ->
@@ -25,8 +23,9 @@ class AppJediTermWidgetTest {
                                         24,
                                         new AppTerminalSettings(),
                                         TEMP_DIRECTORY,
-                                        owner,
-                                        ignored -> {}));
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         assertInstanceOf(
                 AppTerminalPanel.class,
@@ -48,8 +47,9 @@ class AppJediTermWidgetTest {
                                         24,
                                         new AppTerminalSettings(),
                                         TEMP_DIRECTORY,
-                                        new JPanel(),
-                                        ignored -> {}));
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
         final TerminalPanel panel = widget.getTerminalPanel();
 
         final KeyEvent copy =

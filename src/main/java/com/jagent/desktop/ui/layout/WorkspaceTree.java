@@ -1,8 +1,7 @@
 package com.jagent.desktop.ui.layout;
 
-import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.ui.actions.CopyPathAction;
-import com.jagent.desktop.ui.actions.OpenDirectoryAction;
 import com.jagent.desktop.ui.components.UiPopupMenus;
 import com.jagent.desktop.ui.utils.PathUtils;
 import java.awt.event.KeyEvent;
@@ -23,16 +22,11 @@ import javax.swing.tree.TreePath;
 public final class WorkspaceTree extends JTree {
     public static final String LOADING = "Loading...";
     private final transient Actions actions;
-    private final transient ActionContext context;
 
     public WorkspaceTree(
-            final DefaultMutableTreeNode root,
-            final Path workspace,
-            final ActionContext context,
-            final Actions actions) {
+            final DefaultMutableTreeNode root, final Path workspace, final Actions actions) {
         super(new DefaultTreeModel(root));
         this.actions = actions;
-        this.context = context;
         setRootVisible(true);
         setShowsRootHandles(true);
         setCellRenderer(
@@ -105,8 +99,7 @@ public final class WorkspaceTree extends JTree {
             menu.add(open);
         }
         final JMenuItem reveal = new JMenuItem("Reveal in file manager");
-        reveal.addActionListener(
-                ignored -> OpenDirectoryAction.open(parentPath(path).toString(), context.window()));
+        reveal.addActionListener(ignored -> PlatformCommands.openPath(parentPath(path).toString()));
         menu.add(reveal);
         final JMenuItem terminal = new JMenuItem("Open terminal here");
         terminal.addActionListener(ignored -> actions.onOpenInTerminal().run());

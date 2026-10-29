@@ -2,8 +2,6 @@ package com.jagent.desktop.services.terminal;
 
 import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.services.PlatformCommands;
-import com.jediterm.core.util.TermSize;
-import com.jediterm.terminal.ProcessTtyConnector;
 import com.jediterm.terminal.TtyConnector;
 import com.pty4j.PtyProcess;
 import com.pty4j.PtyProcessBuilder;
@@ -12,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
@@ -27,12 +26,11 @@ public class TerminalRuntime {
     private final String historyFile;
     private final Object lifecycleLock = new Object();
     protected volatile PtyProcess process;
-    protected volatile TtyConnector connector;
+    protected volatile Pty4jTtyConnector connector;
     private volatile TerminalState state = TerminalState.STARTING;
     private volatile Consumer<TerminalState> stateChanged = ignored -> {};
     protected volatile boolean disposed;
     protected volatile boolean started;
-    private volatile long lastOutputAt;
     private volatile long startRequestedAtNanos;
     protected volatile CompletableFuture<Void> launchTask;
     protected volatile Thread launchThread;
@@ -143,11 +141,9 @@ public class TerminalRuntime {
                     return;
                 }
                 process = startedProcess;
-                lastOutputAt = System.currentTimeMillis();
-                final TtyConnector tty = new Pty4jTtyConnector(startedProcess, this::setState);
-                connector = tty;
+                connector = new Pty4jTtyConnector(startedProcess, this::setState);
                 final long attachStartedAtNanos = System.nanoTime();
-                attach.accept(tty);
+                attach.accept(connector);
                 LOG.info(
                         "Terminal connector attached: dir={}, cmdLength={}, attachMs={}, sinceStartRequestMs={}",
                         directory,
@@ -238,7 +234,11 @@ public class TerminalRuntime {
 
     private void monitorActivity(final PtyProcess startedProcess) {
         while (!disposed && startedProcess.isAlive()) {
-            if (System.currentTimeMillis() - lastOutputAt >= QUIET_PERIOD_MILLIS) {
+            if (System.currentTimeMillis()
+                            - Optional.ofNullable(connector)
+                                    .map(Pty4jTtyConnector::lastOutputAt)
+                                    .orElse(0L)
+                    >= QUIET_PERIOD_MILLIS) {
                 setState(TerminalState.IDLE);
             }
             try {
@@ -254,45 +254,6 @@ public class TerminalRuntime {
         if (state != next) {
             state = next;
             stateChanged.accept(next);
-        }
-    }
-
-    private final class Pty4jTtyConnector extends ProcessTtyConnector {
-        private final PtyProcess process;
-        private final Consumer<TerminalState> activity;
-
-        private Pty4jTtyConnector(
-                final PtyProcess process, final Consumer<TerminalState> activity) {
-            super(process, StandardCharsets.UTF_8);
-            this.process = process;
-            this.activity = activity;
-        }
-
-        @Override
-        public int read(final char[] buffer, final int offset, final int length)
-                throws IOException {
-            final int count = super.read(buffer, offset, length);
-            if (count > 0) {
-                lastOutputAt = System.currentTimeMillis();
-                activity.accept(TerminalState.WORKING);
-            }
-            return count;
-        }
-
-        @Override
-        public void resize(final TermSize size) {
-            if (isConnected()) {
-                try {
-                    process.setWinSize(new com.pty4j.WinSize(size.getColumns(), size.getRows()));
-                } catch (RuntimeException ignored) {
-                    // Some macOS PTY configurations reject a resize ioctl.
-                }
-            }
-        }
-
-        @Override
-        public String getName() {
-            return "Local";
         }
     }
 }

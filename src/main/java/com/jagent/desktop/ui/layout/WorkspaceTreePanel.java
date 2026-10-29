@@ -1,17 +1,17 @@
 package com.jagent.desktop.ui.layout;
 
 import com.jagent.desktop.async.BackgroundOperations;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.git.ChangedFileNode;
 import com.jagent.desktop.models.git.ChangedFileTree;
 import com.jagent.desktop.models.git.WorktreeStatusSummary;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.EditorCommands;
+import com.jagent.desktop.services.PlatformCommands;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.services.github.GitHub;
-import com.jagent.desktop.ui.actions.OpenDirectoryAction;
-import com.jagent.desktop.ui.actions.RunCommandAction;
 import com.jagent.desktop.ui.components.GitStatusPanel;
 import com.jagent.desktop.ui.components.IconButton;
 import com.jagent.desktop.ui.components.SmIconButton;
@@ -51,7 +51,8 @@ import javax.swing.tree.TreePath;
 public final class WorkspaceTreePanel extends JPanel {
     private static final String LOADING = "Loading...";
     private static final String EMPTY = "Empty";
-    private final transient ActionContext actionContext;
+    private final transient ViewController viewController;
+    private final transient AppState appState;
     private final Path workspace;
     private final JTree tree;
     private final DefaultMutableTreeNode root;
@@ -69,12 +70,14 @@ public final class WorkspaceTreePanel extends JPanel {
     private record DirectoryLoad(boolean unavailable, List<Path> children) {}
 
     public WorkspaceTreePanel(
-            final ActionContext actionContext,
+            final ViewController viewController,
+            final AppState appState,
             final Path workspace,
             final Runnable openTerminal,
             final BiConsumer<Path, Boolean> openFile) {
         super(new BorderLayout());
-        this.actionContext = actionContext;
+        this.viewController = viewController;
+        this.appState = appState;
         setOpaque(false);
         this.workspace = workspace.toAbsolutePath().normalize();
 
@@ -84,7 +87,6 @@ public final class WorkspaceTreePanel extends JPanel {
                 new WorkspaceTree(
                         root,
                         workspace,
-                        actionContext,
                         new WorkspaceTree.Actions(
                                 path -> {
                                     if (!PathUtils.directory(path)) {
@@ -96,19 +98,18 @@ public final class WorkspaceTreePanel extends JPanel {
                                         return;
                                     }
                                     final Path parent = parentOrSelf(path);
-                                    final var tools =
-                                            actionContext.appState().appSettings().tools();
+                                    final var tools = appState.appSettings().tools();
                                     if (tools.isEmpty()) {
-                                        OpenDirectoryAction.open(
-                                                parent.toString(), actionContext.window());
+                                        PlatformCommands.openPath(parent.toString());
                                         return;
                                     }
                                     final var editor = tools.getFirst();
-                                    RunCommandAction.run(
+                                    BackgroundOperations.runCommand(
+                                            "Editor",
+                                            "Open Editor",
                                             EditorCommands.openFile(editor, path, 0, 0),
-                                            parent.toString(),
-                                            editor.label(),
-                                            actionContext.window());
+                                            parent,
+                                            null);
                                 },
                                 openTerminal::run,
                                 this::statusCode));
@@ -204,9 +205,8 @@ public final class WorkspaceTreePanel extends JPanel {
 
     private void refreshStatus() {
         final boolean includeSourceBranch = compareSourceBranch;
-        final ProjectId projectId = actionContext.viewController().currentProjectId();
-        final Project project =
-                projectId == null ? null : actionContext.appState().projects().get(projectId);
+        final ProjectId projectId = viewController.currentProjectId();
+        final Project project = projectId == null ? null : appState.projects().get(projectId);
         refreshButton.setSelected(false);
         refreshButton.setEnabled(false);
         statusPanel.showRefreshing();
@@ -407,7 +407,7 @@ public final class WorkspaceTreePanel extends JPanel {
         }
         try {
             final String baseBranch =
-                    GitHub.forProject(this.actionContext.appState(), projectId)
+                    GitHub.forProject(this.appState, projectId)
                             .getPullRequest(workspace)
                             .baseBranch()
                             .trim();

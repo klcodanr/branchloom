@@ -2,11 +2,13 @@ package com.jagent.desktop.ui.views;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.inject.Inject;
 import com.jagent.desktop.api.View;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.LogEntry;
 import com.jagent.desktop.services.JsonLogging;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.components.BaseButton;
 import com.jagent.desktop.ui.components.SelectableTextLabel;
 import com.jagent.desktop.ui.components.Theme;
@@ -24,7 +26,6 @@ import java.util.function.Function;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
@@ -41,15 +42,19 @@ public final class ProblemsView extends JPanel implements View {
     private final JTable table;
     private JButton showAllButton;
     private final transient Function<Integer, List<LogEntry>> logLoader;
+    private final transient DialogService dialogs;
 
-    public ProblemsView() {
-        this(JsonLogging::load);
+    @Inject
+    public ProblemsView(final DialogService dialogService) {
+        this(JsonLogging::load, dialogService);
     }
 
-    protected ProblemsView(final Function<Integer, List<LogEntry>> loader) {
+    protected ProblemsView(
+            final Function<Integer, List<LogEntry>> loader, final DialogService dialogs) {
         super();
         this.problems = new ArrayList<>();
         this.logLoader = loader;
+        this.dialogs = dialogs;
         setLayout(new BorderLayout(0, UiConstants.SECTION_PADDING));
         add(header(), BorderLayout.NORTH);
         tableModel = new ProblemTableModel(problems);
@@ -120,8 +125,7 @@ public final class ProblemsView extends JPanel implements View {
         details.setColumns(80);
         details.setCaretPosition(0);
         details.setLineWrap(false);
-        JOptionPane.showMessageDialog(
-                this, new JScrollPane(details), "Log Entry", JOptionPane.INFORMATION_MESSAGE);
+        dialogs.show("Log Entry", new JScrollPane(details), "OK");
     }
 
     private static Map<String, Object> logEntry(final LogEntry problem) {

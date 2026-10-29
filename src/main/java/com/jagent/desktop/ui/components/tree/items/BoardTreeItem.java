@@ -1,7 +1,6 @@
 package com.jagent.desktop.ui.components.tree.items;
 
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.board.BoardDefinition;
 import com.jagent.desktop.services.ViewController;
 import javax.swing.JPopupMenu;
@@ -9,10 +8,10 @@ import javax.swing.JPopupMenu;
 public class BoardTreeItem implements TreeItem {
     private final BoardDefinition board;
 
-    private final ActionContext actionContext;
+    private final ViewController viewController;
 
-    public BoardTreeItem(final ActionContext actionContext, final BoardDefinition board) {
-        this.actionContext = actionContext;
+    public BoardTreeItem(final ViewController viewController, final BoardDefinition board) {
+        this.viewController = viewController;
         this.board = board;
     }
 
@@ -39,8 +38,6 @@ public class BoardTreeItem implements TreeItem {
 
     @Override
     public void select() {
-        actionContext
-                .viewController()
-                .updateView(ViewId.BOARD, ViewController.ViewState.board(board.name()));
+        viewController.updateView(ViewId.BOARD, ViewController.ViewState.board(board.name()));
     }
 }

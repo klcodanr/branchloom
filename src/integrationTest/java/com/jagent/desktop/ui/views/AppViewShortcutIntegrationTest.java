@@ -34,7 +34,7 @@ class AppViewShortcutIntegrationTest {
     void closeShortcutClosesFileBeforeFallingBackToTerminal() throws IOException {
         final Path file = Files.writeString(dataDirectory.resolve("notes.txt"), "notes");
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.addProject(new Project("Demo", dataDirectory.toString(), null).withGroup(null));
+        state.addProject(Project.create("Demo", dataDirectory.toString(), null).withGroup(null));
         try (AppStatePersistence persistence = new AppStatePersistence(state, dataDirectory)) {
             persistence.persist();
         }

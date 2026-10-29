@@ -3,7 +3,6 @@ package com.jagent.desktop.ui.views;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.github.CliCredential;
@@ -49,13 +48,15 @@ class ProjectSettingsViewTest {
     void rendersAndSavesTheSelectedProject() {
         final AppState state =
                 new AppState(Defaults.appSettings(), new HashMap<>(), Map.of(), Map.of());
-        final ProjectId projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
+        final ProjectId projectId =
+                state.addProject(Project.create(PROJECT_NAME, PROJECT_PATH, null));
         final ViewController coordinator = TestAppState.controller(state);
         coordinator.selectProject(projectId);
-        final ActionContext context = new ActionContext(coordinator, state, null, null, null);
-
         final ProjectSettingsView view =
-                GuiActionRunner.execute(() -> new ProjectSettingsView(context));
+                GuiActionRunner.execute(
+                        () ->
+                                new ProjectSettingsView(
+                                        coordinator, state, TestAppState.dialogService()));
         final JPanel rendered = (JPanel) view.getComponent(0);
         final JPanel actions = (JPanel) rendered.getComponent(2);
         GuiActionRunner.execute((GuiActionRunnable) ((JButton) actions.getComponent(1))::doClick);
@@ -76,8 +77,8 @@ class ProjectSettingsViewTest {
                 assertThrows(
                         IllegalStateException.class,
                         () ->
-                                ProjectSettingsView.create(
-                                        new ActionContext(coordinator, state, null, null, null)),
+                                new ProjectSettingsView(
+                                        coordinator, state, TestAppState.dialogService()),
                         "constructing project settings without a selection should fail");
         assertEquals(
                 "A project must be selected.",
@@ -87,7 +88,7 @@ class ProjectSettingsViewTest {
 
     @Test
     void createBuildsSettingsFormForSelectedProject() {
-        final Project project = new Project(PROJECT_NAME, PROJECT_PATH, null);
+        final Project project = Project.create(PROJECT_NAME, PROJECT_PATH, null);
         final ProjectId projectId = ProjectId.create();
         final AppState state =
                 new AppState(
@@ -99,7 +100,7 @@ class ProjectSettingsViewTest {
         coordinator.selectProject(projectId);
 
         final JComponent view =
-                ProjectSettingsView.create(new ActionContext(coordinator, state, null, null, null));
+                new ProjectSettingsView(coordinator, state, TestAppState.dialogService());
 
         assertNotNull(view, "settings view should render for selected project");
         assertTrue(view.getComponentCount() > 0, "settings view should include content");
@@ -109,6 +110,7 @@ class ProjectSettingsViewTest {
     void saveProjectAndChangeDetectionWorkForUpdatedValues() {
         final Project project =
                 new Project(
+                        ProjectId.create(),
                         PROJECT_NAME,
                         PROJECT_PATH,
                         GROUP_ORIGINAL,
@@ -151,7 +153,8 @@ class ProjectSettingsViewTest {
                 contextPath,
                 contextText,
                 auths,
-                () -> closed.set(true));
+                () -> closed.set(true),
+                new com.jagent.desktop.services.dialog.HeadlessDialogService());
 
         final Project updated = state.projects().get(projectId);
         assertEquals(PROJECT_NAME_UPDATED, updated.name(), "save should update project name");

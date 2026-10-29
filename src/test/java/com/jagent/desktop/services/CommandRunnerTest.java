@@ -1,6 +1,7 @@
 package com.jagent.desktop.services;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -53,7 +54,7 @@ class CommandRunnerTest {
     @Test
     void runCommandSupportsSuccessfulCommandsWithNoOutput(@TempDir final Path directory)
             throws ExecutionException, InterruptedException {
-        final String output =
+        final Void output =
                 BackgroundOperations.runCommand(
                                 "Commands",
                                 "run-command-test-empty-success",
@@ -61,6 +62,6 @@ class CommandRunnerTest {
                                 directory,
                                 ignored -> {})
                         .get();
-        assertEquals("", output, "successful command without output should return empty output");
+        assertNull(output, "successful command without output should return empty output");
     }
 }

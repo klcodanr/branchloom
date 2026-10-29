@@ -4,12 +4,12 @@ import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.TerminalResources;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiConstants;
-import com.jediterm.terminal.TtyConnector;
 import com.jediterm.terminal.ui.JediTermWidget;
 import java.awt.BorderLayout;
 import java.nio.file.Path;
@@ -33,38 +33,11 @@ public final class TerminalPanel extends JPanel {
     private final JediTermWidget terminal;
     private volatile Consumer<String> titleChanged = ignored -> {};
 
-    public TerminalPanel(final String command, final Path directory) {
-        this(command, directory, "", ignored -> {});
-    }
-
-    public TerminalPanel(
-            final String command,
-            final Path directory,
-            final Consumer<TerminalState> stateChanged) {
-        this(command, directory, "", stateChanged);
-    }
-
-    public TerminalPanel(final String command, final Path directory, final String resourceName) {
-        this(command, directory, resourceName, ignored -> {});
-    }
-
-    public TerminalPanel(
-            final String command,
-            final Path directory,
-            final String resourceName,
-            final Consumer<TerminalState> stateChanged) {
-        this(TerminalManager.get().create(command, directory, resourceName), null, stateChanged);
-    }
-
-    public TerminalPanel(
-            final TerminalRuntime runtime, final Consumer<TerminalState> stateChanged) {
-        this(runtime, null, stateChanged);
-    }
-
     private TerminalPanel(
             final TerminalRuntime runtime,
             final @Nullable TerminalId retainedId,
-            final Consumer<TerminalState> stateChanged) {
+            final Consumer<TerminalState> stateChanged,
+            final DialogService dialogService) {
         super(new BorderLayout());
         this.runtime = runtime;
         this.retainedId = retainedId;
@@ -78,28 +51,27 @@ public final class TerminalPanel extends JPanel {
                         24,
                         new AppTerminalSettings(),
                         runtime.directory(),
-                        this,
-                        this::applicationTitleChanged);
+                        this::applicationTitleChanged,
+                        dialogService);
         add(terminal, BorderLayout.CENTER);
         setStateChanged(stateChanged);
-    }
-
-    private TerminalPanel(final TerminalId retainedId, final TerminalRuntime runtime) {
-        this(runtime, retainedId, ignored -> {});
     }
 
     public static TerminalPanel retained(
             final TerminalId id,
             final Terminal definition,
             final Path directory,
-            final String resourceName) {
+            final String resourceName,
+            final DialogService dialogService) {
         return RETAINED_PANELS.computeIfAbsent(
                 id,
                 ignored ->
                         new TerminalPanel(
-                                id,
                                 TerminalManager.get()
-                                        .retained(id, definition, directory, resourceName)));
+                                        .retained(id, definition, directory, resourceName),
+                                id,
+                                null,
+                                dialogService));
     }
 
     public static TerminalPanel existing(final TerminalId id) {
@@ -107,7 +79,30 @@ public final class TerminalPanel extends JPanel {
     }
 
     public void start() {
-        runtime.start(this::attach, this::showStartupFailure);
+        runtime.start(
+                (connector) ->
+                        SwingUtilities.invokeLater(
+                                () -> {
+                                    terminal.setTtyConnector(connector);
+                                    terminal.start();
+                                    BackgroundOperations.submit(
+                                            "Terminals",
+                                            "agent-terminal-submit-command",
+                                            Executors.callable(runtime::submitCommand));
+                                }),
+                (exception) ->
+                        SwingUtilities.invokeLater(
+                                () -> {
+                                    removeAll();
+                                    final JLabel failure =
+                                            new JLabel(
+                                                    "Could not start terminal: "
+                                                            + exception.getMessage());
+                                    failure.setFont(Theme.font(Theme.FontSize.SM));
+                                    add(failure, BorderLayout.NORTH);
+                                    revalidate();
+                                    repaint();
+                                }));
     }
 
     public void focusTerminal() {
@@ -165,39 +160,10 @@ public final class TerminalPanel extends JPanel {
         titleChanged = listener == null ? ignored -> {} : listener;
     }
 
-    /* package */ void applicationTitleChanged(final String title) {
-        if (title == null) {
+    private void applicationTitleChanged(final String title) {
+        if (title == null || title.isEmpty()) {
             return;
         }
-        final String updatedTitle = title.trim();
-        if (updatedTitle.isEmpty()) {
-            return;
-        }
-        SwingUtilities.invokeLater(() -> titleChanged.accept(updatedTitle));
-    }
-
-    private void attach(final TtyConnector connector) {
-        SwingUtilities.invokeLater(
-                () -> {
-                    terminal.setTtyConnector(connector);
-                    terminal.start();
-                    BackgroundOperations.submit(
-                            "Terminals",
-                            "agent-terminal-submit-command",
-                            Executors.callable(runtime::submitCommand));
-                });
-    }
-
-    private void showStartupFailure(final Exception exception) {
-        SwingUtilities.invokeLater(
-                () -> {
-                    removeAll();
-                    final JLabel failure =
-                            new JLabel("Could not start terminal: " + exception.getMessage());
-                    failure.setFont(Theme.font(Theme.FontSize.SM));
-                    add(failure, BorderLayout.NORTH);
-                    revalidate();
-                    repaint();
-                });
+        SwingUtilities.invokeLater(() -> titleChanged.accept(title.trim()));
     }
 }

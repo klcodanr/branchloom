@@ -113,7 +113,7 @@ class AppStartupIntegrationTest {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId =
                 state.addProject(
-                        new Project("Demo", dataDirectory.toString(), null).withGroup(null));
+                        Project.create("Demo", dataDirectory.toString(), null).withGroup(null));
         try (AppStatePersistence persistence = new AppStatePersistence(state, dataDirectory)) {
             persistence.persist();
         }
@@ -143,7 +143,7 @@ class AppStartupIntegrationTest {
     void doesNotShowWorkspaceActionsWhenWorkspaceIsUnavailable() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         state.addProject(
-                new Project(
+                Project.create(
                                 "Unavailable",
                                 dataDirectory.resolve("missing-workspace").toString(),
                                 null)
@@ -170,17 +170,17 @@ class AppStartupIntegrationTest {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId =
                 state.addProject(
-                        new Project("Demo", dataDirectory.toString(), null).withGroup(null));
+                        Project.create("Demo", dataDirectory.toString(), null).withGroup(null));
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(
+                        Session.create(
                                 projectId,
                                 "Feature",
                                 "Shell",
                                 "Inspect the project",
                                 dataDirectory.toString()));
-        state.addTerminal(sessionId, new Terminal(sessionId, "Shell", "true"));
+        state.addTerminal(sessionId, Terminal.create(sessionId, "Shell", "true"));
         try (AppStatePersistence persistence = new AppStatePersistence(state, dataDirectory)) {
             persistence.persist();
         }
@@ -198,6 +198,7 @@ class AppStartupIntegrationTest {
                     find(app, ProjectView.class) != null, "project selection should open project");
 
             clickMenuItem(application.window(), "Project", "Settings");
+            GuiActionRunner.execute(() -> {});
             assertTrue(findLabel(app, "Project settings") != null, "project settings should open");
 
             GuiActionRunner.execute(() -> selectProject(tree));

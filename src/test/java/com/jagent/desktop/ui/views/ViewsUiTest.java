@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
@@ -25,7 +24,8 @@ class ViewsUiTest {
 
     @Test
     void problemsViewExposesItsViewIdentityAndRefreshes() {
-        final var view = GuiActionRunner.execute(() -> new ProblemsView());
+        final ProblemsView view =
+                GuiActionRunner.execute(() -> new ProblemsView(TestAppState.dialogService()));
 
         assertEquals(ViewId.PROBLEMS, view.id(), VALUE_MESSAGE);
         assertEquals("Problems", view.title(), VALUE_MESSAGE);
@@ -45,9 +45,14 @@ class ViewsUiTest {
     void homeViewBuildsItsDashboardForAnEmptyApplication() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var coordinator = TestAppState.controller(state);
-        final var context = new ActionContext(coordinator, state, null, null, null);
-
-        final var view = GuiActionRunner.execute(() -> new HomeView(context));
+        final HomeView view =
+                GuiActionRunner.execute(
+                        () ->
+                                new HomeView(
+                                        coordinator,
+                                        state,
+                                        TestAppState.dialogService(),
+                                        TestAppState.pullRequestWatcher(state)));
 
         assertEquals(ViewId.HOME, view.id(), VALUE_MESSAGE);
         assertEquals("Home", view.title(), VALUE_MESSAGE);
@@ -61,9 +66,9 @@ class ViewsUiTest {
     void homeViewSummarizesSessionsByProject() {
         final ProjectId projectId = ProjectId.create();
         final SessionId sessionId = SessionId.create();
-        final Project project = new Project("Branchloom", "/tmp/branchloom", null);
+        final Project project = Project.create("Branchloom", "/tmp/branchloom", null);
         final Session session =
-                new Session(projectId, "Improve dashboard", "agent", "prompt", "/tmp/worktree");
+                Session.create(projectId, "Improve dashboard", "agent", "prompt", "/tmp/worktree");
         final Project storedProject = project.withNewSession(sessionId);
         final AppState state =
                 new AppState(
@@ -75,12 +80,10 @@ class ViewsUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new HomeView(
-                                        new ActionContext(
-                                                TestAppState.controller(state),
-                                                state,
-                                                null,
-                                                null,
-                                                null)));
+                                        TestAppState.controller(state),
+                                        state,
+                                        TestAppState.dialogService(),
+                                        TestAppState.pullRequestWatcher(state)));
 
         final JTable table = findTable(view);
         assertEquals(

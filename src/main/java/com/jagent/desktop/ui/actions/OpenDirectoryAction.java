@@ -1,34 +1,21 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
-import com.jagent.desktop.models.ActionContext;
+import com.google.inject.Inject;
+import com.jagent.desktop.api.Action;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.PlatformCommands;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.ui.utils.PathUtils;
-import java.awt.Component;
-import java.awt.Desktop;
-import java.nio.file.Path;
-import javax.swing.JOptionPane;
 
 /** Opens the current session worktree or project in the file manager. */
-public final class OpenDirectoryAction extends BaseAction {
-    public OpenDirectoryAction(final ActionContext actionContext) {
-        super(actionContext);
-    }
+public final class OpenDirectoryAction implements Action {
+    private final AppState appState;
+    private final ViewController viewController;
 
-    public static void open(final String path, final Component owner) {
-        if (!Desktop.isDesktopSupported()) {
-            JOptionPane.showMessageDialog(
-                    owner,
-                    "Could not open the file manager.",
-                    "Open directory",
-                    JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-        try {
-            Desktop.getDesktop().open(Path.of(path).toFile());
-        } catch (Exception exception) {
-            JOptionPane.showMessageDialog(
-                    owner, exception.getMessage(), "Open directory", JOptionPane.ERROR_MESSAGE);
-        }
+    @Inject
+    public OpenDirectoryAction(final AppState appState, final ViewController viewController) {
+        this.appState = appState;
+        this.viewController = viewController;
     }
 
     @Override
@@ -43,13 +30,11 @@ public final class OpenDirectoryAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return PathUtils.resolve(actionContext.appState(), actionContext.viewController()) != null;
+        return true;
     }
 
     @Override
     public void execute() {
-        open(
-                PathUtils.resolve(actionContext.appState(), actionContext.viewController()),
-                actionContext.window());
+        PlatformCommands.openPath(PathUtils.resolve(this.appState, this.viewController));
     }
 }

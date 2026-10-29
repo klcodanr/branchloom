@@ -1,7 +1,6 @@
 package com.jagent.desktop.ui.views;
 
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
@@ -28,9 +27,7 @@ class AbstractWorkspaceViewTest {
     void opensAndClosesWorkspaceFilesAndRestoresTabs(@TempDir final Path directory)
             throws IOException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ActionContext context =
-                new ActionContext(TestAppState.controller(state), state, null, null, null);
-        final FakeWorkspaceView view = new FakeWorkspaceView(context, directory);
+        final FakeWorkspaceView view = new FakeWorkspaceView(state, directory);
         final Path file = directory.resolve("notes.txt");
         Files.writeString(file, "hello");
 
@@ -56,9 +53,7 @@ class AbstractWorkspaceViewTest {
     void togglesWorkspaceTreeFromCollapsedDock(@TempDir final Path directory)
             throws InvocationTargetException, InterruptedException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ActionContext context =
-                new ActionContext(TestAppState.controller(state), state, null, null, null);
-        final FakeWorkspaceView view = new FakeWorkspaceView(context, directory);
+        final FakeWorkspaceView view = new FakeWorkspaceView(state, directory);
 
         final JButton showFiles = buttonByName(view, SHOW_FILES_BUTTON);
         Assertions.assertNotNull(
@@ -86,11 +81,9 @@ class AbstractWorkspaceViewTest {
     void omitsWorkspaceTreeWhenWorkspacePathIsNotDirectory(@TempDir final Path directory)
             throws IOException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ActionContext context =
-                new ActionContext(TestAppState.controller(state), state, null, null, null);
         final Path fileWorkspace = directory.resolve("workspace.txt");
         Files.writeString(fileWorkspace, "not a directory");
-        final FakeWorkspaceView view = new FakeWorkspaceView(context, fileWorkspace);
+        final FakeWorkspaceView view = new FakeWorkspaceView(state, fileWorkspace);
 
         Assertions.assertNull(
                 buttonByName(view, SHOW_FILES_BUTTON),
@@ -135,8 +128,13 @@ class AbstractWorkspaceViewTest {
     private static final class FakeWorkspaceView extends AbstractWorkspaceView {
         private final Path directory;
 
-        private FakeWorkspaceView(final ActionContext actionContext, final Path directory) {
-            super(actionContext, ViewId.PROBLEMS);
+        private FakeWorkspaceView(final AppState state, final Path directory) {
+            super(
+                    TestAppState.controller(state),
+                    state,
+                    TestAppState.githubProvider(state),
+                    TestAppState.dialogService(),
+                    ViewId.PROBLEMS);
             this.directory = directory;
             initializeWorkspace("Workspace");
         }

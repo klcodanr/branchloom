@@ -38,7 +38,9 @@ class UiPanelsTest {
     @Test
     void contextEditorUsesMarkdownHighlightingAndEditingActions() throws BadLocationException {
         final var state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var editor = new AgentContextEditor(state, TestAppState.controller(state));
+        final var editor =
+                new AgentContextEditor(
+                        state, TestAppState.controller(state), TestAppState.dialogService());
         final var content =
                 (RSyntaxTextArea) ((JScrollPane) editor.getComponent(0)).getViewport().getView();
         final var actions = (JPanel) editor.getComponent(1);

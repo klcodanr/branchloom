@@ -1,5 +1,6 @@
 package com.jagent.desktop.services.git;
 
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.git.Branch;
 import com.jagent.desktop.models.git.Worktree;
 import com.jagent.desktop.services.PlatformCommands;
@@ -26,8 +27,7 @@ final class GitNative {
 
     private GitNative() {}
 
-    /* default */
-    static String run(@NonNull final Path directory, @NonNull final String... args)
+    protected static String run(@NonNull final Path directory, @NonNull final String... args)
             throws IOException {
         final List<String> command = new ArrayList<>();
         command.add(PlatformCommands.executable("git"));
@@ -42,7 +42,7 @@ final class GitNative {
                     new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             final int exitCode = process.waitFor();
             if (exitCode != 0) {
-                PlatformCommands.logFailure(builder, exitCode, output);
+                BackgroundOperations.logFailure(builder, exitCode, output);
                 throw new IOException(output.isBlank() ? "Git command failed." : output.trim());
             }
             return output;
@@ -54,8 +54,7 @@ final class GitNative {
         }
     }
 
-    /* default */
-    static void createWorktree(
+    protected static void createWorktree(
             @NonNull final Path mainPath,
             @NonNull final Path worktreePath,
             @NonNull final Branch branch)
@@ -72,35 +71,30 @@ final class GitNative {
         run(mainPath.toAbsolutePath(), args.toArray(new String[0]));
     }
 
-    /* default */
-    static void deleteWorktree(@NonNull final Path mainPath, @NonNull final Path worktreePath)
-            throws IOException {
+    protected static void deleteWorktree(
+            @NonNull final Path mainPath, @NonNull final Path worktreePath) throws IOException {
         run(mainPath, WORKTREE, "remove", "--force", worktreePath.toString());
     }
 
-    /* default */
-    static List<Worktree> listWorktrees(@NonNull final Path path) throws IOException {
+    protected static List<Worktree> listWorktrees(@NonNull final Path path) throws IOException {
         final String worktreeResponse = run(path, WORKTREE, "list", "--porcelain");
         final List<String> lines =
                 worktreeResponse.lines().map(String::trim).filter(line -> !line.isBlank()).toList();
         return parseWorktrees(lines);
     }
 
-    /* default */
-    static void pruneWorktrees(@NonNull final Path path) throws IOException {
+    protected static void pruneWorktrees(@NonNull final Path path) throws IOException {
         run(path, WORKTREE, "prune");
     }
 
-    /* default */
-    static void restoreWorktree(@NonNull final Path repository, @NonNull final Worktree worktree)
-            throws IOException {
+    protected static void restoreWorktree(
+            @NonNull final Path repository, @NonNull final Worktree worktree) throws IOException {
         final String shortBranch = new Branch(worktree.branch()).withoutHeadsPrefix();
         run(repository, WORKTREE, "add", "--force", worktree.path().toString(), shortBranch);
         run(repository, "-C", worktree.path().toString(), "checkout", "-B", shortBranch);
     }
 
-    /* default */
-    static List<Worktree> parseWorktrees(final List<String> lines) {
+    private static List<Worktree> parseWorktrees(final List<String> lines) {
         final List<Worktree> worktrees = new ArrayList<>();
         Path path = null;
         String branch = null;

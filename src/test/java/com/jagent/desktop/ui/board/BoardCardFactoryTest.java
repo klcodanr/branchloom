@@ -4,7 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import com.jagent.desktop.models.board.BasicBoardItem;
 import com.jagent.desktop.models.board.BoardSource;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.test.TestAppState;
+import com.jagent.desktop.ui.Defaults;
 import java.util.Date;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class BoardCardFactoryTest {
@@ -25,7 +29,12 @@ class BoardCardFactoryTest {
                 BoardCard.class,
                 BoardCardFactory.create(
                         item,
+                        TestAppState.controller(
+                                new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of())),
+                        new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of()),
                         null,
-                        ignored -> java.util.concurrent.CompletableFuture.completedFuture(null)));
+                        TestAppState.dialogService(),
+                        ignored -> java.util.concurrent.CompletableFuture.completedFuture(null),
+                        ignored -> {}));
     }
 }

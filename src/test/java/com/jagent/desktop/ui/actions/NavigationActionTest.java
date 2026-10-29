@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.AppState;
@@ -34,24 +33,24 @@ class NavigationActionTest {
     void navigationActionsUpdateTheExpectedViews() throws InvalidObjectException {
         final AppState state = TestAppState.empty();
         final var projectId =
-                state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
+                state.addProject(Project.create(PROJECT_NAME, tempDirectory.toString(), null));
         final var sessionId =
                 state.addSession(
-                        projectId, new Session(projectId, SESSION_NAME, "agent", "prompt", null));
+                        projectId,
+                        Session.create(projectId, SESSION_NAME, "agent", "prompt", null));
         final var coordinator = TestAppState.controller(state);
         coordinator.selectProject(projectId);
         coordinator.selectSession(projectId, sessionId);
-        final var context = new ActionContext(coordinator, state, null, null, null);
 
-        new ProblemsAction(context).execute();
+        new ProblemsAction(coordinator).execute();
         assertEquals(ViewId.PROBLEMS, coordinator.currentViewId(), ASSERTION_MESSAGE);
-        new ResourceUsageAction(context).execute();
+        new ResourceUsageAction(coordinator).execute();
         assertEquals(ViewId.RESOURCE_USAGE, coordinator.currentViewId(), ASSERTION_MESSAGE);
-        new OpenProjectAction(context).execute();
+        new OpenProjectAction(coordinator).execute();
         assertEquals(ViewId.PROJECT, coordinator.currentViewId(), ASSERTION_MESSAGE);
-        new OpenProjectSettingsAction(context).execute();
+        new OpenProjectSettingsAction(coordinator).execute();
         assertEquals(ViewId.PROJECT_SETTINGS, coordinator.currentViewId(), ASSERTION_MESSAGE);
-        new OpenSessionAction(context).execute();
+        new OpenSessionAction(coordinator).execute();
         assertEquals(ViewId.PROJECT_SETTINGS, coordinator.currentViewId(), ASSERTION_MESSAGE);
     }
 
@@ -59,15 +58,17 @@ class NavigationActionTest {
     void selectionDependentActionsReportEnablement() throws InvalidObjectException {
         final AppState state = TestAppState.empty();
         final var coordinator = TestAppState.controller(state);
-        final var context = new ActionContext(coordinator, state, null, null, null);
-        final var projectAction = new OpenProjectAction(context);
-        final var sessionAction = new OpenSessionAction(context);
-        final var terminalAction = new CreateTerminalAction(context, "Shell", "sh");
-        final var createSession = new CreateSessionAction(context);
-        final var copyPath = new CopyPathAction(context);
-        final var copyBranch = new CopyBranchAction(context);
-        final var rename = new RenameSessionAction(context);
-        final var remove = new RemoveSessionAction(context);
+        final var dialogService = TestAppState.dialogService();
+        final var projectAction = new OpenProjectAction(coordinator);
+        final var sessionAction = new OpenSessionAction(coordinator);
+        final var terminalAction = new CreateTerminalAction(coordinator, state, "Shell", "sh");
+        final var createSession = new CreateSessionAction(coordinator, state, null, dialogService);
+        final var copyPath = new CopyPathAction(coordinator, state);
+        final var copyBranch = new CopyBranchAction(coordinator, state);
+        final var rename = new RenameSessionAction(coordinator, state, dialogService);
+        final var remove =
+                new RemoveSessionAction(
+                        TestAppState.backgroundJobs(state), coordinator, state, dialogService);
 
         assertFalse(projectAction.enabled(), ASSERTION_MESSAGE);
         assertFalse(sessionAction.enabled(), ASSERTION_MESSAGE);
@@ -79,7 +80,7 @@ class NavigationActionTest {
         assertFalse(remove.enabled(), ASSERTION_MESSAGE);
 
         final var projectId =
-                state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
+                state.addProject(Project.create(PROJECT_NAME, tempDirectory.toString(), null));
         coordinator.selectProject(projectId);
         assertTrue(projectAction.enabled(), ASSERTION_MESSAGE);
         assertTrue(terminalAction.enabled(), ASSERTION_MESSAGE);
@@ -90,7 +91,7 @@ class NavigationActionTest {
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(
+                        Session.create(
                                 projectId,
                                 SESSION_NAME,
                                 "agent",
@@ -108,10 +109,12 @@ class NavigationActionTest {
         final AppState state = TestAppState.empty();
         final var coordinator = TestAppState.controller(state);
         coordinator.updateView(ViewId.HOME, ViewController.ViewState.reset());
-        final var context = new ActionContext(coordinator, state, null, null, null);
-        final var importBranch = new ImportBranchAction(context);
-        final var importWorktree = new ImportWorktreeAction(context);
-        final var importProject = new ImportProjectAction(context);
+        final var importBranch =
+                new ImportBranchAction(coordinator, state, TestAppState.dialogService());
+        final var importWorktree =
+                new ImportWorktreeAction(coordinator, state, TestAppState.dialogService());
+        final var importProject =
+                new ImportProjectAction(coordinator, state, TestAppState.dialogService());
 
         assertEquals("import-project", importProject.id(), ASSERTION_MESSAGE);
         assertTrue(importProject.enabled(), ASSERTION_MESSAGE);
@@ -126,15 +129,19 @@ class NavigationActionTest {
     void missingSelectionsDoNotOpenUi() {
         final AppState state = TestAppState.empty();
         final var coordinator = TestAppState.controller(state);
-        final var context = new ActionContext(coordinator, state, null, null, null);
         coordinator.updateView(ViewId.HOME, ViewController.ViewState.reset());
 
-        new OpenProjectAction(context).execute();
-        new OpenSessionAction(context).execute();
-        new RenameSessionAction(context).execute();
-        new RemoveProjectAction(context).execute();
-        new RemoveSessionAction(context).execute();
-        new CopyBranchAction(context).execute();
+        new OpenProjectAction(coordinator).execute();
+        new OpenSessionAction(coordinator).execute();
+        new RenameSessionAction(coordinator, state, TestAppState.dialogService()).execute();
+        new RemoveProjectAction(coordinator, state, TestAppState.dialogService()).execute();
+        new RemoveSessionAction(
+                        TestAppState.backgroundJobs(state),
+                        coordinator,
+                        state,
+                        TestAppState.dialogService())
+                .execute();
+        new CopyBranchAction(coordinator, state).execute();
 
         assertEquals(ViewId.HOME, coordinator.currentViewId(), ASSERTION_MESSAGE);
         assertTrue(state.projects().isEmpty(), ASSERTION_MESSAGE);
@@ -145,11 +152,11 @@ class NavigationActionTest {
     void projectAndSessionActionsUseSelectedState() throws InvalidObjectException {
         final AppState state = TestAppState.empty();
         final var projectId =
-                state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
+                state.addProject(Project.create(PROJECT_NAME, tempDirectory.toString(), null));
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(
+                        Session.create(
                                 projectId,
                                 SESSION_NAME,
                                 "agent",
@@ -158,13 +165,11 @@ class NavigationActionTest {
         final var coordinator = TestAppState.controller(state);
         coordinator.selectProject(projectId);
         coordinator.selectSession(projectId, sessionId);
-        final var context = new ActionContext(coordinator, state, null, null, null);
-
-        new OpenProjectAction(context).execute();
+        new OpenProjectAction(coordinator).execute();
         assertEquals(ViewId.PROJECT, coordinator.currentViewId(), ASSERTION_MESSAGE);
         assertEquals(projectId, coordinator.currentProjectId(), ASSERTION_MESSAGE);
         assertNull(coordinator.currentSessionId(), ASSERTION_MESSAGE);
-        new OpenSessionAction(context).execute();
+        new OpenSessionAction(coordinator).execute();
         assertEquals(ViewId.PROJECT, coordinator.currentViewId(), ASSERTION_MESSAGE);
     }
 
@@ -172,11 +177,10 @@ class NavigationActionTest {
     void createTerminalNavigatesForProjectAndSession() throws InvalidObjectException {
         final AppState state = TestAppState.empty();
         final var projectId =
-                state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
+                state.addProject(Project.create(PROJECT_NAME, tempDirectory.toString(), null));
         final var coordinator = TestAppState.controller(state);
         coordinator.selectProject(projectId);
-        final var context = new ActionContext(coordinator, state, null, null, null);
-        final var action = new CreateTerminalAction(context, "Shell", "sh");
+        final var action = new CreateTerminalAction(coordinator, state, "Shell", "sh");
 
         action.execute();
         assertEquals(ViewId.PROJECT, coordinator.currentViewId(), ASSERTION_MESSAGE);
@@ -184,7 +188,8 @@ class NavigationActionTest {
         assertEquals(1, coordinator.currentTerminalId() == null ? 0 : 1, ASSERTION_MESSAGE);
 
         final var sessionId =
-                state.addSession(projectId, new Session(projectId, SESSION_NAME, null, null, null));
+                state.addSession(
+                        projectId, Session.create(projectId, SESSION_NAME, null, null, null));
         coordinator.selectSession(projectId, sessionId);
         action.execute();
         assertEquals(ViewId.SESSION, coordinator.currentViewId(), ASSERTION_MESSAGE);

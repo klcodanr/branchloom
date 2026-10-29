@@ -1,9 +1,10 @@
 package com.jagent.desktop.ui.components.tree.items;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.ui.components.SessionActions;
@@ -12,11 +13,19 @@ import com.jagent.desktop.ui.components.UiText;
 import javax.swing.JPopupMenu;
 
 public class SessionTreeItem implements TreeItem {
-    private final ActionContext actionContext;
+    private final ViewController viewController;
+    private final AppState appState;
+    private final SessionActions sessionActions;
     private final SessionId sessionId;
 
-    public SessionTreeItem(final ActionContext actionContext, final SessionId sessionId) {
-        this.actionContext = actionContext;
+    public SessionTreeItem(
+            final ViewController viewController,
+            final AppState appState,
+            final SessionActions sessionActions,
+            final SessionId sessionId) {
+        this.viewController = viewController;
+        this.appState = appState;
+        this.sessionActions = sessionActions;
         this.sessionId = sessionId;
     }
 
@@ -31,7 +40,7 @@ public class SessionTreeItem implements TreeItem {
 
     @Override
     public String getTooltip() {
-        final Session session = actionContext.appState().sessions().get(sessionId);
+        final Session session = appState.sessions().get(sessionId);
         final String agent = session.agent();
         final String promptValue = session.prompt();
         final String worktreePath = session.worktreePath();
@@ -39,8 +48,7 @@ public class SessionTreeItem implements TreeItem {
         if (prompt.length() > 140) {
             prompt = prompt.substring(0, 137) + "...";
         }
-        final PullRequestDetails pullRequest =
-                actionContext.appState().monitoringStatuses().get(sessionId);
+        final PullRequestDetails pullRequest = appState.monitoringStatuses().get(sessionId);
         final String pullRequestHtml =
                 pullRequest == null
                         ? ""
@@ -62,7 +70,7 @@ public class SessionTreeItem implements TreeItem {
 
     @Override
     public CellRenderContents getCellRenderContents() {
-        final Session session = actionContext.appState().sessions().get(sessionId);
+        final Session session = appState.sessions().get(sessionId);
         final var terminals =
                 session.terminalIds().stream()
                         .map(TerminalManager.get()::state)
@@ -78,14 +86,14 @@ public class SessionTreeItem implements TreeItem {
 
     @Override
     public JPopupMenu getMenu() {
-        final Session session = actionContext.appState().sessions().get(sessionId);
-        actionContext.viewController().selectSession(session.projectId(), sessionId);
-        return SessionActions.menu(actionContext, sessionId);
+        final Session session = appState.sessions().get(sessionId);
+        viewController.selectSession(session.projectId(), sessionId);
+        return sessionActions.menu(sessionId);
     }
 
     @Override
     public void select() {
-        final Session session = actionContext.appState().sessions().get(sessionId);
-        actionContext.viewController().openSession(session.projectId(), sessionId);
+        final Session session = appState.sessions().get(sessionId);
+        viewController.openSession(session.projectId(), sessionId);
     }
 }

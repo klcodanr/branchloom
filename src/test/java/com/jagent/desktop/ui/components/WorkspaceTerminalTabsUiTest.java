@@ -38,13 +38,31 @@ class WorkspaceTerminalTabsUiTest {
         final CountingTerminalRuntime firstRuntime = new CountingTerminalRuntime();
         final CountingTerminalRuntime secondRuntime = new CountingTerminalRuntime();
         final TerminalPanel firstPanel =
-                GuiActionRunner.execute(() -> new TerminalPanel(firstRuntime, ignored -> {}));
+                GuiActionRunner.execute(
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        firstRuntime,
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
         final TerminalPanel secondPanel =
-                GuiActionRunner.execute(() -> new TerminalPanel(secondRuntime, ignored -> {}));
+                GuiActionRunner.execute(
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        secondRuntime,
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
         final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
         final WorkspaceTerminalTabs terminalTabs =
                 GuiActionRunner.execute(
-                        () -> new WorkspaceTerminalTabs(tabs, (terminal, id) -> {}, (t, n) -> {}));
+                        () ->
+                                new WorkspaceTerminalTabs(
+                                        tabs,
+                                        (terminal, id) -> {},
+                                        (t, n) -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         GuiActionRunner.execute(() -> tabs.addTab(SUMMARY_TAB, new JPanel()));
         GuiActionRunner.execute(
@@ -67,11 +85,23 @@ class WorkspaceTerminalTabsUiTest {
     void focusesNewlySelectedTerminalTab() {
         final CountingTerminalRuntime runtime = new CountingTerminalRuntime();
         final TerminalPanel panel =
-                GuiActionRunner.execute(() -> new TerminalPanel(runtime, ignored -> {}));
+                GuiActionRunner.execute(
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        runtime,
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
         final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
         final WorkspaceTerminalTabs terminalTabs =
                 GuiActionRunner.execute(
-                        () -> new WorkspaceTerminalTabs(tabs, (terminal, id) -> {}, (t, n) -> {}));
+                        () ->
+                                new WorkspaceTerminalTabs(
+                                        tabs,
+                                        (terminal, id) -> {},
+                                        (t, n) -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         GuiActionRunner.execute(() -> tabs.addTab(SUMMARY_TAB, new JPanel()));
         GuiActionRunner.execute(
@@ -87,11 +117,23 @@ class WorkspaceTerminalTabsUiTest {
     void startsWhenTabBecomesSelectedAndOnlyStartsOnce() {
         final CountingTerminalRuntime runtime = new CountingTerminalRuntime();
         final TerminalPanel panel =
-                GuiActionRunner.execute(() -> new TerminalPanel(runtime, ignored -> {}));
+                GuiActionRunner.execute(
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        runtime,
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
         final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
         final WorkspaceTerminalTabs terminalTabs =
                 GuiActionRunner.execute(
-                        () -> new WorkspaceTerminalTabs(tabs, (terminal, id) -> {}, (t, n) -> {}));
+                        () ->
+                                new WorkspaceTerminalTabs(
+                                        tabs,
+                                        (terminal, id) -> {},
+                                        (t, n) -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         GuiActionRunner.execute(() -> tabs.addTab(SUMMARY_TAB, new JPanel()));
         GuiActionRunner.execute(
@@ -112,7 +154,13 @@ class WorkspaceTerminalTabsUiTest {
         final CountingTerminalRuntime runtime = new CountingTerminalRuntime();
         final AtomicReference<String> renamedTitle = new AtomicReference<>();
         final TerminalPanel panel =
-                GuiActionRunner.execute(() -> new TerminalPanel(runtime, ignored -> {}));
+                GuiActionRunner.execute(
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        runtime,
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
         final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
         final WorkspaceTerminalTabs terminalTabs =
                 GuiActionRunner.execute(
@@ -120,12 +168,14 @@ class WorkspaceTerminalTabsUiTest {
                                 new WorkspaceTerminalTabs(
                                         tabs,
                                         (terminal, id) -> {},
-                                        (terminal, title) -> renamedTitle.set(title)));
+                                        (terminal, title) -> renamedTitle.set(title),
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         GuiActionRunner.execute(() -> tabs.addTab(SUMMARY_TAB, new JPanel()));
         GuiActionRunner.execute(
                 () -> terminalTabs.mount(TERMINAL_TAB, TerminalId.create(), panel, false));
-        GuiActionRunner.execute(() -> panel.applicationTitleChanged("Build Logs"));
+        GuiActionRunner.execute(() -> TerminalPanelTestSupport.title(panel, "Build Logs"));
         GuiActionRunner.execute(() -> {});
 
         assertEquals("Build Logs", tabs.getTitleAt(1), "terminal title should update tab title");
@@ -142,7 +192,13 @@ class WorkspaceTerminalTabsUiTest {
         final CountingTerminalRuntime runtime = new CountingTerminalRuntime();
         final AtomicReference<String> renamedTitle = new AtomicReference<>();
         final TerminalPanel panel =
-                GuiActionRunner.execute(() -> new TerminalPanel(runtime, ignored -> {}));
+                GuiActionRunner.execute(
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        runtime,
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
         final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
         final WorkspaceTerminalTabs terminalTabs =
                 GuiActionRunner.execute(
@@ -150,13 +206,15 @@ class WorkspaceTerminalTabsUiTest {
                                 new WorkspaceTerminalTabs(
                                         tabs,
                                         (terminal, id) -> {},
-                                        (terminal, title) -> renamedTitle.set(title)));
+                                        (terminal, title) -> renamedTitle.set(title),
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         GuiActionRunner.execute(() -> tabs.addTab(SUMMARY_TAB, new JPanel()));
         GuiActionRunner.execute(
                 () -> terminalTabs.mount(TERMINAL_TAB, TerminalId.create(), panel, false));
         GuiActionRunner.execute(terminalTabs::detach);
-        GuiActionRunner.execute(() -> panel.applicationTitleChanged("Detached"));
+        GuiActionRunner.execute(() -> TerminalPanelTestSupport.title(panel, "Detached"));
         GuiActionRunner.execute(() -> {});
 
         assertTrue(renamedTitle.get() == null, "detached tabs should not receive title updates");
@@ -169,7 +227,13 @@ class WorkspaceTerminalTabsUiTest {
         final CountingTerminalRuntime runtime = new CountingTerminalRuntime();
         final AtomicReference<String> renamedTitle = new AtomicReference<>();
         final TerminalPanel panel =
-                GuiActionRunner.execute(() -> new TerminalPanel(runtime, ignored -> {}));
+                GuiActionRunner.execute(
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        runtime,
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
         final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
         final WorkspaceTerminalTabs terminalTabs =
                 GuiActionRunner.execute(
@@ -177,12 +241,14 @@ class WorkspaceTerminalTabsUiTest {
                                 new WorkspaceTerminalTabs(
                                         tabs,
                                         (terminal, id) -> {},
-                                        (terminal, title) -> renamedTitle.set(title)));
+                                        (terminal, title) -> renamedTitle.set(title),
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         GuiActionRunner.execute(() -> tabs.addTab(SUMMARY_TAB, new JPanel()));
         GuiActionRunner.execute(
                 () -> terminalTabs.mount(TERMINAL_TAB, TerminalId.create(), panel, true));
-        GuiActionRunner.execute(() -> panel.applicationTitleChanged(LONG_TITLE));
+        GuiActionRunner.execute(() -> TerminalPanelTestSupport.title(panel, LONG_TITLE));
         GuiActionRunner.execute(() -> {});
 
         assertEquals(
@@ -201,7 +267,13 @@ class WorkspaceTerminalTabsUiTest {
     void closesTerminalWhenNoChildProcessIsRunning() {
         final CountingTerminalRuntime runtime = new CountingTerminalRuntime();
         final TerminalPanel panel =
-                GuiActionRunner.execute(() -> new TerminalPanel(runtime, ignored -> {}));
+                GuiActionRunner.execute(
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        runtime,
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
         final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
         final AtomicReference<Boolean> closed = new AtomicReference<>();
         final WorkspaceTerminalTabs terminalTabs =
@@ -210,7 +282,9 @@ class WorkspaceTerminalTabsUiTest {
                                 new WorkspaceTerminalTabs(
                                         tabs,
                                         (terminal, id) -> closed.set(true),
-                                        (terminal, title) -> {}));
+                                        (terminal, title) -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         GuiActionRunner.execute(() -> tabs.addTab(SUMMARY_TAB, new JPanel()));
         GuiActionRunner.execute(
@@ -226,7 +300,13 @@ class WorkspaceTerminalTabsUiTest {
         final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
         final WorkspaceTerminalTabs terminalTabs =
                 GuiActionRunner.execute(
-                        () -> new WorkspaceTerminalTabs(tabs, (terminal, id) -> {}, (t, n) -> {}));
+                        () ->
+                                new WorkspaceTerminalTabs(
+                                        tabs,
+                                        (terminal, id) -> {},
+                                        (t, n) -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         GuiActionRunner.execute(
                 () -> {
@@ -244,19 +324,31 @@ class WorkspaceTerminalTabsUiTest {
     void removesExistingParentBeforeMountingAndIgnoresInvalidTitles() {
         final CountingTerminalRuntime runtime = new CountingTerminalRuntime();
         final TerminalPanel panel =
-                GuiActionRunner.execute(() -> new TerminalPanel(runtime, ignored -> {}));
+                GuiActionRunner.execute(
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        runtime,
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
         final JPanel originalParent = GuiActionRunner.execute(() -> new JPanel());
         final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
         final WorkspaceTerminalTabs terminalTabs =
                 GuiActionRunner.execute(
-                        () -> new WorkspaceTerminalTabs(tabs, (terminal, id) -> {}, (t, n) -> {}));
+                        () ->
+                                new WorkspaceTerminalTabs(
+                                        tabs,
+                                        (terminal, id) -> {},
+                                        (t, n) -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         GuiActionRunner.execute(
                 () -> {
                     originalParent.add(panel);
                     terminalTabs.mount(TERMINAL_TAB, TerminalId.create(), panel, false);
-                    panel.applicationTitleChanged(" ");
-                    panel.applicationTitleChanged(null);
+                    TerminalPanelTestSupport.title(panel, " ");
+                    TerminalPanelTestSupport.title(panel, null);
                 });
 
         assertEquals(0, originalParent.getComponentCount(), "mount should remove the old parent");
@@ -269,7 +361,13 @@ class WorkspaceTerminalTabsUiTest {
     void exposesMountedTerminalIdsAndClosesByIndex() {
         final CountingTerminalRuntime runtime = new CountingTerminalRuntime();
         final TerminalPanel panel =
-                GuiActionRunner.execute(() -> new TerminalPanel(runtime, ignored -> {}));
+                GuiActionRunner.execute(
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        runtime,
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
         final TerminalId terminalId = TerminalId.create();
         final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
         final AtomicReference<TerminalId> closedId = new AtomicReference<>();
@@ -279,7 +377,9 @@ class WorkspaceTerminalTabsUiTest {
                                 new WorkspaceTerminalTabs(
                                         tabs,
                                         (terminal, id) -> closedId.set(id),
-                                        (terminal, title) -> {}));
+                                        (terminal, title) -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         GuiActionRunner.execute(() -> terminalTabs.mount(TERMINAL_TAB, terminalId, panel, false));
         assertEquals(
@@ -295,7 +395,13 @@ class WorkspaceTerminalTabsUiTest {
     void ignoresDuplicateTitleInstallationAndUnknownTitleUpdates() {
         final CountingTerminalRuntime runtime = new CountingTerminalRuntime();
         final TerminalPanel panel =
-                GuiActionRunner.execute(() -> new TerminalPanel(runtime, ignored -> {}));
+                GuiActionRunner.execute(
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        runtime,
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
         final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
         final AtomicReference<String> renamed = new AtomicReference<>();
         final WorkspaceTerminalTabs terminalTabs =
@@ -304,13 +410,15 @@ class WorkspaceTerminalTabsUiTest {
                                 new WorkspaceTerminalTabs(
                                         tabs,
                                         (terminal, id) -> {},
-                                        (terminal, title) -> renamed.set(title)));
+                                        (terminal, title) -> renamed.set(title),
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         GuiActionRunner.execute(
                 () -> {
                     terminalTabs.mount("First", TerminalId.create(), panel, false);
                     terminalTabs.mount("Second", TerminalId.create(), panel, false);
-                    panel.applicationTitleChanged("Updated");
+                    TerminalPanelTestSupport.title(panel, "Updated");
                 });
         GuiActionRunner.execute(() -> {});
 

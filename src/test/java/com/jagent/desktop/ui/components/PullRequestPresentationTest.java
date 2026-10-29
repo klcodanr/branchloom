@@ -127,7 +127,7 @@ class PullRequestPresentationTest {
     private static PullRequest request(final String title, final String author)
             throws MalformedURLException {
         final ProjectId projectId = ProjectId.create();
-        final Project project = new Project("Demo", "/tmp/demo", null);
+        final Project project = Project.create("Demo", "/tmp/demo", null);
         return new PullRequest(
                 projectId,
                 project,

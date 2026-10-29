@@ -1,15 +1,18 @@
 package com.jagent.desktop.ui.layout;
 
+import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import com.jagent.desktop.api.RefreshableView;
 import com.jagent.desktop.api.View;
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.BackgroundOperations;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.git.WorktreeStatusSummary;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundJobs;
 import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.actions.FindAction;
 import com.jagent.desktop.ui.actions.OpenSettingsAction;
@@ -44,11 +47,13 @@ import javax.swing.SwingUtilities;
 /** Compact bottom bar for problems, workspace status, and background jobs. */
 public final class BottomBar extends JPanel {
     private final transient ViewController viewController;
+
     private final JLabel project = new JLabel();
     private final JLabel branchIcon = new JLabel(UiIcons.gitBranch());
     private final JLabel branch = new JLabel();
     private final GitStatusPanel gitStatus = new GitStatusPanel();
     private final JProgressBar jobsProgress = new JProgressBar();
+    private final transient BackgroundJobDialog backgroundJobDialog;
     private final JLabel jobsStatus = new JLabel();
     private final AtomicLong refreshGeneration = new AtomicLong();
     private final RefreshButton refreshButton = new RefreshButton();
@@ -56,9 +61,16 @@ public final class BottomBar extends JPanel {
 
     private record StatusUpdate(WorktreeStatusSummary worktreeStatusSummary, String branchName) {}
 
-    public BottomBar(final ActionContext actionContext) {
+    @Inject
+    public BottomBar(
+            final ViewController viewController,
+            final AppState appState,
+            final BackgroundJobs backgroundJobs,
+            final @Named("dataDirectory") Path dataDirectory,
+            final DialogService dialogService) {
         super(new BorderLayout(12, 0));
-        this.viewController = actionContext.viewController();
+        this.viewController = viewController;
+        this.backgroundJobDialog = new BackgroundJobDialog(dialogService);
         project.setFont(Theme.font(Theme.FontSize.XS));
         branch.setFont(Theme.font(Theme.FontSize.XS));
         jobsStatus.setFont(Theme.font(Theme.FontSize.XS));
@@ -75,14 +87,16 @@ public final class BottomBar extends JPanel {
         homeButton.addActionListener(event -> viewController.updateView(ViewId.HOME, null));
         homeButton.setName("home-button");
         final JButton settingsButton = new IconButton(UiIcons.settings(), "Open settings");
-        settingsButton.addActionListener(event -> new OpenSettingsAction(actionContext).execute());
+        settingsButton.addActionListener(
+                event -> new OpenSettingsAction(appState, dataDirectory, dialogService).execute());
         settingsButton.setName("settings-button");
         final JButton searchButton =
                 new IconButton(UiIcons.search(), "Find projects, sessions, or terminals");
-        searchButton.addActionListener(event -> new FindAction(actionContext).execute());
+        searchButton.addActionListener(
+                event -> new FindAction(viewController, dialogService).execute());
         searchButton.setName("search-button");
         final JButton problemsButton = new IconButton(UiIcons.triangleAlert(), "Open problems");
-        problemsButton.addActionListener(event -> new ProblemsAction(actionContext).execute());
+        problemsButton.addActionListener(event -> new ProblemsAction(viewController).execute());
         problemsButton.setName("problems-button");
         refreshButton.addActionListener(
                 event ->
@@ -135,7 +149,7 @@ public final class BottomBar extends JPanel {
         jobsStatusPanel.add(Box.createVerticalStrut(UiConstants.SPACING_XS));
         jobsStatusPanel.add(jobsStatus);
         add(jobsStatusPanel, BorderLayout.EAST);
-        viewController.backgroundJobs().listen(this::updateJobs);
+        backgroundJobs.listen(this::updateJobs);
         refresh();
     }
 
@@ -303,17 +317,17 @@ public final class BottomBar extends JPanel {
         final JMenuItem item =
                 new JMenuItem(job.title() + "  ·  " + UiText.titleCase(job.status().name()));
         item.setToolTipText(jobSelectorTooltip(job));
-        item.addActionListener(event -> BackgroundJobDialog.show(this, job));
+        item.addActionListener(event -> backgroundJobDialog.show(job));
         return item;
     }
 
     private String jobSelectorTooltip(final BackgroundJobs.Job job) {
-        final String context =
+        final String project =
                 job.project().isBlank()
                         ? ""
                         : "Project: "
                                 + job.project()
                                 + (job.session().isBlank() ? "" : "  ·  Session: " + job.session());
-        return context.isBlank() ? job.message() : context + "  ·  " + job.message();
+        return project.isBlank() ? job.message() : project + "  ·  " + job.message();
     }
 }

@@ -7,6 +7,7 @@ import java.util.List;
 import org.jetbrains.annotations.Nullable;
 
 public record Project(
+        ProjectId id,
         String name,
         String path,
         @Nullable String group,
@@ -22,8 +23,10 @@ public record Project(
         sessionIds = sessionIds == null ? List.of() : List.copyOf(sessionIds);
     }
 
-    public Project(final String name, final String path, final Credential credential) {
-        this(
+    public static Project create(
+            final String name, final String path, final Credential credential) {
+        return new Project(
+                ProjectId.create(),
                 name,
                 path,
                 Defaults.DEFAULT_GROUP,
@@ -38,6 +41,7 @@ public record Project(
 
     public Project withName(final String name) {
         return new Project(
+                this.id,
                 name,
                 this.path,
                 this.group,
@@ -52,6 +56,7 @@ public record Project(
 
     public Project withGroup(final String group) {
         return new Project(
+                this.id,
                 this.name,
                 this.path,
                 group,
@@ -68,6 +73,7 @@ public record Project(
         final var newSessions = new ArrayList<SessionId>(this.sessionIds);
         newSessions.add(sessionId);
         return new Project(
+                this.id,
                 this.name,
                 this.path,
                 this.group,
@@ -82,6 +88,7 @@ public record Project(
 
     public Project withRemovedSession(final SessionId sessionId) {
         return new Project(
+                this.id,
                 this.name,
                 this.path,
                 this.group,

@@ -1,26 +1,29 @@
 package com.jagent.desktop.ui.components;
 
+import com.jagent.desktop.services.dialog.DialogService;
+import com.jagent.desktop.services.dialog.DialogService.ReturnType;
 import java.awt.BorderLayout;
-import java.awt.Window;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
 import javax.swing.DefaultListModel;
-import javax.swing.JDialog;
 import javax.swing.JList;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.ListSelectionModel;
 
 /** Reusable searchable command and navigation chooser. */
-public final class CommandPalette {
+public final class OptionPicker {
     private static final String OPEN = "Open";
+    private final DialogService dialogService;
 
-    private CommandPalette() {}
+    public OptionPicker(final DialogService dialogService) {
+        this.dialogService = dialogService;
+    }
 
-    public static void open(final Window owner, final String title, final List<Choice> choices) {
+    public void open(final String title, final List<Choice> choices) {
         final SearchInput search =
                 new SearchInput(
                         new SearchInput.Text(
@@ -30,7 +33,7 @@ public final class CommandPalette {
         final DefaultListModel<Choice> model = new DefaultListModel<>();
         choices.forEach(model::addElement);
         final JList<Choice> results = new JList<>(model);
-        results.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+        results.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         results.setSelectedIndex(0);
         results.setVisibleRowCount(Math.min(10, Math.max(4, choices.size())));
         final JPanel content = new JPanel(new BorderLayout(0, 8));
@@ -38,19 +41,10 @@ public final class CommandPalette {
         content.add(new JScrollPane(results), BorderLayout.CENTER);
         search.setVisible(true);
 
-        final JOptionPane pane =
-                new JOptionPane(
-                        content,
-                        JOptionPane.PLAIN_MESSAGE,
-                        JOptionPane.OK_CANCEL_OPTION,
-                        null,
-                        new Object[] {OPEN, "Cancel"},
-                        OPEN);
-        final JDialog dialog = pane.createDialog(owner, title);
         final Runnable accept =
                 () -> {
                     if (results.getSelectedValue() != null) {
-                        dialog.dispose();
+                        content.putClientProperty("dialog.completed", Boolean.TRUE);
                     }
                 };
         search.onChange(
@@ -63,7 +57,7 @@ public final class CommandPalette {
                     }
                 });
         search.onSubmit(accept);
-        search.onCancel(dialog::dispose);
+        search.onCancel(() -> content.putClientProperty("dialog.cancelled", Boolean.TRUE));
         results.addMouseListener(
                 new MouseAdapter() {
                     @Override
@@ -73,21 +67,13 @@ public final class CommandPalette {
                         }
                     }
                 });
-        pane.addPropertyChangeListener(
-                event -> {
-                    if (JOptionPane.VALUE_PROPERTY.equals(event.getPropertyName())
-                            && OPEN.equals(pane.getValue())) {
-                        accept.run();
-                    }
-                });
-        dialog.setVisible(true);
-        if (OPEN.equals(pane.getValue()) && results.getSelectedValue() != null) {
+        final ReturnType result = dialogService.show(title, content, OPEN);
+        if (result == DialogService.ReturnType.OK && results.getSelectedValue() != null) {
             results.getSelectedValue().action().run();
         }
     }
 
-    /* package */
-    static Stream<Choice> filteredChoices(final List<Choice> choices, final String query) {
+    private static Stream<Choice> filteredChoices(final List<Choice> choices, final String query) {
         return choices.stream()
                 .filter(
                         choice ->

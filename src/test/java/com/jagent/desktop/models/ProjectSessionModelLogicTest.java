@@ -18,7 +18,7 @@ class ProjectSessionModelLogicTest {
 
     @Test
     void projectCanBeAssignedToAGroupWithoutChangingItsConfiguration() {
-        final Project project = new Project(DEMO_NAME, DEMO_PATH, null);
+        final Project project = Project.create(DEMO_NAME, DEMO_PATH, null);
 
         final Project grouped = project.withGroup("Work");
 
@@ -37,12 +37,11 @@ class ProjectSessionModelLogicTest {
         assertThrows(IllegalArgumentException.class, () -> new SessionId(null));
         assertThrows(IllegalArgumentException.class, () -> new TerminalId(null));
 
-        final Project project = new Project(DEMO_NAME, DEMO_PATH, null);
+        final Project project = Project.create(DEMO_NAME, DEMO_PATH, null);
         final ProjectId sessionProjectId = ProjectId.create();
         final Session session =
-                new Session(sessionProjectId, "Feature", "agent", "prompt", "/tmp/work");
-        final Session emptySession =
-                new Session(sessionProjectId, "Empty", null, null, null, null, null);
+                Session.create(sessionProjectId, "Feature", "agent", "prompt", "/tmp/work");
+        final Session emptySession = Session.create(sessionProjectId, "Empty", null, null, null);
         final Session renamed = session.withName("Renamed");
         assertEquals("Renamed", renamed.name(), "session name should change");
         assertEquals(session.created(), renamed.created(), "rename should preserve creation time");
@@ -52,14 +51,11 @@ class ProjectSessionModelLogicTest {
         final ProjectId storedProjectId = state.addProject(project);
         final SessionId sessionId = state.addSession(storedProjectId, session);
         final var terminalId =
-                state.addTerminal(
-                        sessionId, new Terminal(sessionId, storedProjectId, "Shell", "sh"));
+                state.addTerminal(sessionId, Terminal.create(sessionId, "Shell", "sh"));
         assertEquals(
                 List.of(terminalId), state.sessions().get(sessionId).terminalIds(), VALUE_MESSAGE);
         state.removeTerminal(terminalId);
-        assertTrue(
-                state.sessions().get(sessionId).terminalIds().isEmpty(),
-                "terminal should be removed");
+        assertTrue(!state.terminals().containsKey(terminalId), "terminal should be removed");
 
         final Agent agent = new Agent("Agent", "agent --prompt {prompt}");
         assertEquals("Agent", agent.toString(), VALUE_MESSAGE);
@@ -70,13 +66,15 @@ class ProjectSessionModelLogicTest {
     @Test
     void relationshipHelpersCoverEmptyAndPopulatedCollections() {
         final ProjectId projectId = ProjectId.create();
-        final Project project = new Project(DEMO_NAME, DEMO_PATH, null);
-        final Session session = new Session(projectId, "Feature", "agent", "prompt", "/tmp/work");
+        final Project project = Project.create(DEMO_NAME, DEMO_PATH, null);
+        final Session session =
+                Session.create(projectId, "Feature", "agent", "prompt", "/tmp/work");
         final SessionId sessionId = SessionId.create();
         final TerminalId terminalId = TerminalId.create();
         final Project withSession = project.withNewSession(sessionId);
         final Project nullSessions =
                 new Project(
+                        ProjectId.create(),
                         "Null sessions",
                         "/tmp/null",
                         null,

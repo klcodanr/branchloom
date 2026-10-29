@@ -209,34 +209,6 @@ public final class GitRepository implements AutoCloseable {
         GitNative.run(this.repositoryPath, "pull", "--rebase");
     }
 
-    public void updatePrimaryBranch() throws IOException {
-        final String primaryBranch = primaryBranchName();
-        final String currentBranch = this.currentBranch();
-        if (!primaryBranch.equals(currentBranch)) {
-            throw new IOException(
-                    "Switch to '" + primaryBranch + "' before updating the primary branch.");
-        }
-        final String remoteRef = ORIGIN_REMOTE_REF_PREFIX + primaryBranch;
-        try (Git git = Git.wrap(this.repository)) {
-            final Status status = git.status().call();
-            if (!status.isClean()) {
-                throw new IOException(
-                        "Commit or stash local changes before updating the primary branch.");
-            }
-        } catch (NoWorkTreeException | GitAPIException exception) {
-            throw new IOException(exception);
-        }
-        GitNative.run(this.repositoryPath, FETCH, ORIGIN);
-        GitNative.run(this.repositoryPath, "rebase", remoteRef);
-    }
-
-    public void rebasePrimaryBranch() throws IOException {
-        final String primaryBranch = primaryBranchName();
-        final String remoteRef = ORIGIN_REMOTE_REF_PREFIX + primaryBranch;
-        GitNative.run(this.repositoryPath, FETCH, ORIGIN);
-        GitNative.run(this.repositoryPath, "rebase", remoteRef);
-    }
-
     public void fetchRemoteRef(final String ref) throws IOException {
         if (ref == null || ref.isBlank() || !ref.contains("/")) {
             throw new IOException("Invalid ref: " + ref);
@@ -474,20 +446,6 @@ public final class GitRepository implements AutoCloseable {
             }
         }
         return new WorktreeStatusSummary(additions, modifications, deletions);
-    }
-
-    private String primaryBranchName() throws IOException {
-        final Ref originHead = this.repository.exactRef("refs/remotes/origin/HEAD");
-        if (originHead == null) {
-            throw new IOException("No Git remote HEAD is configured for origin.");
-        }
-        final Ref target = originHead.getTarget();
-        if (target == null
-                || target.getName() == null
-                || !target.getName().startsWith(ORIGIN_REMOTE_REF_PREFIX)) {
-            throw new IOException("Could not determine the primary branch from origin/HEAD.");
-        }
-        return target.getName().substring(ORIGIN_REMOTE_REF_PREFIX.length());
     }
 
     public record WorkspaceStatus(

@@ -1,9 +1,7 @@
 package com.jagent.desktop.services.persistence;
 
+import com.google.gson.JsonObject;
 import com.jagent.desktop.models.AppSettings;
-import com.jagent.desktop.models.Project;
-import com.jagent.desktop.models.Session;
-import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.AgentDetection;
 import com.jagent.desktop.services.AppState;
@@ -14,9 +12,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -33,6 +29,7 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
     private final AppState appState;
     private final Path directory;
     private final Path projectsFile;
+    private final ProjectsJsonParser projectsJsonParser;
     private final ScheduledExecutorService executor;
     private final ScheduledFuture<?> scheduledPersist;
 
@@ -41,6 +38,7 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
         this.appState = appState;
         this.directory = directory;
         this.projectsFile = directory.resolve("projects.json");
+        this.projectsJsonParser = new ProjectsJsonParser();
         this.executor =
                 Executors.newSingleThreadScheduledExecutor(
                         runnable -> {
@@ -56,10 +54,11 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
     public static AppState load(final Path directory) {
         final Path projectsFile = directory.resolve("projects.json");
         final Path settingsFile = directory.resolve("settings.json");
-        final PersistedProjects projects =
-                readOrDefault(projectsFile, PersistedProjects.class, new PersistedProjects());
+        final ProjectsJsonParser.PersistedProjects projects =
+                readProjects(projectsFile, new ProjectsJsonParser());
         final AppSettings settings = loadSettings(directory, settingsFile);
-        return new AppState(settings, projects.projects, projects.sessions, projects.terminals);
+        return new AppState(
+                settings, projects.projects(), projects.sessions(), projects.terminals());
     }
 
     public static AppSettings loadSettings(final Path directory) {
@@ -116,7 +115,7 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
 
     private static void writeInitialSettings(final Path settingsFile, final AppSettings settings)
             throws IOException {
-        final com.google.gson.JsonObject json = JSON.toJsonTree(settings).getAsJsonObject();
+        final JsonObject json = JSON.toJsonTree(settings).getAsJsonObject();
         json.addProperty(
                 "$schema", settingsFile.resolveSibling("settings.schema.json").toUri().toString());
         Files.writeString(settingsFile, JSON.toJson(json));
@@ -170,20 +169,21 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
         try {
             Files.createDirectories(directory);
             if (snapshot.projectsUpdated()) {
-                final PersistedProjects projects = new PersistedProjects();
+                final ProjectsJsonParser.PersistedProjects projects =
+                        new ProjectsJsonParser.PersistedProjects();
                 snapshot.projects()
                         .forEach(
                                 (id, project) ->
-                                        projects.projects.put(id.value().toString(), project));
+                                        projects.projects().put(id.value().toString(), project));
                 snapshot.sessions()
                         .forEach(
                                 (id, session) ->
-                                        projects.sessions.put(id.value().toString(), session));
+                                        projects.sessions().put(id.value().toString(), session));
                 snapshot.terminals()
                         .forEach(
                                 (id, terminal) ->
-                                        projects.terminals.put(id.value().toString(), terminal));
-                writeAtomically(projectsFile, projects);
+                                        projects.terminals().put(id.value().toString(), terminal));
+                writeTextAtomically(projectsFile, projectsJsonParser.serialize(projects));
                 snapshot.terminalEvents().forEach(this::updateTerminalHistory);
             }
         } catch (IOException exception) {
@@ -224,12 +224,16 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
         return JSON.fromJson(Files.readString(path), type);
     }
 
-    private static <T> T readOrDefault(final Path path, final Class<T> type, final T fallback) {
+    private static ProjectsJsonParser.PersistedProjects readProjects(
+            final Path path, final ProjectsJsonParser parser) {
         try {
-            return read(path, type, fallback);
+            if (!Files.exists(path)) {
+                return new ProjectsJsonParser.PersistedProjects();
+            }
+            return parser.parse(Files.readString(path));
         } catch (IOException | RuntimeException exception) {
             LOG.warn("Failed to load {}; using defaults.", path, exception);
-            return fallback;
+            return new ProjectsJsonParser.PersistedProjects();
         }
     }
 
@@ -266,11 +270,5 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
             LOG.warn("Failed to snapshot application state", exception);
             return null;
         }
-    }
-
-    private static final class PersistedProjects {
-        private final Map<String, Project> projects = new LinkedHashMap<>();
-        private final Map<String, Session> sessions = new LinkedHashMap<>();
-        private final Map<String, Terminal> terminals = new LinkedHashMap<>();
     }
 }

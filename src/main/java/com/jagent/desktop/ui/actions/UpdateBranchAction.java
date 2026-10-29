@@ -1,21 +1,27 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
+import com.google.inject.Inject;
+import com.jagent.desktop.api.Action;
 import com.jagent.desktop.async.ProgressOperation;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
-import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.services.git.GitRepository;
-import com.jagent.desktop.ui.utils.ErrorDialogs;
 import com.jagent.desktop.ui.utils.ErrorMessages;
 import java.nio.file.Path;
-import javax.swing.JOptionPane;
 
 /** Updates the selected branch without overwriting local commits. */
-public final class UpdateBranchAction extends BaseAction {
-    public UpdateBranchAction(final ActionContext actionContext) {
-        super(actionContext);
+public final class UpdateBranchAction implements Action {
+    private final ViewController viewController;
+
+    private final DialogService dialogService;
+
+    @Inject
+    public UpdateBranchAction(
+            final ViewController viewController, final DialogService dialogService) {
+        this.viewController = viewController;
+        this.dialogService = dialogService;
     }
 
     @Override
@@ -30,58 +36,27 @@ public final class UpdateBranchAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.viewController().currentProjectId() != null
-                || actionContext.viewController().currentSessionId() != null;
+        return viewController.currentProjectId() != null
+                || viewController.currentSessionId() != null;
     }
 
     @Override
     public void execute() {
-        final Session session = actionContext.viewController().currentSession();
-        if (session != null) {
-            chooseSessionUpdate(
-                    session.worktreePath() == null ? null : Path.of(session.worktreePath()),
-                    actionContext.viewController().currentProject());
+        final Session session = viewController.currentSession();
+        final Project project = viewController.currentProject();
+        final Path path;
+        if (session != null && session.worktreePath() != null) {
+            path = Path.of(session.worktreePath());
+        } else if (project != null) {
+            path = Path.of(project.path());
+        } else {
             return;
         }
-        final ProjectId projectId = actionContext.viewController().currentProjectId();
-        final Project project =
-                projectId == null ? null : actionContext.appState().projects().get(projectId);
-        if (project != null) {
-            updatePrimary(project);
-        }
-    }
-
-    private void chooseSessionUpdate(final Path worktree, final Project project) {
-        if (worktree == null) {
-            return;
-        }
-        final String[] options =
-                project == null
-                        ? new String[] {"Update from upstream"}
-                        : new String[] {"Update from upstream", "Rebase onto primary"};
-        final int choice =
-                JOptionPane.showOptionDialog(
-                        actionContext.window(),
-                        "How should the current branch be updated?",
-                        label(),
-                        JOptionPane.DEFAULT_OPTION,
-                        JOptionPane.QUESTION_MESSAGE,
-                        null,
-                        options,
-                        options[0]);
-        if (choice < 0) {
-            return;
-        }
-        if (choice == 0 || project == null) {
-            updateCurrent(worktree);
-            return;
-        }
-        rebaseOntoPrimary(worktree);
+        updateCurrent(path);
     }
 
     private void updateCurrent(final Path worktree) {
         ProgressOperation.run(
-                        actionContext,
                         label(),
                         "Fetching latest commits...",
                         () -> {
@@ -92,77 +67,16 @@ public final class UpdateBranchAction extends BaseAction {
                         })
                 .thenRun(
                         () ->
-                                JOptionPane.showMessageDialog(
-                                        actionContext.window(),
+                                dialogService.message(
                                         "The current branch is up to date.",
                                         label(),
-                                        JOptionPane.INFORMATION_MESSAGE))
+                                        DialogService.MessageType.INFORMATION))
                 .exceptionally(
                         failure -> {
-                            ErrorDialogs.show(
-                                    actionContext.window(),
-                                    label(),
+                            dialogService.errorMessage(
                                     ErrorMessages.deepestCause(
-                                            failure, "Could not update the current branch."));
-                            return null;
-                        });
-    }
-
-    private void rebaseOntoPrimary(final Path worktree) {
-        ProgressOperation.run(
-                        actionContext,
-                        label(),
-                        "Rebasing onto the primary branch...",
-                        () -> {
-                            try (GitRepository repository = GitRepository.open(worktree)) {
-                                repository.rebasePrimaryBranch();
-                                return null;
-                            }
-                        })
-                .thenRun(
-                        () ->
-                                JOptionPane.showMessageDialog(
-                                        actionContext.window(),
-                                        "The current branch includes the latest primary branch.",
-                                        label(),
-                                        JOptionPane.INFORMATION_MESSAGE))
-                .exceptionally(
-                        failure -> {
-                            ErrorDialogs.show(
-                                    actionContext.window(),
-                                    label(),
-                                    ErrorMessages.deepestCause(
-                                            failure, "Could not rebase onto the primary branch."));
-                            return null;
-                        });
-    }
-
-    private void updatePrimary(final Project project) {
-        ProgressOperation.run(
-                        actionContext,
-                        label(),
-                        "Rebasing the primary branch...",
-                        () -> {
-                            try (GitRepository repository =
-                                    GitRepository.open(Path.of(project.path()))) {
-                                repository.updatePrimaryBranch();
-                                return null;
-                            }
-                        })
-                .thenRun(
-                        () ->
-                                JOptionPane.showMessageDialog(
-                                        actionContext.window(),
-                                        "The primary branch is up to date.",
-                                        label(),
-                                        JOptionPane.INFORMATION_MESSAGE))
-                .exceptionally(
-                        failure -> {
-                            ErrorDialogs.show(
-                                    actionContext.window(),
-                                    label(),
-                                    ErrorMessages.deepestCause(
-                                            failure, "Could not update the primary branch."));
+                                            failure, "Could not update the current branch."),
+                                    label());
                             return null;
                         });
     }

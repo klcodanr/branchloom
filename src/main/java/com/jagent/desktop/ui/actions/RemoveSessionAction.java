@@ -1,16 +1,19 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
+import com.google.inject.Inject;
+import com.jagent.desktop.api.Action;
 import com.jagent.desktop.async.BackgroundOperations;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.BackgroundJobs;
 import com.jagent.desktop.services.BackgroundJobs.Handle;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.services.git.GitRepository;
 import com.jagent.desktop.ui.components.UiText;
-import com.jagent.desktop.ui.utils.ErrorDialogs;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,17 +22,28 @@ import java.util.concurrent.CompletionException;
 import javax.swing.BoxLayout;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
 /** Starts the selected session removal workflow. */
-public class RemoveSessionAction extends BaseAction {
+public class RemoveSessionAction implements Action {
+    private final ViewController viewController;
+    private final AppState appState;
+    private final DialogService dialogService;
+    private final BackgroundJobs backgroundJobs;
     private static final String TITLE = "Remove session";
 
     private record WorktreeCheck(Path path, boolean hasChanges) {}
 
-    public RemoveSessionAction(final ActionContext actionContext) {
-        super(actionContext);
+    @Inject
+    public RemoveSessionAction(
+            final BackgroundJobs backgroundJobs,
+            final ViewController viewController,
+            final AppState appState,
+            final DialogService dialogService) {
+        this.backgroundJobs = backgroundJobs;
+        this.viewController = viewController;
+        this.appState = appState;
+        this.dialogService = dialogService;
     }
 
     @Override
@@ -44,14 +58,14 @@ public class RemoveSessionAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.viewController().currentSessionId() != null;
+        return viewController.currentSessionId() != null;
     }
 
     @Override
     public void execute() {
-        final var state = actionContext.appState();
-        final SessionId sessionId = actionContext.viewController().currentSessionId();
-        final Session session = actionContext.viewController().currentSession();
+        final var state = appState;
+        final SessionId sessionId = viewController.currentSessionId();
+        final Session session = viewController.currentSession();
         final ProjectId projectId = session == null ? null : session.projectId();
         final Project project = projectId == null ? null : state.projects().get(projectId);
         if (session == null || project == null) {
@@ -78,43 +92,34 @@ public class RemoveSessionAction extends BaseAction {
         message.add(new JLabel("Remove " + session.name() + "?"));
         message.add(removeWorktree);
         final Object[] options = {TITLE, "Cancel"};
-        final int choice =
-                JOptionPane.showOptionDialog(
-                        actionContext.window(),
-                        message,
-                        TITLE,
-                        JOptionPane.DEFAULT_OPTION,
-                        JOptionPane.WARNING_MESSAGE,
-                        null,
-                        options,
-                        options[0]);
-        if (choice == 0 && removeWorktree.isSelected()) {
+        final DialogService.ReturnType choice =
+                dialogService.option(
+                        message, TITLE, DialogService.MessageType.WARNING, options, options[0]);
+        if (choice == DialogService.ReturnType.OK && removeWorktree.isSelected()) {
             return 2;
         }
-        return choice;
+        return choice == DialogService.ReturnType.OK ? 0 : -1;
     }
 
     protected boolean confirmWorktreeDeletion(final Session session) {
-        return JOptionPane.showConfirmDialog(
-                        actionContext.window(),
+        return dialogService.confirm(
                         "Permanently delete this worktree and all uncommitted files?\n"
                                 + session.worktreePath(),
                         "Confirm worktree deletion",
-                        JOptionPane.YES_NO_OPTION,
-                        JOptionPane.WARNING_MESSAGE)
-                == JOptionPane.YES_OPTION;
+                        DialogService.OptionType.YES_NO,
+                        DialogService.MessageType.WARNING)
+                == DialogService.ReturnType.OK;
     }
 
     protected boolean confirmResidualFolderDeletion(final Path path) {
-        return JOptionPane.showConfirmDialog(
-                        actionContext.window(),
+        return dialogService.confirm(
                         "Git removed the worktree, but this folder still exists:\n"
                                 + path
                                 + "\n\nDelete the folder and its contents?",
                         "Remove leftover worktree folder",
-                        JOptionPane.YES_NO_OPTION,
-                        JOptionPane.WARNING_MESSAGE)
-                == JOptionPane.YES_OPTION;
+                        DialogService.OptionType.YES_NO,
+                        DialogService.MessageType.WARNING)
+                == DialogService.ReturnType.OK;
     }
 
     private void removeWorktree(
@@ -122,11 +127,7 @@ public class RemoveSessionAction extends BaseAction {
             final ProjectId projectId,
             final Project project,
             final Session session) {
-        final var job =
-                actionContext
-                        .viewController()
-                        .backgroundJobs()
-                        .start(TITLE, project.name(), session.name());
+        final var job = this.backgroundJobs.start(TITLE, project.name(), session.name());
         job.update("Checking worktree...");
         job.output("Checking worktree: " + session.worktreePath());
         BackgroundOperations.submit(
@@ -252,10 +253,10 @@ public class RemoveSessionAction extends BaseAction {
                 UiText.valueOrDefault(cause.getMessage(), "Could not remove worktree.");
         job.output(message);
         job.fail(message);
-        ErrorDialogs.show(actionContext.window(), TITLE, message);
+        dialogService.errorMessage(message, TITLE);
     }
 
     protected void removeSession(final SessionId sessionId, final ProjectId projectId) {
-        actionContext.appState().removeSession(sessionId);
+        appState.removeSession(sessionId);
     }
 }

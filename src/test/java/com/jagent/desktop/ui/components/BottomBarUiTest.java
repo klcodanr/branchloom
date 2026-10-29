@@ -27,8 +27,11 @@ class BottomBarUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new BottomBar(
-                                        new com.jagent.desktop.models.ActionContext(
-                                                controller, state, null, null, () -> {})));
+                                        controller,
+                                        state,
+                                        TestAppState.backgroundJobs(state),
+                                        null,
+                                        TestAppState.dialogService()));
         final JButton refreshButton = findButton(bottomBar, "refresh-button");
         assertNotNull(refreshButton, "bottom bar should include refresh button");
         assertFalse(refreshButton.isVisible(), "refresh button should start hidden");
@@ -48,13 +51,16 @@ class BottomBarUiTest {
     void reportsHowManyBackgroundJobsAreExecuting() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var controller = TestAppState.controller(state);
-        final BackgroundJobs jobs = controller.backgroundJobs();
+        final BackgroundJobs jobs = TestAppState.backgroundJobs(state);
         final var bottomBar =
                 GuiActionRunner.execute(
                         () ->
                                 new BottomBar(
-                                        new com.jagent.desktop.models.ActionContext(
-                                                controller, state, null, null, () -> {})));
+                                        controller,
+                                        state,
+                                        jobs,
+                                        null,
+                                        TestAppState.dialogService()));
         final JLabel status = findLabel(bottomBar, "jobs-status-label");
         assertNotNull(status, "bottom bar should include jobs status label");
         assertFalse(status.isVisible(), "jobs status should start hidden");

@@ -18,6 +18,7 @@
         <exclude name="ShortMethodName" />
         <exclude name="ShortVariable" />
         <exclude name="UseExplicitTypes" />
+        <exclude name="AvoidProtectedMethodInFinalClassNotExtending" />
     </rule>
     <rule ref="category/java/design.xml">
         <exclude name="DataClass" />

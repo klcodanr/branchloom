@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
@@ -39,19 +38,20 @@ class RemoveSessionActionTest {
         final Path realWorktree = worktree.toRealPath();
         final AppState state = TestAppState.empty();
         final var projectId =
-                state.addProject(new Project(PROJECT_NAME, realRepository.toString(), null));
+                state.addProject(Project.create(PROJECT_NAME, realRepository.toString(), null));
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(projectId, "Feature", null, null, realWorktree.toString()));
+                        Session.create(projectId, "Feature", null, null, realWorktree.toString()));
         final var coordinator = TestAppState.controller(state);
+        final var backgroundJobs = TestAppState.backgroundJobs(state);
         coordinator.selectSession(projectId, sessionId);
 
-        new ActionDouble(new ActionContext(coordinator, state, null, null, null)).execute();
-        awaitFinished(coordinator);
+        new ActionDouble(backgroundJobs, coordinator, state).execute();
+        awaitFinished(backgroundJobs);
         assertEquals(
                 BackgroundJobs.Status.SUCCEEDED,
-                coordinator.backgroundJobs().jobs().getFirst().status(),
+                backgroundJobs.jobs().getFirst().status(),
                 "removal should succeed");
         assertTrue(state.sessions().isEmpty(), "removed session should not remain");
         assertTrue(Files.notExists(worktree), "worktree should be deleted");
@@ -76,11 +76,11 @@ class RemoveSessionActionTest {
         final AppState state = TestAppState.empty();
         final var projectId =
                 state.addProject(
-                        new Project(PROJECT_NAME, repository.toRealPath().toString(), null));
+                        Project.create(PROJECT_NAME, repository.toRealPath().toString(), null));
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(
+                        Session.create(
                                 projectId,
                                 "Feature",
                                 null,
@@ -89,8 +89,9 @@ class RemoveSessionActionTest {
         final var coordinator = TestAppState.controller(state);
         coordinator.selectSession(projectId, sessionId);
 
-        new ActionDouble(new ActionContext(coordinator, state, null, null, null), false).execute();
-        awaitFinished(coordinator);
+        final var backgroundJobs = TestAppState.backgroundJobs(state);
+        new ActionDouble(backgroundJobs, coordinator, state, false).execute();
+        awaitFinished(backgroundJobs);
         assertTrue(state.sessions().containsKey(sessionId), "cancelled session should remain");
         assertTrue(Files.exists(worktree), "cancelled worktree should remain");
     }
@@ -99,15 +100,16 @@ class RemoveSessionActionTest {
     void removingUnselectedSessionDoesNotNavigate() throws IOException {
         final AppState state = TestAppState.empty();
         final var projectId =
-                state.addProject(new Project(PROJECT_NAME, tempDirectory.toString(), null));
+                state.addProject(Project.create(PROJECT_NAME, tempDirectory.toString(), null));
         final var removed =
-                state.addSession(projectId, new Session(projectId, "Removed", null, null, null));
+                state.addSession(projectId, Session.create(projectId, "Removed", null, null, null));
         final var selected =
-                state.addSession(projectId, new Session(projectId, "Selected", null, null, null));
+                state.addSession(
+                        projectId, Session.create(projectId, "Selected", null, null, null));
         final var coordinator = TestAppState.controller(state);
         coordinator.updateView(
                 ViewId.SESSION, ViewController.ViewState.session(projectId, selected));
-        new ActionDouble(new ActionContext(coordinator, state, null, null, null))
+        new ActionDouble(TestAppState.backgroundJobs(state), coordinator, state)
                 .removeSessionForTest(removed, projectId);
         assertEquals(
                 ViewId.SESSION,
@@ -125,11 +127,11 @@ class RemoveSessionActionTest {
         final Path repository = tempDirectory.resolve("repository");
         Files.createDirectories(repository);
         final var projectId =
-                state.addProject(new Project(PROJECT_NAME, repository.toString(), null));
+                state.addProject(Project.create(PROJECT_NAME, repository.toString(), null));
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(
+                        Session.create(
                                 projectId,
                                 "Feature",
                                 null,
@@ -137,10 +139,11 @@ class RemoveSessionActionTest {
                                 tempDirectory.resolve("missing-worktree").toString()));
         final var coordinator = TestAppState.controller(state);
         coordinator.selectSession(projectId, sessionId);
-        new ActionDouble(new ActionContext(coordinator, state, null, null, null)).execute();
+        final var backgroundJobs = TestAppState.backgroundJobs(state);
+        new ActionDouble(backgroundJobs, coordinator, state).execute();
         AsyncTestSupport.await(
                 () ->
-                        coordinator.backgroundJobs().jobs().stream()
+                        backgroundJobs.jobs().stream()
                                 .anyMatch(job -> job.status() == BackgroundJobs.Status.FAILED),
                 "invalid worktree should fail the background job");
         assertTrue(
@@ -148,12 +151,12 @@ class RemoveSessionActionTest {
                 "failed removal should preserve the session");
     }
 
-    private static void awaitFinished(final ViewController coordinator)
+    private static void awaitFinished(final BackgroundJobs backgroundJobs)
             throws InterruptedException {
         AsyncTestSupport.await(
                 () ->
-                        !coordinator.backgroundJobs().jobs().isEmpty()
-                                && coordinator.backgroundJobs().jobs().getFirst().status()
+                        !backgroundJobs.jobs().isEmpty()
+                                && backgroundJobs.jobs().getFirst().status()
                                         != BackgroundJobs.Status.RUNNING,
                 "worktree operation should complete");
     }
@@ -161,12 +164,17 @@ class RemoveSessionActionTest {
     private static final class ActionDouble extends RemoveSessionAction {
         private final boolean confirmDeletion;
 
-        private ActionDouble(final ActionContext context) {
-            this(context, true);
+        private ActionDouble(
+                final BackgroundJobs jobs, final ViewController controller, final AppState state) {
+            this(jobs, controller, state, true);
         }
 
-        private ActionDouble(final ActionContext context, final boolean confirmDeletion) {
-            super(context);
+        private ActionDouble(
+                final BackgroundJobs jobs,
+                final ViewController controller,
+                final AppState state,
+                final boolean confirmDeletion) {
+            super(jobs, controller, state, TestAppState.dialogService());
             this.confirmDeletion = confirmDeletion;
         }
 

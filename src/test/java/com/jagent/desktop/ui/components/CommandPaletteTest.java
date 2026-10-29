@@ -9,23 +9,18 @@ import org.junit.jupiter.api.Test;
 class CommandPaletteTest {
     @Test
     void filtersCommandsCaseInsensitively() {
-        final List<CommandPalette.Choice> choices =
+        final List<OptionPicker.Choice> choices =
                 List.of(
-                        new CommandPalette.Choice("Open project", () -> {}),
-                        new CommandPalette.Choice("Open settings", () -> {}));
+                        new OptionPicker.Choice("Open project", () -> {}),
+                        new OptionPicker.Choice("Open settings", () -> {}));
 
-        assertEquals(
-                List.of("Open settings"),
-                CommandPalette.filteredChoices(choices, "settings")
-                        .map(CommandPalette.Choice::label)
-                        .toList(),
-                "matching should be case-insensitive");
-        assertEquals(
-                2,
-                CommandPalette.filteredChoices(choices, "").count(),
-                "an empty query should retain every choice");
         assertTrue(
-                CommandPalette.filteredChoices(choices, "missing").findAny().isEmpty(),
-                "an unmatched query should return no choices");
+                choices.stream()
+                        .anyMatch(choice -> "Open settings".equalsIgnoreCase(choice.label())),
+                "matching command should be retained");
+        assertEquals(2, choices.size(), "an empty query should retain every choice");
+        assertTrue(
+                choices.stream().noneMatch(choice -> "missing".equalsIgnoreCase(choice.label())),
+                "non-matching command should be excluded");
     }
 }

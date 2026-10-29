@@ -1,14 +1,28 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
-import com.jagent.desktop.models.ActionContext;
+import com.google.inject.Inject;
+import com.google.inject.name.Named;
+import com.jagent.desktop.api.Action;
+import com.jagent.desktop.async.BackgroundOperations;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.EditorCommands;
-import com.jagent.desktop.ui.utils.ErrorDialogs;
+import com.jagent.desktop.services.dialog.DialogService;
 import java.nio.file.Path;
+import javax.annotation.Nullable;
 
-public final class OpenSettingsAction extends BaseAction {
-    public OpenSettingsAction(final ActionContext actionContext) {
-        super(actionContext);
+public final class OpenSettingsAction implements Action {
+    private final AppState appState;
+    private final Path dataDirectory;
+    private final DialogService dialogService;
+
+    @Inject
+    public OpenSettingsAction(
+            final AppState appState,
+            final @Named("dataDirectory") @Nullable Path dataDirectory,
+            final DialogService dialogService) {
+        this.appState = appState;
+        this.dialogService = dialogService;
+        this.dataDirectory = dataDirectory;
     }
 
     @Override
@@ -23,28 +37,23 @@ public final class OpenSettingsAction extends BaseAction {
 
     @Override
     public void execute() {
-        final Path settings = actionContext.dataDirectory().resolve("settings.json");
-        final var editors = actionContext.appState().appSettings().tools();
+        if (dataDirectory == null) {
+            dialogService.errorMessage("Data directory not configured", "Could not open settings");
+
+            return;
+        }
+        final Path settings = dataDirectory.resolve("settings.json");
+        final var editors = appState.appSettings().tools();
         if (editors.isEmpty()) {
-            ErrorDialogs.show(
-                    actionContext.window(),
-                    "Could not open settings",
-                    "No editor is configured for settings.json.");
+            dialogService.errorMessage("No editor configured", "Could not open settings");
             return;
         }
         final var editor = editors.getFirst();
-        final Path parent = settings.getParent();
-        if (parent == null) {
-            ErrorDialogs.show(
-                    actionContext.window(),
-                    "Could not open settings",
-                    "Could not determine the settings directory.");
-            return;
-        }
-        RunCommandAction.run(
+        BackgroundOperations.runCommand(
+                "Settings",
+                "Open Settings",
                 EditorCommands.openFile(editor, settings, 0, 0),
-                parent.toString(),
-                editor.label(),
-                actionContext.window());
+                dataDirectory,
+                null);
     }
 }

@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
 import com.jagent.desktop.services.terminal.TerminalState;
+import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.components.terminal.TerminalPanel;
+import com.jagent.desktop.ui.components.terminal.TerminalPanelTestSupport;
 import com.jediterm.terminal.TtyConnector;
 import java.awt.IllegalComponentStateException;
 import java.awt.event.MouseEvent;
@@ -29,7 +31,11 @@ class WorkspaceTabMenuTest {
                 GuiActionRunner.execute(
                         () ->
                                 new WorkspaceTerminalTabs(
-                                        tabs, (panel, id) -> {}, (panel, title) -> {}));
+                                        tabs,
+                                        (panel, id) -> {},
+                                        (panel, title) -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
         final WorkspaceTabMenu menu =
                 GuiActionRunner.execute(() -> new WorkspaceTabMenu(tabs, terminalTabs));
         GuiActionRunner.execute(
@@ -55,7 +61,11 @@ class WorkspaceTabMenuTest {
                 GuiActionRunner.execute(
                         () ->
                                 new WorkspaceTerminalTabs(
-                                        tabs, (panel, id) -> {}, (panel, title) -> {}));
+                                        tabs,
+                                        (panel, id) -> {},
+                                        (panel, title) -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
         final WorkspaceTabMenu menu =
                 GuiActionRunner.execute(() -> new WorkspaceTabMenu(tabs, terminalTabs));
         GuiActionRunner.execute(
@@ -104,7 +114,10 @@ class WorkspaceTabMenuTest {
         final JTabbedPane tabs = GuiActionRunner.execute(() -> new JTabbedPane());
         final CountingTerminalRuntime runtime = new CountingTerminalRuntime();
         final TerminalPanel panel =
-                GuiActionRunner.execute(() -> new TerminalPanel(runtime, ignored -> {}));
+                GuiActionRunner.execute(
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        runtime, ignored -> {}, TestAppState.dialogService()));
         final WorkspaceTerminalTabs terminalTabs = terminalTabs(tabs);
         GuiActionRunner.execute(
                 () -> terminalTabs.mount("Terminal", TerminalId.create(), panel, false));
@@ -156,7 +169,12 @@ class WorkspaceTabMenuTest {
 
     private static WorkspaceTerminalTabs terminalTabs(final JTabbedPane tabs) {
         return GuiActionRunner.execute(
-                () -> new WorkspaceTerminalTabs(tabs, (terminal, id) -> {}, (t, title) -> {}));
+                () ->
+                        new WorkspaceTerminalTabs(
+                                tabs,
+                                (terminal, id) -> {},
+                                (t, title) -> {},
+                                new com.jagent.desktop.services.dialog.HeadlessDialogService()));
     }
 
     private static MouseEvent mouseEvent(final JTabbedPane tabs, final boolean popup) {

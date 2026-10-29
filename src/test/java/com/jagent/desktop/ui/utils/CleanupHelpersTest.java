@@ -19,10 +19,11 @@ class CleanupHelpersTest {
     void resolvesCurrentSessionWorktreeBeforeProjectPath() throws InvalidObjectException {
         final AppState state = TestAppState.empty();
         final var controller = TestAppState.controller(state);
-        final var projectId = state.addProject(new Project("Demo", PROJECT_PATH, null));
+        final var projectId = state.addProject(Project.create("Demo", PROJECT_PATH, null));
         final var sessionId =
                 state.addSession(
-                        projectId, new Session(projectId, SESSION_NAME, null, null, "/worktree"));
+                        projectId,
+                        Session.create(projectId, SESSION_NAME, null, null, "/worktree"));
         controller.selectProject(projectId);
         controller.selectSession(projectId, sessionId);
 
@@ -34,9 +35,10 @@ class CleanupHelpersTest {
     void resolvesProjectPathWhenSessionHasNoWorktree() throws InvalidObjectException {
         final AppState state = TestAppState.empty();
         final var controller = TestAppState.controller(state);
-        final var projectId = state.addProject(new Project("Demo", PROJECT_PATH, null));
+        final var projectId = state.addProject(Project.create("Demo", PROJECT_PATH, null));
         final var sessionId =
-                state.addSession(projectId, new Session(projectId, SESSION_NAME, null, null, null));
+                state.addSession(
+                        projectId, Session.create(projectId, SESSION_NAME, null, null, null));
         controller.selectProject(projectId);
         controller.selectSession(projectId, sessionId);
 
@@ -59,8 +61,8 @@ class CleanupHelpersTest {
     @Test
     void collectsExistingProjectSessionNames() throws InvalidObjectException {
         final AppState state = TestAppState.empty();
-        final var projectId = state.addProject(new Project("Demo", PROJECT_PATH, null));
-        state.addSession(projectId, new Session(projectId, SESSION_NAME, null, null, null));
+        final var projectId = state.addProject(Project.create("Demo", PROJECT_PATH, null));
+        state.addSession(projectId, Session.create(projectId, SESSION_NAME, null, null, null));
         final var controller = TestAppState.controller(state);
         controller.selectProject(projectId);
 

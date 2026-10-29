@@ -6,6 +6,9 @@ import com.jagent.desktop.models.board.BasicBoardItem;
 import com.jagent.desktop.models.board.BoardColumn;
 import com.jagent.desktop.models.board.BoardConfig;
 import com.jagent.desktop.models.board.BoardSource;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.test.TestAppState;
+import com.jagent.desktop.ui.Defaults;
 import java.awt.Component;
 import java.awt.Container;
 import java.util.Date;
@@ -24,15 +27,20 @@ class KanbanBoardTest {
                                 new BoardColumn("Todo", Map.of(BoardSource.JIRA, "true")),
                                 new BoardColumn("Done", Map.of(BoardSource.JIRA, "true"))),
                         null);
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final KanbanBoard board =
                 GuiActionRunner.execute(
                         () ->
                                 new KanbanBoard(
                                         config,
-                                        null,
+                                        TestAppState.controller(state),
+                                        state,
+                                        TestAppState.githubProvider(state),
+                                        TestAppState.dialogService(),
                                         ignored ->
                                                 java.util.concurrent.CompletableFuture
-                                                        .completedFuture(null)));
+                                                        .completedFuture(null),
+                                        ignored -> {}));
 
         GuiActionRunner.execute(
                 () -> board.setItems(List.of(item("Open issue"), item("Closed issue"))));

@@ -141,11 +141,11 @@ class ViewControllerTest {
     void selectedTabIsPreservedPerSession() throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var coordinator = TestAppState.controller(state);
-        final ProjectId projectId = state.addProject(new Project("Project", "/tmp", null));
+        final ProjectId projectId = state.addProject(Project.create("Project", "/tmp", null));
         final SessionId firstSessionId =
-                state.addSession(projectId, new Session(projectId, "First", null, null, null));
+                state.addSession(projectId, Session.create(projectId, "First", null, null, null));
         final SessionId secondSessionId =
-                state.addSession(projectId, new Session(projectId, "Second", null, null, null));
+                state.addSession(projectId, Session.create(projectId, "Second", null, null, null));
 
         coordinator.updateSelectedSessionTab(firstSessionId, 2);
         coordinator.updateSelectedSessionTab(secondSessionId, 1);
@@ -168,11 +168,12 @@ class ViewControllerTest {
     void selectedSessionTabIsCleanedUpWhenSessionIsRemoved() throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var coordinator = TestAppState.controller(state);
-        final ProjectId projectId = state.addProject(new Project("Project", "/tmp", null));
+        final ProjectId projectId = state.addProject(Project.create("Project", "/tmp", null));
         final SessionId removedSessionId =
-                state.addSession(projectId, new Session(projectId, "Removed", null, null, null));
+                state.addSession(projectId, Session.create(projectId, "Removed", null, null, null));
         final SessionId remainingSessionId =
-                state.addSession(projectId, new Session(projectId, "Remaining", null, null, null));
+                state.addSession(
+                        projectId, Session.create(projectId, "Remaining", null, null, null));
 
         coordinator.updateSelectedSessionTab(removedSessionId, 2);
         coordinator.updateSelectedSessionTab(remainingSessionId, 1);

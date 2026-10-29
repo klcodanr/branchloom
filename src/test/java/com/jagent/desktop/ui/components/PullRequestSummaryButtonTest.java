@@ -39,7 +39,7 @@ class PullRequestSummaryButtonTest {
         final PullRequestSummaryButton button =
                 GuiActionRunner.execute(PullRequestSummaryButton::new);
         final ProjectId projectId = ProjectId.create();
-        final Project project = new Project("Demo", "/tmp/demo", null);
+        final Project project = Project.create("Demo", "/tmp/demo", null);
         final PullRequest request =
                 new PullRequest(
                         projectId,

@@ -1,15 +1,22 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
-import com.jagent.desktop.models.ActionContext;
+import com.google.inject.Inject;
+import com.jagent.desktop.api.Action;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.ui.utils.PathUtils;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 
 /** Copies the current session worktree or project path. */
-public final class CopyPathAction extends BaseAction {
-    public CopyPathAction(final ActionContext actionContext) {
-        super(actionContext);
+public final class CopyPathAction implements Action {
+    private final ViewController viewController;
+    private final AppState appState;
+
+    @Inject
+    public CopyPathAction(final ViewController viewController, final AppState appState) {
+        this.viewController = viewController;
+        this.appState = appState;
     }
 
     public static void copy(final String path) {
@@ -39,6 +46,6 @@ public final class CopyPathAction extends BaseAction {
     }
 
     private String path() {
-        return PathUtils.resolve(actionContext.appState(), actionContext.viewController());
+        return PathUtils.resolve(appState, viewController);
     }
 }
