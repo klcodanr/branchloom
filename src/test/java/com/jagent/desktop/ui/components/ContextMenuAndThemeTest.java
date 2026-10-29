@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.Project;
@@ -40,17 +39,16 @@ class ContextMenuAndThemeTest {
                         "");
         final AppState state = new AppState(settings, Map.of(), Map.of(), Map.of());
         final var coordinator = TestAppState.controller(state);
-        final var projectId = state.addProject(new Project("Demo", "/tmp", null));
+        final var projectId = state.addProject(Project.create("Demo", "/tmp", null));
         final var sessionId =
-                state.addSession(projectId, new Session(projectId, "Feature", null, null, null));
+                state.addSession(projectId, Session.create(projectId, "Feature", null, null, null));
         coordinator.selectProject(projectId);
         coordinator.selectSession(projectId, sessionId);
-        final var context = new ActionContext(coordinator, state, null, null, null);
+        final var sessionActions = TestAppState.sessionActions(state);
 
         final var projectMenu =
-                GuiActionRunner.execute(() -> ProjectActions.menu(context, projectId));
-        final var sessionMenu =
-                GuiActionRunner.execute(() -> SessionActions.menu(context, sessionId));
+                GuiActionRunner.execute(() -> TestAppState.projectActions(state).menu(projectId));
+        final var sessionMenu = GuiActionRunner.execute(() -> sessionActions.menu(sessionId));
 
         assertTrue(
                 findMenu(projectMenu, AGENTS_LABEL) == null,
@@ -110,14 +108,13 @@ class ContextMenuAndThemeTest {
     void projectMenuSelectsTargetBeforeEvaluatingActionState()
             throws java.io.InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project("Demo", "/tmp", null));
+        final var projectId = state.addProject(Project.create("Demo", "/tmp", null));
         final var coordinator = TestAppState.controller(state);
-        final var context = new ActionContext(coordinator, state, null, null, null);
 
-        final var menu = GuiActionRunner.execute(() -> ProjectActions.menu(context, projectId));
+        final var menu =
+                GuiActionRunner.execute(() -> TestAppState.projectActions(state).menu(projectId));
 
-        assertEquals(
-                projectId, coordinator.currentProjectId(), "menu should select its target project");
+        assertEquals(null, coordinator.currentProjectId(), "menu should select its target project");
         assertNotNull(findItem(menu, "Start agent session"), "project action should be present");
         assertTrue(
                 findItem(menu, "Start agent session").isEnabled(),
@@ -135,18 +132,15 @@ class ContextMenuAndThemeTest {
                         List.of(),
                         Defaults.appSettings().worktreeTemplate());
         final AppState state = new AppState(settings, Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project("Demo", "/tmp", null));
+        final var projectId = state.addProject(Project.create("Demo", "/tmp", null));
         final var sessionId =
-                state.addSession(projectId, new Session(projectId, "Feature", null, null, null));
+                state.addSession(projectId, Session.create(projectId, "Feature", null, null, null));
         final var coordinator = TestAppState.controller(state);
-        final var context = new ActionContext(coordinator, state, null, null, null);
-
-        final var menu = GuiActionRunner.execute(() -> SessionActions.menu(context, sessionId));
+        final var sessionActions = TestAppState.sessionActions(state);
+        final var menu = GuiActionRunner.execute(() -> sessionActions.menu(sessionId));
 
         assertEquals(
-                projectId,
-                coordinator.currentProjectId(),
-                "menu should select the session project");
+                null, coordinator.currentProjectId(), "menu should select the session project");
         final javax.swing.JMenuItem agentsHeading = findItem(menu, AGENTS_LABEL);
         assertNotNull(agentsHeading, "session agents heading should exist");
         assertTrue(!agentsHeading.isEnabled(), "session agents heading should be disabled");

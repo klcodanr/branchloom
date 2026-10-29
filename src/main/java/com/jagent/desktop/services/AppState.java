@@ -13,6 +13,7 @@ import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.ui.Defaults;
 import java.io.InvalidObjectException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -24,7 +25,7 @@ public class AppState {
     private final Map<ProjectId, Project> projects;
     private final Map<SessionId, Session> sessions;
     private final Map<TerminalId, Terminal> terminals;
-    private final Map<SessionId, PullRequestDetails> monitoringStatuses = new java.util.HashMap<>();
+    private final Map<SessionId, PullRequestDetails> monitoringStatuses = new HashMap<>();
     private final List<TerminalEvent> terminalEvents = new ArrayList<>();
     private final List<Consumer<StateEvent>> stateEventListeners = new ArrayList<>();
 
@@ -144,7 +145,7 @@ public class AppState {
         }
         project.sessionIds().forEach(this::removeSession);
         terminals.entrySet().stream()
-                .filter(entry -> projectId.equals(entry.getValue().projectId()))
+                .filter(entry -> projectId.equals(entry.getValue().owner()))
                 .map(Map.Entry::getKey)
                 .toList()
                 .forEach(this::removeTerminal);
@@ -205,7 +206,7 @@ public class AppState {
     }
 
     public TerminalId addTerminal(final Terminal terminal) {
-        if (terminal.projectId() == null || !this.projects.containsKey(terminal.projectId())) {
+        if (terminal.owner() == null || !this.projects.containsKey(terminal.owner())) {
             throw new IllegalArgumentException("Project terminal must have a project ID.");
         }
         return registerTerminal(terminal, (ignored) -> {});
@@ -229,9 +230,9 @@ public class AppState {
 
         terminals.remove(terminalId);
         this.terminalEvents.add(new TerminalEvent(Action.REMOVE, terminalId));
-        final var session = this.sessions.get(terminal.sessionId());
+        final var session = this.sessions.get(terminal.owner());
         if (session != null) {
-            this.updateSession(terminal.sessionId(), session.withRemovedTerminal(terminalId));
+            this.updateSession(session.id(), session.withRemovedTerminal(terminalId));
         }
         this.projectsUpdated = true;
         notifyStateEvent(new StateEvent(Action.REMOVE, terminalId));

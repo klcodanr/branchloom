@@ -1,7 +1,11 @@
 package com.jagent.desktop.ui.components.tree;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.AppSettingsId;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
+import com.jagent.desktop.ui.components.ProjectActions;
+import com.jagent.desktop.ui.components.SessionActions;
 import com.jagent.desktop.ui.components.UiPopupMenus;
 import com.jagent.desktop.ui.components.tree.items.DefaultTreeItem;
 import com.jagent.desktop.ui.components.tree.items.GroupTreeItem;
@@ -41,7 +45,13 @@ public final class LeftNavTree extends JTree {
     private DefaultMutableTreeNode preFilterSelectedNode;
 
     @SuppressWarnings("PMD.CognitiveComplexity")
-    public LeftNavTree(final Consumer<String> onSearch, final ActionContext actionContext) {
+    public LeftNavTree(
+            final Consumer<String> onSearch,
+            final ViewController viewController,
+            final AppState appState,
+            final DialogService dialogService,
+            final SessionActions sessionActions,
+            final ProjectActions projectActions) {
         super(new FilteredTreeModel(new DefaultMutableTreeNode("Projects")));
         final var root = (DefaultMutableTreeNode) getModel().getRoot();
         final var filteredTreeModel = (FilteredTreeModel) getModel();
@@ -73,12 +83,14 @@ public final class LeftNavTree extends JTree {
         getInputMap(WHEN_FOCUSED)
                 .put(
                         KeyStroke.getKeyStroke(KeyEvent.VK_F10, KeyEvent.SHIFT_DOWN_MASK),
-                        "show-context-menu");
+                        "show-viewController, appState, window, dataDirectory, refreshSettings, githubProvider, dialogService-menu");
         getInputMap(WHEN_FOCUSED)
-                .put(KeyStroke.getKeyStroke(KeyEvent.VK_CONTEXT_MENU, 0), "show-context-menu");
+                .put(
+                        KeyStroke.getKeyStroke(KeyEvent.VK_CONTEXT_MENU, 0),
+                        "show-viewController, appState, window, dataDirectory, refreshSettings, githubProvider, dialogService-menu");
         getActionMap()
                 .put(
-                        "show-context-menu",
+                        "show-viewController, appState, window, dataDirectory, refreshSettings, githubProvider, dialogService-menu",
                         new AbstractAction() {
                             @Override
                             public void actionPerformed(final ActionEvent event) {
@@ -142,7 +154,8 @@ public final class LeftNavTree extends JTree {
                                         item.get().getMenu(), tree, event.getX(), event.getY());
                             } else {
                                 UiPopupMenus.show(
-                                        new DefaultTreeItem(actionContext).getMenu(),
+                                        new DefaultTreeItem(viewController, appState, dialogService)
+                                                .getMenu(),
                                         tree,
                                         event.getX(),
                                         event.getY());
@@ -163,27 +176,33 @@ public final class LeftNavTree extends JTree {
                     }
                 });
 
-        pullRequestsNode = new DefaultMutableTreeNode(new PullRequestsItem(actionContext));
+        pullRequestsNode = new DefaultMutableTreeNode(new PullRequestsItem(viewController));
         root.add(pullRequestsNode);
 
-        boardsTree = new BoardsTree(actionContext);
+        boardsTree = new BoardsTree(viewController, appState);
         root.add(boardsTree.getNode());
 
-        projectsTree = new ProjectsTree(actionContext, filteredTreeModel, this);
+        projectsTree =
+                new ProjectsTree(
+                        viewController,
+                        appState,
+                        dialogService,
+                        projectActions,
+                        sessionActions,
+                        filteredTreeModel,
+                        this);
         projectsTree.getGroupNodes().forEach(root::add);
 
         this.filteredTreeModel.reload();
 
         expandNodes(false);
 
-        actionContext
-                .appState()
-                .addEventListener(
-                        event -> {
-                            if (event.target() == AppSettingsId.CURRENT) {
-                                this.rebuild();
-                            }
-                        });
+        appState.addEventListener(
+                event -> {
+                    if (event.target() == AppSettingsId.CURRENT) {
+                        this.rebuild();
+                    }
+                });
     }
 
     @Override

@@ -1,19 +1,28 @@
 package com.jagent.desktop.ui.components.tree.items;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.ui.components.ProjectActions;
 import com.jagent.desktop.ui.components.UiText;
 import javax.swing.JPopupMenu;
 
 public class ProjectTreeItem implements TreeItem {
-    private final ActionContext actionContext;
+    private final ViewController viewController;
+    private final AppState appState;
+    private final ProjectActions projectActions;
     private final ProjectId projectId;
 
-    public ProjectTreeItem(final ActionContext actionContext, final ProjectId projectId) {
+    public ProjectTreeItem(
+            final ViewController viewController,
+            final AppState appState,
+            final ProjectActions projectActions,
+            final ProjectId projectId) {
         this.projectId = projectId;
-        this.actionContext = actionContext;
+        this.viewController = viewController;
+        this.appState = appState;
+        this.projectActions = projectActions;
     }
 
     @Override
@@ -22,7 +31,7 @@ public class ProjectTreeItem implements TreeItem {
     }
 
     public Project getProject() {
-        return this.actionContext.appState().projects().get(this.projectId);
+        return this.appState.projects().get(this.projectId);
     }
 
     public ProjectId getProjectId() {
@@ -50,11 +59,11 @@ public class ProjectTreeItem implements TreeItem {
 
     @Override
     public JPopupMenu getMenu() {
-        return ProjectActions.menu(actionContext, this.projectId);
+        return projectActions.menu(this.projectId);
     }
 
     @Override
     public void select() {
-        actionContext.viewController().openProject(projectId);
+        viewController.openProject(projectId);
     }
 }

@@ -1,12 +1,16 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
+import com.google.inject.Inject;
+import com.jagent.desktop.api.Action;
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.services.ViewController;
 
-public final class ProblemsAction extends BaseAction {
-    public ProblemsAction(final ActionContext actionContext) {
-        super(actionContext);
+public final class ProblemsAction implements Action {
+    private final ViewController viewController;
+
+    @Inject
+    public ProblemsAction(final ViewController viewController) {
+        this.viewController = viewController;
     }
 
     @Override
@@ -21,6 +25,6 @@ public final class ProblemsAction extends BaseAction {
 
     @Override
     public void execute() {
-        actionContext.viewController().updateView(ViewId.PROBLEMS, null);
+        viewController.updateView(ViewId.PROBLEMS, null);
     }
 }

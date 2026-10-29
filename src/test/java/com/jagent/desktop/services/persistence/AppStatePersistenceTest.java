@@ -66,13 +66,14 @@ class AppStatePersistenceTest {
     void persistsAndLoadsProjectsSessionsTerminalsAndSettings(@TempDir final Path directory)
             throws IOException, InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project(PROJECT_NAME, DEMO_PATH, null));
+        final var projectId = state.addProject(Project.create(PROJECT_NAME, DEMO_PATH, null));
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(
+                        Session.create(
                                 projectId, "Feature", AGENT_COMMAND, "prompt", "/tmp/worktree"));
-        final var terminalId = state.addTerminal(sessionId, new Terminal(sessionId, "Shell", "sh"));
+        final var terminalId =
+                state.addTerminal(sessionId, Terminal.create(sessionId, "Shell", "sh"));
         state.updateAppSettings(
                 new AppSettings(
                         List.of(new Agent("Test agent", "agent {prompt}", AGENT_COMMAND)),
@@ -142,7 +143,7 @@ class AppStatePersistenceTest {
     @Test
     void invalidSettingsFailToLoad(@TempDir final Path directory) throws IOException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.addProject(new Project(PROJECT_NAME, DEMO_PATH, null));
+        state.addProject(Project.create(PROJECT_NAME, DEMO_PATH, null));
 
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
             persistence.persist();
@@ -240,12 +241,13 @@ class AppStatePersistenceTest {
     void persistsTerminalAddAndRemoveEvents(@TempDir final Path directory)
             throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project("Demo", DEMO_PATH, null));
+        final var projectId = state.addProject(Project.create("Demo", DEMO_PATH, null));
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(projectId, "Feature", "agent", "prompt", "/tmp/worktree"));
-        final var terminalId = state.addTerminal(sessionId, new Terminal(sessionId, "Shell", "sh"));
+                        Session.create(projectId, "Feature", "agent", "prompt", "/tmp/worktree"));
+        final var terminalId =
+                state.addTerminal(sessionId, Terminal.create(sessionId, "Shell", "sh"));
         final Path history =
                 directory.resolve("terminal-history").resolve(terminalId.value() + ".history");
 
@@ -265,7 +267,7 @@ class AppStatePersistenceTest {
     void persistSnapshotsDirectlyWhenCalledOnEdt(@TempDir final Path directory)
             throws InterruptedException, java.lang.reflect.InvocationTargetException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.addProject(new Project(PROJECT_NAME, DEMO_PATH, null));
+        state.addProject(Project.create(PROJECT_NAME, DEMO_PATH, null));
 
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
             SwingUtilities.invokeAndWait(persistence::persist);
@@ -279,7 +281,7 @@ class AppStatePersistenceTest {
     void closesWithoutWaitingForPersistenceExecutorOnEdt(@TempDir final Path directory)
             throws InterruptedException, java.lang.reflect.InvocationTargetException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.addProject(new Project(PROJECT_NAME, DEMO_PATH, null));
+        state.addProject(Project.create(PROJECT_NAME, DEMO_PATH, null));
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
             SwingUtilities.invokeAndWait(persistence::close);
         }
@@ -293,7 +295,7 @@ class AppStatePersistenceTest {
     void restoresUpdatesAfterPersistenceWriteFailure(@TempDir final Path directory)
             throws IOException, InterruptedException, java.lang.reflect.InvocationTargetException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.addProject(new Project(PROJECT_NAME, DEMO_PATH, null));
+        state.addProject(Project.create(PROJECT_NAME, DEMO_PATH, null));
         final Path unusableDirectory = directory.resolve("not-a-directory");
         Files.writeString(unusableDirectory, "blocker");
 
@@ -311,7 +313,7 @@ class AppStatePersistenceTest {
     void successfulWritesRemoveTheirTemporaryFiles(@TempDir final Path directory)
             throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.addProject(new Project(PROJECT_NAME, DEMO_PATH, null));
+        state.addProject(Project.create(PROJECT_NAME, DEMO_PATH, null));
 
         try (AppStatePersistence persistence = new AppStatePersistence(state, directory)) {
             persistence.persist();

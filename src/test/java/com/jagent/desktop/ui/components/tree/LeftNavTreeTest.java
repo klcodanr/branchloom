@@ -20,8 +20,15 @@ class LeftNavTreeTest {
             throws InvalidObjectException, InterruptedException, InvocationTargetException {
         final AppState state = TestAppState.empty();
         final var projectId =
-                state.addProject(new Project("Demo", "/tmp/demo", null).withGroup(null));
-        final var tree = new LeftNavTree(term -> {}, TestAppState.context(state));
+                state.addProject(Project.create("Demo", "/tmp/demo", null).withGroup(null));
+        final var tree =
+                new LeftNavTree(
+                        term -> {},
+                        TestAppState.controller(state),
+                        state,
+                        null,
+                        TestAppState.sessionActions(state),
+                        TestAppState.projectActions(state));
         final var root = (DefaultMutableTreeNode) tree.getModel().getRoot();
 
         assertEquals(

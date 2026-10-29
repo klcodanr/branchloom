@@ -5,24 +5,22 @@ import com.jagent.desktop.models.Tool;
 import com.jagent.desktop.services.EditorCommands;
 import com.jagent.desktop.services.EditorDetection;
 import com.jagent.desktop.services.PlatformCommands;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.components.UiText;
 import com.jediterm.terminal.CursorShape;
 import com.jediterm.terminal.model.StyleState;
 import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.jediterm.terminal.ui.JediTermSearchComponent;
 import com.jediterm.terminal.ui.JediTermWidget;
-import java.awt.Component;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.nio.file.Path;
 import java.util.function.Consumer;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 
 public final class AppJediTermWidget extends JediTermWidget {
-    private final Component owner;
     private final Path directory;
+    private final DialogService dialogService;
     private boolean modifiedClickLinkActivationAllowed;
     private boolean contextMenuLinkActivationAllowed;
 
@@ -31,11 +29,14 @@ public final class AppJediTermWidget extends JediTermWidget {
             final int rows,
             final AppTerminalSettings settings,
             final Path directory,
-            final JPanel owner,
-            final Consumer<String> titleChanged) {
+            final Consumer<String> titleChanged,
+            final DialogService dialogService) {
         super(columns, rows, settings);
         this.directory = directory;
-        this.owner = owner;
+        this.dialogService = dialogService;
+        if (getTerminalPanel() instanceof AppTerminalPanel terminalPanel) {
+            terminalPanel.setDialogService(dialogService);
+        }
         myTerminal.addApplicationTitleListener(titleChanged::accept);
         addHyperlinkFilter(
                 new TerminalLinkFilter(PlatformCommands::openUrl, this::isLinkActivationAllowed));
@@ -74,11 +75,7 @@ public final class AppJediTermWidget extends JediTermWidget {
     public void open(final TerminalFileLink link) {
         final var editors = EditorDetection.detect();
         if (editors.isEmpty()) {
-            JOptionPane.showMessageDialog(
-                    owner,
-                    "No supported editor is configured.",
-                    "Open file",
-                    JOptionPane.ERROR_MESSAGE);
+            dialogService.errorMessage("No supported editor is configured.", "Open file");
             return;
         }
         final Tool editor = editors.getFirst();
@@ -94,11 +91,8 @@ public final class AppJediTermWidget extends JediTermWidget {
                                     exception.getCause() == null
                                             ? exception.getMessage()
                                             : exception.getCause().getMessage();
-                            JOptionPane.showMessageDialog(
-                                    owner,
-                                    UiText.valueOrDefault(message, "Editor failed."),
-                                    "Open file",
-                                    JOptionPane.ERROR_MESSAGE);
+                            dialogService.errorMessage(
+                                    UiText.valueOrDefault(message, "Editor failed."), "Open file");
                             return null;
                         });
     }

@@ -1,8 +1,14 @@
 package com.jagent.desktop.ui.views;
 
+import com.google.inject.Inject;
 import com.jagent.desktop.api.RefreshableView;
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.async.AsyncLoadingStateFactory;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.BackgroundJobs;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
+import com.jagent.desktop.services.github.GitHubProvider;
 import com.jagent.desktop.ui.components.PullRequestsBoard;
 import com.jagent.desktop.ui.components.TabBody;
 import java.awt.BorderLayout;
@@ -13,9 +19,23 @@ import javax.swing.JPanel;
 public final class MyPullRequestsView extends JPanel implements RefreshableView {
     private final PullRequestsBoard board;
 
-    public MyPullRequestsView(final ActionContext actionContext) {
+    @Inject
+    public MyPullRequestsView(
+            final ViewController viewController,
+            final AppState appState,
+            final AsyncLoadingStateFactory asyncStateFactory,
+            final BackgroundJobs backgroundJobs,
+            final GitHubProvider githubProvider,
+            final DialogService dialogService) {
         super(new BorderLayout());
-        board = new PullRequestsBoard(actionContext);
+        board =
+                new PullRequestsBoard(
+                        asyncStateFactory,
+                        backgroundJobs,
+                        viewController,
+                        appState,
+                        githubProvider,
+                        dialogService);
         add(TabBody.wrap(board), BorderLayout.CENTER);
     }
 

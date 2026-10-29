@@ -1,12 +1,16 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
+import com.google.inject.Inject;
+import com.jagent.desktop.api.Action;
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.services.ViewController;
 
-public final class ResourceUsageAction extends BaseAction {
-    public ResourceUsageAction(final ActionContext actionContext) {
-        super(actionContext);
+public final class ResourceUsageAction implements Action {
+    private final ViewController viewController;
+
+    @Inject
+    public ResourceUsageAction(final ViewController viewController) {
+        this.viewController = viewController;
     }
 
     @Override
@@ -21,6 +25,6 @@ public final class ResourceUsageAction extends BaseAction {
 
     @Override
     public void execute() {
-        actionContext.viewController().updateView(ViewId.RESOURCE_USAGE, null);
+        viewController.updateView(ViewId.RESOURCE_USAGE, null);
     }
 }

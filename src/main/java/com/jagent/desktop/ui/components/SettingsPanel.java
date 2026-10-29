@@ -1,5 +1,6 @@
 package com.jagent.desktop.ui.components;
 
+import com.jagent.desktop.services.dialog.DialogService;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -9,7 +10,6 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.border.EmptyBorder;
@@ -23,7 +23,8 @@ public final class SettingsPanel {
             final JComponent form,
             final Runnable save,
             final Runnable cancel,
-            final BooleanSupplier dirty) {
+            final BooleanSupplier dirty,
+            final DialogService dialogService) {
         final JPanel screen = new JPanel();
         screen.setLayout(new BorderLayout(0, UiConstants.SPACING_XL));
         screen.setBorder(
@@ -73,13 +74,12 @@ public final class SettingsPanel {
         cancelButton.addActionListener(
                 e -> {
                     if (!dirty.getAsBoolean()
-                            || JOptionPane.showConfirmDialog(
-                                            screen,
+                            || dialogService.confirm(
                                             "Discard unsaved changes?",
                                             "Unsaved changes",
-                                            JOptionPane.YES_NO_OPTION,
-                                            JOptionPane.WARNING_MESSAGE)
-                                    == JOptionPane.YES_OPTION) {
+                                            DialogService.OptionType.YES_NO,
+                                            DialogService.MessageType.WARNING)
+                                    == DialogService.ReturnType.OK) {
                         cancel.run();
                     }
                 });

@@ -3,7 +3,6 @@ package com.jagent.desktop.services;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.GitHubUser;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
@@ -15,7 +14,6 @@ import com.jagent.desktop.models.PullRequestReviews;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.github.GitHub;
-import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -36,7 +34,8 @@ class PullRequestWatcherTest {
                     InterruptedException {
         final ProjectId projectId = ProjectId.create();
         final SessionId sessionId = SessionId.create();
-        final Session session = new Session(projectId, "agent", "agent", "prompt", "/tmp/worktree");
+        final Session session =
+                Session.create(projectId, "agent", "agent", "prompt", "/tmp/worktree");
         final PullRequest request = request(projectId);
         final Queue<PullRequestDetails> statuses =
                 new ArrayDeque<>(
@@ -65,10 +64,7 @@ class PullRequestWatcherTest {
                         return statuses.remove();
                     }
                 };
-        final var context =
-                new ActionContext(
-                        TestAppState.controller(state), state, null, null, null, ignored -> github);
-        final PullRequestWatcher watcher = new PullRequestWatcher(context);
+        final PullRequestWatcher watcher = new PullRequestWatcher(state, ignored -> github);
         watcher.poll();
         watcher.poll();
         watcher.poll();
@@ -88,7 +84,7 @@ class PullRequestWatcherTest {
                     java.lang.reflect.InvocationTargetException,
                     InterruptedException {
         final ProjectId projectId = ProjectId.create();
-        final Project project = new Project("Project", "/tmp/project", null);
+        final Project project = Project.create("Project", "/tmp/project", null);
         final var state =
                 new AppState(
                         Defaults.appSettings(),
@@ -96,10 +92,11 @@ class PullRequestWatcherTest {
                         Map.of(),
                         Map.of());
         final SessionId noWorktreeId =
-                state.addSession(projectId, new Session(projectId, "idle", null, null, null));
+                state.addSession(projectId, Session.create(projectId, "idle", null, null, null));
         final SessionId worktreeId =
                 state.addSession(
-                        projectId, new Session(projectId, "active", null, null, "/tmp/worktree"));
+                        projectId,
+                        Session.create(projectId, "active", null, null, "/tmp/worktree"));
         final PullRequest request = request(projectId);
         final GitHub github =
                 new GitHub(state, projectId) {
@@ -113,10 +110,7 @@ class PullRequestWatcherTest {
                         return status(request, false, "clean", PullRequestChecks.Status.PENDING);
                     }
                 };
-        final var context =
-                new ActionContext(
-                        TestAppState.controller(state), state, null, null, null, ignored -> github);
-        final PullRequestWatcher watcher = new PullRequestWatcher(context);
+        final PullRequestWatcher watcher = new PullRequestWatcher(state, ignored -> github);
 
         watcher.poll();
         SwingUtilities.invokeAndWait(() -> {});
@@ -142,8 +136,8 @@ class PullRequestWatcherTest {
                     java.lang.reflect.InvocationTargetException,
                     InterruptedException {
         final ProjectId projectId = ProjectId.create();
-        final Project project = new Project("Project", "/tmp/project", null);
-        final Session session = new Session(projectId, "active", null, null, "/tmp/worktree");
+        final Project project = Project.create("Project", "/tmp/project", null);
+        final Session session = Session.create(projectId, "active", null, null, "/tmp/worktree");
         final var state =
                 new AppState(
                         Defaults.appSettings(),
@@ -158,10 +152,7 @@ class PullRequestWatcherTest {
                         throw new IllegalStateException("No pull request found");
                     }
                 };
-        final var context =
-                new ActionContext(
-                        TestAppState.controller(state), state, null, null, null, ignored -> github);
-        final PullRequestWatcher watcher = new PullRequestWatcher(context);
+        final PullRequestWatcher watcher = new PullRequestWatcher(state, ignored -> github);
 
         watcher.poll();
         SwingUtilities.invokeAndWait(() -> {});
@@ -178,14 +169,7 @@ class PullRequestWatcherTest {
                     }
                 };
         final PullRequestWatcher failingWatcher =
-                new PullRequestWatcher(
-                        new ActionContext(
-                                TestAppState.controller(state),
-                                state,
-                                null,
-                                null,
-                                null,
-                                ignored -> failingGithub));
+                new PullRequestWatcher(state, ignored -> failingGithub);
         failingWatcher.poll();
         assertFalse(
                 state.monitoringStatuses().containsKey(sessionId),
@@ -193,7 +177,7 @@ class PullRequestWatcherTest {
     }
 
     private static PullRequest request(final ProjectId projectId) throws MalformedURLException {
-        final Project project = new Project("Project", "/tmp/project", null);
+        final Project project = Project.create("Project", "/tmp/project", null);
         return new PullRequest(
                 projectId,
                 project,

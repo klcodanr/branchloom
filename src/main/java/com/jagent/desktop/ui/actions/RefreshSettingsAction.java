@@ -1,12 +1,20 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
-import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.ui.utils.ErrorDialogs;
+import com.google.inject.Inject;
+import com.google.inject.name.Named;
+import com.jagent.desktop.api.Action;
+import com.jagent.desktop.services.dialog.DialogService;
 
-public final class RefreshSettingsAction extends BaseAction {
-    public RefreshSettingsAction(final ActionContext actionContext) {
-        super(actionContext);
+public final class RefreshSettingsAction implements Action {
+    private final Runnable refreshSettings;
+    private final DialogService dialogService;
+
+    @Inject
+    public RefreshSettingsAction(
+            final @Named("refreshSettings") Runnable refreshSettings,
+            final DialogService dialogService) {
+        this.refreshSettings = refreshSettings;
+        this.dialogService = dialogService;
     }
 
     @Override
@@ -22,12 +30,9 @@ public final class RefreshSettingsAction extends BaseAction {
     @Override
     public void execute() {
         try {
-            actionContext.refreshSettings().run();
+            refreshSettings.run();
         } catch (IllegalStateException exception) {
-            ErrorDialogs.show(
-                    actionContext.window(),
-                    "Settings could not be refreshed",
-                    exception.getMessage());
+            dialogService.errorMessage(exception.getMessage(), "Settings could not be refreshed");
         }
     }
 }

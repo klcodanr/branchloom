@@ -2,10 +2,12 @@ package com.jagent.desktop.ui.views;
 
 import com.jagent.desktop.api.RefreshableView;
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
+import com.jagent.desktop.services.github.GitHubProvider;
 import com.jagent.desktop.ui.components.FileViewer;
 import com.jagent.desktop.ui.components.IconButton;
 import com.jagent.desktop.ui.components.Theme;
@@ -36,7 +38,9 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
 abstract class AbstractWorkspaceView extends JPanel implements RefreshableView {
-    protected final transient ActionContext actionContext;
+    protected final transient AppState appState;
+    protected final transient GitHubProvider githubProvider;
+    protected final transient DialogService dialogService;
     protected final transient ViewController viewController;
     protected final JTabbedPane tabs = new JTabbedPane();
     protected WorkspaceSplitPane contentSplit = new WorkspaceSplitPane(tabs);
@@ -48,10 +52,17 @@ abstract class AbstractWorkspaceView extends JPanel implements RefreshableView {
     private JLabel titleLabel;
     private String titleText;
 
-    protected AbstractWorkspaceView(final ActionContext actionContext, final ViewId viewId) {
+    protected AbstractWorkspaceView(
+            final ViewController viewController,
+            final AppState appState,
+            final GitHubProvider githubProvider,
+            final DialogService dialogService,
+            final ViewId viewId) {
         super(new BorderLayout(0, UiConstants.SECTION_PADDING));
-        this.actionContext = actionContext;
-        this.viewController = actionContext.viewController();
+        this.viewController = viewController;
+        this.appState = appState;
+        this.githubProvider = githubProvider;
+        this.dialogService = dialogService;
         this.viewId = viewId;
     }
 
@@ -73,17 +84,18 @@ abstract class AbstractWorkspaceView extends JPanel implements RefreshableView {
         contentSplit.setBorder(null);
         add(contentSplit, BorderLayout.CENTER);
         workspaceTreeSidebar.configure(
-                contentSplit, workspacePath(), actionContext, this::openTerminal, this::openFile);
+                contentSplit, workspacePath(), this::openTerminal, this::openFile);
         terminalTabs =
                 new WorkspaceTerminalTabs(
                         tabs,
                         (terminal, terminalId) -> {
                             if (terminalId != null) {
-                                actionContext.appState().removeTerminal(terminalId);
+                                appState.removeTerminal(terminalId);
                             }
                             terminalClosed();
                         },
-                        this::terminalRenamed);
+                        this::terminalRenamed,
+                        dialogService);
         terminalIds = terminalTabs.ids();
         new WorkspaceTabMenu(tabs, terminalTabs);
         addDefaultTabs();
@@ -166,9 +178,9 @@ abstract class AbstractWorkspaceView extends JPanel implements RefreshableView {
         if (terminalId == null) {
             return;
         }
-        final Terminal current = actionContext.appState().terminals().get(terminalId);
+        final Terminal current = appState.terminals().get(terminalId);
         if (current != null) {
-            actionContext.appState().updateTerminal(terminalId, current.withTitle(title));
+            appState.updateTerminal(terminalId, current.withTitle(title));
         }
     }
 
@@ -218,7 +230,7 @@ abstract class AbstractWorkspaceView extends JPanel implements RefreshableView {
                 && tabs.getComponentAt(selectedIndex) instanceof TerminalPanel terminal) {
             currentTerminal = terminalIds.get(terminal);
         }
-        actionContext.viewController().selectTerminal(currentTerminal);
+        viewController.selectTerminal(currentTerminal);
     }
 
     protected void updateSelectedTab(final int selectedIndex) {
@@ -280,7 +292,7 @@ abstract class AbstractWorkspaceView extends JPanel implements RefreshableView {
         }
     }
 
-    private static final class WorkspaceTreeSidebarController {
+    private final class WorkspaceTreeSidebarController {
         private static final int EXPANDED_WORKSPACE_TREE_WIDTH = 220;
         private static final int COLLAPSED_WORKSPACE_TREE_WIDTH = 32;
         private static final int WORKSPACE_TREE_DIVIDER_SIZE = 8;
@@ -295,7 +307,6 @@ abstract class AbstractWorkspaceView extends JPanel implements RefreshableView {
         private void configure(
                 final WorkspaceSplitPane splitPane,
                 final Path workspacePath,
-                final ActionContext actionContext,
                 final Runnable openTerminal,
                 final BiConsumer<Path, Boolean> openFile) {
             workspaceTreeContainer.removeAll();
@@ -305,7 +316,12 @@ abstract class AbstractWorkspaceView extends JPanel implements RefreshableView {
                 return;
             }
             final WorkspaceTreePanel treePanel =
-                    new WorkspaceTreePanel(actionContext, workspacePath, openTerminal, openFile);
+                    new WorkspaceTreePanel(
+                            AbstractWorkspaceView.this.viewController,
+                            AbstractWorkspaceView.this.appState,
+                            workspacePath,
+                            openTerminal,
+                            openFile);
             treePanel.setBorder(UiBorders.contentArea());
             treePanel.setHideAction(() -> hideWorkspaceTree(treePanel));
             contentSplit.setRightComponent(workspaceTreeContainer);

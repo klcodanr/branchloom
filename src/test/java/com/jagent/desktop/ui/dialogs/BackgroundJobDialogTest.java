@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import com.jagent.desktop.services.BackgroundJobs;
 import java.awt.Component;
 import java.awt.Container;
+import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JTextArea;
@@ -18,7 +20,7 @@ class BackgroundJobDialogTest {
         running.update("Running startup command 2 of 3");
         running.output("Installing dependencies");
 
-        final var content = BackgroundJobDialog.content(jobs.jobs().getFirst(), null);
+        final var content = shownContent(jobs.jobs().getFirst());
 
         assertNotNull(findLabel(content, "Session setup"), "dialog should show the job title");
         assertNotNull(findLabel(content, "Running"), "dialog should show the running state");
@@ -43,22 +45,20 @@ class BackgroundJobDialogTest {
 
         assertNotNull(
                 findLabel(
-                        BackgroundJobDialog.content(
+                        shownContent(
                                 jobs.jobs().stream()
                                         .filter(job -> "Completed job".equals(job.title()))
                                         .findFirst()
-                                        .orElseThrow(),
-                                null),
+                                        .orElseThrow()),
                         "Completed"),
                 "dialog should show completed state");
         assertNotNull(
                 findLabel(
-                        BackgroundJobDialog.content(
+                        shownContent(
                                 jobs.jobs().stream()
                                         .filter(job -> "Failed job".equals(job.title()))
                                         .findFirst()
-                                        .orElseThrow(),
-                                null),
+                                        .orElseThrow()),
                         "Failed"),
                 "dialog should show failed state");
     }
@@ -106,5 +106,54 @@ class BackgroundJobDialogTest {
             }
         }
         return null;
+    }
+
+    private static Container shownContent(final BackgroundJobs.Job job) {
+        final AtomicReference<Container> captured = new AtomicReference<>();
+        final var dialogs =
+                new com.jagent.desktop.services.dialog.DialogService() {
+                    @Override
+                    public void message(String message, String title, MessageType type) {}
+
+                    @Override
+                    public void errorMessage(String message, String title) {}
+
+                    @Override
+                    public ReturnType confirm(
+                            Object content, String title, OptionType options, MessageType type) {
+                        return ReturnType.CANCEL;
+                    }
+
+                    @Override
+                    public Object input(Object message, String title, MessageType type) {
+                        return null;
+                    }
+
+                    @Override
+                    public ReturnType option(
+                            Object message,
+                            String title,
+                            MessageType type,
+                            Object[] options,
+                            Object initial) {
+                        return ReturnType.CLOSED;
+                    }
+
+                    @Override
+                    public Path chooseDirectory(String title, Path initial, String approve) {
+                        return null;
+                    }
+
+                    @Override
+                    public ReturnType show(
+                            final String title,
+                            final javax.swing.JComponent content,
+                            final String primary) {
+                        captured.set((Container) content);
+                        return ReturnType.OK;
+                    }
+                };
+        new BackgroundJobDialog(dialogs).show(job);
+        return captured.get();
     }
 }

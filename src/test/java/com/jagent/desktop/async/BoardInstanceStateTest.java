@@ -46,11 +46,12 @@ class BoardInstanceStateTest {
         final SessionId activeId = SessionId.create();
         final SessionId missingProjectId = SessionId.create();
         final TerminalId terminalId = TerminalId.create();
-        final Project project = new Project("Demo", "/tmp/demo", null);
+        final Project project = Project.create("Demo", "/tmp/demo", null);
         final Session idle =
-                new Session(projectId, "Idle", null, null, null, Instant.EPOCH, List.of());
+                new Session(idleId, projectId, "Idle", null, null, null, Instant.EPOCH, List.of());
         final Session active =
                 new Session(
+                        activeId,
                         projectId,
                         "Active",
                         "agent",
@@ -60,6 +61,7 @@ class BoardInstanceStateTest {
                         List.of(terminalId));
         final Session missingProject =
                 new Session(
+                        missingProjectId,
                         ProjectId.create(),
                         "Missing project",
                         null,

@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.test.SwingTestSupport;
 import com.jagent.desktop.test.TestAppState;
@@ -18,10 +17,14 @@ class MyPullRequestsViewTest {
     @Test
     void showsQueryPromptWithoutProjects() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ActionContext context =
-                new ActionContext(TestAppState.controller(state), state, null, null, null);
-
-        final MyPullRequestsView view = new MyPullRequestsView(context);
+        final MyPullRequestsView view =
+                new MyPullRequestsView(
+                        TestAppState.controller(state),
+                        state,
+                        null,
+                        null,
+                        TestAppState.githubProvider(state),
+                        TestAppState.dialogService());
         assertNotNull(
                 SwingTestSupport.find(
                         view,

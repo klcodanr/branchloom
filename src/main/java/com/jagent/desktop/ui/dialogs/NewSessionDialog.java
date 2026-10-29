@@ -1,9 +1,9 @@
 package com.jagent.desktop.ui.dialogs;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.git.Branch;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.components.AgentSelector;
 import com.jagent.desktop.ui.components.BaseTextArea;
 import com.jagent.desktop.ui.components.FormPanel;
@@ -18,7 +18,6 @@ import java.awt.datatransfer.Transferable;
 import java.util.List;
 import java.util.function.Consumer;
 import javax.swing.JComboBox;
-import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -27,7 +26,6 @@ import javax.swing.TransferHandler;
 
 public final class NewSessionDialog extends FormDialog {
     private static final String TITLE = "New agent session";
-    private final transient AppState appState;
     private final transient Consumer<Request> onValid;
     private final JTextField name = new JTextField(35);
     private final JComboBox<Agent> agent;
@@ -47,17 +45,19 @@ public final class NewSessionDialog extends FormDialog {
         }
     }
 
-    public NewSessionDialog(final ActionContext actionContext, final Consumer<Request> onValid) {
-        this(actionContext, List.of(), onValid);
+    public NewSessionDialog(
+            final AppState appState,
+            final DialogService dialogService,
+            final Consumer<Request> onValid) {
+        this(appState, dialogService, List.of(), onValid);
     }
 
     public NewSessionDialog(
-            final ActionContext actionContext,
+            final AppState appState,
+            final DialogService dialogService,
             final List<Branch> branches,
             final Consumer<Request> onValid) {
-        super(actionContext.window(), TITLE);
-
-        this.appState = actionContext.appState();
+        super();
         this.onValid = onValid;
         name.setName("session-name");
         agent = new AgentSelector("session-agent", appState.appSettings().agents());
@@ -87,7 +87,7 @@ public final class NewSessionDialog extends FormDialog {
                 "session-cancel",
                 "session-ok",
                 this::validateAndCheckBranch,
-                actionContext.window());
+                dialogService);
         setFocusTraversalPolicy(
                 new FocusTraversalPolicy() {
                     private final List<Component> order =
@@ -156,11 +156,8 @@ public final class NewSessionDialog extends FormDialog {
                                 transferable,
                                 prompt::replaceSelection,
                                 message ->
-                                        JOptionPane.showMessageDialog(
-                                                NewSessionDialog.this,
-                                                message,
-                                                "Clipboard image paste failed",
-                                                JOptionPane.ERROR_MESSAGE));
+                                        dialogService.errorMessage(
+                                                message, "Clipboard image paste failed"));
                     }
                 });
     }
@@ -170,12 +167,10 @@ public final class NewSessionDialog extends FormDialog {
                 validationFailure(
                         name.getText(), (Agent) agent.getSelectedItem(), prompt.getText());
         if (validationMessage != null) {
-            JOptionPane.showMessageDialog(
-                    this, validationMessage, TITLE, JOptionPane.ERROR_MESSAGE);
+            dialogService.errorMessage(validationMessage, TITLE);
             return;
         }
         final Agent selectedAgent = (Agent) agent.getSelectedItem();
-        dispose();
         final BranchChoice selectedBranch = (BranchChoice) baseBranch.getSelectedItem();
         onValid.accept(
                 new Request(

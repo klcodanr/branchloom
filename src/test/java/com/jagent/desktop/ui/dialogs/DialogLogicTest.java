@@ -51,7 +51,7 @@ class DialogLogicTest {
             throws InterruptedException, ExecutionException {
         final CountDownLatch completed = new CountDownLatch(1);
 
-        ProgressOperation.run(null, "Test operation", "Working", () -> null)
+        ProgressOperation.run("Test operation", "Working", () -> null)
                 .thenRun(completed::countDown)
                 .get();
 

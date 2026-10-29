@@ -22,13 +22,21 @@ class ProjectsTreeTest {
     void buildsDefaultProjectAndSessionNodes() throws InvalidObjectException {
         final AppState state = TestAppState.empty();
         final var projectId =
-                state.addProject(new Project("Demo", "/tmp/demo", null).withGroup(null));
+                state.addProject(Project.create("Demo", "/tmp/demo", null).withGroup(null));
         final var sessionId =
                 state.addSession(
-                        projectId, new Session(projectId, "Feature", "Agent", "Prompt", null));
+                        projectId, Session.create(projectId, "Feature", "Agent", "Prompt", null));
         final var model = new FilteredTreeModel(new DefaultMutableTreeNode("root"));
         final var tree = new JTree(model);
-        final var projects = new ProjectsTree(TestAppState.context(state), model, tree);
+        final var projects =
+                new ProjectsTree(
+                        TestAppState.controller(state),
+                        state,
+                        TestAppState.dialogService(),
+                        TestAppState.projectActions(state),
+                        TestAppState.sessionActions(state),
+                        model,
+                        tree);
 
         final var group = projects.getGroupNodes().get(0);
         final var project = (DefaultMutableTreeNode) group.getChildAt(0);
@@ -51,9 +59,17 @@ class ProjectsTreeTest {
         final AppState state = TestAppState.empty();
         final var model = new FilteredTreeModel(new DefaultMutableTreeNode("root"));
         final var tree = new JTree(model);
-        final var projects = new ProjectsTree(TestAppState.context(state), model, tree);
+        final var projects =
+                new ProjectsTree(
+                        TestAppState.controller(state),
+                        state,
+                        TestAppState.dialogService(),
+                        TestAppState.projectActions(state),
+                        TestAppState.sessionActions(state),
+                        model,
+                        tree);
         final var projectId =
-                state.addProject(new Project("Demo", "/tmp/demo", null).withGroup(null));
+                state.addProject(Project.create("Demo", "/tmp/demo", null).withGroup(null));
         SwingUtilities.invokeAndWait(() -> {});
         assertEquals(
                 1,
@@ -61,7 +77,7 @@ class ProjectsTreeTest {
                 "project add should create a node");
         final var sessionId =
                 state.addSession(
-                        projectId, new Session(projectId, "Feature", "Agent", "Prompt", null));
+                        projectId, Session.create(projectId, "Feature", "Agent", "Prompt", null));
         SwingUtilities.invokeAndWait(() -> {});
         assertEquals(
                 1,

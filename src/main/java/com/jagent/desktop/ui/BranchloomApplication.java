@@ -1,9 +1,11 @@
 package com.jagent.desktop.ui;
 
 import com.formdev.flatlaf.util.SystemInfo;
+import com.google.inject.Guice;
+import com.google.inject.Injector;
 import com.jagent.desktop.async.ProgressOperation;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ApplicationModule;
 import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.services.persistence.AppStatePersistence;
 import com.jagent.desktop.services.persistence.WindowStatePersistence;
@@ -19,21 +21,18 @@ import javax.swing.UIManager;
 
 /** Explicit composition root and lifecycle owner for the desktop application. */
 public final class BranchloomApplication {
-    private final Path dataDirectory;
     private final AppStatePersistence persistence;
     private final WindowStatePersistence windowStatePersistence;
     private final AppState state;
-    private final ViewController controller;
     private final ApplicationWindow window;
     private final AppView view;
-    private final ActionContext actionContext;
+    private final AppMenuBar menuBar;
     private boolean closed;
 
     public BranchloomApplication(final Path dataDirectory) {
-        this.dataDirectory = dataDirectory;
         state = AppStatePersistence.load(dataDirectory);
+        Theme.apply(Theme.FlatLafTheme.from(state.appSettings().theme()));
         persistence = new AppStatePersistence(state, dataDirectory);
-
         windowStatePersistence = new WindowStatePersistence(dataDirectory);
         window = new ApplicationWindow(windowStatePersistence, this::close);
 
@@ -43,24 +42,20 @@ public final class BranchloomApplication {
                     Theme.apply(Theme.FlatLafTheme.from(settings.theme()));
                 };
 
-        controller = new ViewController(state, window, dataDirectory, refreshSettings);
-        actionContext =
-                new ActionContext(
-                        controller,
-                        state,
-                        window,
-                        dataDirectory,
-                        () -> {
-                            refreshSettings.run();
-                            controller.updateView(controller.currentViewId(), null);
-                        });
-        view = new AppView(actionContext);
-        window.setJMenuBar(AppMenuBar.create(actionContext));
+        final Injector injector =
+                Guice.createInjector(
+                        new ApplicationModule(dataDirectory, state, window, refreshSettings));
+        view = injector.getInstance(AppView.class);
+        menuBar = injector.getInstance(AppMenuBar.class);
+        final var controller = injector.getInstance(ViewController.class);
+        window.setJMenuBar(menuBar.create());
         window.setContentPane(view);
 
         controller.onViewChanged(
                 ignored -> {
-                    window.setJMenuBar(AppMenuBar.create(actionContext));
+                    menuBar.create();
+                    window.revalidate();
+                    window.repaint();
                     view.render();
                 });
     }
@@ -98,7 +93,6 @@ public final class BranchloomApplication {
         }
         closed = true;
         ProgressOperation.run(
-                        new ActionContext(controller, state, window, dataDirectory, null),
                         "Closing Branchloom",
                         "Stopping terminal processes...",
                         () -> {

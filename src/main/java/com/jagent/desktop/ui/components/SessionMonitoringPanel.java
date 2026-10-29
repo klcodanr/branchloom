@@ -1,11 +1,11 @@
 package com.jagent.desktop.ui.components;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
+import com.jagent.desktop.services.ViewController;
 import java.awt.BorderLayout;
 import java.awt.Cursor;
 import java.awt.Dimension;
@@ -28,15 +28,15 @@ import javax.swing.table.DefaultTableModel;
 /** Displays the current pull-request status for all sessions. */
 public final class SessionMonitoringPanel extends JPanel {
     private static final int VISIBLE_ROWS = 10;
+    private final transient ViewController viewController;
     private final transient AppState appState;
-    private final transient ActionContext actionContext;
     private final List<SessionId> sessionIds = new ArrayList<>();
     private final JTable table;
 
-    public SessionMonitoringPanel(final ActionContext actionContext) {
+    public SessionMonitoringPanel(final ViewController viewController, final AppState appState) {
         super(new BorderLayout(0, UiConstants.COMPONENT_GAP));
-        this.actionContext = actionContext;
-        this.appState = actionContext.appState();
+        this.viewController = viewController;
+        this.appState = appState;
         setOpaque(false);
 
         final DefaultTableModel model =
@@ -146,7 +146,7 @@ public final class SessionMonitoringPanel extends JPanel {
         if (column == 0) {
             final Session session = appState.sessions().get(id);
             if (session != null) {
-                actionContext.viewController().openSession(session.projectId(), id);
+                viewController.openSession(session.projectId(), id);
             }
         } else if (column == 1) {
             final PullRequestDetails monitoring = appState.monitoringStatuses().get(id);

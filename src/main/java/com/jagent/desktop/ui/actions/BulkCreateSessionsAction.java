@@ -1,26 +1,39 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
+import com.google.inject.Inject;
+import com.jagent.desktop.api.Action;
 import com.jagent.desktop.async.BackgroundOperations;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.github.Issue;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.BulkSessionCreator;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.services.github.GitHub;
-import com.jagent.desktop.ui.components.BulkSessionCreator;
 import com.jagent.desktop.ui.dialogs.BulkSessionDialog;
-import com.jagent.desktop.ui.utils.ErrorDialogs;
 import com.jagent.desktop.ui.utils.ErrorMessages;
 import com.jagent.desktop.ui.utils.GitUtils;
 import java.util.List;
-import javax.swing.JOptionPane;
 
-public class BulkCreateSessionsAction extends BaseAction {
+public class BulkCreateSessionsAction implements Action {
+    private final ViewController viewController;
+    private final AppState appState;
+
+    private final DialogService dialogService;
+    private static final String TITLE = "Bulk agent sessions";
     private final BulkSessionCreator sessionCreator;
 
-    public BulkCreateSessionsAction(final ActionContext actionContext) {
-        super(actionContext);
-        sessionCreator = new BulkSessionCreator(actionContext);
+    @Inject
+    public BulkCreateSessionsAction(
+            final ViewController viewController,
+            final AppState appState,
+            final DialogService dialogService,
+            final BulkSessionCreator sessionCreator) {
+        this.viewController = viewController;
+        this.appState = appState;
+        this.dialogService = dialogService;
+        this.sessionCreator = sessionCreator;
     }
 
     @Override
@@ -35,21 +48,19 @@ public class BulkCreateSessionsAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.viewController().currentProjectId() != null;
+        return viewController.currentProjectId() != null;
     }
 
     @Override
     public void execute() {
-        final var state = actionContext.appState();
-        final ProjectId projectId = actionContext.viewController().currentProjectId();
+        final var state = appState;
+        final ProjectId projectId = viewController.currentProjectId();
         if (projectId == null || state.projects().get(projectId) == null) {
             return;
         }
         if (state.appSettings().agents().isEmpty()) {
-            ErrorDialogs.show(
-                    actionContext.window(),
-                    "Bulk agent sessions",
-                    "Configure an agent in Settings before starting a session.");
+            dialogService.errorMessage(
+                    "Configure an agent in Settings before starting a session.", TITLE);
             return;
         }
         final Project project = state.projects().get(projectId);
@@ -58,15 +69,17 @@ public class BulkCreateSessionsAction extends BaseAction {
                 .thenAcceptAsync(
                         issues -> {
                             if (issues.isEmpty()) {
-                                JOptionPane.showMessageDialog(
-                                        actionContext.window(),
+                                dialogService.message(
                                         "No open GitHub issues were found.",
-                                        "Bulk agent sessions",
-                                        JOptionPane.INFORMATION_MESSAGE);
+                                        TITLE,
+                                        DialogService.MessageType.INFORMATION);
                                 return;
                             }
-                            new BulkSessionDialog(
-                                            actionContext,
+                            dialogService.show(
+                                    TITLE,
+                                    new BulkSessionDialog(
+                                            appState,
+                                            dialogService,
                                             issues,
                                             request -> {
                                                 final List<BulkSessionCreator.Candidate>
@@ -77,16 +90,15 @@ public class BulkCreateSessionsAction extends BaseAction {
                                                         request.agent(),
                                                         candidates,
                                                         "Bulk sessions");
-                                            })
-                                    .setVisible(true);
+                                            }),
+                                    "Create sessions");
                         })
                 .exceptionally(
                         failure -> {
-                            ErrorDialogs.show(
-                                    actionContext.window(),
-                                    "Bulk agent sessions",
+                            dialogService.errorMessage(
                                     ErrorMessages.deepestCause(
-                                            failure, "Could not load GitHub issues."));
+                                            failure, "Could not load GitHub issues."),
+                                    "Bulk agent sessions");
                             return null;
                         });
     }

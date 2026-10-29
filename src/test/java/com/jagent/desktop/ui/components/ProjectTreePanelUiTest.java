@@ -3,7 +3,6 @@ package com.jagent.desktop.ui.components;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
@@ -24,7 +23,11 @@ class ProjectTreePanelUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new ProjectTreePanel(
-                                        new ActionContext(coordinator, state, null, null, null)));
+                                        coordinator,
+                                        state,
+                                        TestAppState.dialogService(),
+                                        TestAppState.sessionActions(state),
+                                        TestAppState.projectActions(state)));
 
         final var treeContent = (JPanel) panel.getComponent(1);
         final var scroll = (JScrollPane) treeContent.getComponent(1);

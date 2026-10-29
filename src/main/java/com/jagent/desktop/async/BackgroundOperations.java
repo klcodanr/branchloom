@@ -1,6 +1,7 @@
 package com.jagent.desktop.async;
 
 import com.jagent.desktop.services.PlatformCommands;
+import com.jagent.desktop.ui.components.UiText;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Comparator;
@@ -14,8 +15,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.swing.SwingUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Application-scoped executor for blocking background work.
@@ -28,12 +32,95 @@ import javax.swing.SwingUtilities;
  * ProgressOperation}.
  */
 public final class BackgroundOperations {
+    private static final Logger LOG = LoggerFactory.getLogger(BackgroundOperations.class);
     private static final int MAX_RETAINED_OUTPUT_CHARS = 1_000_000;
     private static final ExecutorService EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
     private static final ConcurrentMap<String, Counters> GROUPS = new ConcurrentHashMap<>();
     private static final ConcurrentMap<Thread, String> ACTIVE_TASKS = new ConcurrentHashMap<>();
 
     private BackgroundOperations() {}
+
+    public static void logFailure(
+            final ProcessBuilder builder, final int exitCode, final String output) {
+        LOG.warn(
+                "Command failed (exit code "
+                        + exitCode
+                        + "): "
+                        + describe(builder)
+                        + System.lineSeparator()
+                        + "Output: "
+                        + UiText.valueOrDefault(output, "<none>").trim()
+                        + System.lineSeparator()
+                        + "Reproduce: "
+                        + reproduce(builder));
+    }
+
+    private static void logStartFailure(final ProcessBuilder builder, final IOException exception) {
+        LOG.warn(
+                "Could not start command: "
+                        + describe(builder)
+                        + System.lineSeparator()
+                        + "Reason: "
+                        + exception.getMessage()
+                        + System.lineSeparator()
+                        + "Reproduce: "
+                        + reproduce(builder),
+                exception);
+    }
+
+    private static String describe(final ProcessBuilder builder) {
+        return commandLine(builder.command())
+                + " (directory: "
+                + (builder.directory() == null
+                        ? Path.of(".").toAbsolutePath()
+                        : builder.directory())
+                + ")";
+    }
+
+    private static String reproduce(final ProcessBuilder builder) {
+        final String directory =
+                builder.directory() == null
+                        ? Path.of(".").toAbsolutePath().toString()
+                        : builder.directory().toString();
+        return "cd "
+                + PlatformCommands.shellQuote(directory)
+                + " && "
+                + commandLine(builder.command());
+    }
+
+    private static String commandLine(final List<String> command) {
+        return command.stream().map(PlatformCommands::shellQuote).collect(Collectors.joining(" "));
+    }
+
+    private static String readOutput(final Process process, final Consumer<String> onOutput)
+            throws IOException {
+        final StringBuilder output = new StringBuilder();
+        try (var reader = process.inputReader()) {
+            while (true) {
+                final String line = reader.readLine();
+                if (line == null) {
+                    break;
+                }
+                if (output.length() < MAX_RETAINED_OUTPUT_CHARS) {
+                    final int remaining = MAX_RETAINED_OUTPUT_CHARS - output.length();
+                    output.append(line, 0, Math.min(line.length(), remaining));
+                    if (output.length() < MAX_RETAINED_OUTPUT_CHARS) {
+                        output.append(
+                                System.lineSeparator(),
+                                0,
+                                Math.min(
+                                        System.lineSeparator().length(),
+                                        MAX_RETAINED_OUTPUT_CHARS - output.length()));
+                    }
+                }
+                if (onOutput != null) {
+                    final String text = line;
+                    SwingUtilities.invokeLater(() -> onOutput.accept(text));
+                }
+            }
+        }
+        return output.toString();
+    }
 
     /**
      * Runs a task on a virtual background thread and completes the returned future on the EDT.
@@ -105,68 +192,68 @@ public final class BackgroundOperations {
      * @param onOutput optional callback for each output line; may be {@code null}
      * @return future completed on the EDT with full combined command output
      */
-    public static CompletableFuture<String> runCommand(
+    public static CompletableFuture<Void> runCommand(
             final String group,
             final String name,
             final String command,
             final Path directory,
             final Consumer<String> onOutput) {
+        return runCommands(group, name, List.of(command), directory, onOutput, null);
+    }
+
+    /**
+     * Runs a shell command asynchronously and streams line output to an optional callback.
+     *
+     * <p>Use this helper when command output should be surfaced incrementally to the UI while the
+     * command is still running. Command output callbacks are dispatched on the EDT.
+     *
+     * @param group logical task group for observability
+     * @param name task name for observability
+     * @param command shell command string
+     * @param directory working directory for command execution
+     * @param onOutput optional callback for each output line; may be {@code null}
+     * @param onOnCommandComplete optional callback invoked after each command completes; may be
+     *     {@code null}
+     * @return future completed on the EDT with full combined command output
+     */
+    public static CompletableFuture<Void> runCommands(
+            final String group,
+            final String name,
+            final List<String> commands,
+            final Path directory,
+            final Consumer<String> onOutput,
+            final Consumer<String> onOnCommandComplete) {
         return submit(
                 group,
                 name,
                 () -> {
-                    final ProcessBuilder builder =
-                            PlatformCommands.prepare(
-                                            new ProcessBuilder(PlatformCommands.shell(command)))
-                                    .directory(directory.toFile())
-                                    .redirectErrorStream(true);
-                    try {
-                        final Process process = builder.start();
-                        final String output = readOutput(process, onOutput);
-                        final int exitCode = process.waitFor();
-                        if (exitCode != 0) {
-                            PlatformCommands.logFailure(builder, exitCode, output);
-                            throw new IllegalStateException(output.trim());
+                    for (final String command : commands) {
+                        final ProcessBuilder builder =
+                                PlatformCommands.prepare(
+                                                new ProcessBuilder(PlatformCommands.shell(command)))
+                                        .directory(directory.toFile())
+                                        .redirectErrorStream(true);
+                        try {
+                            final Process process = builder.start();
+                            final String output = readOutput(process, onOutput);
+                            final int exitCode = process.waitFor();
+                            if (exitCode != 0) {
+                                logFailure(builder, exitCode, output);
+                                throw new IllegalStateException(output.trim());
+                            }
+                            if (onOnCommandComplete != null) {
+                                onOnCommandComplete.accept(output);
+                            }
+                        } catch (IOException exception) {
+                            logStartFailure(builder, exception);
+                            throw exception;
+                        } catch (InterruptedException exception) {
+                            Thread.currentThread().interrupt();
+                            throw exception;
                         }
-                        return output;
-                    } catch (IOException exception) {
-                        PlatformCommands.logStartFailure(builder, exception);
-                        throw exception;
-                    } catch (InterruptedException exception) {
-                        Thread.currentThread().interrupt();
-                        throw exception;
                     }
+                    return null;
                 });
-    }
-
-    private static String readOutput(final Process process, final Consumer<String> onOutput)
-            throws IOException {
-        final StringBuilder output = new StringBuilder();
-        try (var reader = process.inputReader()) {
-            while (true) {
-                final String line = reader.readLine();
-                if (line == null) {
-                    break;
-                }
-                if (output.length() < MAX_RETAINED_OUTPUT_CHARS) {
-                    final int remaining = MAX_RETAINED_OUTPUT_CHARS - output.length();
-                    output.append(line, 0, Math.min(line.length(), remaining));
-                    if (output.length() < MAX_RETAINED_OUTPUT_CHARS) {
-                        output.append(
-                                System.lineSeparator(),
-                                0,
-                                Math.min(
-                                        System.lineSeparator().length(),
-                                        MAX_RETAINED_OUTPUT_CHARS - output.length()));
-                    }
-                }
-                if (onOutput != null) {
-                    final String text = line;
-                    SwingUtilities.invokeLater(() -> onOutput.accept(text));
-                }
-            }
-        }
-        return output.toString();
     }
 
     /**

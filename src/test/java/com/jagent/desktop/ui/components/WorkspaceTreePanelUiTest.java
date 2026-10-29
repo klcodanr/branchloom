@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.test.SwingTestSupport;
 import com.jagent.desktop.test.TestAppState;
@@ -115,7 +114,8 @@ class WorkspaceTreePanelUiTest {
                         final var workspaceRoot = root(panel);
                         return workspaceRoot.getChildCount() == 1
                                 && workspace
-                                        .resolve(NESTED, FILE)
+                                        .resolve(NESTED)
+                                        .resolve(FILE)
                                         .toAbsolutePath()
                                         .normalize()
                                         .equals(
@@ -358,7 +358,8 @@ class WorkspaceTreePanelUiTest {
     private static WorkspaceTreePanel create(final Path workspace) {
         final var state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         return new WorkspaceTreePanel(
-                new ActionContext(TestAppState.controller(state), state, null, null, null),
+                TestAppState.controller(state),
+                state,
                 workspace,
                 () -> {},
                 (ignored, filtered) -> {});
@@ -370,7 +371,8 @@ class WorkspaceTreePanelUiTest {
             final java.util.function.BiConsumer<Path, Boolean> openFile) {
         final var state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         return new WorkspaceTreePanel(
-                new ActionContext(TestAppState.controller(state), state, null, null, null),
+                TestAppState.controller(state),
+                state,
                 workspace,
                 () -> openTerminal.accept(workspace),
                 openFile);

@@ -6,10 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.formdev.flatlaf.util.SystemInfo;
-import com.jagent.desktop.models.ActionContext;
+import com.google.inject.Guice;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ApplicationModule;
 import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.ui.Defaults;
 import java.awt.Toolkit;
@@ -31,10 +32,12 @@ class AppMenuBarTest {
 
     @Test
     void emptyStateBuildsOnlyGlobalMenus() {
-        final ActionContext context =
-                context(new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of()));
-
-        final JMenuBar bar = GuiActionRunner.execute(() -> AppMenuBar.create(context));
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final var injector =
+                Guice.createInjector(
+                        new ApplicationModule(null, state, new javax.swing.JFrame(), () -> {}));
+        final JMenuBar bar =
+                GuiActionRunner.execute(() -> injector.getInstance(AppMenuBar.class).create());
 
         assertEquals(3, bar.getMenuCount(), ASSERTION_MESSAGE);
         assertEquals("File", bar.getMenu(0).getText(), ASSERTION_MESSAGE);
@@ -64,16 +67,18 @@ class AppMenuBarTest {
     void selectedProjectAndSessionAddContextMenusAndShortcuts()
             throws java.io.InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project("Demo", PROJECT_PATH, null));
+        final var projectId = state.addProject(Project.create("Demo", PROJECT_PATH, null));
         final var sessionId =
                 state.addSession(
-                        projectId, new Session(projectId, "Feature", null, null, PROJECT_PATH));
-        final var controller = new ViewController(state, null, null, () -> {});
+                        projectId, Session.create(projectId, "Feature", null, null, PROJECT_PATH));
+        final var injector =
+                Guice.createInjector(
+                        new ApplicationModule(null, state, new javax.swing.JFrame(), () -> {}));
+        final var controller = injector.getInstance(ViewController.class);
         controller.selectProject(projectId);
         controller.selectSession(projectId, sessionId);
-        final ActionContext context = new ActionContext(controller, state, null, null, null);
-
-        final JMenuBar bar = GuiActionRunner.execute(() -> AppMenuBar.create(context));
+        final JMenuBar bar =
+                GuiActionRunner.execute(() -> injector.getInstance(AppMenuBar.class).create());
 
         assertEquals(5, bar.getMenuCount(), ASSERTION_MESSAGE);
         assertEquals("Project", bar.getMenu(2).getText(), ASSERTION_MESSAGE);
@@ -101,22 +106,25 @@ class AppMenuBarTest {
                 view.getItem(0).getAccelerator(),
                 ASSERTION_MESSAGE);
         assertEquals("Problems", view.getItem(2).getText(), ASSERTION_MESSAGE);
-        assertNotNull(bar.getMenu(2).getItem(0), ASSERTION_MESSAGE);
-        assertNotNull(bar.getMenu(3).getItem(0), ASSERTION_MESSAGE);
+        assertNotNull(bar.getMenu(2).getMenuComponent(0), ASSERTION_MESSAGE);
+        assertNotNull(bar.getMenu(3).getMenuComponent(0), ASSERTION_MESSAGE);
     }
 
     @Test
     void terminalMenuItemExecutesItsAction() throws java.io.InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project("Demo", PROJECT_PATH, null));
+        final var projectId = state.addProject(Project.create("Demo", PROJECT_PATH, null));
         final var sessionId =
                 state.addSession(
-                        projectId, new Session(projectId, "Feature", null, null, PROJECT_PATH));
-        final var coordinator = new ViewController(state, null, null, () -> {});
+                        projectId, Session.create(projectId, "Feature", null, null, PROJECT_PATH));
+        final var injector =
+                Guice.createInjector(
+                        new ApplicationModule(null, state, new javax.swing.JFrame(), () -> {}));
+        final var coordinator = injector.getInstance(ViewController.class);
         coordinator.selectProject(projectId);
         coordinator.selectSession(projectId, sessionId);
-        final ActionContext context = new ActionContext(coordinator, state, null, null, null);
-        final JMenuBar bar = GuiActionRunner.execute(() -> AppMenuBar.create(context));
+        final JMenuBar bar =
+                GuiActionRunner.execute(() -> injector.getInstance(AppMenuBar.class).create());
 
         GuiActionRunner.execute(
                 () ->
@@ -128,11 +136,6 @@ class AppMenuBarTest {
                 com.jagent.desktop.api.ViewId.SESSION,
                 coordinator.currentViewId(),
                 ASSERTION_MESSAGE);
-    }
-
-    private static ActionContext context(final AppState state) {
-        return new ActionContext(
-                new ViewController(state, null, null, () -> {}), state, null, null, null);
     }
 
     private static boolean hasMenu(final JMenuBar bar, final String label) {

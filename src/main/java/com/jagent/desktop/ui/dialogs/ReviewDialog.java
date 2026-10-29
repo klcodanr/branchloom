@@ -1,8 +1,9 @@
 package com.jagent.desktop.ui.dialogs;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.PullRequest;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.components.AgentSelector;
 import com.jagent.desktop.ui.components.BaseTextArea;
 import com.jagent.desktop.ui.components.FormPanel;
@@ -11,7 +12,6 @@ import java.awt.ContainerOrderFocusTraversalPolicy;
 import java.awt.Dimension;
 import java.util.function.BiConsumer;
 import javax.swing.JComboBox;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -23,12 +23,13 @@ public final class ReviewDialog extends FormDialog {
     private final JTextArea prompt = new BaseTextArea(10, 50);
 
     public ReviewDialog(
-            final ActionContext actionContext,
+            final AppState appState,
+            final DialogService dialogService,
             final PullRequest request,
             final BiConsumer<Agent, String> onReview) {
-        super(actionContext.window(), "Review pull request #" + request.number());
+        super();
         setFocusTraversalPolicy(new ContainerOrderFocusTraversalPolicy());
-        final var state = actionContext.appState();
+        final var state = appState;
         this.onReview = onReview;
         agent = new AgentSelector("review-agent", state.appSettings().agents());
         prompt.setText(
@@ -47,7 +48,7 @@ public final class ReviewDialog extends FormDialog {
                 "review-cancel",
                 "review-submit",
                 this::submit,
-                actionContext.window());
+                dialogService);
     }
 
     /* package */
@@ -57,17 +58,14 @@ public final class ReviewDialog extends FormDialog {
 
     private void submit() {
         if (agent.getSelectedItem() == null) {
-            JOptionPane.showMessageDialog(
-                    this, "Select an agent.", "Review pull request", JOptionPane.ERROR_MESSAGE);
+            dialogService.errorMessage("Select an agent.", "Review pull request");
             return;
         }
         if (!validPrompt(prompt.getText())) {
-            JOptionPane.showMessageDialog(
-                    this, "Prompt is required.", "Review pull request", JOptionPane.ERROR_MESSAGE);
+            dialogService.errorMessage("Prompt is required.", "Review pull request");
             return;
         }
         final Agent selected = (Agent) agent.getSelectedItem();
-        dispose();
         onReview.accept(selected, prompt.getText().trim());
     }
 }

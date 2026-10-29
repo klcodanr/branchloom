@@ -3,7 +3,6 @@ package com.jagent.desktop.ui.views;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.Terminal;
@@ -34,12 +33,21 @@ class ProjectViewUiTest {
     @Test
     void buildsTabsAndSupportsViewOperations() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
-        final ActionContext context =
-                new ActionContext(TestAppState.controller(state), state, null, null, null);
+        final var projectId = state.addProject(Project.create(PROJECT_NAME, PROJECT_PATH, null));
         final Project project = state.projects().get(projectId);
 
-        final ProjectView view = GuiActionRunner.execute(() -> new ProjectView(context, project));
+        final ProjectView view =
+                GuiActionRunner.execute(
+                        () ->
+                                new ProjectView(
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.controller(state),
+                                        state,
+                                        TestAppState.githubProvider(state),
+                                        TestAppState.dialogService(),
+                                        TestAppState.projectActions(state),
+                                        project));
 
         assertEquals(ViewId.PROJECT, view.id(), ASSERTION_MESSAGE);
         assertEquals(PROJECT_NAME, view.title(), ASSERTION_MESSAGE);
@@ -80,16 +88,23 @@ class ProjectViewUiTest {
             @TempDir final Path directory) throws IOException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var projectId =
-                state.addProject(new Project(PROJECT_NAME, directory.toString(), null));
-        final ActionContext context =
-                new ActionContext(TestAppState.controller(state), state, null, null, null);
+                state.addProject(Project.create(PROJECT_NAME, directory.toString(), null));
         final var firstFile =
                 java.nio.file.Files.writeString(directory.resolve("first.txt"), "first");
         final var secondFile =
                 java.nio.file.Files.writeString(directory.resolve("second.txt"), "second");
         final ProjectView view =
                 GuiActionRunner.execute(
-                        () -> new ProjectView(context, state.projects().get(projectId)));
+                        () ->
+                                new ProjectView(
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.controller(state),
+                                        state,
+                                        TestAppState.githubProvider(state),
+                                        TestAppState.dialogService(),
+                                        TestAppState.projectActions(state),
+                                        state.projects().get(projectId)));
         final JTabbedPane tabs =
                 (JTabbedPane) ((WorkspaceSplitPane) view.getComponent(1)).getLeftComponent();
 
@@ -114,21 +129,27 @@ class ProjectViewUiTest {
     @Test
     void doesNotRenderSessionTerminals() throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
+        final var projectId = state.addProject(Project.create(PROJECT_NAME, PROJECT_PATH, null));
         final var sessionId =
                 state.addSession(
                         projectId,
-                        new Session(
+                        Session.create(
                                 projectId, SESSION_NAME, "agent", SESSION_PROMPT, PROJECT_PATH));
-        state.addTerminal(sessionId, new Terminal(sessionId, "Shell", SUCCESS_COMMAND));
-        state.addTerminal(
-                sessionId, new Terminal(sessionId, projectId, "Dual owner", SUCCESS_COMMAND));
-        final ActionContext context =
-                new ActionContext(TestAppState.controller(state), state, null, null, null);
+        state.addTerminal(sessionId, Terminal.create(sessionId, "Shell", SUCCESS_COMMAND));
+        state.addTerminal(sessionId, Terminal.create(projectId, "Dual owner", SUCCESS_COMMAND));
 
         final ProjectView view =
                 GuiActionRunner.execute(
-                        () -> new ProjectView(context, state.projects().get(projectId)));
+                        () ->
+                                new ProjectView(
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.controller(state),
+                                        state,
+                                        TestAppState.githubProvider(state),
+                                        TestAppState.dialogService(),
+                                        TestAppState.projectActions(state),
+                                        state.projects().get(projectId)));
         GuiActionRunner.execute(() -> {});
 
         assertEquals(
@@ -142,17 +163,18 @@ class ProjectViewUiTest {
     @Test
     void ignoresInvalidTerminalSelections() throws MalformedURLException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final var projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
+        final var projectId = state.addProject(Project.create(PROJECT_NAME, PROJECT_PATH, null));
         final ProjectView view =
                 GuiActionRunner.execute(
                         () ->
                                 new ProjectView(
-                                        new ActionContext(
-                                                TestAppState.controller(state),
-                                                state,
-                                                null,
-                                                null,
-                                                null),
+                                        TestAppState.asyncLoadingStateFactory(state),
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.controller(state),
+                                        state,
+                                        TestAppState.githubProvider(state),
+                                        TestAppState.dialogService(),
+                                        TestAppState.projectActions(state),
                                         state.projects().get(projectId)));
         final JTabbedPane tabs =
                 (JTabbedPane) ((WorkspaceSplitPane) view.getComponent(1)).getLeftComponent();

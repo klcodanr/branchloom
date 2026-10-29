@@ -8,6 +8,7 @@ import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.SessionSummaryInfo;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -34,6 +35,7 @@ public final class SessionSummary extends ScrollablePanel {
     private final Alert cleanupAlert;
 
     public SessionSummary(
+            final DialogService dialogService,
             final SessionId sessionId,
             final AppState appState,
             final ViewController viewController,
@@ -44,7 +46,7 @@ public final class SessionSummary extends ScrollablePanel {
         this.sessionInstanceState = sessionInstanceState;
         this.session = appState.sessions().get(sessionId);
 
-        agentContext = new AgentContextEditor(appState, viewController);
+        agentContext = new AgentContextEditor(appState, viewController, dialogService);
         branch = new SessionBranchPanel();
         pullRequest = new PullRequestSummaryButton();
         diff = new SessionDiffPanel();

@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundJobs;
@@ -27,8 +26,15 @@ class BottomBarTest {
     void createJobsMenuShowsPlaceholderWithoutJobs() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var controller = TestAppState.controller(state);
-        final ActionContext context = new ActionContext(controller, state, null, null, () -> {});
-        final BottomBar bar = GuiActionRunner.execute(() -> new BottomBar(context));
+        final BottomBar bar =
+                GuiActionRunner.execute(
+                        () ->
+                                new BottomBar(
+                                        controller,
+                                        state,
+                                        TestAppState.backgroundJobs(state),
+                                        null,
+                                        TestAppState.dialogService()));
 
         final JPopupMenu menu = GuiActionRunner.execute(bar::createJobsMenu);
 
@@ -43,9 +49,16 @@ class BottomBarTest {
     void createJobsMenuRendersSortedJobsAndStatuses() throws InterruptedException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var controller = TestAppState.controller(state);
-        final BackgroundJobs jobs = controller.backgroundJobs();
-        final ActionContext context = new ActionContext(controller, state, null, null, () -> {});
-        final BottomBar bar = GuiActionRunner.execute(() -> new BottomBar(context));
+        final BackgroundJobs jobs = TestAppState.backgroundJobs(state);
+        final BottomBar bar =
+                GuiActionRunner.execute(
+                        () ->
+                                new BottomBar(
+                                        controller,
+                                        state,
+                                        jobs,
+                                        null,
+                                        TestAppState.dialogService()));
 
         final BackgroundJobs.Handle build = jobs.start("Build", "Demo", "Feature");
         build.fail("Build failed");
@@ -75,14 +88,17 @@ class BottomBarTest {
     void refreshShowsCurrentProjectName() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var controller = TestAppState.controller(state);
-        final var projectId = state.addProject(new Project("Demo", "/tmp/demo", null));
+        final var projectId = state.addProject(Project.create("Demo", "/tmp/demo", null));
         controller.selectProject(projectId);
         final BottomBar bar =
                 GuiActionRunner.execute(
                         () ->
                                 new BottomBar(
-                                        new ActionContext(
-                                                controller, state, null, null, () -> {})));
+                                        controller,
+                                        state,
+                                        TestAppState.backgroundJobs(state),
+                                        null,
+                                        TestAppState.dialogService()));
 
         final JLabel projectLabel = findLabelWithText(bar, "Demo");
         assertNotNull(projectLabel, "project name should be shown after refresh");

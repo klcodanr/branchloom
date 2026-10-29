@@ -4,6 +4,7 @@ import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.services.AgentContext;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.utils.ErrorMessages;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -24,15 +25,20 @@ import org.fife.ui.rsyntaxtextarea.TokenTypes;
 public final class AgentContextEditor extends JPanel {
     private final transient AppState appState;
     private final transient ViewController viewController;
+    private final transient DialogService dialogs;
     private final RSyntaxTextArea content = new RSyntaxTextArea("Loading context...");
     private final UndoManager undoManager = new UndoManager();
     private final BaseButton save = new BaseButton("Save");
     private boolean changingHistory;
 
-    public AgentContextEditor(final AppState appState, final ViewController viewController) {
+    public AgentContextEditor(
+            final AppState appState,
+            final ViewController viewController,
+            final DialogService dialogs) {
         super(new BorderLayout(0, UiConstants.SPACING_XS));
         this.appState = appState;
         this.viewController = viewController;
+        this.dialogs = dialogs;
         configureContent();
         configureActions();
         add(contentScroll(), BorderLayout.CENTER);
@@ -201,12 +207,11 @@ public final class AgentContextEditor extends JPanel {
                         })
                 .exceptionally(
                         failure -> {
-                            javax.swing.JOptionPane.showMessageDialog(
-                                    this,
+                            dialogs.message(
                                     "Could not save agent context: "
                                             + ErrorMessages.deepestCause(failure, ""),
                                     "Agent context",
-                                    javax.swing.JOptionPane.ERROR_MESSAGE);
+                                    DialogService.MessageType.ERROR);
                             return null;
                         });
     }

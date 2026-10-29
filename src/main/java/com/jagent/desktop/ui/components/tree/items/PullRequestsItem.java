@@ -1,15 +1,14 @@
 package com.jagent.desktop.ui.components.tree.items;
 
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.services.ViewController;
 import javax.swing.JPopupMenu;
 
 public class PullRequestsItem implements TreeItem {
-    private final ActionContext actionContext;
+    private final ViewController viewController;
 
-    public PullRequestsItem(final ActionContext actionContext) {
-        this.actionContext = actionContext;
+    public PullRequestsItem(final ViewController viewController) {
+        this.viewController = viewController;
     }
 
     @Override
@@ -34,8 +33,6 @@ public class PullRequestsItem implements TreeItem {
 
     @Override
     public void select() {
-        actionContext
-                .viewController()
-                .updateView(ViewId.PULL_REQUESTS, ViewController.ViewState.reset());
+        viewController.updateView(ViewId.PULL_REQUESTS, ViewController.ViewState.reset());
     }
 }

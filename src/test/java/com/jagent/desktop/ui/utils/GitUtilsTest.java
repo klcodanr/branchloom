@@ -29,9 +29,9 @@ class GitUtilsTest {
         final SessionId sessionId = SessionId.create();
         final String worktree = Path.of(System.getProperty("java.io.tmpdir"), "work").toString();
         final Map<SessionId, Session> sessions = new HashMap<>();
-        sessions.put(sessionId, new Session(projectId, "Feature", "agent", "prompt", worktree));
-        sessions.put(SessionId.create(), new Session(projectId, "No path", null, null, null));
-        sessions.put(SessionId.create(), new Session(projectId, "Blank", null, null, "  "));
+        sessions.put(sessionId, Session.create(projectId, "Feature", "agent", "prompt", worktree));
+        sessions.put(SessionId.create(), Session.create(projectId, "No path", null, null, null));
+        sessions.put(SessionId.create(), Session.create(projectId, "Blank", null, null, "  "));
 
         final Path worktreePath = Path.of(worktree);
         final Path other = Path.of(System.getProperty("java.io.tmpdir"), "other");

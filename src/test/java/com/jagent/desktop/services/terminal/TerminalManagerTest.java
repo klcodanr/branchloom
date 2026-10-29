@@ -30,7 +30,7 @@ class TerminalManagerTest {
     void createsRetainsReportsAndDisposesRuntimes() {
         final TerminalManager manager = TerminalManager.get();
         final TerminalId id = TerminalId.create();
-        final Terminal terminal = new Terminal(null, "Shell", TRUE_COMMAND);
+        final Terminal terminal = Terminal.create(null, "Shell", TRUE_COMMAND);
 
         final TerminalRuntime created = manager.create(TRUE_COMMAND, TEMP_DIRECTORY, RESOURCE);
         final TerminalRuntime retained =
@@ -137,7 +137,7 @@ class TerminalManagerTest {
     void disposeAllClearsRetainedAndUnretainedRuntimes() {
         final TerminalManager manager = TerminalManager.get();
         final TerminalId id = TerminalId.create();
-        final Terminal terminal = new Terminal(null, "Shell", TRUE_COMMAND);
+        final Terminal terminal = Terminal.create(null, "Shell", TRUE_COMMAND);
         final TerminalRuntime created = manager.create(TRUE_COMMAND, TEMP_DIRECTORY, RESOURCE);
         final TerminalRuntime retained =
                 manager.retained(id, terminal, TEMP_DIRECTORY, "retained-resource");

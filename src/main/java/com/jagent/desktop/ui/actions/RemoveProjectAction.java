@@ -1,15 +1,27 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
-import com.jagent.desktop.models.ActionContext;
+import com.google.inject.Inject;
+import com.jagent.desktop.api.Action;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
-import javax.swing.JOptionPane;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 
 /** Removes the selected project from the application. */
-public final class RemoveProjectAction extends BaseAction {
-    public RemoveProjectAction(final ActionContext actionContext) {
-        super(actionContext);
+public final class RemoveProjectAction implements Action {
+    private final ViewController viewController;
+    private final AppState appState;
+    private final DialogService dialogService;
+
+    @Inject
+    public RemoveProjectAction(
+            final ViewController viewController,
+            final AppState appState,
+            final DialogService dialogService) {
+        this.viewController = viewController;
+        this.appState = appState;
+        this.dialogService = dialogService;
     }
 
     @Override
@@ -24,19 +36,17 @@ public final class RemoveProjectAction extends BaseAction {
 
     @Override
     public void execute() {
-        final ProjectId projectId = actionContext.viewController().currentProjectId();
-        final Project project =
-                projectId == null ? null : actionContext.appState().projects().get(projectId);
+        final ProjectId projectId = viewController.currentProjectId();
+        final Project project = projectId == null ? null : appState.projects().get(projectId);
         if (project == null
-                || JOptionPane.showConfirmDialog(
-                                actionContext.window(),
+                || dialogService.confirm(
                                 "Remove project '" + project.name() + "' from Branchloom?",
                                 "Remove project",
-                                JOptionPane.YES_NO_OPTION,
-                                JOptionPane.WARNING_MESSAGE)
-                        != JOptionPane.YES_OPTION) {
+                                DialogService.OptionType.YES_NO,
+                                DialogService.MessageType.WARNING)
+                        != DialogService.ReturnType.OK) {
             return;
         }
-        actionContext.appState().removeProject(projectId);
+        appState.removeProject(projectId);
     }
 }

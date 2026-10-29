@@ -39,13 +39,17 @@ class CommandPaletteUiTest {
                 new Thread(
                         () -> {
                             try {
-                                CommandPalette.open(
-                                        owner,
-                                        "Commands",
-                                        List.of(
-                                                new CommandPalette.Choice("Open project", () -> {}),
-                                                new CommandPalette.Choice(
-                                                        "Open settings", () -> opened.set(true))));
+                                new OptionPicker(
+                                                new com.jagent.desktop.services.dialog
+                                                        .SwingDialogService(owner))
+                                        .open(
+                                                "Commands",
+                                                List.of(
+                                                        new OptionPicker.Choice(
+                                                                "Open project", () -> {}),
+                                                        new OptionPicker.Choice(
+                                                                "Open settings",
+                                                                () -> opened.set(true))));
                             } catch (final Throwable exception) {
                                 failure.set(exception);
                             } finally {

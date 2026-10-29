@@ -1,9 +1,13 @@
 package com.jagent.desktop.ui.components.tree;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.SessionId;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.AppState.Action;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
+import com.jagent.desktop.ui.components.ProjectActions;
+import com.jagent.desktop.ui.components.SessionActions;
 import com.jagent.desktop.ui.components.tree.items.GroupTreeItem;
 import com.jagent.desktop.ui.components.tree.items.ProjectTreeItem;
 import com.jagent.desktop.ui.components.tree.items.SessionTreeItem;
@@ -19,8 +23,12 @@ import javax.swing.tree.TreePath;
 
 public final class ProjectsTree {
 
-    private final ActionContext actionContext;
+    private final ViewController viewController;
+    private final AppState appState;
+    private final DialogService dialogService;
+    private final SessionActions sessionActions;
     private final FilteredTreeModel filteredTreeModel;
+    private final ProjectActions projectActions;
     private final JTree tree;
 
     private final Map<ProjectId, DefaultMutableTreeNode> projectNodes = new HashMap<>();
@@ -29,50 +37,55 @@ public final class ProjectsTree {
 
     @SuppressWarnings("PMD.CognitiveComplexity")
     public ProjectsTree(
-            final ActionContext actionContext,
+            final ViewController viewController,
+            final AppState appState,
+            final DialogService dialogService,
+            final ProjectActions projectActions,
+            final SessionActions sessionActions,
             final FilteredTreeModel filteredTreeModel,
             final JTree tree) {
-        this.actionContext = actionContext;
+        this.viewController = viewController;
+        this.appState = appState;
+        this.dialogService = dialogService;
+        this.projectActions = projectActions;
+        this.sessionActions = sessionActions;
         this.filteredTreeModel = filteredTreeModel;
         this.tree = tree;
         rebuild();
-        actionContext
-                .appState()
-                .addEventListener(
-                        event -> {
-                            if (event.target() instanceof ProjectId
-                                    || event.target() instanceof SessionId) {
-                                SwingUtilities.invokeLater(
-                                        () -> {
-                                            if (event.target() instanceof ProjectId projectId) {
-                                                if (event.action() == Action.ADD) {
-                                                    addProject(projectId);
-                                                } else if (event.action() == Action.REMOVE) {
-                                                    removeProject(projectId);
-                                                } else if (event.action() == Action.UPDATE
-                                                        && projectNodes.containsKey(projectId)) {
-                                                    this.filteredTreeModel.nodeChanged(
-                                                            projectNodes.get(projectId));
-                                                }
-                                            } else if (event.target()
-                                                    instanceof SessionId sessionId) {
-                                                if (event.action() == Action.ADD) {
-                                                    addSession(sessionId);
-                                                } else if (event.action() == Action.REMOVE) {
-                                                    removeSession(sessionId);
-                                                } else if (event.action() == Action.UPDATE
-                                                        && sessionNodes.containsKey(sessionId)) {
-                                                    this.filteredTreeModel.nodeChanged(
-                                                            sessionNodes.get(sessionId));
-                                                }
-                                            }
-                                        });
-                            }
-                        });
+        appState.addEventListener(
+                event -> {
+                    if (event.target() instanceof ProjectId
+                            || event.target() instanceof SessionId) {
+                        SwingUtilities.invokeLater(
+                                () -> {
+                                    if (event.target() instanceof ProjectId projectId) {
+                                        if (event.action() == Action.ADD) {
+                                            addProject(projectId);
+                                        } else if (event.action() == Action.REMOVE) {
+                                            removeProject(projectId);
+                                        } else if (event.action() == Action.UPDATE
+                                                && projectNodes.containsKey(projectId)) {
+                                            this.filteredTreeModel.nodeChanged(
+                                                    projectNodes.get(projectId));
+                                        }
+                                    } else if (event.target() instanceof SessionId sessionId) {
+                                        if (event.action() == Action.ADD) {
+                                            addSession(sessionId);
+                                        } else if (event.action() == Action.REMOVE) {
+                                            removeSession(sessionId);
+                                        } else if (event.action() == Action.UPDATE
+                                                && sessionNodes.containsKey(sessionId)) {
+                                            this.filteredTreeModel.nodeChanged(
+                                                    sessionNodes.get(sessionId));
+                                        }
+                                    }
+                                });
+                    }
+                });
     }
 
     private void addProject(final ProjectId projectId) {
-        final var project = actionContext.appState().projects().get(projectId);
+        final var project = appState.projects().get(projectId);
         if (project == null) {
             return;
         }
@@ -80,7 +93,8 @@ public final class ProjectsTree {
         var groupNode = groupNodes.get(groupName);
         if (groupNode == null) {
             final var newGroupNode =
-                    new DefaultMutableTreeNode(new GroupTreeItem(actionContext, groupName));
+                    new DefaultMutableTreeNode(
+                            new GroupTreeItem(viewController, appState, dialogService, groupName));
             groupNodes.put(groupName, newGroupNode);
             final var root = (DefaultMutableTreeNode) filteredTreeModel.getRoot();
             filteredTreeModel.insertNodeInto(newGroupNode, root, root.getChildCount());
@@ -88,15 +102,21 @@ public final class ProjectsTree {
         }
         if (projectNodes.get(projectId) == null) {
             final DefaultMutableTreeNode newProjectNode =
-                    new DefaultMutableTreeNode(new ProjectTreeItem(actionContext, projectId));
+                    new DefaultMutableTreeNode(
+                            new ProjectTreeItem(
+                                    viewController, appState, projectActions, projectId));
             project.sessionIds()
                     .forEach(
                             sid -> {
-                                final var session = actionContext.appState().sessions().get(sid);
+                                final var session = appState.sessions().get(sid);
                                 if (session != null) {
                                     final DefaultMutableTreeNode sessionNode =
                                             new DefaultMutableTreeNode(
-                                                    new SessionTreeItem(actionContext, sid));
+                                                    new SessionTreeItem(
+                                                            viewController,
+                                                            appState,
+                                                            sessionActions,
+                                                            sid));
                                     newProjectNode.add(sessionNode);
                                     this.sessionNodes.put(sid, sessionNode);
                                 }
@@ -111,7 +131,7 @@ public final class ProjectsTree {
         if (sessionNodes.containsKey(sessionId)) {
             return;
         }
-        final var session = actionContext.appState().sessions().get(sessionId);
+        final var session = appState.sessions().get(sessionId);
         if (session == null) {
             return;
         }
@@ -120,7 +140,8 @@ public final class ProjectsTree {
             return;
         }
         final DefaultMutableTreeNode sessionNode =
-                new DefaultMutableTreeNode(new SessionTreeItem(actionContext, sessionId));
+                new DefaultMutableTreeNode(
+                        new SessionTreeItem(viewController, appState, sessionActions, sessionId));
         filteredTreeModel.insertNodeInto(sessionNode, projectNode, projectNode.getChildCount());
         sessionNodes.put(sessionId, sessionNode);
         this.selectNode(sessionNode);
@@ -175,28 +196,37 @@ public final class ProjectsTree {
 
         final List<ProjectTreeItem> unmappedProjects =
                 new ArrayList<>(
-                        actionContext.appState().projects().entrySet().stream()
+                        appState.projects().entrySet().stream()
                                 .filter(
                                         entry ->
                                                 Optional.ofNullable(entry.getValue().group())
                                                         .map(String::isEmpty)
                                                         .orElse(true))
-                                .map(entry -> new ProjectTreeItem(actionContext, entry.getKey()))
+                                .map(
+                                        entry ->
+                                                new ProjectTreeItem(
+                                                        viewController,
+                                                        appState,
+                                                        projectActions,
+                                                        entry.getKey()))
                                 .toList());
 
         final List<Map.Entry<String, List<ProjectTreeItem>>> sorted = new ArrayList<>();
         // Populate the sorted list with group and project mappings
-        Optional.ofNullable(actionContext.appState().appSettings().projectGroups())
+        Optional.ofNullable(appState.appSettings().projectGroups())
                 .orElse(List.of())
                 .forEach(
                         group -> {
                             final List<ProjectTreeItem> projectsInGroup =
-                                    actionContext.appState().projects().entrySet().stream()
+                                    appState.projects().entrySet().stream()
                                             .filter(entry -> group.equals(entry.getValue().group()))
                                             .map(
                                                     entry ->
                                                             new ProjectTreeItem(
-                                                                    actionContext, entry.getKey()))
+                                                                    viewController,
+                                                                    appState,
+                                                                    projectActions,
+                                                                    entry.getKey()))
                                             .toList();
                             sorted.add(Map.entry(group, projectsInGroup));
                         });
@@ -210,7 +240,9 @@ public final class ProjectsTree {
                     final var groupName = e.getKey();
                     final var projectItems = e.getValue();
                     final var groupNode =
-                            new DefaultMutableTreeNode(new GroupTreeItem(actionContext, groupName));
+                            new DefaultMutableTreeNode(
+                                    new GroupTreeItem(
+                                            viewController, appState, dialogService, groupName));
                     projectItems.forEach(
                             pi -> {
                                 final var projectNode = new DefaultMutableTreeNode(pi);
@@ -220,15 +252,14 @@ public final class ProjectsTree {
                                         .forEach(
                                                 sid -> {
                                                     final var session =
-                                                            actionContext
-                                                                    .appState()
-                                                                    .sessions()
-                                                                    .get(sid);
+                                                            appState.sessions().get(sid);
                                                     if (session != null) {
                                                         final var sessionNode =
                                                                 new DefaultMutableTreeNode(
                                                                         new SessionTreeItem(
-                                                                                actionContext,
+                                                                                viewController,
+                                                                                appState,
+                                                                                sessionActions,
                                                                                 sid));
                                                         projectNode.add(sessionNode);
                                                         sessionNodes.put(sid, sessionNode);

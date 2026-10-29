@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.services.AppState;
@@ -21,7 +20,7 @@ class ProjectViewCoverageTest {
     @Test
     void rendersProjectWorkspaceAndCanFocusReviewFilter(@TempDir final Path directory)
             throws MalformedURLException {
-        final Project persisted = new Project("Persisted", directory.toString(), null);
+        final Project persisted = Project.create("Persisted", directory.toString(), null);
         final ProjectId projectId = ProjectId.create();
         final AppState state =
                 new AppState(
@@ -31,10 +30,18 @@ class ProjectViewCoverageTest {
                         Map.of());
         final var controller = TestAppState.controller(state);
         controller.selectProject(projectId);
-        final ActionContext context = new ActionContext(controller, state, null, null, null);
 
-        final Project passedToView = new Project("Unmapped", directory.toString(), null);
-        final ProjectView view = new ProjectView(context, passedToView);
+        final Project passedToView = Project.create("Unmapped", directory.toString(), null);
+        final ProjectView view =
+                new ProjectView(
+                        TestAppState.asyncLoadingStateFactory(state),
+                        TestAppState.backgroundJobs(state),
+                        controller,
+                        state,
+                        TestAppState.githubProvider(state),
+                        TestAppState.dialogService(),
+                        TestAppState.projectActions(state),
+                        passedToView);
         view.refresh();
 
         assertEquals(ViewId.PROJECT, view.id(), "project view should expose project view id");

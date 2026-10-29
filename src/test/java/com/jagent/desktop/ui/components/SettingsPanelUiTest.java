@@ -26,7 +26,9 @@ class SettingsPanelUiTest {
                                         form,
                                         saves::incrementAndGet,
                                         () -> {},
-                                        () -> false));
+                                        () -> false,
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         final var actions = (Container) screen.getComponent(2);
         final var save = (JButton) actions.getComponent(1);

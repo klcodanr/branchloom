@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.Project;
+import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.ui.Defaults;
 import java.nio.file.Path;
@@ -31,8 +32,8 @@ class TemplateTest {
 
     @Test
     void expandsNamesPathsAndNullWorktrees() {
-        final Project project = new Project(DEMO_PROJECT_NAME, "/workspace/demo project", null);
-        final Session session = new Session(null, "Fix Login", null, null, null);
+        final Project project = Project.create(DEMO_PROJECT_NAME, "/workspace/demo project", null);
+        final Session session = Session.create(project.id(), "Fix Login", null, null, null);
         final String template =
                 "{projectName}|{projectPath}|{sessionName}|{sessionSlug}|{worktreePath}";
 
@@ -44,7 +45,7 @@ class TemplateTest {
                 "demo-project|' /workspace/demo project'|Fix Login|fix-login|''",
                 Template.expand(
                         "{projectName}|{projectPath}|{sessionName}|{sessionSlug}|{worktreePath}",
-                        new Project(DEMO_PROJECT_NAME, " /workspace/demo project", null),
+                        Project.create(DEMO_PROJECT_NAME, " /workspace/demo project", null),
                         session,
                         true),
                 "escaped expansion should quote paths and slug project names");
@@ -52,7 +53,7 @@ class TemplateTest {
 
     @Test
     void expandsProjectOnlyCommandWithoutSession() {
-        final Project project = new Project("Demo Project", "/workspace/demo", null);
+        final Project project = Project.create("Demo Project", "/workspace/demo", null);
 
         assertEquals(
                 "code .|Demo Project|",
@@ -63,7 +64,7 @@ class TemplateTest {
     @Test
     void resolvesRelativePathsAgainstProjectAndNormalizesAbsolutePaths(
             @org.junit.jupiter.api.io.TempDir final Path projectDirectory) {
-        final Project project = new Project("Demo", projectDirectory.toString(), null);
+        final Project project = Project.create("Demo", projectDirectory.toString(), null);
 
         assertEquals(
                 projectDirectory.resolve("build/output").normalize().toString(),
@@ -80,6 +81,7 @@ class TemplateTest {
     void escapesApostrophesAndLeavesUnknownPlaceholdersUntouched() {
         final Project project =
                 new Project(
+                        ProjectId.create(),
                         "O'Reilly Project",
                         "/workspace/O'Reilly Project",
                         "default",
@@ -90,7 +92,8 @@ class TemplateTest {
                         List.of(),
                         null,
                         null);
-        final Session session = new Session(null, "Fix bug", null, null, "/tmp/work tree");
+        final Session session =
+                Session.create(project.id(), "Fix bug", null, null, "/tmp/work tree");
 
         assertEquals(
                 "o-reilly-project|'/workspace/O'\\''Reilly Project'|'/tmp/work tree'|{unknown}",
@@ -104,8 +107,8 @@ class TemplateTest {
 
     @Test
     void expansionHandlesDefaultsAndEscaping() {
-        final Project project = new Project(DEMO_PROJECT_NAME, "/tmp/demo", null);
-        final Session session = new Session(null, "Feature branch", "agent", "prompt", null);
+        final Project project = Project.create(DEMO_PROJECT_NAME, "/tmp/demo", null);
+        final Session session = Session.create(null, "Feature branch", "agent", "prompt", null);
         final AppSettings settings = Defaults.appSettings();
 
         assertEquals(
@@ -114,6 +117,7 @@ class TemplateTest {
                 "global worktree template should be selected");
         final Project configured =
                 new Project(
+                        ProjectId.create(),
                         "Demo",
                         "/tmp/demo",
                         null,
@@ -145,6 +149,7 @@ class TemplateTest {
 
     private static Project project(final String worktreeTemplate) {
         return new Project(
+                ProjectId.create(),
                 "Demo",
                 "/workspace/demo",
                 "default",

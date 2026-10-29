@@ -2,7 +2,7 @@ package com.jagent.desktop.ui.components;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.async.AsyncLoadingStateFactory;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.test.SwingTestSupport;
@@ -19,11 +19,19 @@ class BoardsUiTest {
     @Test
     void blankInitialQueryShowsQueryPromptWithoutLoadingPullRequests() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
-        final var context =
-                new ActionContext(TestAppState.controller(state), state, null, null, null);
+        state.addProject(Project.create(PROJECT_NAME, PROJECT_PATH, null));
+        final var controller = TestAppState.controller(state);
         final PullRequestsBoard board =
-                GuiActionRunner.execute(() -> new PullRequestsBoard(context));
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestsBoard(
+                                        new AsyncLoadingStateFactory(
+                                                state, TestAppState.backgroundJobs(state)),
+                                        TestAppState.backgroundJobs(state),
+                                        controller,
+                                        state,
+                                        TestAppState.githubProvider(state),
+                                        TestAppState.dialogService()));
 
         assertNotNull(
                 SwingTestSupport.find(

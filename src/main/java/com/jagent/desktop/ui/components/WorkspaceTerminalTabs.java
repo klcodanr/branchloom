@@ -1,6 +1,7 @@
 package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.models.TerminalId;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.components.terminal.TerminalPanel;
 import java.awt.Component;
 import java.util.Collection;
@@ -9,7 +10,6 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
-import javax.swing.JOptionPane;
 import javax.swing.JTabbedPane;
 
 /** Owns the shared terminal tab lifecycle for workspace views. */
@@ -19,6 +19,7 @@ public final class WorkspaceTerminalTabs {
     private final JTabbedPane tabs;
     private final BiConsumer<TerminalPanel, TerminalId> closed;
     private final BiConsumer<TerminalPanel, String> renamed;
+    private final DialogService dialogs;
     private final Collection<TerminalPanel> titleSyncing =
             Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<TerminalPanel, TerminalId> ids = new IdentityHashMap<>();
@@ -27,10 +28,12 @@ public final class WorkspaceTerminalTabs {
     public WorkspaceTerminalTabs(
             final JTabbedPane tabs,
             final BiConsumer<TerminalPanel, TerminalId> closed,
-            final BiConsumer<TerminalPanel, String> renamed) {
+            final BiConsumer<TerminalPanel, String> renamed,
+            final DialogService dialogs) {
         this.tabs = tabs;
         this.closed = closed;
         this.renamed = renamed;
+        this.dialogs = dialogs;
         tabs.addChangeListener(ignored -> startSelected());
     }
 
@@ -80,14 +83,10 @@ public final class WorkspaceTerminalTabs {
         }
         final String updated =
                 (String)
-                        JOptionPane.showInputDialog(
-                                parent,
+                        dialogs.input(
                                 "Terminal tab name:",
                                 "Rename terminal tab",
-                                JOptionPane.PLAIN_MESSAGE,
-                                null,
-                                null,
-                                tabs.getTitleAt(index));
+                                DialogService.MessageType.PLAIN);
         if (updated == null || updated.isBlank()) {
             return;
         }
@@ -122,7 +121,13 @@ public final class WorkspaceTerminalTabs {
                 || !(tabs.getComponentAt(index) instanceof TerminalPanel terminal)) {
             return;
         }
-        if (terminal.hasRunningChildProcess() && !confirmClose(tabs)) {
+        if (terminal.hasRunningChildProcess()
+                && dialogs.confirm(
+                                "A task is still running in this terminal tab. Close it anyway?",
+                                "Close running terminal",
+                                DialogService.OptionType.YES_NO,
+                                DialogService.MessageType.WARNING)
+                        != DialogService.ReturnType.OK) {
             return;
         }
         final TerminalId terminalId = ids.get(terminal);
@@ -185,15 +190,5 @@ public final class WorkspaceTerminalTabs {
             return trimmed;
         }
         return trimmed.substring(0, MAX_TAB_TITLE_LENGTH - ELLIPSIS.length()) + ELLIPSIS;
-    }
-
-    private static boolean confirmClose(final JTabbedPane tabs) {
-        return JOptionPane.showConfirmDialog(
-                        tabs,
-                        "A task is still running in this terminal tab. Close it anyway?",
-                        "Close running terminal",
-                        JOptionPane.YES_NO_OPTION,
-                        JOptionPane.WARNING_MESSAGE)
-                == JOptionPane.YES_OPTION;
     }
 }

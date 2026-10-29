@@ -19,7 +19,6 @@ class ProgressOperationTest {
         final CountDownLatch completed = new CountDownLatch(1);
 
         ProgressOperation.run(
-                        null,
                         TITLE,
                         MESSAGE,
                         () -> {
@@ -37,7 +36,6 @@ class ProgressOperationTest {
         final AtomicReference<Throwable> failure = new AtomicReference<>();
 
         ProgressOperation.run(
-                        null,
                         TITLE,
                         MESSAGE,
                         () -> {

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.Project;
+import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.github.CliCredential;
 import java.io.IOException;
@@ -27,6 +28,7 @@ class AgentContextTest {
             @org.junit.jupiter.api.io.TempDir final Path worktree) throws IOException {
         final Project project =
                 new Project(
+                        ProjectId.create(),
                         PROJECT_NAME,
                         worktree.toString(),
                         null,
@@ -38,7 +40,7 @@ class AgentContextTest {
                         CONTEXT_PATH,
                         "Use the repository conventions.");
         final Session session =
-                new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
+                Session.create(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
         AgentContext.write(project, session, "", DEV_USER);
 
@@ -69,6 +71,7 @@ class AgentContextTest {
             @org.junit.jupiter.api.io.TempDir final Path worktree) throws IOException {
         final Project project =
                 new Project(
+                        ProjectId.create(),
                         PROJECT_NAME,
                         worktree.toString(),
                         null,
@@ -80,7 +83,7 @@ class AgentContextTest {
                         "./.cursor-notes/BRANCHLOOM_CONTEXT.md",
                         null);
         final Session session =
-                new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
+                Session.create(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
         AgentContext.write(project, session, "", null);
 
@@ -98,9 +101,9 @@ class AgentContextTest {
     @Test
     void doesNotWriteWhenContextPathIsBlank(@org.junit.jupiter.api.io.TempDir final Path worktree)
             throws IOException {
-        final Project project = new Project(PROJECT_NAME, worktree.toString(), null);
+        final Project project = Project.create(PROJECT_NAME, worktree.toString(), null);
         final Session session =
-                new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
+                Session.create(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
         AgentContext.write(project, session, "", null);
 
@@ -114,6 +117,7 @@ class AgentContextTest {
             @org.junit.jupiter.api.io.TempDir final Path worktree) throws IOException {
         final Project project =
                 new Project(
+                        ProjectId.create(),
                         PROJECT_NAME,
                         worktree.toString(),
                         null,
@@ -125,7 +129,7 @@ class AgentContextTest {
                         ".cursor-notes/agent-start.md",
                         null);
         final Session session =
-                new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
+                Session.create(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
         final Path context = worktree.resolve(".cursor-notes");
         Files.writeString(context, "old agent start content");
 
@@ -146,6 +150,7 @@ class AgentContextTest {
             @org.junit.jupiter.api.io.TempDir final Path worktree) throws IOException {
         final Project project =
                 new Project(
+                        ProjectId.create(),
                         PROJECT_NAME,
                         worktree.toString(),
                         null,
@@ -157,7 +162,7 @@ class AgentContextTest {
                         CONTEXT_PATH,
                         "Use the repository conventions.");
         final Session session =
-                new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
+                Session.create(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
         final String content = AgentContext.read(project, session, "", DEV_USER);
 
@@ -171,6 +176,7 @@ class AgentContextTest {
             throws IOException {
         final Project project =
                 new Project(
+                        ProjectId.create(),
                         PROJECT_NAME,
                         worktree.toString(),
                         null,
@@ -182,7 +188,7 @@ class AgentContextTest {
                         CONTEXT_PATH,
                         null);
         final Session session =
-                new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
+                Session.create(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
         AgentContext.save(project, session, "", "session notes");
 
@@ -195,9 +201,9 @@ class AgentContextTest {
     @Test
     void readReturnsBlankWhenContextPathIsBlank(
             @org.junit.jupiter.api.io.TempDir final Path worktree) throws IOException {
-        final Project project = new Project(PROJECT_NAME, worktree.toString(), null);
+        final Project project = Project.create(PROJECT_NAME, worktree.toString(), null);
         final Session session =
-                new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
+                Session.create(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
         assertEquals(
                 "",
@@ -208,9 +214,9 @@ class AgentContextTest {
     @Test
     void globalContextPathIsUsedWhenProjectPathIsBlank(
             @org.junit.jupiter.api.io.TempDir final Path worktree) throws IOException {
-        final Project project = new Project(PROJECT_NAME, worktree.toString(), null);
+        final Project project = Project.create(PROJECT_NAME, worktree.toString(), null);
         final Session session =
-                new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
+                Session.create(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
         AgentContext.write(project, session, CONTEXT_PATH, null);
 
@@ -224,6 +230,7 @@ class AgentContextTest {
             @org.junit.jupiter.api.io.TempDir final Path worktree) throws IOException {
         final Project project =
                 new Project(
+                        ProjectId.create(),
                         PROJECT_NAME,
                         worktree.toString(),
                         null,
@@ -235,7 +242,7 @@ class AgentContextTest {
                         ".project-context.md",
                         null);
         final Session session =
-                new Session(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
+                Session.create(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
         AgentContext.write(project, session, CONTEXT_PATH, null);
 

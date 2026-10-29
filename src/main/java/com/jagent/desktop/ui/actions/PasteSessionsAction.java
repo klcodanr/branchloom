@@ -1,21 +1,34 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
-import com.jagent.desktop.models.ActionContext;
+import com.google.inject.Inject;
+import com.jagent.desktop.api.Action;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
-import com.jagent.desktop.ui.components.BulkSessionCreator;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.BulkSessionCreator;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.dialogs.PasteSessionsDialog;
 import com.jagent.desktop.ui.utils.GitUtils;
 import java.util.List;
 
 /** Creates one agent session for each pasted line. */
-public final class PasteSessionsAction extends BaseAction {
+public final class PasteSessionsAction implements Action {
+    private final ViewController viewController;
+    private final AppState appState;
+    private final DialogService dialogService;
     private final BulkSessionCreator sessionCreator;
 
-    public PasteSessionsAction(final ActionContext actionContext) {
-        super(actionContext);
-        sessionCreator = new BulkSessionCreator(actionContext);
+    @Inject
+    public PasteSessionsAction(
+            final ViewController viewController,
+            final AppState appState,
+            final DialogService dialogService,
+            final BulkSessionCreator sessionCreator) {
+        this.viewController = viewController;
+        this.appState = appState;
+        this.dialogService = dialogService;
+        this.sessionCreator = sessionCreator;
     }
 
     @Override
@@ -30,13 +43,13 @@ public final class PasteSessionsAction extends BaseAction {
 
     @Override
     public boolean enabled() {
-        return actionContext.viewController().currentProjectId() != null;
+        return viewController.currentProjectId() != null;
     }
 
     @Override
     public void execute() {
-        final var state = actionContext.appState();
-        final ProjectId projectId = actionContext.viewController().currentProjectId();
+        final var state = appState;
+        final ProjectId projectId = viewController.currentProjectId();
         final Project project = projectId == null ? null : state.projects().get(projectId);
         if (project == null) {
             return;
@@ -44,8 +57,11 @@ public final class PasteSessionsAction extends BaseAction {
         if (state.appSettings().agents().isEmpty()) {
             return;
         }
-        new PasteSessionsDialog(actionContext, request -> create(projectId, project, request))
-                .setVisible(true);
+        dialogService.show(
+                "Start sessions from pasted lines",
+                new PasteSessionsDialog(
+                        appState, dialogService, request -> create(projectId, project, request)),
+                "Create sessions");
     }
 
     private void create(

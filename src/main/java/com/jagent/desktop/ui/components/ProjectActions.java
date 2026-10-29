@@ -1,10 +1,13 @@
 package com.jagent.desktop.ui.components;
 
+import com.google.inject.Inject;
 import com.jagent.desktop.api.Action;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Tool;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.actions.BulkCreateSessionsAction;
 import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.actions.CreateSessionAction;
@@ -18,110 +21,125 @@ import com.jagent.desktop.ui.actions.RemoveProjectAction;
 import com.jagent.desktop.ui.actions.RunCommandAction;
 import com.jagent.desktop.ui.actions.UpdateBranchAction;
 import java.awt.Container;
+import javax.swing.Icon;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.JSeparator;
 
-/** Project context-menu construction. */
+/**
+ * Project viewController, appState, window, dataDirectory, refreshSettings, githubProvider,
+ * dialogService-menu construction.
+ */
 public final class ProjectActions {
-    private ProjectActions() {}
 
-    public static JPopupMenu menu(final ActionContext actionContext, final ProjectId projectId) {
+    private final AppState appState;
+    private final DialogService dialogService;
+    private final ViewController viewController;
+
+    private final CreateSessionAction createSessionAction;
+    private final CreateTerminalAction createTerminalAction;
+    private final OpenDirectoryAction openDirectoryAction;
+    private final CopyPathAction copyPathAction;
+    private final UpdateBranchAction updateBranchAction;
+    private final ImportBranchAction importBranchAction;
+    private final ImportWorktreeAction importWorktreeAction;
+    private final BulkCreateSessionsAction bulkCreateSessionsAction;
+    private final PasteSessionsAction pasteSessionsAction;
+    private final RemoveProjectAction removeProjectAction;
+
+    @Inject
+    private ProjectActions(
+            final AppState appState,
+            final ViewController viewController,
+            final CreateSessionAction createSessionAction,
+            final CreateTerminalAction createTerminalAction,
+            final OpenDirectoryAction openDirectoryAction,
+            final CopyPathAction copyPathAction,
+            final UpdateBranchAction updateBranchAction,
+            final ImportBranchAction importBranchAction,
+            final ImportWorktreeAction importWorktreeAction,
+            final BulkCreateSessionsAction bulkCreateSessionsAction,
+            final PasteSessionsAction pasteSessionsAction,
+            final DialogService dialogService,
+            final RemoveProjectAction removeProjectAction) {
+        this.appState = appState;
+        this.dialogService = dialogService;
+        this.viewController = viewController;
+        this.createSessionAction = createSessionAction;
+        this.createTerminalAction = createTerminalAction;
+        this.openDirectoryAction = openDirectoryAction;
+        this.copyPathAction = copyPathAction;
+        this.updateBranchAction = updateBranchAction;
+        this.importBranchAction = importBranchAction;
+        this.importWorktreeAction = importWorktreeAction;
+        this.bulkCreateSessionsAction = bulkCreateSessionsAction;
+        this.pasteSessionsAction = pasteSessionsAction;
+        this.removeProjectAction = removeProjectAction;
+    }
+
+    public JPopupMenu menu(final ProjectId projectId) {
+        viewController.selectProject(projectId);
         final JPopupMenu menu = new JPopupMenu();
-        populate(menu, actionContext, projectId);
+        populate(menu);
+
         return menu;
     }
 
-    public static void populate(
-            final Container menu, final ActionContext actionContext, final ProjectId projectId) {
-        actionContext.viewController().selectProject(projectId);
-
-        final var createSession = new CreateSessionAction(actionContext);
-        menu.add(
-                projectActionItem(actionContext, projectId, createSession, UiIcons.hatGlasses()),
-                null);
-        menu.add(
-                projectActionItem(
-                        actionContext,
-                        projectId,
-                        new CreateTerminalAction(actionContext),
-                        UiIcons.terminal()));
+    public void populate(final Container menu) {
+        menu.add(projectActionItem(this.createSessionAction, UiIcons.hatGlasses()), null);
+        menu.add(projectActionItem(this.createTerminalAction, UiIcons.terminal()), null);
         menu.add(new JSeparator());
-        menu.add(
-                projectActionItem(
-                        actionContext, projectId, new OpenDirectoryAction(actionContext), null));
-        menu.add(
-                projectActionItem(
-                        actionContext, projectId, new CopyPathAction(actionContext), null));
-        menu.add(
-                projectActionItem(
-                        actionContext, projectId, new UpdateBranchAction(actionContext), null));
+        menu.add(projectActionItem(this.openDirectoryAction, null));
+        menu.add(projectActionItem(this.copyPathAction, null));
+        menu.add(projectActionItem(this.updateBranchAction, null));
         final JMenu importFrom = new JMenu("Import from");
-        importFrom.add(
-                projectActionItem(
-                        actionContext, projectId, new ImportBranchAction(actionContext), null));
-        importFrom.add(
-                projectActionItem(
-                        actionContext, projectId, new ImportWorktreeAction(actionContext), null));
-        importFrom.add(
-                projectActionItem(
-                        actionContext,
-                        projectId,
-                        new BulkCreateSessionsAction(actionContext),
-                        null));
-        importFrom.add(
-                projectActionItem(
-                        actionContext, projectId, new PasteSessionsAction(actionContext), null));
+        importFrom.add(projectActionItem(this.importBranchAction, null));
+        importFrom.add(projectActionItem(this.importWorktreeAction, null));
+        importFrom.add(projectActionItem(bulkCreateSessionsAction, null));
+        importFrom.add(projectActionItem(pasteSessionsAction, null));
         menu.add(importFrom);
 
-        addAgents(menu, actionContext, projectId);
-        addEditors(menu, actionContext, projectId);
+        addAgents(menu);
+        addEditors(menu);
         menu.add(new JSeparator());
-        menu.add(
-                projectActionItem(
-                        actionContext,
-                        projectId,
-                        new OpenProjectSettingsAction(actionContext),
-                        null));
+        menu.add(projectActionItem(new OpenProjectSettingsAction(viewController), null));
         menu.add(new JSeparator());
-        final JMenuItem removeProject =
-                projectActionItem(
-                        actionContext, projectId, new RemoveProjectAction(actionContext), null);
+        final JMenuItem removeProject = projectActionItem(removeProjectAction, null);
         removeProject.setForeground(Theme.Colors.danger());
         menu.add(removeProject);
     }
 
-    private static void addAgents(
-            final Container menu, final ActionContext actionContext, final ProjectId projectId) {
+    private void addAgents(final Container menu) {
         boolean added = false;
-        for (final Agent agent : actionContext.appState().appSettings().agents()) {
+        for (final Agent agent : appState.appSettings().agents()) {
             if (!added) {
                 addSectionHeading(menu, "Agents");
                 added = true;
             }
             menu.add(
                     projectActionItem(
-                            actionContext,
-                            projectId,
-                            new CreateTerminalAction(actionContext, agent.name, agent.openCommand),
+                            new CreateTerminalAction(
+                                    viewController, appState, agent.name, agent.openCommand),
                             null));
         }
     }
 
-    private static void addEditors(
-            final Container menu, final ActionContext actionContext, final ProjectId projectId) {
+    private void addEditors(final Container menu) {
         boolean added = false;
-        for (final Tool editor : actionContext.appState().appSettings().tools()) {
+        for (final Tool editor : appState.appSettings().tools()) {
             if (!added) {
                 addSectionHeading(menu, "Editors");
                 added = true;
             }
             menu.add(
                     projectActionItem(
-                            actionContext,
-                            projectId,
-                            new RunCommandAction(actionContext, editor.label(), editor.command()),
+                            new RunCommandAction(
+                                    viewController,
+                                    appState,
+                                    dialogService,
+                                    editor.label(),
+                                    editor.command()),
                             null));
         }
     }
@@ -133,19 +151,10 @@ public final class ProjectActions {
         menu.add(heading);
     }
 
-    private static JMenuItem projectActionItem(
-            final ActionContext actionContext,
-            final ProjectId projectId,
-            final Action action,
-            final javax.swing.Icon icon) {
+    private static JMenuItem projectActionItem(final Action action, final Icon icon) {
         final JMenuItem item = new JMenuItem(action.label(), icon);
         item.setEnabled(action.enabled());
-        item.addActionListener(
-                event -> {
-                    actionContext.viewController().selectProject(projectId);
-                    actionContext.viewController().selectSession(projectId, null);
-                    action.execute();
-                });
+        item.addActionListener(event -> action.execute());
         return item;
     }
 }

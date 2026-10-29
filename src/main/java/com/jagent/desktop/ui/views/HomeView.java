@@ -1,11 +1,14 @@
 package com.jagent.desktop.ui.views;
 
+import com.google.inject.Inject;
 import com.jagent.desktop.api.RefreshableView;
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.PullRequestWatcher;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.ImportProjectAction;
 import com.jagent.desktop.ui.components.BaseButton;
@@ -20,6 +23,7 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.util.Comparator;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -33,14 +37,23 @@ import javax.swing.SwingConstants;
 
 /** Home dashboard for continuing an existing session or adding a project. */
 public final class HomeView extends JPanel implements RefreshableView {
-    private final transient ActionContext actionContext;
+    private final transient ViewController viewController;
+    private final transient DialogService dialogService;
     private final transient AppState appState;
     private final JScrollPane scrollPane;
+    private final transient PullRequestWatcher pullRequestWatcher;
 
-    public HomeView(final ActionContext actionContext) {
+    @Inject
+    public HomeView(
+            final ViewController viewController,
+            final AppState appState,
+            final DialogService dialogService,
+            final PullRequestWatcher pullRequestWatcher) {
         super(new BorderLayout());
-        this.actionContext = actionContext;
-        this.appState = actionContext.appState();
+        this.viewController = viewController;
+        this.appState = appState;
+        this.dialogService = dialogService;
+        this.pullRequestWatcher = pullRequestWatcher;
         scrollPane = new JScrollPane(body());
         scrollPane.setBorder(null);
         add(scrollPane, BorderLayout.CENTER);
@@ -65,10 +78,8 @@ public final class HomeView extends JPanel implements RefreshableView {
     public void detach() {}
 
     @Override
-    public java.util.concurrent.CompletableFuture<?> refresh() {
-        return actionContext
-                .viewController()
-                .pullRequestWatcher()
+    public CompletableFuture<?> refresh() {
+        return pullRequestWatcher
                 .refresh()
                 .thenRun(
                         () -> {
@@ -115,7 +126,7 @@ public final class HomeView extends JPanel implements RefreshableView {
     }
 
     private JPanel monitoringTable() {
-        return new SessionMonitoringPanel(actionContext);
+        return new SessionMonitoringPanel(viewController, appState);
     }
 
     private JPanel continueCard() {
@@ -146,11 +157,11 @@ public final class HomeView extends JPanel implements RefreshableView {
     private JPanel getStartedCard() {
         final JPanel card = card("Get started");
         final JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        final var create = new CreateProjectAction(actionContext);
+        final var create = new CreateProjectAction(viewController, appState, dialogService);
         final JButton addProject = new BaseButton(create.label(), UiIcons.plus());
         addProject.addActionListener(event -> create.execute());
         actions.add(addProject);
-        final var importProject = new ImportProjectAction(actionContext);
+        final var importProject = new ImportProjectAction(viewController, appState, dialogService);
         final JButton importButton = new BaseButton(importProject.label());
         importButton.addActionListener(event -> importProject.execute());
         actions.add(importButton);
@@ -183,7 +194,7 @@ public final class HomeView extends JPanel implements RefreshableView {
     }
 
     private void openSession(final SessionId sessionId, final Session session) {
-        actionContext.viewController().openSession(session.projectId(), sessionId);
+        viewController.openSession(session.projectId(), sessionId);
     }
 
     private record SessionOption(SessionId sessionId, Session session) {}

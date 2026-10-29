@@ -1,12 +1,11 @@
 package com.jagent.desktop.services;
 
+import com.google.inject.Inject;
+import com.google.inject.Provider;
+import com.google.inject.Singleton;
 import com.jagent.desktop.api.RefreshableView;
 import com.jagent.desktop.api.View;
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.async.AsyncLoadingState;
-import com.jagent.desktop.async.BoardInstanceState;
-import com.jagent.desktop.async.SessionInstanceState;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
@@ -14,8 +13,6 @@ import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.terminal.TerminalManager;
 import com.jagent.desktop.ui.views.ViewFactory;
-import java.awt.Window;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -27,13 +24,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /** Owns application selection, cached views, and central navigation state. */
+@Singleton
 public final class ViewController {
     private final AppState appState;
-    private final Map<Object, AsyncLoadingState<?, ?, ?, ?>> asyncLoadingStates = new HashMap<>();
-    private final BackgroundJobs backgroundJobs = new BackgroundJobs();
-    private final PullRequestWatcher pullRequestWatcher;
     private final List<Consumer<ViewId>> viewChanged = new ArrayList<>();
-    private final ViewFactory viewFactory;
+    private final Provider<ViewFactory> viewFactory;
     private final Map<ViewId, Integer> selectedTabs = new EnumMap<>(ViewId.class);
     private final Map<SessionId, Integer> selectedSessionTabs = new HashMap<>();
     private ViewId currentViewId;
@@ -82,32 +77,11 @@ public final class ViewController {
         }
     }
 
-    public ViewController(
-            final AppState appState,
-            final Window window,
-            final Path dataDirectory,
-            final Runnable refreshSettings) {
+    @Inject
+    public ViewController(final AppState appState, final Provider<ViewFactory> viewFactory) {
         this.appState = appState;
-        this.asyncLoadingStates.put(
-                ViewId.BOARD, new BoardInstanceState(appState, this.backgroundJobs()));
-        this.asyncLoadingStates.put(
-                ViewId.SESSION, new SessionInstanceState(appState, this.backgroundJobs()));
+        this.viewFactory = viewFactory;
         appState.addEventListener(this::handleStateEvent);
-
-        viewFactory =
-                new ViewFactory(
-                        new ActionContext(
-                                this,
-                                appState,
-                                window,
-                                dataDirectory,
-                                () -> {
-                                    refreshSettings.run();
-                                    this.updateView(currentViewId, null);
-                                }));
-        pullRequestWatcher =
-                new PullRequestWatcher(
-                        new ActionContext(this, appState, window, dataDirectory, refreshSettings));
     }
 
     public void updateView(final ViewId newViewId, final @Nullable ViewState viewState) {
@@ -126,9 +100,7 @@ public final class ViewController {
             previousView.detach();
         }
         TerminalManager.get().reconcile(appState.terminals().keySet());
-        for (final Consumer<ViewId> listener : List.copyOf(viewChanged)) {
-            listener.accept(newViewId);
-        }
+        notifyViewChanged();
     }
 
     public void onViewChanged(final Consumer<ViewId> viewChanged) {
@@ -152,12 +124,27 @@ public final class ViewController {
     }
 
     public void selectProject(final ProjectId projectId) {
+        if (projectId.equals(currentProject) && currentSession == null) {
+            return;
+        }
         currentProject = projectId;
+        currentSession = null;
+        notifyViewChanged();
     }
 
     public void selectSession(final ProjectId projectId, final SessionId sessionId) {
+        if (projectId.equals(currentProject) && sessionId.equals(currentSession)) {
+            return;
+        }
         currentProject = projectId;
         currentSession = sessionId;
+        notifyViewChanged();
+    }
+
+    private void notifyViewChanged() {
+        for (final Consumer<ViewId> listener : List.copyOf(viewChanged)) {
+            listener.accept(currentViewId);
+        }
     }
 
     public void selectTerminal(final TerminalId terminalId) {
@@ -203,7 +190,7 @@ public final class ViewController {
 
     public @NotNull View currentView() {
         if (currentView == null) {
-            currentView = viewFactory.resolveView();
+            currentView = viewFactory.get().resolveView();
         }
         return currentView;
     }
@@ -225,28 +212,6 @@ public final class ViewController {
 
     public @Nullable String currentBoardName() {
         return currentBoardName;
-    }
-
-    public BackgroundJobs backgroundJobs() {
-        return backgroundJobs;
-    }
-
-    public PullRequestWatcher pullRequestWatcher() {
-        return pullRequestWatcher;
-    }
-
-    @SuppressWarnings("unchecked")
-    public <V extends AsyncLoadingState<?, ?, ?, ?>> V getAsyncLoadingState(final Object key) {
-        return (V) asyncLoadingStates.get(key);
-    }
-
-    @SuppressWarnings("unchecked")
-    public <V extends AsyncLoadingState<?, ?, ?, ?>> V getOrDefaultAsyncLoadingState(
-            final Object key, final V defaultState) {
-        if (!asyncLoadingStates.containsKey(key)) {
-            asyncLoadingStates.put(key, defaultState);
-        }
-        return (V) asyncLoadingStates.get(key);
     }
 
     public int selectedTab(final ViewId viewId) {

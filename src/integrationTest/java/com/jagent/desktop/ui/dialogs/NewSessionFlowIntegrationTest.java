@@ -1,17 +1,18 @@
 package com.jagent.desktop.ui.dialogs;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.jagent.desktop.models.ActionContext;
+import com.google.inject.Guice;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.AppSettings;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ApplicationModule;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.HeadlessDialogService;
 import com.jagent.desktop.ui.Defaults;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -24,7 +25,7 @@ import org.assertj.swing.core.BasicRobot;
 import org.assertj.swing.core.Robot;
 import org.assertj.swing.edt.GuiActionRunnable;
 import org.assertj.swing.edt.GuiActionRunner;
-import org.assertj.swing.fixture.DialogFixture;
+import org.assertj.swing.fixture.JPanelFixture;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -35,9 +36,11 @@ class NewSessionFlowIntegrationTest {
         initializeRepository(directory);
         final Agent agent = new Agent("Test agent", "true {prompt}");
         final AppState state = stateWithAgent(agent);
-        final Project project = new Project("Demo", directory.toString(), null);
+        final Project project = Project.create("Demo", directory.toString(), null);
         final var projectId = state.addProject(project);
-        final var controller = new ViewController(state, null, null, () -> {});
+        final var controller =
+                Guice.createInjector(new ApplicationModule(directory, state, null, () -> {}))
+                        .getInstance(ViewController.class);
         controller.selectProject(projectId);
         final AtomicReference<NewSessionDialog.Request> request = new AtomicReference<>();
         final Robot robot = BasicRobot.robotWithNewAwtHierarchy();
@@ -46,19 +49,22 @@ class NewSessionFlowIntegrationTest {
                 GuiActionRunner.execute(
                         () ->
                                 new NewSessionDialog(
-                                        new ActionContext(controller, state, owner, null, null),
-                                        request::set));
-        final DialogFixture fixture = new DialogFixture(robot, dialog);
+                                        state, new HeadlessDialogService(), request::set));
+        final JPanelFixture fixture = new JPanelFixture(robot, dialog);
 
         try {
-            GuiActionRunner.execute(() -> owner.setVisible(true));
-            fixture.show();
+            GuiActionRunner.execute(
+                    () -> {
+                        owner.setContentPane(dialog);
+                        owner.pack();
+                        owner.setVisible(true);
+                    });
             GuiActionRunner.execute(
                     () -> {
                         fixture.textBox("session-name").target().setText(" Demo session ");
                         fixture.textBox("session-prompt").target().setText("Run the tests");
                     });
-            GuiActionRunner.execute(() -> dialog.getRootPane().getDefaultButton().doClick());
+            GuiActionRunner.execute(() -> fixture.button("session-ok").target().doClick());
 
             assertNotNull(request.get(), "valid session details should be submitted");
             assertEquals("Demo session", request.get().name(), "session name should be trimmed");
@@ -76,7 +82,6 @@ class NewSessionFlowIntegrationTest {
             assertEquals(
                     projectId, controller.currentProjectId(), "project should remain available");
         } finally {
-            fixture.cleanUp();
             owner.dispose();
             robot.cleanUp();
         }
@@ -93,25 +98,21 @@ class NewSessionFlowIntegrationTest {
                 GuiActionRunner.execute(
                         () ->
                                 new NewSessionDialog(
-                                        new ActionContext(
-                                                new ViewController(state, null, null, () -> {}),
-                                                state,
-                                                owner,
-                                                null,
-                                                null),
-                                        request::set));
-        final DialogFixture fixture = new DialogFixture(robot, dialog);
+                                        state, new HeadlessDialogService(), request::set));
+        final JPanelFixture fixture = new JPanelFixture(robot, dialog);
 
         try {
-            GuiActionRunner.execute(() -> owner.setVisible(true));
-            fixture.show();
+            GuiActionRunner.execute(
+                    () -> {
+                        owner.setContentPane(dialog);
+                        owner.pack();
+                        owner.setVisible(true);
+                    });
             final var cancel = fixture.button("session-cancel").target();
             GuiActionRunner.execute((GuiActionRunnable) cancel::doClick);
 
-            assertFalse(dialog.isVisible(), "cancelling should close the dialog");
             assertTrue(request.get() == null, "cancelling should not submit a request");
         } finally {
-            fixture.cleanUp();
             owner.dispose();
             robot.cleanUp();
         }

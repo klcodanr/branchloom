@@ -1,11 +1,13 @@
 package com.jagent.desktop.ui.components;
 
+import com.google.inject.Inject;
 import com.jagent.desktop.api.Action;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
-import com.jagent.desktop.models.Session;
 import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.Tool;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.actions.CopyBranchAction;
 import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.actions.CreateTerminalAction;
@@ -15,80 +17,106 @@ import com.jagent.desktop.ui.actions.RenameSessionAction;
 import com.jagent.desktop.ui.actions.RunCommandAction;
 import com.jagent.desktop.ui.actions.UpdateBranchAction;
 import java.awt.Container;
+import javax.swing.Icon;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.JSeparator;
 
-/** Session context-menu construction. */
+/** Builds actions for the selected session. */
 public final class SessionActions {
-    private SessionActions() {}
+    private final AppState appState;
+    private final ViewController viewController;
+    private final DialogService dialogService;
+    private final CreateTerminalAction createTerminalAction;
+    private final OpenDirectoryAction openDirectoryAction;
+    private final CopyPathAction copyPathAction;
+    private final CopyBranchAction copyBranchAction;
+    private final UpdateBranchAction updateBranchAction;
+    private final RenameSessionAction renameSessionAction;
+    private final RemoveSessionAction removeSessionAction;
 
-    public static JPopupMenu menu(final ActionContext actionContext, final SessionId sessionId) {
+    @Inject
+    private SessionActions(
+            final AppState appState,
+            final ViewController viewController,
+            final DialogService dialogService,
+            final CreateTerminalAction createTerminalAction,
+            final OpenDirectoryAction openDirectoryAction,
+            final CopyPathAction copyPathAction,
+            final CopyBranchAction copyBranchAction,
+            final UpdateBranchAction updateBranchAction,
+            final RenameSessionAction renameSessionAction,
+            final RemoveSessionAction removeSessionAction) {
+        this.appState = appState;
+        this.viewController = viewController;
+        this.dialogService = dialogService;
+        this.createTerminalAction = createTerminalAction;
+        this.openDirectoryAction = openDirectoryAction;
+        this.copyPathAction = copyPathAction;
+        this.copyBranchAction = copyBranchAction;
+        this.updateBranchAction = updateBranchAction;
+        this.renameSessionAction = renameSessionAction;
+        this.removeSessionAction = removeSessionAction;
+    }
+
+    public JPopupMenu menu(final SessionId sessionId) {
+        selectSession(sessionId);
         final JPopupMenu menu = new JPopupMenu();
-        populate(menu, actionContext, sessionId);
+        populate(menu);
         return menu;
     }
 
-    public static void populate(
-            final Container menu, final ActionContext actionContext, final SessionId sessionId) {
-        selectSession(actionContext, sessionId);
-        menu.add(
-                sessionActionItem(
-                        actionContext,
-                        sessionId,
-                        new CreateTerminalAction(actionContext),
-                        UiIcons.terminal()));
+    public void populate(final Container menu) {
+        menu.add(sessionActionItem(createTerminalAction, UiIcons.terminal()));
         menu.add(new JSeparator());
-        menu.add(
-                sessionActionItem(
-                        actionContext, sessionId, new OpenDirectoryAction(actionContext)));
-        menu.add(sessionActionItem(actionContext, sessionId, new CopyPathAction(actionContext)));
-        menu.add(sessionActionItem(actionContext, sessionId, new CopyBranchAction(actionContext)));
-        menu.add(
-                sessionActionItem(actionContext, sessionId, new UpdateBranchAction(actionContext)));
+        menu.add(sessionActionItem(openDirectoryAction));
+        menu.add(sessionActionItem(copyPathAction));
+        menu.add(sessionActionItem(copyBranchAction));
+        menu.add(sessionActionItem(updateBranchAction));
 
-        addAgents(menu, actionContext, sessionId);
-        addEditors(menu, actionContext, sessionId);
+        addAgents(menu);
+        addEditors(menu);
         menu.add(new JSeparator());
-        menu.add(
-                sessionActionItem(
-                        actionContext, sessionId, new RenameSessionAction(actionContext)));
-        final JMenuItem removeSession =
-                sessionActionItem(actionContext, sessionId, new RemoveSessionAction(actionContext));
+        menu.add(sessionActionItem(renameSessionAction));
+        final JMenuItem removeSession = sessionActionItem(removeSessionAction);
         removeSession.setForeground(Theme.Colors.danger());
         menu.add(removeSession);
     }
 
-    private static void addAgents(
-            final Container menu, final ActionContext actionContext, final SessionId sessionId) {
+    public void populate(final Container menu, final SessionId sessionId) {
+        selectSession(sessionId);
+        populate(menu);
+    }
+
+    private void addAgents(final Container menu) {
         boolean added = false;
-        for (final Agent agent : actionContext.appState().appSettings().agents()) {
+        for (final Agent agent : appState.appSettings().agents()) {
             if (!added) {
                 addSectionHeading(menu, "Agents");
                 added = true;
             }
             menu.add(
                     sessionActionItem(
-                            actionContext,
-                            sessionId,
                             new CreateTerminalAction(
-                                    actionContext, agent.name, agent.openCommand)));
+                                    viewController, appState, agent.name, agent.openCommand)));
         }
     }
 
-    private static void addEditors(
-            final Container menu, final ActionContext actionContext, final SessionId sessionId) {
+    private void addEditors(final Container menu) {
         boolean added = false;
-        for (final Tool editor : actionContext.appState().appSettings().tools()) {
+        for (final Tool editor : appState.appSettings().tools()) {
             if (!added) {
                 addSectionHeading(menu, "Editors");
                 added = true;
             }
             menu.add(
                     sessionActionItem(
-                            actionContext,
-                            sessionId,
-                            new RunCommandAction(actionContext, editor.label(), editor.command())));
+                            new RunCommandAction(
+                                    viewController,
+                                    appState,
+                                    dialogService,
+                                    editor.label(),
+                                    editor.command())));
         }
     }
 
@@ -99,31 +127,25 @@ public final class SessionActions {
         menu.add(heading);
     }
 
-    private static JMenuItem sessionActionItem(
-            final ActionContext actionContext, final SessionId sessionId, final Action action) {
-        return sessionActionItem(actionContext, sessionId, action, null);
+    private JMenuItem sessionActionItem(final Action action) {
+        return sessionActionItem(action, null);
     }
 
-    private static JMenuItem sessionActionItem(
-            final ActionContext actionContext,
-            final SessionId sessionId,
-            final Action action,
-            final javax.swing.Icon icon) {
+    private JMenuItem sessionActionItem(final Action action, final Icon icon) {
         final JMenuItem item = new JMenuItem(action.label(), icon);
         item.setEnabled(action.enabled());
         item.addActionListener(
                 event -> {
-                    selectSession(actionContext, sessionId);
+                    selectSession(viewController.currentSessionId());
                     action.execute();
                 });
         return item;
     }
 
-    private static void selectSession(
-            final ActionContext actionContext, final SessionId sessionId) {
-        final Session session = actionContext.appState().sessions().get(sessionId);
-        actionContext
-                .viewController()
-                .selectSession(session == null ? null : session.projectId(), sessionId);
+    private void selectSession(final SessionId sessionId) {
+        final var session = appState.sessions().get(sessionId);
+        if (session != null) {
+            viewController.selectSession(session.projectId(), sessionId);
+        }
     }
 }

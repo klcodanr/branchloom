@@ -1,5 +1,6 @@
 package com.jagent.desktop.ui.components.terminal;
 
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.components.UiPopupMenus;
 import com.jagent.desktop.ui.utils.ClipboardImagePaster;
 import com.jediterm.terminal.HyperlinkStyle;
@@ -14,7 +15,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.function.Consumer;
-import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
 import javax.swing.TransferHandler;
 
@@ -23,6 +23,7 @@ public final class AppTerminalPanel extends com.jediterm.terminal.ui.TerminalPan
     private transient Point lastMousePoint;
     private final transient Consumer<Boolean> modifiedClickLinkActivationChanged;
     private final transient Consumer<Boolean> contextMenuLinkActivationChanged;
+    private transient DialogService dialogService;
 
     public AppTerminalPanel(
             final SettingsProvider settings,
@@ -65,6 +66,10 @@ public final class AppTerminalPanel extends com.jediterm.terminal.ui.TerminalPan
                         }
                     }
                 });
+    }
+
+    public void setDialogService(final DialogService dialogService) {
+        this.dialogService = dialogService;
     }
 
     private boolean isModifiedLinkActivationEvent(final java.awt.event.MouseEvent event) {
@@ -139,11 +144,8 @@ public final class AppTerminalPanel extends com.jediterm.terminal.ui.TerminalPan
                         ClipboardImagePaster.paste(
                                 imagePath::set,
                                 message ->
-                                        JOptionPane.showMessageDialog(
-                                                AppTerminalPanel.this,
-                                                message,
-                                                "Clipboard image paste failed",
-                                                JOptionPane.ERROR_MESSAGE));
+                                        dialogService.errorMessage(
+                                                message, "Clipboard image paste failed"));
                 return handled ? imagePath.get() : delegate.getContents(useSystemSelection);
             }
         };

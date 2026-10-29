@@ -3,7 +3,7 @@ package com.jagent.desktop.ui.components;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.async.AsyncLoadingStateFactory;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
@@ -31,7 +31,16 @@ class PullRequestsBoardUiTest {
     void blankQueryShowsPrompt() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var board =
-                GuiActionRunner.execute(() -> new PullRequestsBoard(TestAppState.context(state)));
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestsBoard(
+                                        new AsyncLoadingStateFactory(
+                                                state, TestAppState.backgroundJobs(state)),
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.controller(state),
+                                        state,
+                                        TestAppState.githubProvider(state),
+                                        TestAppState.dialogService()));
 
         assertNotNull(
                 SwingTestSupport.find(
@@ -47,7 +56,7 @@ class PullRequestsBoardUiTest {
                     java.util.concurrent.ExecutionException,
                     MalformedURLException {
         final ProjectId projectId = ProjectId.create();
-        final Project project = new Project("Project", "/tmp/project", null);
+        final Project project = Project.create("Project", "/tmp/project", null);
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
@@ -56,10 +65,17 @@ class PullRequestsBoardUiTest {
                         Map.of());
         final PullRequestDetails request = request(projectId, project);
         final FakeGitHub gitHub = new FakeGitHub(state, projectId, request);
-        final ActionContext context =
-                new ActionContext(
-                        TestAppState.controller(state), state, null, null, null, ignored -> gitHub);
-        final var board = GuiActionRunner.execute(() -> new PullRequestsBoard(context));
+        final var board =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestsBoard(
+                                        new AsyncLoadingStateFactory(
+                                                state, TestAppState.backgroundJobs(state)),
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.controller(state),
+                                        state,
+                                        ignored -> gitHub,
+                                        TestAppState.dialogService()));
 
         GuiActionRunner.execute(() -> board.setQuery("bug"));
         final var refresh = board.refresh();
@@ -87,7 +103,16 @@ class PullRequestsBoardUiTest {
     void normalizesNullInputsAndUsesConfiguredFilterQueries() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final PullRequestsBoard board =
-                GuiActionRunner.execute(() -> new PullRequestsBoard(TestAppState.context(state)));
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestsBoard(
+                                        new AsyncLoadingStateFactory(
+                                                state, TestAppState.backgroundJobs(state)),
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.controller(state),
+                                        state,
+                                        TestAppState.githubProvider(state),
+                                        TestAppState.dialogService()));
 
         GuiActionRunner.execute(
                 () -> {
@@ -123,7 +148,7 @@ class PullRequestsBoardUiTest {
                     InterruptedException,
                     java.util.concurrent.ExecutionException {
         final ProjectId projectId = ProjectId.create();
-        final Project project = new Project("Project", "/tmp/project", null);
+        final Project project = Project.create("Project", "/tmp/project", null);
         final AppState state =
                 new AppState(
                         Defaults.appSettings(),
@@ -132,11 +157,17 @@ class PullRequestsBoardUiTest {
                         Map.of());
         final PullRequestDetails request = request(projectId, project);
         final FakeGitHub gitHub = new FakeGitHub(state, projectId, request);
-        final ActionContext context =
-                new ActionContext(
-                        TestAppState.controller(state), state, null, null, null, ignored -> gitHub);
         final PullRequestsBoard board =
-                GuiActionRunner.execute(() -> new PullRequestsBoard(context));
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestsBoard(
+                                        new AsyncLoadingStateFactory(
+                                                state, TestAppState.backgroundJobs(state)),
+                                        TestAppState.backgroundJobs(state),
+                                        TestAppState.controller(state),
+                                        state,
+                                        ignored -> gitHub,
+                                        TestAppState.dialogService()));
 
         GuiActionRunner.execute(() -> board.setQuery("bug"));
         board.refresh().get();

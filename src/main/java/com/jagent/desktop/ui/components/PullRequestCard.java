@@ -2,19 +2,20 @@ package com.jagent.desktop.ui.components;
 
 import com.jagent.desktop.api.ViewId;
 import com.jagent.desktop.async.ProgressOperation;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestDetails;
 import com.jagent.desktop.models.PullRequestReview;
 import com.jagent.desktop.models.Terminal;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.PlatformCommands;
 import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.services.github.GitHub;
+import com.jagent.desktop.services.github.GitHubProvider;
 import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.actions.ImportBranchAction;
-import com.jagent.desktop.ui.actions.OpenSettingsAction;
 import com.jagent.desktop.ui.dialogs.ReviewDialog;
 import com.jagent.desktop.ui.utils.ErrorMessages;
 import java.io.IOException;
@@ -28,7 +29,6 @@ import javax.swing.BoxLayout;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import org.slf4j.Logger;
@@ -37,7 +37,9 @@ import org.slf4j.LoggerFactory;
 /** Displays one pull request and its actions. */
 public final class PullRequestCard extends CardPanel {
     private static final Logger LOG = LoggerFactory.getLogger(PullRequestCard.class);
-    private final transient ActionContext actionContext;
+    private final transient ViewController viewController;
+    private final transient AppState appState;
+    private final transient DialogService dialogService;
     private final transient Function<ProjectId, CompletableFuture<?>> refreshProject;
     private final transient PullRequestDetails details;
     private final JLabel metadata;
@@ -47,17 +49,22 @@ public final class PullRequestCard extends CardPanel {
     private boolean actionInFlight;
 
     public PullRequestCard(
-            final ActionContext actionContext,
+            final ViewController viewController,
+            final AppState appState,
+            final GitHubProvider githubProvider,
+            final DialogService dialogService,
             final PullRequest request,
             final PullRequestDetails details,
             final Function<ProjectId, CompletableFuture<?>> refreshProject) {
         super();
         this.request = request;
-        this.actionContext = actionContext;
+        this.viewController = viewController;
+        this.appState = appState;
+        this.dialogService = dialogService;
         this.refreshProject = refreshProject;
         this.details = details;
-        this.project = actionContext.appState().projects().get(request.projectId());
-        this.gitHub = actionContext.githubProvider().forProject(request.projectId());
+        this.project = appState.projects().get(request.projectId());
+        this.gitHub = githubProvider.forProject(request.projectId());
         final JPopupMenu contextMenu = menu();
         addNumber(request.project().name() + " · PR · #" + request.number(), contextMenu);
         addTitle(request.title(), contextMenu);
@@ -128,7 +135,9 @@ public final class PullRequestCard extends CardPanel {
         copyUrl.addActionListener(event -> CopyPathAction.copy(url.toExternalForm()));
         final JMenuItem importItem = new JMenuItem("Import PR branch");
         importItem.addActionListener(
-                event -> ImportBranchAction.importPullRequest(actionContext, request));
+                event ->
+                        ImportBranchAction.importPullRequest(
+                                viewController, appState, dialogService, request));
         final JMenuItem reviewItem = new JMenuItem("Review PR");
         reviewItem.addActionListener(event -> startReview(request));
         menu.add(open);
@@ -261,7 +270,6 @@ public final class PullRequestCard extends CardPanel {
         }
         actionInFlight = true;
         ProgressOperation.runWithCompletion(
-                        actionContext,
                         title,
                         message,
                         operation,
@@ -279,36 +287,27 @@ public final class PullRequestCard extends CardPanel {
     }
 
     private boolean confirm(final PullRequest request, final String action) {
-        return JOptionPane.showConfirmDialog(
-                        actionContext.window(),
+        return dialogService.confirm(
                         "Are you sure you want to " + action + " PR #" + request.number() + "?",
                         "Confirm " + action,
-                        JOptionPane.YES_NO_OPTION,
-                        JOptionPane.WARNING_MESSAGE)
-                == JOptionPane.YES_OPTION;
+                        DialogService.OptionType.YES_NO,
+                        DialogService.MessageType.WARNING)
+                == DialogService.ReturnType.OK;
     }
 
     private void startReview(final PullRequest request) {
-        if (actionContext.appState().appSettings().agents().isEmpty()) {
+        if (appState.appSettings().agents().isEmpty()) {
             LOG.warn("Review PR: No agents configured");
-            final Object[] options = {"Open settings", "Cancel"};
-            final int choice =
-                    JOptionPane.showOptionDialog(
-                            actionContext.window(),
-                            "Configure an agent before starting a review.",
-                            "No review agent configured",
-                            JOptionPane.DEFAULT_OPTION,
-                            JOptionPane.WARNING_MESSAGE,
-                            null,
-                            options,
-                            options[0]);
-            if (choice == 0) {
-                new OpenSettingsAction(actionContext).execute();
-            }
+            dialogService.errorMessage(
+                    "No review agents are configured. Please configure an agent before starting a review.",
+                    "Review pull request");
             return;
         }
-        new ReviewDialog(
-                        actionContext,
+        dialogService.show(
+                "Review pull request",
+                new ReviewDialog(
+                        appState,
+                        dialogService,
                         request,
                         (agent, prompt) -> {
                             final String title = agent.name + " review #" + request.number();
@@ -316,8 +315,7 @@ public final class PullRequestCard extends CardPanel {
                                     agent.newSessionCommand.replace(
                                             "{prompt}", PlatformCommands.shellQuote(prompt));
                             final var terminalId =
-                                    actionContext
-                                            .viewController()
+                                    viewController
                                             .appState()
                                             .addTerminal(
                                                     new Terminal(
@@ -325,14 +323,12 @@ public final class PullRequestCard extends CardPanel {
                                                             request.projectId(),
                                                             title,
                                                             command));
-                            actionContext
-                                    .viewController()
-                                    .updateView(
-                                            ViewId.PROJECT,
-                                            ViewController.ViewState.projectTerminal(
-                                                    request.projectId(), terminalId));
-                        })
-                .setVisible(true);
+                            viewController.updateView(
+                                    ViewId.PROJECT,
+                                    ViewController.ViewState.projectTerminal(
+                                            request.projectId(), terminalId));
+                        }),
+                "Start review");
     }
 
     private static String metadataText(

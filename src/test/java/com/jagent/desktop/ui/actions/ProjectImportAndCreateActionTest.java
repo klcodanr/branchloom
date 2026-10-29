@@ -3,7 +3,6 @@ package com.jagent.desktop.ui.actions;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.services.AppState;
@@ -20,10 +19,12 @@ class ProjectImportAndCreateActionTest {
     @Test
     void createAndImportActionsExposeExpectedMetadata(@TempDir final Path tempDir) {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ActionContext context =
-                new ActionContext(TestAppState.controller(state), state, null, null, null);
-        final CreateProjectAction createAction = new CreateProjectAction(context);
-        final ImportProjectAction importAction = new ImportProjectAction(context);
+        final var controller = TestAppState.controller(state);
+        final var dialogService = TestAppState.dialogService();
+        final CreateProjectAction createAction =
+                new CreateProjectAction(controller, state, dialogService, "");
+        final ImportProjectAction importAction =
+                new ImportProjectAction(controller, state, dialogService, "");
 
         assertEquals("new-project", createAction.id(), "create action id should be stable");
         assertEquals("Add local project", createAction.label(), "create action label should match");
@@ -35,7 +36,7 @@ class ProjectImportAndCreateActionTest {
     @Test
     void contextContainsExistingProjectThatValidationWouldReject(@TempDir final Path tempDir) {
         final Path projectPath = tempDir.resolve("demo-project");
-        final Project project = new Project(PROJECT_NAME, projectPath.toString(), null);
+        final Project project = Project.create(PROJECT_NAME, projectPath.toString(), null);
         final ProjectId projectId = ProjectId.create();
         final AppState state =
                 new AppState(

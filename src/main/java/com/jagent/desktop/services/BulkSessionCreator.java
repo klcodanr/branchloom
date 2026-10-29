@@ -1,13 +1,13 @@
-package com.jagent.desktop.ui.components;
+package com.jagent.desktop.services;
 
+import com.google.inject.Inject;
 import com.jagent.desktop.async.BackgroundOperations;
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.services.BackgroundJobs.Handle;
-import com.jagent.desktop.services.SessionCreationService;
 import com.jagent.desktop.services.SessionCreationService.CreatedSession;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.utils.ErrorMessages;
 import com.jagent.desktop.ui.utils.GitUtils;
 import com.jagent.desktop.ui.utils.SessionNames;
@@ -17,19 +17,28 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 /** Runs the shared multi-session creation workflow for imported candidates. */
 public final class BulkSessionCreator {
-    private final ActionContext actionContext;
+    private final BackgroundJobs backgroundJobs;
+    private final AppState appState;
+    private final DialogService dialogService;
     private final SessionCreationService sessionCreator;
     private final SessionLauncher sessionLauncher;
 
-    public BulkSessionCreator(final ActionContext actionContext) {
-        this.actionContext = actionContext;
-        sessionCreator = new SessionCreationService(actionContext.appState());
-        sessionLauncher = new SessionLauncher(actionContext);
+    @Inject
+    public BulkSessionCreator(
+            final BackgroundJobs backgroundJobs,
+            final SessionCreationService sessionCreator,
+            final SessionLauncher sessionLauncher,
+            final AppState appState,
+            final DialogService dialogService) {
+        this.backgroundJobs = backgroundJobs;
+        this.appState = appState;
+        this.dialogService = dialogService;
+        this.sessionCreator = sessionCreator;
+        this.sessionLauncher = sessionLauncher;
     }
 
     public void create(
@@ -38,11 +47,7 @@ public final class BulkSessionCreator {
             final Agent agent,
             final List<Candidate> candidates,
             final String title) {
-        final Handle job =
-                actionContext
-                        .viewController()
-                        .backgroundJobs()
-                        .start(title, project.name(), "Multiple sessions");
+        final Handle job = backgroundJobs.start(title, project.name(), "Multiple sessions");
         BackgroundOperations.submit(
                         "Sessions",
                         "bulk-create",
@@ -67,7 +72,7 @@ public final class BulkSessionCreator {
             final Agent agent,
             final List<Candidate> candidates,
             final Handle job) {
-        final Set<String> names = SessionNames.existing(actionContext.appState(), project);
+        final Set<String> names = SessionNames.existing(appState, project);
         final List<String> successes = new ArrayList<>();
         final List<String> failures = new ArrayList<>();
         final AtomicInteger completed = new AtomicInteger();
@@ -108,13 +113,12 @@ public final class BulkSessionCreator {
         if (!result.failures().isEmpty()) {
             text.append("\n\nFailed:\n").append(String.join("\n", result.failures()));
         }
-        JOptionPane.showMessageDialog(
-                actionContext.window(),
-                text,
+        dialogService.message(
+                text.toString(),
                 title,
                 result.failures().isEmpty()
-                        ? JOptionPane.INFORMATION_MESSAGE
-                        : JOptionPane.WARNING_MESSAGE);
+                        ? DialogService.MessageType.INFORMATION
+                        : DialogService.MessageType.WARNING);
     }
 
     public record Candidate(String name, String label, String prompt) {}

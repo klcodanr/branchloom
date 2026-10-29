@@ -3,7 +3,6 @@ package com.jagent.desktop.ui.dialogs;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.Agent;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.test.TestAppState;
@@ -18,7 +17,7 @@ import org.assertj.swing.core.BasicRobot;
 import org.assertj.swing.core.GenericTypeMatcher;
 import org.assertj.swing.core.Robot;
 import org.assertj.swing.edt.GuiActionRunner;
-import org.assertj.swing.fixture.DialogFixture;
+import org.assertj.swing.fixture.JPanelFixture;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
@@ -48,17 +47,16 @@ class NewSessionDialogUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new NewSessionDialog(
-                                        new ActionContext(
-                                                TestAppState.controller(state),
-                                                state,
-                                                owner,
-                                                null,
-                                                null),
-                                        request::set));
-        final DialogFixture fixture = new DialogFixture(robot, dialog);
+                                        state, TestAppState.dialogService(), request::set));
+        final JPanelFixture fixture = new JPanelFixture(robot, dialog);
 
         try {
-            fixture.show();
+            GuiActionRunner.execute(
+                    () -> {
+                        owner.setContentPane(dialog);
+                        owner.pack();
+                        owner.setVisible(true);
+                    });
             final var nameField = fixture.textBox("session-name");
             final var promptField =
                     fixture.textBox(
@@ -75,14 +73,13 @@ class NewSessionDialogUiTest {
                     });
             nameField.requireText(" Demo session ");
             promptField.requireText("Run the tests");
-            GuiActionRunner.execute(() -> dialog.getRootPane().getDefaultButton().doClick());
+            GuiActionRunner.execute(() -> fixture.button("session-ok").target().doClick());
 
             assertNotNull(request.get(), "accepting the dialog should submit a request");
             assertEquals("Demo session", request.get().name(), "session name should be trimmed");
             assertEquals(agent, request.get().agent(), "selected agent should be submitted");
             assertEquals("Run the tests", request.get().prompt(), "prompt should be submitted");
         } finally {
-            fixture.cleanUp();
             owner.dispose();
             robot.cleanUp();
         }

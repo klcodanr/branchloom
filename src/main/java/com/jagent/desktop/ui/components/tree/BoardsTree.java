@@ -1,7 +1,8 @@
 package com.jagent.desktop.ui.components.tree;
 
-import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.board.BoardDefinition;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.ui.components.tree.items.BoardTreeItem;
 import com.jagent.desktop.ui.components.tree.items.BoardsTreeItem;
 import java.util.Comparator;
@@ -10,11 +11,13 @@ import javax.swing.tree.DefaultMutableTreeNode;
 
 public final class BoardsTree {
 
-    private final ActionContext actionContext;
+    private final ViewController viewController;
+    private final AppState appState;
     private final DefaultMutableTreeNode boardsNode;
 
-    public BoardsTree(final ActionContext actionContext) {
-        this.actionContext = actionContext;
+    public BoardsTree(final ViewController viewController, final AppState appState) {
+        this.viewController = viewController;
+        this.appState = appState;
         this.boardsNode = new DefaultMutableTreeNode(new BoardsTreeItem());
         rebuild();
     }
@@ -30,11 +33,11 @@ public final class BoardsTree {
                         board ->
                                 boardsNode.add(
                                         new DefaultMutableTreeNode(
-                                                new BoardTreeItem(actionContext, board))));
+                                                new BoardTreeItem(viewController, board))));
     }
 
     private List<BoardDefinition> sortedBoards() {
-        return actionContext.appState().appSettings().boards().stream()
+        return appState.appSettings().boards().stream()
                 .sorted(Comparator.comparing(b -> b.name()))
                 .toList();
     }

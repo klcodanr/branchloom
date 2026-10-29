@@ -6,8 +6,12 @@ import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
+import com.jagent.desktop.models.IdType;
+import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.github.CliCredential;
 import com.jagent.desktop.models.github.Credential;
 import java.io.IOException;
@@ -17,10 +21,13 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 class PersistenceSupport {
+    private static final String TYPE = "type";
+    private static final String VALUE = "value";
     protected static final Gson JSON =
             new GsonBuilder()
                     .setPrettyPrinting()
                     .registerTypeAdapter(Credential.class, new CredentialJsonAdapter())
+                    .registerTypeAdapter(IdType.class, new IdTypeJsonAdapter())
                     .create();
     protected static final Path DEFAULT_DIRECTORY =
             Path.of(System.getProperty("user.home"), ".branchloom");
@@ -28,8 +35,12 @@ class PersistenceSupport {
     protected PersistenceSupport() {}
 
     protected void writeAtomically(final Path path, final Object value) throws IOException {
+        writeTextAtomically(path, JSON.toJson(value));
+    }
+
+    protected void writeTextAtomically(final Path path, final String value) throws IOException {
         final Path temporary = path.resolveSibling(path.getFileName() + ".tmp");
-        Files.writeString(temporary, JSON.toJson(value));
+        Files.writeString(temporary, value);
         Files.move(
                 temporary,
                 path,
@@ -93,6 +104,32 @@ class PersistenceSupport {
                 return null;
             }
             return value.getAsString();
+        }
+    }
+
+    private static final class IdTypeJsonAdapter implements JsonSerializer<IdType> {
+        @Override
+        public JsonElement serialize(
+                final IdType source,
+                final Type sourceType,
+                final JsonSerializationContext context) {
+            if (source == null) {
+                return null;
+            }
+            final JsonObject json = new JsonObject();
+            json.add(VALUE, new JsonPrimitive(source.value().toString()));
+            json.addProperty(TYPE, sourceTypeName(source));
+            return json;
+        }
+
+        private static String sourceTypeName(final IdType source) {
+            if (source instanceof ProjectId) {
+                return ProjectId.class.getSimpleName();
+            }
+            if (source instanceof SessionId) {
+                return SessionId.class.getSimpleName();
+            }
+            return source.getClass().getSimpleName();
         }
     }
 }

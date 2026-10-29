@@ -1,12 +1,14 @@
 package com.jagent.desktop.ui.actions;
 
-import com.jagent.desktop.api.BaseAction;
+import com.jagent.desktop.api.Action;
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.services.ViewController;
 
-public final class OpenProjectSettingsAction extends BaseAction {
-    public OpenProjectSettingsAction(final ActionContext actionContext) {
-        super(actionContext);
+public final class OpenProjectSettingsAction implements Action {
+    private final ViewController viewController;
+
+    public OpenProjectSettingsAction(final ViewController viewController) {
+        this.viewController = viewController;
     }
 
     @Override
@@ -21,6 +23,6 @@ public final class OpenProjectSettingsAction extends BaseAction {
 
     @Override
     public void execute() {
-        actionContext.viewController().updateView(ViewId.PROJECT_SETTINGS, null);
+        viewController.updateView(ViewId.PROJECT_SETTINGS, null);
     }
 }

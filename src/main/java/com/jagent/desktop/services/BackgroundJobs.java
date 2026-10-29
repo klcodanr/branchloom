@@ -1,5 +1,6 @@
 package com.jagent.desktop.services;
 
+import com.google.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -10,6 +11,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 
 /** Tracks background work that should be visible to the user. */
+@Singleton
 public final class BackgroundJobs {
     private static final int MAX_COMPLETED_JOBS = 100;
     private static final int MAX_OUTPUT_LINES = 5_000;

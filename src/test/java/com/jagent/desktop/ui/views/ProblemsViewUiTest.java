@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.models.LogEntry;
 import com.jagent.desktop.test.SwingTestSupport;
+import com.jagent.desktop.test.TestAppState;
 import java.awt.Dimension;
 import java.util.List;
 import javax.swing.JScrollPane;
@@ -20,8 +21,12 @@ class ProblemsViewUiTest {
     void tableShowsProblemsNewestFirst() throws InterruptedException {
         final var first = new LogEntry("first-source", "warning", "first message");
         final var second = new LogEntry("second-source", "error", "second message");
-        final var view =
-                GuiActionRunner.execute(() -> new ProblemsView(ignored -> List.of(first, second)));
+        final ProblemsView view =
+                GuiActionRunner.execute(
+                        () ->
+                                new ProblemsView(
+                                        ignored -> List.of(first, second),
+                                        TestAppState.dialogService()));
         waitForRows(view, 2);
 
         final var table = table(view);
@@ -38,14 +43,13 @@ class ProblemsViewUiTest {
 
     @Test
     void clearButtonRemovesDisplayedProblemsAndShowAllStartsEnabled() throws InterruptedException {
-        final var view =
+        final ProblemsView view =
                 GuiActionRunner.execute(
                         () ->
                                 new ProblemsView(
                                         ignored ->
-                                                List.of(
-                                                        new LogEntry(
-                                                                "source", "error", "message"))));
+                                                List.of(new LogEntry("source", "error", "message")),
+                                        TestAppState.dialogService()));
         waitForRows(view, 1);
 
         final var showAll = SwingTestSupport.findButton(view, "Show all logs");
@@ -61,7 +65,9 @@ class ProblemsViewUiTest {
 
     @Test
     void tableFillsAvailableViewHeight() {
-        final var view = GuiActionRunner.execute(() -> new ProblemsView(ignored -> List.of()));
+        final ProblemsView view =
+                GuiActionRunner.execute(
+                        () -> new ProblemsView(ignored -> List.of(), TestAppState.dialogService()));
 
         GuiActionRunner.execute(
                 () -> {
@@ -96,7 +102,7 @@ class ProblemsViewUiTest {
                         new LogEntry(SOURCE, "info     ", "oldest"),
                         new LogEntry(SOURCE, "warning  ", "mid"),
                         new LogEntry(SOURCE, "error    ", "newest"));
-        final var view =
+        final ProblemsView view =
                 GuiActionRunner.execute(
                         () ->
                                 new ProblemsView(
@@ -105,7 +111,8 @@ class ProblemsViewUiTest {
                                                 return initial;
                                             }
                                             return full;
-                                        }));
+                                        },
+                                        TestAppState.dialogService()));
         waitForRows(view, 1);
 
         final var showAll = SwingTestSupport.findButton(view, "Show all logs");

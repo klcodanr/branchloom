@@ -1,10 +1,11 @@
 package com.jagent.desktop.ui.components;
 
 import com.formdev.flatlaf.util.SystemInfo;
+import com.google.inject.Inject;
 import com.jagent.desktop.api.Action;
 import com.jagent.desktop.api.ViewId;
-import com.jagent.desktop.models.ActionContext;
-import com.jagent.desktop.models.board.BoardDefinition;
+import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.ui.actions.AboutAction;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.CreateSessionAction;
@@ -21,60 +22,109 @@ import java.awt.Window;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
-import java.util.List;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.KeyStroke;
 
-/** Builds the application menu from the current action context. */
+/** Builds the application menu from the current application state. */
 public final class AppMenuBar {
-    private AppMenuBar() {}
+    private final ViewController viewController;
+    private final AppState appState;
+    private final Action aboutAction;
+    private final Action createProjectAction;
+    private final Action createSessionAction;
+    private final Action createTerminalAction;
+    private final Action findAction;
+    private final Action importProjectAction;
+    private final Action openSettingsAction;
+    private final Action problemsAction;
+    private final Action refreshSettingsAction;
+    private final Action resourceUsageAction;
+    private final Action shortcutsAction;
+    private final ProjectActions projectActions;
+    private final SessionActions sessionActions;
+    private final Window window;
+    private final JMenuBar menuBar = new JMenuBar();
 
-    public static JMenuBar create(final ActionContext actionContext) {
-        final JMenuBar bar = new JMenuBar();
-        final boolean projectSelected = actionContext.viewController().currentProjectId() != null;
-        final boolean sessionSelected = actionContext.viewController().currentSessionId() != null;
-        bar.add(fileMenu(actionContext, projectSelected));
-        bar.add(viewMenu(actionContext));
-        if (projectSelected) {
-            final JMenu project = new JMenu("Project");
-            ProjectActions.populate(
-                    project, actionContext, actionContext.viewController().currentProjectId());
-            bar.add(project);
-        }
-        if (sessionSelected) {
-            final JMenu session = new JMenu("Session");
-            SessionActions.populate(
-                    session, actionContext, actionContext.viewController().currentSessionId());
-            bar.add(session);
-        }
-        bar.add(helpMenu(actionContext));
-        return bar;
+    @Inject
+    @SuppressWarnings("PMD.ExcessiveParameterList")
+    public AppMenuBar(
+            final ViewController viewController,
+            final AppState appState,
+            final ProjectActions projectActions,
+            final SessionActions sessionActions,
+            final AboutAction aboutAction,
+            final CreateProjectAction createProjectAction,
+            final CreateSessionAction createSessionAction,
+            final CreateTerminalAction createTerminalAction,
+            final FindAction findAction,
+            final ImportProjectAction importProjectAction,
+            final OpenSettingsAction openSettingsAction,
+            final ProblemsAction problemsAction,
+            final RefreshSettingsAction refreshSettingsAction,
+            final ResourceUsageAction resourceUsageAction,
+            final ShortcutsAction shortcutsAction,
+            final Window window) {
+        this.viewController = viewController;
+        this.appState = appState;
+        this.projectActions = projectActions;
+        this.sessionActions = sessionActions;
+        this.aboutAction = aboutAction;
+        this.createProjectAction = createProjectAction;
+        this.createSessionAction = createSessionAction;
+        this.createTerminalAction = createTerminalAction;
+        this.findAction = findAction;
+        this.importProjectAction = importProjectAction;
+        this.openSettingsAction = openSettingsAction;
+        this.problemsAction = problemsAction;
+        this.refreshSettingsAction = refreshSettingsAction;
+        this.resourceUsageAction = resourceUsageAction;
+        this.shortcutsAction = shortcutsAction;
+        this.window = window;
     }
 
-    private static JMenu fileMenu(
-            final ActionContext actionContext, final boolean projectSelected) {
-        final Window window = actionContext.window();
+    public JMenuBar create() {
+        menuBar.removeAll();
+        menuBar.add(fileMenu());
+        menuBar.add(viewMenu());
+        if (viewController.currentProjectId() != null) {
+            final JMenu projectMenu = new JMenu("Project");
+            projectActions.populate(projectMenu);
+            menuBar.add(projectMenu);
+        }
+        if (viewController.currentSessionId() != null) {
+            final JMenu sessionMenu = new JMenu("Session");
+            sessionActions.populate(sessionMenu);
+            menuBar.add(sessionMenu);
+        }
+        menuBar.add(helpMenu());
+        menuBar.revalidate();
+        menuBar.repaint();
+        return menuBar;
+    }
+
+    private JMenu fileMenu() {
         final JMenu file = new JMenu("File");
         file.add(
                 actionItem(
-                        new CreateProjectAction(actionContext),
+                        createProjectAction,
                         shortcut(KeyStroke.getKeyStroke(KeyEvent.VK_N, 0), true)));
-        file.add(actionItem(new ImportProjectAction(actionContext)));
+        file.add(actionItem(importProjectAction));
+        final boolean projectSelected = viewController.currentProjectId() != null;
         if (projectSelected) {
             file.add(
                     actionItem(
-                            new CreateSessionAction(actionContext),
+                            createSessionAction,
                             shortcut(KeyStroke.getKeyStroke(KeyEvent.VK_N, 0), false)));
             file.add(
                     actionItem(
-                            new CreateTerminalAction(actionContext),
+                            createTerminalAction,
                             shortcut(KeyStroke.getKeyStroke(KeyEvent.VK_T, 0), false)));
         }
         file.addSeparator();
-        file.add(actionItem(new OpenSettingsAction(actionContext)));
-        file.add(actionItem(new RefreshSettingsAction(actionContext)));
+        file.add(actionItem(openSettingsAction));
+        file.add(actionItem(refreshSettingsAction));
         if (!SystemInfo.isMacOS) {
             file.addSeparator();
             file.add(
@@ -87,34 +137,27 @@ public final class AppMenuBar {
         return file;
     }
 
-    private static JMenu viewMenu(final ActionContext actionContext) {
+    private JMenu viewMenu() {
         final JMenu view = new JMenu("View");
-        view.add(
-                actionItem(
-                        new FindAction(actionContext),
-                        shortcut(KeyStroke.getKeyStroke(KeyEvent.VK_F, 0), false)));
-        view.add(actionItem(new ResourceUsageAction(actionContext)));
-        view.add(actionItem(new ProblemsAction(actionContext)));
-        final List<BoardDefinition> boards = actionContext.appState().appSettings().boards();
-        for (final BoardDefinition board : boards) {
+        view.add(actionItem(findAction, shortcut(KeyStroke.getKeyStroke(KeyEvent.VK_F, 0), false)));
+        view.add(actionItem(resourceUsageAction));
+        view.add(actionItem(problemsAction));
+        for (final var board : appState.appSettings().boards()) {
             view.add(
                     item(
                             board.name(),
                             () ->
-                                    actionContext
-                                            .viewController()
-                                            .updateView(
-                                                    ViewId.BOARD,
-                                                    com.jagent.desktop.services.ViewController
-                                                            .ViewState.board(board.name()))));
+                                    viewController.updateView(
+                                            ViewId.BOARD,
+                                            ViewController.ViewState.board(board.name()))));
         }
         return view;
     }
 
-    private static JMenu helpMenu(final ActionContext actionContext) {
+    private JMenu helpMenu() {
         final JMenu help = new JMenu("Help");
-        help.add(actionItem(new ShortcutsAction(actionContext)));
-        help.add(actionItem(new AboutAction(actionContext)));
+        help.add(actionItem(shortcutsAction));
+        help.add(actionItem(aboutAction));
         return help;
     }
 

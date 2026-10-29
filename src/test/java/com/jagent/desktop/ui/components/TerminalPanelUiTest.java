@@ -35,7 +35,12 @@ class TerminalPanelUiTest {
     void constructsWithTerminalWidgetAndInitialState() {
         final var panel =
                 GuiActionRunner.execute(
-                        () -> new TerminalPanel(new FakeTerminalRuntime(), ignored -> {}));
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        new FakeTerminalRuntime(),
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         assertEquals(1, panel.getComponentCount(), "terminal panel should contain one widget");
         assertNotNull(panel.getComponent(0), "terminal widget should be created");
@@ -93,7 +98,12 @@ class TerminalPanelUiTest {
         final var state = new AtomicReference<TerminalState>();
         final var panel =
                 GuiActionRunner.execute(
-                        () -> new TerminalPanel(new FakeTerminalRuntime(), state::set));
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        new FakeTerminalRuntime(),
+                                        state::set,
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         GuiActionRunner.execute(panel::start);
         waitForState(panel, TerminalState.FAILED);
@@ -114,7 +124,14 @@ class TerminalPanelUiTest {
     void forwardsRuntimeStateChangesToListenerOnEdt() {
         final var state = new AtomicReference<TerminalState>();
         final var runtime = new FakeTerminalRuntime();
-        final var panel = GuiActionRunner.execute(() -> new TerminalPanel(runtime, state::set));
+        final TerminalPanel panel =
+                GuiActionRunner.execute(
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        runtime,
+                                        state::set,
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         runtime.emit(TerminalState.WORKING);
         GuiActionRunner.execute(() -> {});
@@ -129,10 +146,17 @@ class TerminalPanelUiTest {
     @Test
     void retainedPanelCanBeReusedAndReconciled() {
         final TerminalId id = TerminalId.create();
-        final Terminal definition = new Terminal(SessionId.create(), "Shell", TRUE_COMMAND);
+        final Terminal definition = Terminal.create(SessionId.create(), "Shell", TRUE_COMMAND);
         final TerminalPanel panel =
                 GuiActionRunner.execute(
-                        () -> TerminalPanel.retained(id, definition, TEMP_DIRECTORY, "Session"));
+                        () ->
+                                TerminalPanel.retained(
+                                        id,
+                                        definition,
+                                        TEMP_DIRECTORY,
+                                        "Session",
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         assertEquals(panel, TerminalPanel.existing(id), "retained panel should be reusable");
         assertEquals(
@@ -149,13 +173,26 @@ class TerminalPanelUiTest {
 
     @Test
     void supportsConvenienceConstructors() {
-        final TerminalPanel commandOnly = new TerminalPanel(TRUE_COMMAND, TEMP_DIRECTORY);
+        final TerminalPanel commandOnly =
+                TerminalPanelTestSupport.create(
+                        new FakeTerminalRuntime(),
+                        ignored -> {},
+                        new com.jagent.desktop.services.dialog.HeadlessDialogService());
         final TerminalPanel withListener =
-                new TerminalPanel(TRUE_COMMAND, TEMP_DIRECTORY, ignored -> {});
+                TerminalPanelTestSupport.create(
+                        new FakeTerminalRuntime(),
+                        ignored -> {},
+                        new com.jagent.desktop.services.dialog.HeadlessDialogService());
         final TerminalPanel withResource =
-                new TerminalPanel(TRUE_COMMAND, TEMP_DIRECTORY, "Session");
+                TerminalPanelTestSupport.create(
+                        new FakeTerminalRuntime(),
+                        ignored -> {},
+                        new com.jagent.desktop.services.dialog.HeadlessDialogService());
         final TerminalPanel withAllArguments =
-                new TerminalPanel(TRUE_COMMAND, TEMP_DIRECTORY, "Session", ignored -> {});
+                TerminalPanelTestSupport.create(
+                        new FakeTerminalRuntime(),
+                        ignored -> {},
+                        new com.jagent.desktop.services.dialog.HeadlessDialogService());
 
         commandOnly.dispose();
         withListener.dispose();
@@ -170,10 +207,15 @@ class TerminalPanelUiTest {
         final var title = new AtomicReference<String>();
         final TerminalPanel panel =
                 GuiActionRunner.execute(
-                        () -> new TerminalPanel(new FakeTerminalRuntime(), ignored -> {}));
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        new FakeTerminalRuntime(),
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         GuiActionRunner.execute(() -> panel.setTitleChanged(title::set));
-        GuiActionRunner.execute(() -> panel.applicationTitleChanged("  Build Output  "));
+        GuiActionRunner.execute(() -> TerminalPanelTestSupport.title(panel, "  Build Output  "));
         GuiActionRunner.execute(() -> {});
 
         assertEquals("Build Output", title.get(), "title callback should receive trimmed title");
@@ -185,11 +227,16 @@ class TerminalPanelUiTest {
         final var title = new AtomicReference<String>("Original");
         final TerminalPanel panel =
                 GuiActionRunner.execute(
-                        () -> new TerminalPanel(new FakeTerminalRuntime(), ignored -> {}));
+                        () ->
+                                TerminalPanelTestSupport.create(
+                                        new FakeTerminalRuntime(),
+                                        ignored -> {},
+                                        new com.jagent.desktop.services.dialog
+                                                .HeadlessDialogService()));
 
         GuiActionRunner.execute(() -> panel.setTitleChanged(title::set));
-        GuiActionRunner.execute(() -> panel.applicationTitleChanged("   "));
-        GuiActionRunner.execute(() -> panel.applicationTitleChanged(null));
+        GuiActionRunner.execute(() -> TerminalPanelTestSupport.title(panel, ""));
+        GuiActionRunner.execute(() -> TerminalPanelTestSupport.title(panel, null));
         GuiActionRunner.execute(() -> {});
 
         assertEquals("Original", title.get(), "blank or null titles should be ignored");

@@ -25,9 +25,9 @@ class AppStateTest {
     @Test
     void addingAndRemovingSessionKeepsProjectStateInSync() throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ProjectId projectId = state.addProject(new Project(DEMO, DEMO_PATH, null));
+        final ProjectId projectId = state.addProject(Project.create(DEMO, DEMO_PATH, null));
 
-        final Session session = new Session(projectId, FEATURE, AGENT, PROMPT, WORKTREE);
+        final Session session = Session.create(projectId, FEATURE, AGENT, PROMPT, WORKTREE);
         final var sessionId = state.addSession(projectId, session);
 
         assertEquals(session, state.sessions().get(sessionId), "session should be stored");
@@ -48,7 +48,7 @@ class AppStateTest {
     @Test
     void persistenceSnapshotReportsAndClearsUpdates() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final Project project = new Project(DEMO, DEMO_PATH, null);
+        final Project project = Project.create(DEMO, DEMO_PATH, null);
         state.addProject(project);
 
         final var snapshot = state.snapshotForPersistence();
@@ -61,19 +61,21 @@ class AppStateTest {
     @Test
     void projectAndTerminalUpdatesCascadeOnRemoval() throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ProjectId projectId = state.addProject(new Project(DEMO, DEMO_PATH, null));
+        final ProjectId projectId = state.addProject(Project.create(DEMO, DEMO_PATH, null));
         final SessionId sessionId =
                 state.addSession(
-                        projectId, new Session(projectId, FEATURE, AGENT, PROMPT, WORKTREE));
+                        projectId, Session.create(projectId, FEATURE, AGENT, PROMPT, WORKTREE));
         final var terminalId =
                 state.addTerminal(
-                        sessionId, new com.jagent.desktop.models.Terminal(sessionId, SHELL, "sh"));
+                        sessionId,
+                        com.jagent.desktop.models.Terminal.create(sessionId, SHELL, "sh"));
 
         state.updateTerminal(
-                terminalId, new com.jagent.desktop.models.Terminal(sessionId, "Updated", "bash"));
+                terminalId,
+                com.jagent.desktop.models.Terminal.create(sessionId, "Updated", "bash"));
         state.updateSession(sessionId, state.sessions().get(sessionId).withName("Renamed"));
         state.updateProject(projectId, state.projects().get(projectId).withName("Renamed project"));
-        state.addTerminal(new com.jagent.desktop.models.Terminal(null, projectId, "Project", "sh"));
+        state.addTerminal(com.jagent.desktop.models.Terminal.create(projectId, "Project", "sh"));
 
         state.removeProject(projectId);
 
@@ -89,7 +91,7 @@ class AppStateTest {
 
         assertNull(state.snapshotForPersistence(), "settings update should not be persisted");
 
-        state.addProject(new Project(DEMO, DEMO_PATH, null));
+        state.addProject(Project.create(DEMO, DEMO_PATH, null));
         final var snapshot = state.snapshotForPersistence();
         assertTrue(snapshot.projectsUpdated(), "project update should be persisted");
     }
@@ -104,13 +106,13 @@ class AppStateTest {
                 InvalidObjectException.class,
                 () ->
                         state.addSession(
-                                projectId, new Session(projectId, "Missing", null, null, null)));
+                                projectId, Session.create(projectId, "Missing", null, null, null)));
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
                         state.addTerminal(
                                 sessionId,
-                                new com.jagent.desktop.models.Terminal(sessionId, SHELL, "sh")));
+                                com.jagent.desktop.models.Terminal.create(sessionId, SHELL, "sh")));
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
@@ -127,13 +129,14 @@ class AppStateTest {
     @Test
     void snapshotIncludesTerminalEventsAndRestoresThemInOrder() throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ProjectId projectId = state.addProject(new Project(DEMO, DEMO_PATH, null));
+        final ProjectId projectId = state.addProject(Project.create(DEMO, DEMO_PATH, null));
         final SessionId sessionId =
                 state.addSession(
-                        projectId, new Session(projectId, FEATURE, AGENT, PROMPT, WORKTREE));
+                        projectId, Session.create(projectId, FEATURE, AGENT, PROMPT, WORKTREE));
         final var terminalId =
                 state.addTerminal(
-                        sessionId, new com.jagent.desktop.models.Terminal(sessionId, SHELL, "sh"));
+                        sessionId,
+                        com.jagent.desktop.models.Terminal.create(sessionId, SHELL, "sh"));
 
         final var snapshot = state.snapshotForPersistence();
 
@@ -154,13 +157,14 @@ class AppStateTest {
     @Test
     void removingProjectRemovesItsEntities() throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ProjectId projectId = state.addProject(new Project(DEMO, DEMO_PATH, null));
+        final ProjectId projectId = state.addProject(Project.create(DEMO, DEMO_PATH, null));
         final SessionId sessionId =
                 state.addSession(
-                        projectId, new Session(projectId, FEATURE, AGENT, PROMPT, WORKTREE));
+                        projectId, Session.create(projectId, FEATURE, AGENT, PROMPT, WORKTREE));
         final var terminalId =
                 state.addTerminal(
-                        sessionId, new com.jagent.desktop.models.Terminal(sessionId, SHELL, "sh"));
+                        sessionId,
+                        com.jagent.desktop.models.Terminal.create(sessionId, SHELL, "sh"));
         state.removeProject(projectId);
 
         assertFalse(state.projects().containsKey(projectId), "project should be removed");

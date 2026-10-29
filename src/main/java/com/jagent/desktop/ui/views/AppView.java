@@ -1,9 +1,11 @@
 package com.jagent.desktop.ui.views;
 
+import com.google.inject.Inject;
 import com.jagent.desktop.api.Action;
 import com.jagent.desktop.api.View;
-import com.jagent.desktop.models.ActionContext;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewController;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.CreateSessionAction;
 import com.jagent.desktop.ui.actions.CreateTerminalAction;
@@ -13,8 +15,8 @@ import com.jagent.desktop.ui.actions.OpenSettingsAction;
 import com.jagent.desktop.ui.actions.ProblemsAction;
 import com.jagent.desktop.ui.actions.RefreshSettingsAction;
 import com.jagent.desktop.ui.actions.ResourceUsageAction;
-import com.jagent.desktop.ui.components.CommandPalette;
 import com.jagent.desktop.ui.components.EmptyStatePanel;
+import com.jagent.desktop.ui.components.OptionPicker;
 import com.jagent.desktop.ui.components.ProjectTreePanel;
 import com.jagent.desktop.ui.components.Theme;
 import com.jagent.desktop.ui.components.UiBorders;
@@ -49,23 +51,51 @@ import org.slf4j.LoggerFactory;
 public final class AppView extends JPanel {
     private static final Logger LOG = LoggerFactory.getLogger(AppView.class);
     private final transient ViewController viewController;
-    private final transient ActionContext actionContext;
+    private final transient OptionPicker optionPicker;
+    private final transient List<Action> commandPaletteActions;
     private final JLabel placeholder = new JLabel();
     private final JPanel content = new JPanel(new BorderLayout());
     private final ProjectTreePanel projectTreePanel;
     private final BottomBar bottomBar;
     private transient KeyEventDispatcher terminalShortcutDispatcher;
 
-    public AppView(final ActionContext actionContext) {
+    @Inject
+    @SuppressWarnings("PMD.ExcessiveParameterList")
+    public AppView(
+            final ViewController viewController,
+            final AppState appState,
+            final DialogService dialogService,
+            final ProjectTreePanel projectTreePanel,
+            final BottomBar bottomBar,
+            final FindAction findAction,
+            final CreateProjectAction createProjectAction,
+            final ImportProjectAction importProjectAction,
+            final CreateSessionAction createSessionAction,
+            final CreateTerminalAction createTerminalAction,
+            final OpenSettingsAction openSettingsAction,
+            final RefreshSettingsAction refreshSettingsAction,
+            final ProblemsAction problemsAction,
+            final ResourceUsageAction resourceUsageAction) {
         super(new BorderLayout());
-        this.actionContext = actionContext;
-        this.viewController = actionContext.viewController();
+        this.viewController = viewController;
+        this.optionPicker = new OptionPicker(dialogService);
         placeholder.setFont(Theme.font(Theme.FontSize.XL));
-        Theme.apply(Theme.FlatLafTheme.from(actionContext.appState().appSettings().theme()));
+        Theme.apply(Theme.FlatLafTheme.from(appState.appSettings().theme()));
         content.setOpaque(false);
         content.setBorder(UiBorders.contentArea());
-        projectTreePanel = new ProjectTreePanel(actionContext);
-        bottomBar = new BottomBar(actionContext);
+        this.projectTreePanel = projectTreePanel;
+        this.bottomBar = bottomBar;
+        this.commandPaletteActions =
+                List.of(
+                        findAction,
+                        createProjectAction,
+                        importProjectAction,
+                        createSessionAction,
+                        createTerminalAction,
+                        openSettingsAction,
+                        refreshSettingsAction,
+                        problemsAction,
+                        resourceUsageAction);
         content.add(placeholder, BorderLayout.CENTER);
         add(shell(), BorderLayout.CENTER);
         installShortcuts();
@@ -169,23 +199,11 @@ public final class AppView extends JPanel {
     }
 
     private void openCommandPalette() {
-        final List<Action> actions =
-                List.of(
-                        new FindAction(actionContext),
-                        new CreateProjectAction(actionContext),
-                        new ImportProjectAction(actionContext),
-                        new CreateSessionAction(actionContext),
-                        new CreateTerminalAction(actionContext),
-                        new OpenSettingsAction(actionContext),
-                        new RefreshSettingsAction(actionContext),
-                        new ProblemsAction(actionContext),
-                        new ResourceUsageAction(actionContext));
-        CommandPalette.open(
-                actionContext.window(),
+        optionPicker.open(
                 "Command palette",
-                actions.stream()
+                commandPaletteActions.stream()
                         .filter(Action::enabled)
-                        .map(action -> new CommandPalette.Choice(action.label(), action::execute))
+                        .map(action -> new OptionPicker.Choice(action.label(), action::execute))
                         .toList());
     }
 
