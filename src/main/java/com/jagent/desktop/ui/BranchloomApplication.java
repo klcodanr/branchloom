@@ -17,6 +17,7 @@ import com.jagent.desktop.ui.utils.ClipboardImagePaster;
 import com.jagent.desktop.ui.views.AppView;
 import java.awt.Taskbar;
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import javax.swing.UIManager;
 
 /** Explicit composition root and lifecycle owner for the desktop application. */
@@ -87,12 +88,12 @@ public final class BranchloomApplication {
         System.setProperty("apple.awt.application.appearance", "system");
     }
 
-    public void close() {
+    public CompletableFuture<Void> close() {
         if (closed) {
-            return;
+            return CompletableFuture.completedFuture(null);
         }
         closed = true;
-        ProgressOperation.run(
+        return ProgressOperation.run(
                         "Closing Branchloom",
                         "Stopping terminal processes...",
                         () -> {

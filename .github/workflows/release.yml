@@ -12,10 +12,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Create release
-    runs-on: ubuntu-latest
+  verify:
+    name: Verify release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up build environment
+        uses: ./.github/actions/setup
+
+      - name: Compile
+        uses: ./.github/actions/compile
+
+      - name: Lint
+        uses: ./.github/actions/lint
+
+      - name: Test
+        uses: ./.github/actions/test
+
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
+    needs: verify
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       value: ${{ steps.version.outputs.value }}
@@ -34,29 +57,13 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "value=$value" >> "$GITHUB_OUTPUT"
 
-      - name: Create and push release tag
+      - name: Reserve release version
         env:
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
-        run: |
-          if ! git rev-parse "$RELEASE_TAG" >/dev/null 2>&1; then
-            git tag "$RELEASE_TAG" "$GITHUB_SHA"
-            git push origin "$RELEASE_TAG"
-          fi
-
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
-        run: |
-          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" \
-              --target "$GITHUB_SHA" \
-              --title "$RELEASE_TAG" \
-              --generate-notes
-          fi
+        run: echo "Reserved release version $RELEASE_TAG"
 
   build:
-    needs: release
+    needs: prepare
     name: Build ${{ matrix.platform }} installer
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
@@ -64,16 +71,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
+          - os: macos-14
             platform: macOS
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             platform: Linux
 
     steps:
       - name: Check out release tag
         uses: actions/checkout@v7
         with:
-          ref: ${{ needs.release.outputs.tag }}
+          ref: ${{ github.sha }}
 
       - name: Set up build environment
         uses: ./.github/actions/setup
@@ -82,7 +89,7 @@ jobs:
         id: version
         shell: bash
         env:
-          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+          RELEASE_TAG: v${{ needs.prepare.outputs.value }}
         run: |
           if [[ ! "$RELEASE_TAG" =~ ^v[0-9]{8}\.[0-9]{6}$ ]]; then
             echo "Release tag must use the UTC timestamp format vYYYYMMDD.HHMMSS: $RELEASE_TAG"
@@ -90,33 +97,62 @@ jobs:
           fi
           echo "value=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Compile
-        uses: ./.github/actions/compile
-        with:
-          release-version: ${{ steps.version.outputs.value }}
-
-      - name: Lint
-        uses: ./.github/actions/lint
-        with:
-          release-version: ${{ steps.version.outputs.value }}
-
-      - name: Test
-        uses: ./.github/actions/test
-        with:
-          release-version: ${{ steps.version.outputs.value }}
-
       - name: Build native installer
         run: gradle --no-daemon "-PreleaseVersion=${{ steps.version.outputs.value }}" jpackageInstaller
 
-      - name: Attach installer to release
-        shell: bash
+      - name: Stage installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.platform }}
+          path: build/jpackage/*
+          if-no-files-found: error
+
+  release:
+    name: Create release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    needs: [prepare, build]
+    outputs:
+      tag: ${{ needs.prepare.outputs.tag }}
+      value: ${{ needs.prepare.outputs.value }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Create and push release tag
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          git tag "$RELEASE_TAG" "$GITHUB_SHA"
+          git push origin "$RELEASE_TAG"
+
+      - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.release.outputs.tag }}
-        run: gh release upload "$RELEASE_TAG" build/jpackage/* --clobber
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            --target "$GITHUB_SHA" \
+            --title "$RELEASE_TAG" \
+            --generate-notes
+
+      - name: Download installers
+        uses: actions/download-artifact@v4
+        with:
+          pattern: installer-*
+          path: release
+          merge-multiple: true
+
+      - name: Attach installers to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release upload "$RELEASE_TAG" release/*
 
   publish-cask:
-    needs: [release, build]
+    needs: release
     name: Publish Homebrew cask
     runs-on: ubuntu-latest
     timeout-minutes: 15

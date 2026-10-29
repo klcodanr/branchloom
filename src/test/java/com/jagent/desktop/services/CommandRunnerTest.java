@@ -3,22 +3,20 @@ package com.jagent.desktop.services;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.async.BackgroundOperations;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class CommandRunnerTest {
     @Test
     void runCommandReportsOutputAndCompletes(@TempDir final Path directory)
-            throws InterruptedException, ExecutionException {
-        final CountDownLatch completed = new CountDownLatch(1);
+            throws InterruptedException, ExecutionException, TimeoutException {
         final List<String> output = new java.util.concurrent.CopyOnWriteArrayList<>();
 
         BackgroundOperations.runCommand(
@@ -27,12 +25,8 @@ class CommandRunnerTest {
                         "printf 'first\\nsecond\\n'",
                         directory,
                         output::add)
-                .thenRun(
-                        () -> {
-                            completed.countDown();
-                        });
+                .get(5, TimeUnit.SECONDS);
 
-        assertTrue(completed.await(5, TimeUnit.SECONDS), "command should complete");
         assertEquals(List.of("first", "second"), output, "command output should be reported");
     }
 
