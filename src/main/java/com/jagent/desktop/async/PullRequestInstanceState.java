@@ -3,10 +3,10 @@ package com.jagent.desktop.async;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.PullRequest;
 import com.jagent.desktop.models.PullRequestDetails;
-import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.BackgroundJobs;
 import com.jagent.desktop.services.BackgroundJobs.Handle;
 import com.jagent.desktop.services.github.GitHub;
+import com.jagent.desktop.services.github.GitHubProvider;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -22,20 +22,21 @@ public class PullRequestInstanceState
                 List<PullRequestDetails>,
                 AsyncStateListener<List<PullRequestDetails>>> {
     private static final Logger LOG = LoggerFactory.getLogger(PullRequestInstanceState.class);
-    private final AppState appState;
+    private final GitHubProvider githubProvider;
 
     public record PullRequestKey(ProjectId projectId, String filter) {}
 
-    public PullRequestInstanceState(final AppState appState, final BackgroundJobs backgroundJobs) {
+    public PullRequestInstanceState(
+            final BackgroundJobs backgroundJobs, final GitHubProvider githubProvider) {
         super("Pull Requests", backgroundJobs);
-        this.appState = appState;
+        this.githubProvider = githubProvider;
     }
 
     @Override
     protected List<PullRequestDetails> load(
             final PullRequestKey instance, final PullRequestKey ignored, final Handle jobHandle)
             throws IOException {
-        final GitHub gitHub = GitHub.forProject(appState, instance.projectId());
+        final GitHub gitHub = githubProvider.forProject(instance.projectId());
 
         final List<PullRequest> pullRequests = gitHub.listPullRequests(instance.filter());
 

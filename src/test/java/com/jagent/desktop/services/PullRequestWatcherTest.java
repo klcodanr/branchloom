@@ -1,6 +1,7 @@
 package com.jagent.desktop.services;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.jagent.desktop.models.ActionContext;
 import com.jagent.desktop.models.GitHubUser;
@@ -78,6 +79,117 @@ class PullRequestWatcherTest {
                 PullRequestDetails.Status.READY,
                 state.monitoringStatuses().get(sessionId).status(),
                 "each poll should update the PR status");
+    }
+
+    @Test
+    void ignoresSessionsWithoutWorktreesAndRemovesDeletedSessions()
+            throws java.io.InvalidObjectException,
+                    MalformedURLException,
+                    java.lang.reflect.InvocationTargetException,
+                    InterruptedException {
+        final ProjectId projectId = ProjectId.create();
+        final Project project = new Project("Project", "/tmp/project", null);
+        final var state =
+                new AppState(
+                        Defaults.appSettings(),
+                        Map.of(projectId.value().toString(), project),
+                        Map.of(),
+                        Map.of());
+        final SessionId noWorktreeId =
+                state.addSession(projectId, new Session(projectId, "idle", null, null, null));
+        final SessionId worktreeId =
+                state.addSession(
+                        projectId, new Session(projectId, "active", null, null, "/tmp/worktree"));
+        final PullRequest request = request(projectId);
+        final GitHub github =
+                new GitHub(state, projectId) {
+                    @Override
+                    public PullRequest getPullRequest(final java.nio.file.Path worktree) {
+                        return request;
+                    }
+
+                    @Override
+                    public PullRequestDetails getPullRequestDetails(final PullRequest ignored) {
+                        return status(request, false, "clean", PullRequestChecks.Status.PENDING);
+                    }
+                };
+        final var context =
+                new ActionContext(
+                        TestAppState.controller(state), state, null, null, null, ignored -> github);
+        final PullRequestWatcher watcher = new PullRequestWatcher(context);
+
+        watcher.poll();
+        SwingUtilities.invokeAndWait(() -> {});
+        assertEquals(
+                "",
+                state.monitoringStatuses().get(noWorktreeId) == null ? "" : "present",
+                "sessions without worktrees should not be monitored");
+        assertEquals(
+                PullRequestDetails.Status.PENDING,
+                state.monitoringStatuses().get(worktreeId).status(),
+                "sessions with worktrees should be monitored");
+
+        state.removeSession(worktreeId);
+        watcher.poll();
+        assertFalse(
+                state.monitoringStatuses().containsKey(worktreeId),
+                "deleted sessions should no longer have monitoring status");
+    }
+
+    @Test
+    void handlesMissingPullRequestsAndLoadFailures()
+            throws java.io.InvalidObjectException,
+                    java.lang.reflect.InvocationTargetException,
+                    InterruptedException {
+        final ProjectId projectId = ProjectId.create();
+        final Project project = new Project("Project", "/tmp/project", null);
+        final Session session = new Session(projectId, "active", null, null, "/tmp/worktree");
+        final var state =
+                new AppState(
+                        Defaults.appSettings(),
+                        Map.of(projectId.value().toString(), project),
+                        Map.of(),
+                        Map.of());
+        final SessionId sessionId = state.addSession(projectId, session);
+        final GitHub github =
+                new GitHub(state, projectId) {
+                    @Override
+                    public PullRequest getPullRequest(final java.nio.file.Path worktree) {
+                        throw new IllegalStateException("No pull request found");
+                    }
+                };
+        final var context =
+                new ActionContext(
+                        TestAppState.controller(state), state, null, null, null, ignored -> github);
+        final PullRequestWatcher watcher = new PullRequestWatcher(context);
+
+        watcher.poll();
+        SwingUtilities.invokeAndWait(() -> {});
+        assertFalse(
+                state.monitoringStatuses().containsKey(sessionId),
+                "missing pull requests should clear monitoring status");
+
+        final GitHub failingGithub =
+                new GitHub(state, projectId) {
+                    @Override
+                    public PullRequest getPullRequest(final java.nio.file.Path worktree)
+                            throws IOException {
+                        throw new IOException("GitHub unavailable");
+                    }
+                };
+        final PullRequestWatcher failingWatcher =
+                new PullRequestWatcher(
+                        new ActionContext(
+                                TestAppState.controller(state),
+                                state,
+                                null,
+                                null,
+                                null,
+                                ignored -> failingGithub));
+        failingWatcher.poll();
+        assertFalse(
+                state.monitoringStatuses().containsKey(sessionId),
+                "load failures should not publish monitoring status");
     }
 
     private static PullRequest request(final ProjectId projectId) throws MalformedURLException {

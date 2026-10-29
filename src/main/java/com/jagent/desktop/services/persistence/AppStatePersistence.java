@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -109,7 +110,8 @@ public final class AppStatePersistence extends PersistenceSupport implements Aut
                 defaults.agentContextPath(),
                 defaults.pullRequestFilters(),
                 defaults.boards(),
-                defaults.jiraEndpoint());
+                defaults.jiraEndpoint(),
+                List.of());
     }
 
     private static void writeInitialSettings(final Path settingsFile, final AppSettings settings)

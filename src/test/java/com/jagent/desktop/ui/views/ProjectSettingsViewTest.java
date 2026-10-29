@@ -12,6 +12,7 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -46,7 +47,8 @@ class ProjectSettingsViewTest {
 
     @Test
     void rendersAndSavesTheSelectedProject() {
-        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final AppState state =
+                new AppState(Defaults.appSettings(), new HashMap<>(), Map.of(), Map.of());
         final ProjectId projectId = state.addProject(new Project(PROJECT_NAME, PROJECT_PATH, null));
         final ViewController coordinator = TestAppState.controller(state);
         coordinator.selectProject(projectId);
@@ -65,17 +67,22 @@ class ProjectSettingsViewTest {
 
     @Test
     void requiresASelectedProjectForConstruction() {
-        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final AppState state =
+                new AppState(Defaults.appSettings(), new HashMap<>(), Map.of(), Map.of());
         final ViewController coordinator = TestAppState.controller(state);
+        coordinator.selectProject(ProjectId.create());
 
-        assertThrows(
-                RuntimeException.class,
-                () ->
-                        GuiActionRunner.execute(
-                                () ->
-                                        new ProjectSettingsView(
-                                                new ActionContext(
-                                                        coordinator, state, null, null, null))));
+        final IllegalStateException exception =
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                ProjectSettingsView.create(
+                                        new ActionContext(coordinator, state, null, null, null)),
+                        "constructing project settings without a selection should fail");
+        assertEquals(
+                "A project must be selected.",
+                exception.getMessage(),
+                "missing project selection should explain the required state");
     }
 
     @Test

@@ -21,7 +21,7 @@ public final class MyPullRequestsView extends JPanel implements RefreshableView 
 
     @Override
     public ViewId id() {
-        return ViewId.MY_PULL_REQUESTS;
+        return ViewId.PULL_REQUESTS;
     }
 
     @Override

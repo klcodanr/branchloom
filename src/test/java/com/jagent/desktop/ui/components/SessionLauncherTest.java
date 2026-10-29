@@ -18,6 +18,7 @@ import com.jagent.desktop.services.terminal.TerminalRuntime;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.test.AsyncTestSupport;
 import com.jagent.desktop.test.TestAppState;
+import com.jagent.desktop.ui.components.terminal.TerminalPanel;
 import com.jediterm.terminal.TtyConnector;
 import java.io.IOException;
 import java.nio.file.Files;

@@ -16,12 +16,12 @@ import com.jagent.desktop.ui.actions.CopyPathAction;
 import com.jagent.desktop.ui.actions.ImportBranchAction;
 import com.jagent.desktop.ui.actions.OpenSettingsAction;
 import com.jagent.desktop.ui.dialogs.ReviewDialog;
+import com.jagent.desktop.ui.utils.ErrorMessages;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Date;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -57,7 +57,7 @@ public final class PullRequestCard extends CardPanel {
         this.refreshProject = refreshProject;
         this.details = details;
         this.project = actionContext.appState().projects().get(request.projectId());
-        this.gitHub = GitHub.forProject(actionContext.appState(), request.projectId());
+        this.gitHub = actionContext.githubProvider().forProject(request.projectId());
         final JPopupMenu contextMenu = menu();
         addNumber(request.project().name() + " · PR · #" + request.number(), contextMenu);
         addTitle(request.title(), contextMenu);
@@ -270,7 +270,10 @@ public final class PullRequestCard extends CardPanel {
                 .exceptionally(
                         failure -> {
                             actionInFlight = false;
-                            LOG.warn("{} failed: {}", title, rootMessage(failure));
+                            LOG.warn(
+                                    "{} failed: {}",
+                                    title,
+                                    ErrorMessages.deepestCause(failure, "Unknown error."));
                             return null;
                         });
     }
@@ -283,14 +286,6 @@ public final class PullRequestCard extends CardPanel {
                         JOptionPane.YES_NO_OPTION,
                         JOptionPane.WARNING_MESSAGE)
                 == JOptionPane.YES_OPTION;
-    }
-
-    private static String rootMessage(final Throwable failure) {
-        Throwable cause = failure;
-        while (cause instanceof CompletionException && cause.getCause() != null) {
-            cause = cause.getCause();
-        }
-        return cause.getMessage() == null ? cause.toString() : cause.getMessage();
     }
 
     private void startReview(final PullRequest request) {

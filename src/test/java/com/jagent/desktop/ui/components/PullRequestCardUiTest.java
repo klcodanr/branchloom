@@ -15,9 +15,11 @@ import com.jagent.desktop.models.PullRequestReview;
 import com.jagent.desktop.models.PullRequestReviews;
 import com.jagent.desktop.models.github.CliCredential;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.github.GitHub;
 import com.jagent.desktop.test.SwingTestSupport;
 import com.jagent.desktop.test.TestAppState;
 import com.jagent.desktop.ui.Defaults;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Date;
@@ -36,6 +38,8 @@ class PullRequestCardUiTest {
     private static final String REVIEWER = "reviewer";
     private static final String PROJECT_NAME = "Test";
     private static final String PROJECT_PATH = "/tmp/test";
+    private static final String APPROVE_ACTION = "Approve";
+    private static final String REQUEST_APPROVAL_ACTION = "Request approval";
 
     @Test
     void rendersPullRequestIdentityMetadataAndStatus() throws MalformedURLException {
@@ -84,7 +88,7 @@ class PullRequestCardUiTest {
                 java.util.Arrays.stream(card.getComponentPopupMenu().getComponents())
                         .filter(JMenuItem.class::isInstance)
                         .map(component -> ((JMenuItem) component).getText())
-                        .filter(text -> !"Approve".equals(text) && !"Merge PR".equals(text))
+                        .filter(text -> !APPROVE_ACTION.equals(text) && !"Merge PR".equals(text))
                         .toList(),
                 "context menu should include stable default pull request actions");
     }
@@ -108,12 +112,7 @@ class PullRequestCardUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestCard(
-                                        new ActionContext(
-                                                TestAppState.controller(state),
-                                                state,
-                                                null,
-                                                null,
-                                                null),
+                                        context(state, unavailableGithub(state, projectId)),
                                         request,
                                         details,
                                         ignored -> completedRefresh()));
@@ -124,7 +123,7 @@ class PullRequestCardUiTest {
                         .map(component -> ((JMenuItem) component).getText())
                         .toList();
         assertFalse(
-                actions.contains("Request approval"),
+                actions.contains(REQUEST_APPROVAL_ACTION),
                 "author actions should be hidden when GitHub login is unavailable");
     }
 
@@ -148,12 +147,7 @@ class PullRequestCardUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestCard(
-                                        new ActionContext(
-                                                TestAppState.controller(state),
-                                                state,
-                                                null,
-                                                null,
-                                                null),
+                                        context(state, github(state, projectId, "author")),
                                         request,
                                         details,
                                         ignored -> completedRefresh()));
@@ -161,8 +155,98 @@ class PullRequestCardUiTest {
         final var actions = menuActions(card);
         assertTrue(actions.contains("Merge PR"), "ready open PRs should expose merge action");
         assertFalse(
-                actions.contains("Request approval"),
+                actions.contains(REQUEST_APPROVAL_ACTION),
                 "ready authored PRs should not show request approval");
+    }
+
+    @Test
+    void authoredDraftPullRequestShowsRequestApprovalAction() throws MalformedURLException {
+        final ProjectId projectId = ProjectId.create();
+        final Project project = projectWithCredential(AUTHOR);
+        final AppState state = state(projectId, project);
+        final PullRequest request = request(projectId, FIX_LOGIN, AUTHOR, project);
+        final PullRequestDetails details = details(projectId, project, true, false, "draft");
+
+        final PullRequestCard card =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestCard(
+                                        context(state, github(state, projectId, AUTHOR)),
+                                        request,
+                                        details,
+                                        ignored -> completedRefresh()));
+
+        assertTrue(
+                menuActions(card).contains(REQUEST_APPROVAL_ACTION),
+                "authors should be able to request approval for draft PRs");
+    }
+
+    @Test
+    void authoredReadyPullRequestShowsMakeDraftAction() throws MalformedURLException {
+        final ProjectId projectId = ProjectId.create();
+        final Project project = projectWithCredential(AUTHOR);
+        final AppState state = state(projectId, project);
+        final PullRequest request = request(projectId, FIX_LOGIN, AUTHOR, project);
+        final PullRequestDetails details = details(projectId, project, false, false, "clean");
+
+        final PullRequestCard card =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestCard(
+                                        context(state, github(state, projectId, AUTHOR)),
+                                        request,
+                                        details,
+                                        ignored -> completedRefresh()));
+
+        assertTrue(
+                menuActions(card).contains("Make draft"),
+                "authors should be able to make ready PRs draft");
+    }
+
+    @Test
+    void reviewerPullRequestShowsApproveWhenCurrentUserHasNotApproved()
+            throws MalformedURLException {
+        final ProjectId projectId = ProjectId.create();
+        final Project project = projectWithCredential(REVIEWER);
+        final AppState state = state(projectId, project);
+        final PullRequest request = request(projectId, FIX_LOGIN, AUTHOR, project);
+        final PullRequestDetails details = details(projectId, project, false, false, "blocked");
+
+        final PullRequestCard card =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestCard(
+                                        context(state, github(state, projectId, REVIEWER)),
+                                        request,
+                                        details,
+                                        ignored -> completedRefresh()));
+
+        assertTrue(
+                menuActions(card).contains(APPROVE_ACTION),
+                "reviewers who have not approved should see the approve action");
+    }
+
+    @Test
+    void missingProjectDoesNotAddProjectActions() throws MalformedURLException {
+        final ProjectId projectId = ProjectId.create();
+        final Project project = new Project(PROJECT_NAME, PROJECT_PATH, null);
+        final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
+        final PullRequest request = request(projectId, FIX_LOGIN, AUTHOR, project);
+        final PullRequestCard card =
+                GuiActionRunner.execute(
+                        () ->
+                                new PullRequestCard(
+                                        context(state, github(state, projectId, REVIEWER)),
+                                        request,
+                                        null,
+                                        ignored -> completedRefresh()));
+
+        final var actions = menuActions(card);
+        assertFalse(
+                actions.contains(APPROVE_ACTION),
+                "missing projects should not expose review actions");
+        assertFalse(
+                actions.contains("Merge PR"), "missing projects should not expose merge actions");
     }
 
     @Test
@@ -185,19 +269,16 @@ class PullRequestCardUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestCard(
-                                        new ActionContext(
-                                                TestAppState.controller(state),
-                                                state,
-                                                null,
-                                                null,
-                                                null),
+                                        context(state, unavailableGithub(state, projectId)),
                                         request,
                                         details,
                                         ignored -> completedRefresh()));
 
         final var actions = menuActions(card);
-        assertFalse(actions.contains("Approve"), "approve action requires resolved GitHub login");
-        assertFalse(actions.contains("Request approval"), "reviewers should not request approval");
+        assertFalse(
+                actions.contains(APPROVE_ACTION), "approve action requires resolved GitHub login");
+        assertFalse(
+                actions.contains(REQUEST_APPROVAL_ACTION), "reviewers should not request approval");
         assertFalse(actions.contains("Make draft"), "reviewers should not toggle draft state");
     }
 
@@ -237,18 +318,13 @@ class PullRequestCardUiTest {
                 GuiActionRunner.execute(
                         () ->
                                 new PullRequestCard(
-                                        new ActionContext(
-                                                TestAppState.controller(state),
-                                                state,
-                                                null,
-                                                null,
-                                                null),
+                                        context(state, github(state, projectId, REVIEWER)),
                                         request,
                                         details,
                                         ignored -> completedRefresh()));
 
         assertFalse(
-                menuActions(card).contains("Approve"),
+                menuActions(card).contains(APPROVE_ACTION),
                 "approve should be hidden after the current user approved the PR");
     }
 
@@ -264,13 +340,45 @@ class PullRequestCardUiTest {
     }
 
     private static ActionContext context(final ProjectId projectId, final Project project) {
-        final AppState state =
-                new AppState(
-                        Defaults.appSettings(),
-                        Map.of(projectId.value().toString(), project),
-                        Map.of(),
-                        Map.of());
-        return new ActionContext(TestAppState.controller(state), state, null, null, null);
+        final AppState state = state(projectId, project);
+        return context(state, unavailableGithub(state, projectId));
+    }
+
+    private static AppState state(final ProjectId projectId, final Project project) {
+        return new AppState(
+                Defaults.appSettings(),
+                Map.of(projectId.value().toString(), project),
+                Map.of(),
+                Map.of());
+    }
+
+    private static Project projectWithCredential(final String login) {
+        return new Project(
+                PROJECT_NAME, PROJECT_PATH, new CliCredential(GITHUB_HOST, login, login));
+    }
+
+    private static ActionContext context(final AppState state, final GitHub github) {
+        return new ActionContext(
+                TestAppState.controller(state), state, null, null, null, ignored -> github);
+    }
+
+    private static GitHub github(
+            final AppState state, final ProjectId projectId, final String login) {
+        return new GitHub(state, projectId) {
+            @Override
+            public String getLogin() {
+                return login;
+            }
+        };
+    }
+
+    private static GitHub unavailableGithub(final AppState state, final ProjectId projectId) {
+        return new GitHub(state, projectId) {
+            @Override
+            public String getLogin() throws IOException {
+                throw new IOException("GitHub login unavailable");
+            }
+        };
     }
 
     private static PullRequest request(

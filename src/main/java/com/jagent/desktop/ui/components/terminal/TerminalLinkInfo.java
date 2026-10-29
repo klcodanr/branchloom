@@ -1,4 +1,4 @@
-package com.jagent.desktop.ui.components;
+package com.jagent.desktop.ui.components.terminal;
 
 import com.jediterm.terminal.model.hyperlinks.LinkInfo;
 import java.util.function.BooleanSupplier;

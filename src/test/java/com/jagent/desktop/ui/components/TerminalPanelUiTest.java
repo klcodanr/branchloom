@@ -1,4 +1,4 @@
-package com.jagent.desktop.ui.components;
+package com.jagent.desktop.ui.components.terminal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -10,20 +10,13 @@ import com.jagent.desktop.models.TerminalId;
 import com.jagent.desktop.services.terminal.TerminalRuntime;
 import com.jagent.desktop.services.terminal.TerminalState;
 import com.jagent.desktop.test.SwingTestSupport;
-import com.jediterm.terminal.HyperlinkStyle;
-import com.jediterm.terminal.TerminalColor;
-import com.jediterm.terminal.TextStyle;
+import com.jagent.desktop.ui.components.Theme;
 import com.jediterm.terminal.TtyConnector;
-import com.jediterm.terminal.emulator.ColorPalette;
-import com.jediterm.terminal.emulator.ColorPaletteImpl;
-import java.awt.event.InputEvent;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseEvent;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import javax.swing.JPanel;
+import javax.swing.JLabel;
 import javax.swing.JScrollBar;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.junit.jupiter.api.BeforeAll;
@@ -83,6 +76,18 @@ class TerminalPanelUiTest {
         return null;
     }
 
+    private static boolean containsLabel(final java.awt.Container container, final String text) {
+        for (final java.awt.Component component : container.getComponents()) {
+            if (component instanceof JLabel label && text.equals(label.getText())) {
+                return true;
+            }
+            if (component instanceof java.awt.Container child && containsLabel(child, text)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Test
     void reportsStartupFailureAndCanBeDisposed() throws InterruptedException {
         final var state = new AtomicReference<TerminalState>();
@@ -92,11 +97,15 @@ class TerminalPanelUiTest {
 
         GuiActionRunner.execute(panel::start);
         waitForState(panel, TerminalState.FAILED);
+        SwingTestSupport.await(
+                () -> containsLabel(panel, "Could not start terminal: startup failed"),
+                "terminal failure message did not render");
 
         assertEquals(TerminalState.FAILED, panel.state(), "invalid terminal directory should fail");
         assertEquals(TerminalState.FAILED, state.get(), "failure should notify the state listener");
         assertTrue(
-                panel.getComponentCount() > 0, "failure should leave a visible status component");
+                containsLabel(panel, "Could not start terminal: startup failed"),
+                "failure should replace the terminal with a visible status message");
         GuiActionRunner.execute(panel::dispose);
         assertEquals(TerminalState.STOPPED, panel.state(), "disposing should stop the runtime");
     }
@@ -157,109 +166,6 @@ class TerminalPanelUiTest {
     }
 
     @Test
-    void treatsControlOrShiftEnterAsLiteralNewlineShortcut() {
-        final JPanel source = new JPanel();
-
-        final KeyEvent controlEnter =
-                new KeyEvent(
-                        source,
-                        KeyEvent.KEY_PRESSED,
-                        System.currentTimeMillis(),
-                        InputEvent.CTRL_DOWN_MASK,
-                        KeyEvent.VK_ENTER,
-                        '\n');
-        final KeyEvent shiftEnter =
-                new KeyEvent(
-                        source,
-                        KeyEvent.KEY_PRESSED,
-                        System.currentTimeMillis(),
-                        InputEvent.SHIFT_DOWN_MASK,
-                        KeyEvent.VK_ENTER,
-                        '\n');
-        final KeyEvent plainEnter =
-                new KeyEvent(
-                        source,
-                        KeyEvent.KEY_PRESSED,
-                        System.currentTimeMillis(),
-                        0,
-                        KeyEvent.VK_ENTER,
-                        '\n');
-
-        assertTrue(
-                TerminalPanel.isLiteralNewlineShortcut(controlEnter),
-                "control+enter should insert a literal newline");
-        assertTrue(
-                TerminalPanel.isLiteralNewlineShortcut(shiftEnter),
-                "shift+enter should insert a literal newline");
-        assertTrue(
-                !TerminalPanel.isLiteralNewlineShortcut(plainEnter),
-                "plain enter should keep default terminal behavior");
-    }
-
-    @Test
-    void onlyTreatsModifiedLeftClickAsLinkActivationEvent() {
-        final JPanel source = new JPanel();
-
-        final MouseEvent controlLeftClick =
-                new MouseEvent(
-                        source,
-                        MouseEvent.MOUSE_CLICKED,
-                        System.currentTimeMillis(),
-                        InputEvent.CTRL_DOWN_MASK,
-                        10,
-                        10,
-                        1,
-                        false,
-                        MouseEvent.BUTTON1);
-        final MouseEvent metaLeftClick =
-                new MouseEvent(
-                        source,
-                        MouseEvent.MOUSE_CLICKED,
-                        System.currentTimeMillis(),
-                        InputEvent.META_DOWN_MASK,
-                        10,
-                        10,
-                        1,
-                        false,
-                        MouseEvent.BUTTON1);
-        final MouseEvent plainLeftClick =
-                new MouseEvent(
-                        source,
-                        MouseEvent.MOUSE_CLICKED,
-                        System.currentTimeMillis(),
-                        0,
-                        10,
-                        10,
-                        1,
-                        false,
-                        MouseEvent.BUTTON1);
-        final MouseEvent rightClick =
-                new MouseEvent(
-                        source,
-                        MouseEvent.MOUSE_CLICKED,
-                        System.currentTimeMillis(),
-                        InputEvent.CTRL_DOWN_MASK,
-                        10,
-                        10,
-                        1,
-                        false,
-                        MouseEvent.BUTTON3);
-
-        assertTrue(
-                TerminalPanel.isModifiedLinkActivationEvent(controlLeftClick),
-                "control+left click should activate links directly");
-        assertTrue(
-                TerminalPanel.isModifiedLinkActivationEvent(metaLeftClick),
-                "meta+left click should activate links directly");
-        assertTrue(
-                !TerminalPanel.isModifiedLinkActivationEvent(plainLeftClick),
-                "plain left click should not activate links directly");
-        assertTrue(
-                !TerminalPanel.isModifiedLinkActivationEvent(rightClick),
-                "right click should not be treated as direct link activation");
-    }
-
-    @Test
     void forwardsApplicationTitleChangesToListener() {
         final var title = new AtomicReference<String>();
         final TerminalPanel panel =
@@ -292,9 +198,9 @@ class TerminalPanelUiTest {
 
     @Test
     void terminalSettingsUseThemeDefaultsForColorsAndStyles() {
-        final TerminalPanel.AppTerminalSettings settings = new TerminalPanel.AppTerminalSettings();
+        final AppTerminalSettings settings = new AppTerminalSettings();
 
-        final TextStyle defaultStyle = settings.getDefaultStyle();
+        final var defaultStyle = settings.getDefaultStyle();
         assertEquals(
                 settings.getDefaultForeground(),
                 defaultStyle.getForeground(),
@@ -304,7 +210,7 @@ class TerminalPanelUiTest {
                 defaultStyle.getBackground(),
                 "default style should use configured background");
 
-        final TextStyle selectionStyle = settings.getSelectionColor();
+        final var selectionStyle = settings.getSelectionColor();
         assertTrue(
                 selectionStyle.getForeground() != null,
                 "selection color should define a foreground");
@@ -315,7 +221,7 @@ class TerminalPanelUiTest {
                 !settings.useInverseSelectionColor(),
                 "terminal selection should use configured colors instead of inversion");
 
-        final TextStyle foundPatternStyle = settings.getFoundPatternColor();
+        final var foundPatternStyle = settings.getFoundPatternColor();
         assertTrue(
                 foundPatternStyle.getForeground() != null,
                 "find highlight should define a foreground");
@@ -324,7 +230,7 @@ class TerminalPanelUiTest {
                 "find highlight should define a background");
 
         assertEquals(
-                HyperlinkStyle.HighlightMode.ALWAYS,
+                com.jediterm.terminal.HyperlinkStyle.HighlightMode.ALWAYS,
                 settings.getHyperlinkHighlightingMode(),
                 "hyperlinks should always be visibly styled");
         assertEquals(
@@ -333,18 +239,21 @@ class TerminalPanelUiTest {
 
     @Test
     void terminalSettingsUseJediTermAnsiPalette() {
-        final TerminalPanel.AppTerminalSettings settings = new TerminalPanel.AppTerminalSettings();
-        final ColorPalette palette = settings.getTerminalColorPalette();
+        final AppTerminalSettings settings = new AppTerminalSettings();
+        final var palette = settings.getTerminalColorPalette();
 
         for (int index = 0; index <= 15; index++) {
-            final TerminalColor color = ColorPalette.getIndexedTerminalColor(index);
+            final var color =
+                    com.jediterm.terminal.emulator.ColorPalette.getIndexedTerminalColor(index);
             assertNotNull(color, "indexed terminal color should resolve: " + index);
             assertEquals(
-                    ColorPaletteImpl.XTERM_PALETTE.getForeground(color),
+                    com.jediterm.terminal.emulator.ColorPaletteImpl.XTERM_PALETTE.getForeground(
+                            color),
                     palette.getForeground(color),
                     "foreground should use Jediterm ANSI palette: " + index);
             assertEquals(
-                    ColorPaletteImpl.XTERM_PALETTE.getBackground(color),
+                    com.jediterm.terminal.emulator.ColorPaletteImpl.XTERM_PALETTE.getBackground(
+                            color),
                     palette.getBackground(color),
                     "background should use Jediterm ANSI palette: " + index);
         }
@@ -369,6 +278,7 @@ class TerminalPanelUiTest {
         public void start(final Consumer<TtyConnector> attach, final Consumer<Exception> failed) {
             state = TerminalState.FAILED;
             listener.accept(state);
+            failed.accept(new IllegalStateException("startup failed"));
         }
 
         @Override

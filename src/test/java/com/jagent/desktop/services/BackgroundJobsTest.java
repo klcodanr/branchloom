@@ -43,6 +43,52 @@ class BackgroundJobsTest {
     }
 
     @Test
+    void reportsFailedAndCancelledJobsAndIgnoresUpdatesAfterCompletion() {
+        final BackgroundJobs jobs = new BackgroundJobs();
+        final var failed = jobs.start("Failed job");
+        failed.fail("Setup failed");
+        failed.update("Late update");
+
+        assertEquals(
+                BackgroundJobs.Status.FAILED,
+                jobs.jobs().stream()
+                        .filter(job -> "Failed job".equals(job.title()))
+                        .findFirst()
+                        .orElseThrow()
+                        .status(),
+                "failed jobs should retain their terminal status");
+        assertEquals(
+                "Setup failed",
+                jobs.jobs().stream()
+                        .filter(job -> "Failed job".equals(job.title()))
+                        .findFirst()
+                        .orElseThrow()
+                        .message(),
+                "late updates should not replace a failure message");
+
+        final var cancelled = jobs.start("Cancelled job");
+        cancelled.cancel();
+        cancelled.output("Late output");
+
+        assertEquals(
+                BackgroundJobs.Status.CANCELLED,
+                jobs.jobs().stream()
+                        .filter(job -> "Cancelled job".equals(job.title()))
+                        .findFirst()
+                        .orElseThrow()
+                        .status(),
+                "cancelled jobs should retain their terminal status");
+        assertEquals(
+                "Cancelled",
+                jobs.jobs().stream()
+                        .filter(job -> "Cancelled job".equals(job.title()))
+                        .findFirst()
+                        .orElseThrow()
+                        .message(),
+                "late output should not replace a cancellation message");
+    }
+
+    @Test
     void boundsRetainedOutputAndCompletedJobs() {
         final BackgroundJobs jobs = new BackgroundJobs();
         final var handle = jobs.start("Large output");

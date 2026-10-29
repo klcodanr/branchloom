@@ -296,8 +296,18 @@ class SessionCreationServiceTest {
                                                 "missing-base-branch"));
 
         assertTrue(
-                exception.getCause() != null || exception.getMessage() != null,
-                "Git failures should retain an explanatory cause or message");
+                exception.getMessage().contains("missing-base-branch"),
+                "Git failures should identify the missing base branch");
+        try (var paths = Files.list(directory)) {
+            assertTrue(
+                    paths.noneMatch("worktrees"::equals),
+                    "failed branch creation should not create a worktree directory");
+        }
+        assertTrue(
+                state.sessions().isEmpty(), "failed branch creation should not register a session");
+        assertTrue(
+                state.terminals().isEmpty(),
+                "failed branch creation should not register a terminal");
     }
 
     @Test

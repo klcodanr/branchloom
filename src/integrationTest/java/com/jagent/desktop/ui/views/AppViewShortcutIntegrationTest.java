@@ -8,6 +8,7 @@ import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.persistence.AppStatePersistence;
 import com.jagent.desktop.ui.ApplicationTestHarness;
 import com.jagent.desktop.ui.Defaults;
+import com.jagent.desktop.ui.components.tree.items.ProjectTreeItem;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.event.ActionEvent;
@@ -33,7 +34,7 @@ class AppViewShortcutIntegrationTest {
     void closeShortcutClosesFileBeforeFallingBackToTerminal() throws IOException {
         final Path file = Files.writeString(dataDirectory.resolve("notes.txt"), "notes");
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        state.addProject(new Project("Demo", dataDirectory.toString(), null));
+        state.addProject(new Project("Demo", dataDirectory.toString(), null).withGroup(null));
         try (AppStatePersistence persistence = new AppStatePersistence(state, dataDirectory)) {
             persistence.persist();
         }
@@ -109,8 +110,7 @@ class AppViewShortcutIntegrationTest {
         while (traversal.hasMoreElements()) {
             final Object current = traversal.nextElement();
             if (current instanceof DefaultMutableTreeNode node
-                    && node.getUserObject() instanceof Map.Entry<?, ?> entry
-                    && entry.getValue() instanceof Project) {
+                    && node.getUserObject() instanceof ProjectTreeItem) {
                 return node;
             }
         }

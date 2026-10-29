@@ -132,6 +132,57 @@ class PullRequestDetailsModelTest {
                 "progressing checks should use the warning indicator color");
     }
 
+    @Test
+    void mergedPullRequestsUseTheSuccessStatusAndColor() {
+        final PullRequestDetails details =
+                details(
+                        false,
+                        false,
+                        "unknown",
+                        new PullRequestChecks(List.of()),
+                        new PullRequestReviews(List.of()),
+                        true);
+
+        assertEquals(
+                PullRequestDetails.Status.MERGED,
+                details.status(),
+                "merged pull requests should take priority over other states");
+        assertEquals(
+                Theme.Colors.success(),
+                details.indicatorColor(),
+                "merged pull requests should use the success color");
+    }
+
+    @Test
+    void behindPullRequestsAreReadyAndNullCollectionsBecomeEmpty() {
+        final PullRequestDetails details = details(false, true, "behind", null, null, false);
+
+        assertEquals(
+                PullRequestDetails.Status.READY,
+                details.status(),
+                "mergeable pull requests behind the base should be ready");
+        assertEquals(
+                Theme.Colors.success(),
+                details.indicatorColor(),
+                "ready pull requests should use the success color");
+        assertEquals(0, details.checks().checks().size(), "null checks should become empty");
+        assertEquals(0, details.reviews().reviews().size(), "null reviews should become empty");
+    }
+
+    @Test
+    void draftMergeStatesRemainPendingWhenNotDraft() {
+        assertEquals(
+                PullRequestDetails.Status.PENDING,
+                details(false, false, "draft", new PullRequestChecks(List.of()), null, false)
+                        .status(),
+                "draft merge state should be pending");
+        assertEquals(
+                PullRequestDetails.Status.PENDING,
+                details(false, false, "has_hooks", new PullRequestChecks(List.of()), null, false)
+                        .status(),
+                "hook setup merge state should be pending");
+    }
+
     private static void assertStatus(
             final String mergeableState,
             final boolean draft,
@@ -149,6 +200,17 @@ class PullRequestDetailsModelTest {
             final boolean mergeable,
             final String mergeableState,
             final PullRequestChecks checks) {
+        return details(
+                draft, mergeable, mergeableState, checks, new PullRequestReviews(List.of()), false);
+    }
+
+    private static PullRequestDetails details(
+            final boolean draft,
+            final boolean mergeable,
+            final String mergeableState,
+            final PullRequestChecks checks,
+            final PullRequestReviews reviews,
+            final boolean merged) {
         try {
             final PullRequest request =
                     new PullRequest(
@@ -166,16 +228,7 @@ class PullRequestDetailsModelTest {
                             "sha",
                             "main");
             return new PullRequestDetails(
-                    request,
-                    draft,
-                    false,
-                    mergeable,
-                    mergeableState,
-                    1,
-                    1,
-                    1,
-                    checks,
-                    new PullRequestReviews(List.of()));
+                    request, draft, merged, mergeable, mergeableState, 1, 1, 1, checks, reviews);
         } catch (MalformedURLException exception) {
             throw new IllegalStateException(exception);
         }
