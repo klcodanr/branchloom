@@ -131,7 +131,7 @@ public class AppState {
     }
 
     public ProjectId addProject(final Project project) {
-        final var projectId = ProjectId.create();
+        final var projectId = project.id();
         this.projects.put(projectId, project);
         this.projectsUpdated = true;
         notifyStateEvent(new StateEvent(Action.ADD, projectId));
@@ -214,7 +214,7 @@ public class AppState {
 
     private TerminalId registerTerminal(
             final Terminal terminal, final Consumer<TerminalId> updateOwner) {
-        final var terminalId = TerminalId.create();
+        final var terminalId = terminal.id();
         this.terminals.put(terminalId, terminal);
         updateOwner.accept(terminalId);
         this.projectsUpdated = true;
