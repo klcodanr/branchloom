@@ -166,7 +166,7 @@ public class AppState {
         if (project == null) {
             throw new InvalidObjectException("Project not found: " + projectId);
         }
-        final var sessionId = SessionId.create();
+        final var sessionId = session.id();
         this.sessions.put(sessionId, session);
         this.projects.put(projectId, project.withNewSession(sessionId));
         this.projectsUpdated = true;

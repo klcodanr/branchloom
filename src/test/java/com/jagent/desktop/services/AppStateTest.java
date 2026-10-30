@@ -30,6 +30,7 @@ class AppStateTest {
         final Session session = Session.create(projectId, FEATURE, AGENT, PROMPT, WORKTREE);
         final var sessionId = state.addSession(projectId, session);
 
+        assertEquals(session.id(), sessionId, "registered session should retain its ID");
         assertEquals(session, state.sessions().get(sessionId), "session should be stored");
         assertEquals(
                 List.of(sessionId),
