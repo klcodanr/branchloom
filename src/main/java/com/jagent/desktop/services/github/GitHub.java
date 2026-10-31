@@ -242,20 +242,21 @@ public class GitHub {
             throws IOException, InterruptedException {
         final GHRepository repository = repository();
         final GHPullRequest ghPullRequest = repository.getPullRequest(request.number());
+        final PullRequest refreshedRequest = toPullRequest(ghPullRequest);
         try {
             PullRequestChecks checks;
             try {
-                String headSha = request.headSha();
+                String headSha = refreshedRequest.headSha();
                 LOG.debug(
                         "PR checks lookup started: project={}, number={}, summaryHeadSha={}",
-                        request.project().name(),
-                        request.number(),
-                        request.abbreviatedHeadSha());
+                        refreshedRequest.project().name(),
+                        refreshedRequest.number(),
+                        refreshedRequest.abbreviatedHeadSha());
                 if (headSha.isBlank()) {
                     LOG.debug(
                             "PR checks lookup requires refresh for missing SHA: project={}, number={}",
-                            request.project().name(),
-                            request.number());
+                            refreshedRequest.project().name(),
+                            refreshedRequest.number());
                     final GHPullRequest refreshed = repository.getPullRequest(request.number());
                     headSha =
                             refreshed.getHead() == null || refreshed.getHead().getSha() == null
@@ -263,15 +264,15 @@ public class GitHub {
                                     : refreshed.getHead().getSha();
                     LOG.debug(
                             "PR checks refresh resolved SHA: project={}, number={}, refreshedHeadSha={}",
-                            request.project().name(),
-                            request.number(),
-                            request.abbreviatedHeadSha());
+                            refreshedRequest.project().name(),
+                            refreshedRequest.number(),
+                            refreshedRequest.abbreviatedHeadSha());
                 }
                 if (headSha.isBlank()) {
                     LOG.debug(
                             "PR checks lookup has no SHA after refresh: project={}, number={}",
-                            request.project().name(),
-                            request.number());
+                            refreshedRequest.project().name(),
+                            refreshedRequest.number());
                     checks = new PullRequestChecks(List.of());
                 } else {
                     final List<PullRequestCheck> checksFromRuns =
@@ -286,9 +287,9 @@ public class GitHub {
                             mergeChecks(checksFromRuns, checksFromStatuses);
                     LOG.debug(
                             "PR checks lookup finished: project={}, number={}, headSha={}, checks={}",
-                            request.project().name(),
-                            request.number(),
-                            request.abbreviatedHeadSha(),
+                            refreshedRequest.project().name(),
+                            refreshedRequest.number(),
+                            refreshedRequest.abbreviatedHeadSha(),
                             mergedChecks.size());
                     checks = new PullRequestChecks(mergedChecks);
                 }
@@ -297,7 +298,7 @@ public class GitHub {
                 checks = new PullRequestChecks(List.of());
             }
             return new PullRequestDetails(
-                    request,
+                    refreshedRequest,
                     ghPullRequest.isDraft(),
                     ghPullRequest.isMerged(),
                     Boolean.TRUE.equals(ghPullRequest.getMergeable()),
