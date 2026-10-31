@@ -67,6 +67,7 @@ public final class PasteSessionsDialog extends FormDialog {
                     "Enter at least one non-blank line", "Start sessions from pasted lines");
             return;
         }
+        complete();
         onValid.accept(
                 request(lines.getText(), (Agent) agent.getSelectedItem(), basePrompt.getText()));
     }

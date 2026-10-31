@@ -83,6 +83,7 @@ public final class ImportProjectDialog extends FormDialog {
             return;
         }
         final Path path = Path.of(destination.getText().trim()).toAbsolutePath().normalize();
+        complete();
         onValid.accept(
                 new Request(
                         remote.getText().trim(), path, (Credential) githubAuth.getSelectedItem()));

@@ -24,6 +24,7 @@ abstract class FormDialog extends JPanel {
             final Runnable submit,
             final DialogService dialogService) {
         this.dialogService = dialogService;
+        putClientProperty("dialog.owns-buttons", Boolean.TRUE);
         cancelButton = new BaseButton("Cancel");
         primaryButton = new BaseButton(primaryLabel);
         cancelButton.setName(cancelName);
@@ -42,5 +43,9 @@ abstract class FormDialog extends JPanel {
                 event -> cancelButton.doClick(),
                 KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
                 WHEN_IN_FOCUSED_WINDOW);
+    }
+
+    protected final void complete() {
+        putClientProperty("dialog.completed", Boolean.TRUE);
     }
 }

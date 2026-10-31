@@ -172,6 +172,7 @@ public final class NewSessionDialog extends FormDialog {
         }
         final Agent selectedAgent = (Agent) agent.getSelectedItem();
         final BranchChoice selectedBranch = (BranchChoice) baseBranch.getSelectedItem();
+        complete();
         onValid.accept(
                 new Request(
                         name.getText().trim(),

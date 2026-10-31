@@ -55,6 +55,7 @@ public final class BulkSessionDialog extends FormDialog {
             dialogService.errorMessage("Select at least one issue.", "Bulk agent sessions");
             return;
         }
+        complete();
         onValid.accept(request(selected, (Agent) agent.getSelectedItem()));
     }
 
