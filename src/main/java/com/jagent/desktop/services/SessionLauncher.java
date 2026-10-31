@@ -10,6 +10,7 @@ import com.jagent.desktop.services.ViewController.ViewState;
 import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.components.terminal.TerminalPanel;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Opens a newly created session and runs its configured setup commands. */
@@ -33,6 +34,12 @@ public final class SessionLauncher {
 
     public void launch(final Project project, final CreatedSession created) {
         final var terminal = appState.terminals().get(created.terminalId());
+        final List<String> startupCommands =
+                project.startupCommands().isEmpty()
+                        ? InstallCommandGuesser.guess(Path.of(created.session().worktreePath()))
+                                .stream()
+                                .toList()
+                        : project.startupCommands();
         final TerminalPanel terminalPanel =
                 TerminalPanel.retained(
                         created.terminalId(),
@@ -50,7 +57,7 @@ public final class SessionLauncher {
                         created.session().projectId(),
                         created.session().id(),
                         created.terminalId()));
-        if (project.startupCommands().isEmpty()) {
+        if (startupCommands.isEmpty()) {
             terminalPanel.start();
         } else {
             final AtomicInteger current = new AtomicInteger(1);
@@ -59,7 +66,7 @@ public final class SessionLauncher {
             BackgroundOperations.runCommands(
                             "Commands",
                             "session-startup",
-                            project.startupCommands(),
+                            startupCommands,
                             Path.of(created.session().worktreePath()),
                             job::output,
                             (ignored) -> {
@@ -67,7 +74,7 @@ public final class SessionLauncher {
                                         "Startup command "
                                                 + current.getAndIncrement()
                                                 + " of "
-                                                + project.startupCommands().size()
+                                                + startupCommands.size()
                                                 + " completed");
                             })
                     .exceptionally(
@@ -76,7 +83,7 @@ public final class SessionLauncher {
                                         "Startup command "
                                                 + current.get()
                                                 + " failed:\n\n"
-                                                + project.startupCommands().get(current.get() - 1)
+                                                + startupCommands.get(current.get() - 1)
                                                 + "\n\nError:\n"
                                                 + error,
                                         "Session Setup Failed");
