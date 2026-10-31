@@ -71,7 +71,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: macos-latest
             platform: macOS
           - os: ubuntu-latest
             platform: Linux
