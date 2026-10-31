@@ -31,6 +31,7 @@ public final class BranchloomApplication {
     private boolean closed;
 
     public BranchloomApplication(final Path dataDirectory) {
+        configurePlatform();
         state = AppStatePersistence.load(dataDirectory);
         Theme.apply(Theme.FlatLafTheme.from(state.appSettings().theme()));
         persistence = new AppStatePersistence(state, dataDirectory);
@@ -62,7 +63,6 @@ public final class BranchloomApplication {
     }
 
     public void start() {
-        configurePlatform();
         configureSwing();
         ClipboardImagePaster.cleanupStaleImages();
         if (Taskbar.isTaskbarSupported()) {
