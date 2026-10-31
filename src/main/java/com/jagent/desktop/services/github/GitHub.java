@@ -36,8 +36,6 @@ import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GitHubAbuseLimitHandler;
 import org.kohsuke.github.GitHubBuilder;
 import org.kohsuke.github.GitHubRateLimitHandler;
-import org.kohsuke.github.RateLimitChecker;
-import org.kohsuke.github.RateLimitTarget;
 import org.kohsuke.github.connector.GitHubConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,9 +60,6 @@ import org.slf4j.LoggerFactory;
 @SuppressWarnings("PMD.GodClass")
 public class GitHub {
     private static final Logger LOG = LoggerFactory.getLogger(GitHub.class);
-    private static final int CORE_RATE_LIMIT_BUFFER = 1;
-    private static final int SEARCH_RATE_LIMIT_BUFFER = 1;
-
     private static final Map<ProjectId, GitHub> INSTANCES = new ConcurrentHashMap<>();
     private final GitHubAuth gitHubAuth;
     private final ProjectId projectId;
@@ -99,12 +94,6 @@ public class GitHub {
                         .withOAuthToken(auth.token())
                         .withRateLimitHandler(GitHubRateLimitHandler.WAIT)
                         .withAbuseLimitHandler(GitHubAbuseLimitHandler.WAIT)
-                        .withRateLimitChecker(
-                                new RateLimitChecker.LiteralValue(CORE_RATE_LIMIT_BUFFER),
-                                RateLimitTarget.CORE)
-                        .withRateLimitChecker(
-                                new RateLimitChecker.LiteralValue(SEARCH_RATE_LIMIT_BUFFER),
-                                RateLimitTarget.SEARCH)
                         .withConnector(new LoggingGitHubConnector(GitHubConnector.DEFAULT))
                         .build();
 
