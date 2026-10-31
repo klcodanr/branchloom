@@ -226,10 +226,13 @@ public class GitHub {
                                 repository
                                         .queryPullRequests()
                                         .state(GHIssueState.ALL)
-                                        .head(repository.getOwner().getLogin() + ":" + branch)
                                         .list()
                                         .spliterator(),
                                 false)
+                        .filter(
+                                candidate ->
+                                        candidate.getHead() != null
+                                                && branch.equals(candidate.getHead().getRef()))
                         .findFirst()
                         .orElseThrow(() -> new IOException("No pull request found"));
         return toPullRequest(request);
