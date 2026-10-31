@@ -88,7 +88,8 @@ class ProjectSettingsViewTest {
 
     @Test
     void createBuildsSettingsFormForSelectedProject() {
-        final Project project = Project.create(PROJECT_NAME, PROJECT_PATH, null);
+        final Credential credential = new CliCredential("github.example", "Configured", "user");
+        final Project project = Project.create(PROJECT_NAME, PROJECT_PATH, credential);
         final ProjectId projectId = ProjectId.create();
         final AppState state =
                 new AppState(
@@ -104,6 +105,26 @@ class ProjectSettingsViewTest {
 
         assertNotNull(view, "settings view should render for selected project");
         assertTrue(view.getComponentCount() > 0, "settings view should include content");
+        final JComboBox<?> credentials = findComboBox(view);
+        assertSame(
+                credential,
+                credentials.getSelectedItem(),
+                "the stored GitHub credential should be selected");
+    }
+
+    private static JComboBox<?> findComboBox(final JComponent component) {
+        if (component instanceof JComboBox<?> comboBox) {
+            return comboBox;
+        }
+        for (final java.awt.Component child : component.getComponents()) {
+            if (child instanceof JComponent childComponent) {
+                final JComboBox<?> comboBox = findComboBox(childComponent);
+                if (comboBox != null) {
+                    return comboBox;
+                }
+            }
+        }
+        return null;
     }
 
     @Test

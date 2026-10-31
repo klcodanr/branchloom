@@ -72,8 +72,13 @@ public class GitHub {
 
     public static GitHub forProject(final AppState appState, final ProjectId projectId) {
         Objects.requireNonNull(projectId);
-        Objects.requireNonNull(appState.projects().get(projectId));
-        return INSTANCES.computeIfAbsent(projectId, id -> new GitHub(appState, id));
+        final Project project = Objects.requireNonNull(appState.projects().get(projectId));
+        return INSTANCES.compute(
+                projectId,
+                (id, instance) ->
+                        instance == null || !instance.project.equals(project)
+                                ? new GitHub(appState, id)
+                                : instance);
     }
 
     protected GitHub(final AppState appState, final ProjectId projectId) {
