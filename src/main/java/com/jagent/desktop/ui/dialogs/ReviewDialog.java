@@ -66,6 +66,7 @@ public final class ReviewDialog extends FormDialog {
             return;
         }
         final Agent selected = (Agent) agent.getSelectedItem();
+        complete();
         onReview.accept(selected, prompt.getText().trim());
     }
 }

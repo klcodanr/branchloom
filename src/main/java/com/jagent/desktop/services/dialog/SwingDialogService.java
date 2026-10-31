@@ -127,14 +127,18 @@ public final class SwingDialogService implements DialogService {
     @Override
     public DialogService.ReturnType show(
             final String title, final JComponent content, final String primaryLabel) {
+        final boolean contentOwnsButtons =
+                Boolean.TRUE.equals(content.getClientProperty("dialog.owns-buttons"));
         final JOptionPane pane =
                 new JOptionPane(
                         content,
                         JOptionPane.PLAIN_MESSAGE,
-                        JOptionPane.OK_CANCEL_OPTION,
+                        contentOwnsButtons
+                                ? JOptionPane.DEFAULT_OPTION
+                                : JOptionPane.OK_CANCEL_OPTION,
                         null,
-                        new Object[] {primaryLabel, "Cancel"},
-                        primaryLabel);
+                        contentOwnsButtons ? new Object[0] : new Object[] {primaryLabel, "Cancel"},
+                        contentOwnsButtons ? null : primaryLabel);
         final JDialog dialog = pane.createDialog(owner, title);
         final PropertyChangeListener cancellation =
                 event -> {
@@ -148,6 +152,14 @@ public final class SwingDialogService implements DialogService {
         dialog.setModalityType(Dialog.ModalityType.APPLICATION_MODAL);
         dialog.setVisible(true);
         content.removePropertyChangeListener(cancellation);
+        if (contentOwnsButtons) {
+            if (Boolean.TRUE.equals(content.getClientProperty("dialog.completed"))) {
+                return DialogService.ReturnType.OK;
+            }
+            return Boolean.TRUE.equals(content.getClientProperty("dialog.cancelled"))
+                    ? DialogService.ReturnType.CANCEL
+                    : DialogService.ReturnType.CLOSED;
+        }
         return primaryLabel.equals(pane.getValue())
                 ? DialogService.ReturnType.OK
                 : DialogService.ReturnType.CANCEL;

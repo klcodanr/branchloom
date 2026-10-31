@@ -34,6 +34,7 @@ public final class BackgroundJobDialog {
 
     private JPanel content(final BackgroundJobs.Job job) {
         final JPanel content = new JPanel(new BorderLayout(0, UiConstants.COMPONENT_GAP));
+        content.putClientProperty("dialog.owns-buttons", Boolean.TRUE);
         content.setBorder(
                 BorderFactory.createEmptyBorder(
                         UiConstants.CONTENT_PADDING,
