@@ -25,11 +25,14 @@ class AppStateTest {
     @Test
     void addingAndRemovingSessionKeepsProjectStateInSync() throws InvalidObjectException {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
-        final ProjectId projectId = state.addProject(Project.create(DEMO, DEMO_PATH, null));
+        final Project project = Project.create(DEMO, DEMO_PATH, null);
+        final ProjectId projectId = state.addProject(project);
 
+        assertEquals(project.id(), projectId, "registered project should retain its ID");
         final Session session = Session.create(projectId, FEATURE, AGENT, PROMPT, WORKTREE);
         final var sessionId = state.addSession(projectId, session);
 
+        assertEquals(session.id(), sessionId, "registered session should retain its ID");
         assertEquals(session, state.sessions().get(sessionId), "session should be stored");
         assertEquals(
                 List.of(sessionId),
@@ -69,6 +72,10 @@ class AppStateTest {
                 state.addTerminal(
                         sessionId,
                         com.jagent.desktop.models.Terminal.create(sessionId, SHELL, "sh"));
+        assertEquals(
+                terminalId,
+                state.terminals().get(terminalId).id(),
+                "registered terminal should retain its ID");
 
         state.updateTerminal(
                 terminalId,

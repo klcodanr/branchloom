@@ -49,6 +49,11 @@
       "type": "array",
       "description": "Named kanban boards and the sources, columns, and rules shown on each board.",
       "items": { "$ref": "#/$defs/boardDefinition" }
+    },
+    "projectGroups": {
+      "type": "array",
+      "description": "Names of project groups used to organize projects in the project tree.",
+      "items": { "type": "string" }
     }
   },
   "$defs": {

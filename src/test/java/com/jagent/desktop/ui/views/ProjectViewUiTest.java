@@ -136,7 +136,8 @@ class ProjectViewUiTest {
                         Session.create(
                                 projectId, SESSION_NAME, "agent", SESSION_PROMPT, PROJECT_PATH));
         state.addTerminal(sessionId, Terminal.create(sessionId, "Shell", SUCCESS_COMMAND));
-        state.addTerminal(sessionId, Terminal.create(projectId, "Dual owner", SUCCESS_COMMAND));
+        state.addTerminal(
+                sessionId, Terminal.create(sessionId, "Session terminal", SUCCESS_COMMAND));
 
         final ProjectView view =
                 GuiActionRunner.execute(

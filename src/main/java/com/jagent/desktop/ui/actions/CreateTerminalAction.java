@@ -59,7 +59,7 @@ public final class CreateTerminalAction implements Action {
         final SessionId sessionId = viewController.currentSessionId();
         final var terminalId =
                 sessionId == null
-                        ? appState.addTerminal(new Terminal(null, projectId, title, command))
+                        ? appState.addTerminal(Terminal.create(projectId, title, command))
                         : appState.addTerminal(
                                 sessionId, Terminal.create(sessionId, title, command));
         viewController.updateView(
