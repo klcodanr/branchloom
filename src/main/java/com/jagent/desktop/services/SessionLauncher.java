@@ -77,19 +77,23 @@ public final class SessionLauncher {
                                                 + startupCommands.size()
                                                 + " completed");
                             })
-                    .exceptionally(
-                            error -> {
-                                dialogService.errorMessage(
-                                        "Startup command "
-                                                + current.get()
-                                                + " failed:\n\n"
-                                                + startupCommands.get(current.get() - 1)
-                                                + "\n\nError:\n"
-                                                + error,
-                                        "Session Setup Failed");
-                                return null;
-                            })
-                    .whenComplete((ignored, error) -> terminalPanel.start());
+                    .whenComplete(
+                            (ignored, error) -> {
+                                if (error == null) {
+                                    job.complete();
+                                } else {
+                                    job.fail(error.toString());
+                                    dialogService.errorMessage(
+                                            "Startup command "
+                                                    + current.get()
+                                                    + " failed:\n\n"
+                                                    + startupCommands.get(current.get() - 1)
+                                                    + "\n\nError:\n"
+                                                    + error,
+                                            "Session Setup Failed");
+                                }
+                                terminalPanel.start();
+                            });
         }
     }
 }

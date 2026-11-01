@@ -95,10 +95,11 @@ class SessionLauncherTest {
                 "firstsecond",
                 Files.readString(directory.resolve("setup.log")),
                 "startup commands should run in order");
-        assertEquals(
-                BackgroundJobs.Status.RUNNING,
-                fixture.backgroundJobs().jobs().getFirst().status(),
-                "startup job remains visible while setup is launched asynchronously");
+        AsyncTestSupport.await(
+                () ->
+                        fixture.backgroundJobs().jobs().getFirst().status()
+                                == BackgroundJobs.Status.SUCCEEDED,
+                "startup job should complete successfully");
         assertNotNull(
                 TerminalPanel.existing(fixture.terminalId()),
                 "terminal panel should remain retained after setup commands");
@@ -114,11 +115,14 @@ class SessionLauncherTest {
 
         AsyncTestSupport.await(
                 () -> !fixture.backgroundJobs().jobs().isEmpty(), "startup job should be created");
-        final BackgroundJobs.Job job = fixture.backgroundJobs().jobs().getFirst();
         AsyncTestSupport.await(
                 () -> Files.notExists(directory.resolve("skipped")),
                 "later commands should not run");
-        assertEquals(BackgroundJobs.Status.RUNNING, job.status(), "setup job remains visible");
+        AsyncTestSupport.await(
+                () ->
+                        fixture.backgroundJobs().jobs().getFirst().status()
+                                == BackgroundJobs.Status.FAILED,
+                "startup job should fail");
         assertFalse(Files.exists(directory.resolve("skipped")), "later commands should not run");
         assertNotNull(
                 TerminalPanel.existing(fixture.terminalId()),
@@ -132,10 +136,11 @@ class SessionLauncherTest {
 
         fixture.launcher().launch(fixture.project(), fixture.created());
 
-        assertEquals(
-                BackgroundJobs.Status.RUNNING,
-                fixture.backgroundJobs().jobs().getFirst().status(),
-                "setup job remains visible");
+        AsyncTestSupport.await(
+                () ->
+                        fixture.backgroundJobs().jobs().getFirst().status()
+                                == BackgroundJobs.Status.FAILED,
+                "startup job should fail");
         assertNotNull(
                 TerminalPanel.existing(fixture.terminalId()),
                 "failed setup should retain the terminal panel");
