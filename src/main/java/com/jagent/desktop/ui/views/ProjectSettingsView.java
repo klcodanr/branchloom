@@ -68,8 +68,16 @@ public final class ProjectSettingsView extends JPanel implements View {
         startup.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
         agentContextPath.setToolTipText(
                 "Blank disables context generation. Relative paths are created in each worktree.");
+        final Credential initialCredential = project.credential();
         final JComboBox<Credential> githubAuth =
                 GitHubAuthSelector.renderConfigured(new GitHubAuth().listCredentials());
+        if (initialCredential != null) {
+            githubAuth.setSelectedItem(initialCredential);
+            if (!Objects.equals(initialCredential, githubAuth.getSelectedItem())) {
+                githubAuth.addItem(initialCredential);
+                githubAuth.setSelectedItem(initialCredential);
+            }
+        }
         final JPanel form = new JPanel();
         form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
         form.add(new LabeledField("Project name", name));
@@ -98,7 +106,6 @@ public final class ProjectSettingsView extends JPanel implements View {
                 UiText.valueOrDefault(project.agentContextPath(), "");
         final String initialAgentContextText =
                 UiText.valueOrDefault(project.agentContextText(), "");
-        final Credential initialCredential = project.credential();
         add(
                 SettingsPanel.render(
                         TITLE,

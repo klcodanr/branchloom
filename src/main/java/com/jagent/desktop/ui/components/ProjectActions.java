@@ -87,8 +87,8 @@ public final class ProjectActions {
     }
 
     public void populate(final Container menu) {
-        menu.add(projectActionItem(this.createSessionAction, UiIcons.hatGlasses()), null);
-        menu.add(projectActionItem(this.createTerminalAction, UiIcons.terminal()), null);
+        menu.add(projectActionItem(this.createSessionAction, UiIcons.hatGlasses()));
+        menu.add(projectActionItem(this.createTerminalAction, UiIcons.terminal()));
         menu.add(new JSeparator());
         menu.add(projectActionItem(this.openDirectoryAction, null));
         menu.add(projectActionItem(this.copyPathAction, null));
