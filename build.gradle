@@ -235,6 +235,9 @@ def jpackageExecutable = {
     new File(javaExecutable.parentFile, 'jpackage').absolutePath
 }
 def configuredJpackageExecutable = jpackageExecutable()
+def java21Launcher = javaToolchains.launcherFor {
+    languageVersion = JavaLanguageVersion.of(21)
+}
 
 def distributionDirectory = layout.buildDirectory.dir("install/${project.name}/lib")
 def packageDirectory = layout.buildDirectory.dir('jpackage')
@@ -247,11 +250,12 @@ tasks.register('jlinkRuntime', Exec) {
 
     doFirst {
         def outputDirectory = minimalRuntimeDirectory.get().asFile
+        def java21Home = java21Launcher.get().metadata.installationPath.asFile
         if (outputDirectory.exists()) {
             outputDirectory.deleteDir()
         }
-        commandLine "${System.getProperty('java.home')}/bin/jlink",
-                '--module-path', "${System.getProperty('java.home')}/jmods",
+        commandLine "${java21Home}/bin/jlink",
+                '--module-path', "${java21Home}/jmods",
                 '--add-modules', 'java.base,java.desktop,java.logging',
                 '--strip-debug',
                 '--no-header-files',
