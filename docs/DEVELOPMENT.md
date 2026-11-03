@@ -2,7 +2,7 @@
 
 ## Build And Test
 
-The build uses Java 25 and automatically provisions a matching toolchain when it
+The build uses Java 21 and automatically provisions a matching toolchain when it
 is not installed locally.
 
 Run the unit tests with:
@@ -46,7 +46,7 @@ gradle jpackageInstaller
 ```
 
 The installer format is selected for the current OS: DMG on macOS, MSI on Windows,
-and DEB on Linux. `jpackage` must be available in the Java 25 toolchain.
+and DEB on Linux. `jpackage` must be available in the Java 21 toolchain.
 
 ## Releases
 
