@@ -256,7 +256,7 @@ tasks.register('jlinkRuntime', Exec) {
         }
         commandLine "${java21Home}/bin/jlink",
                 '--module-path', "${java21Home}/jmods",
-                '--add-modules', 'java.base,java.desktop,java.logging',
+                '--add-modules', 'java.base,java.desktop,java.logging,jdk.crypto.ec',
                 '--strip-debug',
                 '--no-header-files',
                 '--no-man-pages',

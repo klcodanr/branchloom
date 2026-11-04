@@ -25,7 +25,20 @@ public final class AboutAction implements Action {
     @Override
     public void execute() {
         dialogService.message(
-                "Branchloom\nGit projects, worktrees, and agent sessions",
+                "Branchloom\n"
+                        + "Git projects, worktrees, and agent sessions\n\n"
+                        + "Java: "
+                        + System.getProperty("java.version")
+                        + " ("
+                        + System.getProperty("java.vendor")
+                        + ")\n"
+                        + "OS: "
+                        + System.getProperty("os.name")
+                        + " "
+                        + System.getProperty("os.version")
+                        + " ("
+                        + System.getProperty("os.arch")
+                        + ")",
                 "About Branchloom",
                 DialogService.MessageType.INFORMATION);
     }
