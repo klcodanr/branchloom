@@ -4,7 +4,7 @@ import java.nio.file.StandardWatchEventKinds
 
 plugins {
     id 'application'
-    id 'com.diffplug.spotless' version '8.10.4'
+    id 'com.diffplug.spotless' version '8.11.0'
     id 'pmd'
     id 'com.github.spotbugs' version '6.5.13'
     id 'jacoco'
