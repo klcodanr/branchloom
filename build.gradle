@@ -9,7 +9,7 @@ plugins {
     id 'com.github.spotbugs' version '6.5.13'
     id 'jacoco'
     id 'io.github.arya458.dead-code-detector' version '0.0.10'
-    id 'nebula.lint' version '21.3.0'
+    id 'nebula.lint' version '21.4.1'
 }
 
 repositories {
