@@ -6,6 +6,7 @@ import com.google.inject.Singleton;
 import com.jagent.desktop.api.RefreshableView;
 import com.jagent.desktop.api.View;
 import com.jagent.desktop.api.ViewId;
+import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.Project;
 import com.jagent.desktop.models.ProjectId;
 import com.jagent.desktop.models.Session;
@@ -99,7 +100,14 @@ public final class ViewController {
         if (previousView != null) {
             previousView.detach();
         }
-        TerminalManager.get().reconcile(appState.terminals().keySet());
+        final var terminalIds = appState.terminals().keySet();
+        BackgroundOperations.submit(
+                "Terminals",
+                "reconcile",
+                () -> {
+                    TerminalManager.get().reconcile(terminalIds);
+                    return null;
+                });
         notifyViewChanged();
     }
 
