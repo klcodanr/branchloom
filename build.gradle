@@ -31,7 +31,7 @@ dependencies {
     implementation 'org.jetbrains.jediterm:jediterm-core:3.76'
     implementation 'org.jetbrains.jediterm:jediterm-ui:3.76'
     implementation 'com.fifesoft:rsyntaxtextarea:4.0.1'
-    implementation 'org.eclipse.jgit:org.eclipse.jgit:7.8.0.202609011348-r'
+    implementation 'org.eclipse.jgit:org.eclipse.jgit:7.8.1.202611041320-r'
     implementation 'org.apache.commons:commons-jexl3:3.7.1'
     implementation 'com.google.inject:guice:7.0.0'
     implementation 'com.google.inject.extensions:guice-assistedinject:7.0.0'
