@@ -21,7 +21,7 @@ version = providers.gradleProperty('releaseVersion').orElse('1.0.0').get()
 
 dependencies {
     compileOnly 'org.jetbrains:annotations:26.1.0'
-    implementation 'com.formdev:flatlaf:3.7.2'
+    implementation 'com.formdev:flatlaf:3.8'
     implementation 'com.formdev:flatlaf-extras:3.7.2'
     implementation 'com.google.code.gson:gson:2.15.0'
     implementation 'org.kohsuke:github-api:1.330'
