@@ -442,7 +442,10 @@ class WorkspaceTerminalTabsUiTest {
         }
 
         @Override
-        public void start(final Consumer<TtyConnector> attach, final Consumer<Exception> failed) {
+        public void start(
+                final Consumer<TtyConnector> attach,
+                final Consumer<Exception> failed,
+                final java.util.Map<String, String> environment) {
             startCount++;
             state = TerminalState.WORKING;
             listener.accept(state);

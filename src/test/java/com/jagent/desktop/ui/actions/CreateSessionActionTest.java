@@ -47,6 +47,7 @@ class CreateSessionActionTest {
                                 "sleep 1; mkdir -p .branchloom; printf setup > .branchloom/notes.md"),
                         List.of(),
                         ".branchloom/notes.md",
+                        null,
                         null);
         final AppState state = TestAppState.empty();
         final var projectId = state.addProject(project);

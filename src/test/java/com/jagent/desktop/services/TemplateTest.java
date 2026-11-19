@@ -91,6 +91,7 @@ class TemplateTest {
                         List.of(),
                         List.of(),
                         null,
+                        null,
                         null);
         final Session session =
                 Session.create(project.id(), "Fix bug", null, null, "/tmp/work tree");
@@ -127,6 +128,7 @@ class TemplateTest {
                         List.of(),
                         List.of(),
                         null,
+                        null,
                         null);
         assertEquals(
                 CUSTOM_WORKTREE_TEMPLATE,
@@ -158,6 +160,7 @@ class TemplateTest {
                 null,
                 List.of(),
                 List.of(),
+                null,
                 null,
                 null);
     }

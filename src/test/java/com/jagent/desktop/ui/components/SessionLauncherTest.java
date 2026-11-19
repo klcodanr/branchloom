@@ -169,6 +169,7 @@ class SessionLauncherTest {
                         startupCommands,
                         List.of(),
                         null,
+                        null,
                         null);
         final var projectId = state.addProject(project);
         final var session =
@@ -220,7 +221,10 @@ class SessionLauncherTest {
         }
 
         @Override
-        public void start(final Consumer<TtyConnector> attach, final Consumer<Exception> failed) {
+        public void start(
+                final Consumer<TtyConnector> attach,
+                final Consumer<Exception> failed,
+                final java.util.Map<String, String> environment) {
             startCount.incrementAndGet();
             state = TerminalState.WORKING;
             listener.accept(state);

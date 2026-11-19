@@ -50,6 +50,7 @@ public final class SessionLauncher {
                                 + created.session().name()
                                 + " > "
                                 + terminal.title(),
+                        appState,
                         dialogService);
         viewController.updateView(
                 ViewId.SESSION,

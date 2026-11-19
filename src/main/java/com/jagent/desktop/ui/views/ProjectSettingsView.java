@@ -33,6 +33,7 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
 public final class ProjectSettingsView extends JPanel implements View {
+    private static final String PMD_EXCESSIVE_PARAMETER_LIST = "PMD.ExcessiveParameterList";
     private static final String TITLE = "Project settings";
     private static final String WORKTREE_VARIABLES_TOOLTIP =
             "Interpolated variables: {projectName}, {projectPath}, {sessionName}, "
@@ -64,6 +65,8 @@ public final class ProjectSettingsView extends JPanel implements View {
                 new JTextField(UiText.valueOrDefault(project.agentContextPath(), ""), 45);
         final JTextArea agentContextText =
                 new BaseTextArea(UiText.valueOrDefault(project.agentContextText(), ""), 6, 45);
+        final JTextArea environmentVariables =
+                new BaseTextArea(UiText.valueOrDefault(project.environmentVariables(), ""), 6, 45);
         template.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
         startup.setToolTipText(WORKTREE_VARIABLES_TOOLTIP);
         agentContextPath.setToolTipText(
@@ -94,6 +97,10 @@ public final class ProjectSettingsView extends JPanel implements View {
         form.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
         form.add(new LabeledField("Additional agent context", agentContextText));
         form.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
+        form.add(
+                new LabeledField(
+                        "Environment variables (properties format)", environmentVariables));
+        form.add(Box.createVerticalStrut(UiConstants.COMPONENT_GAP));
         form.add(new LabeledField("GitHub connection", githubAuth));
         final JPanel formContainer = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         formContainer.setBorder(UiBorders.section());
@@ -106,6 +113,8 @@ public final class ProjectSettingsView extends JPanel implements View {
                 UiText.valueOrDefault(project.agentContextPath(), "");
         final String initialAgentContextText =
                 UiText.valueOrDefault(project.agentContextText(), "");
+        final String initialEnvironmentVariables =
+                UiText.valueOrDefault(project.environmentVariables(), "");
         add(
                 SettingsPanel.render(
                         TITLE,
@@ -122,6 +131,7 @@ public final class ProjectSettingsView extends JPanel implements View {
                                         startup,
                                         agentContextPath,
                                         agentContextText,
+                                        environmentVariables,
                                         githubAuth,
                                         close,
                                         dialogService),
@@ -134,6 +144,7 @@ public final class ProjectSettingsView extends JPanel implements View {
                                         initialStartup,
                                         initialAgentContextPath,
                                         initialAgentContextText,
+                                        initialEnvironmentVariables,
                                         initialCredential == null ? null : initialCredential.id(),
                                         name,
                                         group,
@@ -141,6 +152,7 @@ public final class ProjectSettingsView extends JPanel implements View {
                                         startup,
                                         agentContextPath,
                                         agentContextText,
+                                        environmentVariables,
                                         githubAuth),
                         dialogService));
     }
@@ -172,7 +184,7 @@ public final class ProjectSettingsView extends JPanel implements View {
         return repository;
     }
 
-    @SuppressWarnings("PMD.ExcessiveParameterList")
+    @SuppressWarnings(PMD_EXCESSIVE_PARAMETER_LIST)
     /* package */ static void saveProject(
             final AppState state,
             final ViewController viewController,
@@ -183,6 +195,7 @@ public final class ProjectSettingsView extends JPanel implements View {
             final JTextArea startup,
             final JTextField agentContextPath,
             final JTextArea agentContextText,
+            final JTextArea environmentVariables,
             final JComboBox<Credential> githubAuth,
             final Runnable close,
             final DialogService dialogs) {
@@ -214,7 +227,8 @@ public final class ProjectSettingsView extends JPanel implements View {
                         startup.getText().lines().toList(),
                         project.sessionIds(),
                         agentContextPath.getText().trim(),
-                        agentContextText.getText());
+                        agentContextText.getText(),
+                        environmentVariables.getText());
         state.projects().entrySet().stream()
                 .filter(entry -> entry.getValue().equals(project))
                 .map(Map.Entry::getKey)
@@ -226,7 +240,70 @@ public final class ProjectSettingsView extends JPanel implements View {
                         });
     }
 
-    @SuppressWarnings("PMD.ExcessiveParameterList")
+    @SuppressWarnings(PMD_EXCESSIVE_PARAMETER_LIST)
+    /* package */ static boolean hasChanges(
+            final String initialName,
+            final String initialGroup,
+            final String initialTemplate,
+            final String initialStartup,
+            final String initialAgentContextPath,
+            final String initialAgentContextText,
+            final String initialEnvironmentVariables,
+            final String initialConnectionId,
+            final JTextField name,
+            final JTextField group,
+            final JTextField template,
+            final JTextArea startup,
+            final JTextField agentContextPath,
+            final JTextArea agentContextText,
+            final JTextArea environmentVariables,
+            final JComboBox<Credential> githubAuth) {
+        return !initialName.equals(name.getText().trim())
+                || !initialGroup.equals(
+                        group.getText().isBlank() ? Defaults.DEFAULT_GROUP : group.getText().trim())
+                || !Objects.equals(initialTemplate, template.getText())
+                || !initialStartup.equals(startup.getText())
+                || !initialAgentContextPath.equals(agentContextPath.getText().trim())
+                || !initialAgentContextText.equals(agentContextText.getText())
+                || !initialEnvironmentVariables.equals(environmentVariables.getText())
+                || !Objects.equals(
+                        initialConnectionId,
+                        githubAuth.getSelectedItem() == null
+                                ? null
+                                : ((Credential) githubAuth.getSelectedItem()).id());
+    }
+
+    @SuppressWarnings(PMD_EXCESSIVE_PARAMETER_LIST)
+    /* package */ static void saveProject(
+            final AppState state,
+            final ViewController viewController,
+            final Project project,
+            final JTextField name,
+            final JTextField group,
+            final JTextField template,
+            final JTextArea startup,
+            final JTextField agentContextPath,
+            final JTextArea agentContextText,
+            final JComboBox<Credential> githubAuth,
+            final Runnable close,
+            final DialogService dialogs) {
+        saveProject(
+                state,
+                viewController,
+                project,
+                name,
+                group,
+                template,
+                startup,
+                agentContextPath,
+                agentContextText,
+                new BaseTextArea("", 1, 1),
+                githubAuth,
+                close,
+                dialogs);
+    }
+
+    @SuppressWarnings(PMD_EXCESSIVE_PARAMETER_LIST)
     /* package */ static boolean hasChanges(
             final String initialName,
             final String initialGroup,
@@ -242,17 +319,22 @@ public final class ProjectSettingsView extends JPanel implements View {
             final JTextField agentContextPath,
             final JTextArea agentContextText,
             final JComboBox<Credential> githubAuth) {
-        return !initialName.equals(name.getText().trim())
-                || !initialGroup.equals(
-                        group.getText().isBlank() ? Defaults.DEFAULT_GROUP : group.getText().trim())
-                || !Objects.equals(initialTemplate, template.getText())
-                || !initialStartup.equals(startup.getText())
-                || !initialAgentContextPath.equals(agentContextPath.getText().trim())
-                || !initialAgentContextText.equals(agentContextText.getText())
-                || !Objects.equals(
-                        initialConnectionId,
-                        githubAuth.getSelectedItem() == null
-                                ? null
-                                : ((Credential) githubAuth.getSelectedItem()).id());
+        return hasChanges(
+                initialName,
+                initialGroup,
+                initialTemplate,
+                initialStartup,
+                initialAgentContextPath,
+                initialAgentContextText,
+                "",
+                initialConnectionId,
+                name,
+                group,
+                template,
+                startup,
+                agentContextPath,
+                agentContextText,
+                new BaseTextArea("", 1, 1),
+                githubAuth);
     }
 }

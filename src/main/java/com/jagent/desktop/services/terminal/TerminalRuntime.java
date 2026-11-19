@@ -41,7 +41,10 @@ public class TerminalRuntime {
         this.historyFile = historyFile;
     }
 
-    public void start(final Consumer<TtyConnector> attach, final Consumer<Exception> failed) {
+    public void start(
+            final Consumer<TtyConnector> attach,
+            final Consumer<Exception> failed,
+            final Map<String, String> environmentVariables) {
         synchronized (lifecycleLock) {
             if (disposed) {
                 final IllegalStateException exception =
@@ -60,7 +63,9 @@ public class TerminalRuntime {
                     BackgroundOperations.submit(
                             "Terminals",
                             "agent-terminal-start",
-                            Executors.callable(() -> startProcess(attach, failed), null));
+                            Executors.callable(
+                                    () -> startProcess(attach, failed, environmentVariables),
+                                    null));
         }
     }
 
@@ -124,11 +129,13 @@ public class TerminalRuntime {
     }
 
     private void startProcess(
-            final Consumer<TtyConnector> attach, final Consumer<Exception> failed) {
+            final Consumer<TtyConnector> attach,
+            final Consumer<Exception> failed,
+            final Map<String, String> environmentVariables) {
         launchThread = Thread.currentThread();
         final long launchStartedAtNanos = System.nanoTime();
         try {
-            final PtyProcess startedProcess = launchProcess();
+            final PtyProcess startedProcess = launchProcess(environmentVariables);
             LOG.info(
                     "Terminal process started: dir={}, cmdLength={}, launchMs={}, sinceStartRequestMs={}",
                     directory,
@@ -186,7 +193,8 @@ public class TerminalRuntime {
         }
     }
 
-    protected PtyProcess launchProcess() throws IOException {
+    protected PtyProcess launchProcess(final Map<String, String> environmentVariables)
+            throws IOException {
         final Map<String, String> environment = new HashMap<>(System.getenv());
         environment.put("TERM", "xterm-256color");
         environment.put("COLORTERM", "truecolor");
@@ -194,6 +202,7 @@ public class TerminalRuntime {
         environment.put("HISTFILE", historyFile);
         environment.put("HISTSIZE", "10000");
         environment.put("SAVEHIST", "10000");
+        environment.putAll(environmentVariables == null ? Map.of() : environmentVariables);
         return new PtyProcessBuilder(PlatformCommands.terminal())
                 .setDirectory(directory.toString())
                 .setEnvironment(environment)

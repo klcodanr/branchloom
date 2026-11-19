@@ -138,6 +138,7 @@ public final class ProjectView extends AbstractWorkspaceView {
                         terminalDefinition,
                         Path.of(project.path()),
                         project.name() + " > " + terminalDefinition.title(),
+                        appState,
                         this.dialogService);
         mountTerminal(terminalDefinition.title(), terminalId, terminal, selected);
     }

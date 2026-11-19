@@ -49,6 +49,7 @@ class SessionCreationServiceTest {
                         java.util.List.of(),
                         java.util.List.of(),
                         null,
+                        null,
                         null);
         final ProjectId projectId = state.addProject(project);
         final Agent agent = new Agent(AGENT_NAME, AGENT_COMMAND + " --prompt {prompt}");
@@ -110,6 +111,7 @@ class SessionCreationServiceTest {
                         java.util.List.of(),
                         java.util.List.of(),
                         contextParent.resolve("BRANCHLOOM_CONTEXT.md").toString(),
+                        null,
                         null);
         final ProjectId projectId = state.addProject(project);
         final Agent agent = new Agent(AGENT_NAME, AGENT_COMMAND + " --prompt {prompt}");
@@ -141,6 +143,7 @@ class SessionCreationServiceTest {
                         null,
                         java.util.List.of(),
                         java.util.List.of(),
+                        null,
                         null,
                         null);
         final ProjectId projectId = state.addProject(project);
@@ -180,6 +183,7 @@ class SessionCreationServiceTest {
                         null,
                         java.util.List.of(),
                         java.util.List.of(),
+                        null,
                         null,
                         null);
         final ProjectId projectId = state.addProject(project);
@@ -221,6 +225,7 @@ class SessionCreationServiceTest {
                         java.util.List.of(),
                         java.util.List.of(),
                         null,
+                        null,
                         null);
         final ProjectId projectId = state.addProject(project);
         Files.createDirectories(directory.resolve("worktrees/fix-login"));
@@ -259,6 +264,7 @@ class SessionCreationServiceTest {
                         null,
                         java.util.List.of(),
                         java.util.List.of(),
+                        null,
                         null,
                         null);
         final ProjectId projectId = state.addProject(project);
