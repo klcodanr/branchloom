@@ -12,6 +12,7 @@ import com.jagent.desktop.ui.actions.CreateSessionAction;
 import com.jagent.desktop.ui.actions.CreateTerminalAction;
 import com.jagent.desktop.ui.actions.FindAction;
 import com.jagent.desktop.ui.actions.ImportProjectAction;
+import com.jagent.desktop.ui.actions.NewProjectAction;
 import com.jagent.desktop.ui.actions.OpenSettingsAction;
 import com.jagent.desktop.ui.actions.ProblemsAction;
 import com.jagent.desktop.ui.actions.RefreshSettingsAction;
@@ -37,6 +38,7 @@ public final class AppMenuBar {
     private final Action createTerminalAction;
     private final Action findAction;
     private final Action importProjectAction;
+    private final Action newProjectAction;
     private final Action openSettingsAction;
     private final Action problemsAction;
     private final Action refreshSettingsAction;
@@ -60,6 +62,7 @@ public final class AppMenuBar {
             final CreateTerminalAction createTerminalAction,
             final FindAction findAction,
             final ImportProjectAction importProjectAction,
+            final NewProjectAction newProjectAction,
             final OpenSettingsAction openSettingsAction,
             final ProblemsAction problemsAction,
             final RefreshSettingsAction refreshSettingsAction,
@@ -76,6 +79,7 @@ public final class AppMenuBar {
         this.createTerminalAction = createTerminalAction;
         this.findAction = findAction;
         this.importProjectAction = importProjectAction;
+        this.newProjectAction = newProjectAction;
         this.openSettingsAction = openSettingsAction;
         this.problemsAction = problemsAction;
         this.refreshSettingsAction = refreshSettingsAction;
@@ -108,9 +112,10 @@ public final class AppMenuBar {
         final JMenu file = new JMenu("File");
         file.add(
                 actionItem(
-                        createProjectAction,
+                        newProjectAction,
                         shortcut(KeyStroke.getKeyStroke(KeyEvent.VK_N, 0), true)));
-        file.add(actionItem(importProjectAction));
+        file.add(actionItem(createProjectAction, null));
+        file.add(actionItem(importProjectAction, null));
         final boolean projectSelected = viewController.currentProjectId() != null;
         if (projectSelected) {
             file.add(
