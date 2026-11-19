@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 
 class ProjectTreePanelUiTest {
     @Test
-    void projectTreeIsVerticallyScrollable() {
+    void projectTreeScrollsWhenContentsDoNotFit() {
         final AppState state = new AppState(Defaults.appSettings(), Map.of(), Map.of(), Map.of());
         final var coordinator = TestAppState.controller(state);
         final var panel =
@@ -38,8 +38,8 @@ class ProjectTreePanelUiTest {
                 scroll.getVerticalScrollBarPolicy(),
                 "the tree should show a vertical scrollbar when its contents are too tall");
         assertEquals(
-                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED,
                 scroll.getHorizontalScrollBarPolicy(),
-                "the tree should not scroll horizontally");
+                "the tree should show a horizontal scrollbar when its contents are too wide");
     }
 }

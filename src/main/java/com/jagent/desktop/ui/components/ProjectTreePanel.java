@@ -60,7 +60,7 @@ public final class ProjectTreePanel extends JPanel {
         final JScrollPane treeScroll = new JScrollPane(tree);
         treeScroll.setBorder(null);
         treeScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
-        treeScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        treeScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         treeContent.add(treeScroll, BorderLayout.CENTER);
         add(treeContent, BorderLayout.CENTER);
     }
