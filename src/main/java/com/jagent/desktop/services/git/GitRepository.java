@@ -67,6 +67,13 @@ public final class GitRepository implements AutoCloseable {
         this.repositoryPath = this.repository.getWorkTree().toPath();
     }
 
+    /** Creates a new directory and initializes an empty Git repository in it. */
+    public static Path initialize(final Path destination) throws IOException {
+        final Path directory = Files.createDirectory(destination.toAbsolutePath().normalize());
+        GitNative.run(directory, "init");
+        return directory;
+    }
+
     public static Path cloneRepository(final String remote, final Path destination)
             throws IOException {
         final Path normalized = destination.toAbsolutePath().normalize();

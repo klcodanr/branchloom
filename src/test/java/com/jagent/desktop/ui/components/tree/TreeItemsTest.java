@@ -19,6 +19,7 @@ import com.jagent.desktop.ui.components.tree.items.ProjectTreeItem;
 import com.jagent.desktop.ui.components.tree.items.PullRequestsItem;
 import com.jagent.desktop.ui.components.tree.items.SessionTreeItem;
 import java.io.InvalidObjectException;
+import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import org.junit.jupiter.api.Test;
 
@@ -47,15 +48,17 @@ class TreeItemsTest {
         final var group = new GroupTreeItem(controller, state, dialogService, WORK_GROUP);
         assertItem(group, WORK_GROUP, WORK_GROUP, WORK_GROUP);
         assertMenuLabels(
-                group.getMenu(),
-                "Add local project to " + WORK_GROUP,
-                "Clone remote project to " + WORK_GROUP);
+                group.getMenu(), "Create new project", "Add local project", "Clone remote project");
 
         final var defaultItem = new DefaultTreeItem(controller, state, dialogService);
         assertNull(defaultItem.getId(), "default item has no ID");
         assertNull(defaultItem.getTooltip(), "default item has no tooltip");
         assertNull(defaultItem.getCellRenderContents(), "default item has no rendered text");
-        assertMenuLabels(defaultItem.getMenu(), "Add local project", "Clone remote project");
+        assertMenuLabels(
+                defaultItem.getMenu(),
+                "Create new project",
+                "Add local project",
+                "Clone remote project");
     }
 
     @Test
@@ -149,10 +152,9 @@ class TreeItemsTest {
         assertEquals(
                 labels.length, menu.getComponentCount(), "menu should have expected item count");
         for (int index = 0; index < labels.length; index++) {
-            assertEquals(
-                    labels[index],
-                    ((javax.swing.JMenuItem) menu.getComponent(index)).getText(),
-                    "menu item label should match");
+            final var item = (JMenuItem) menu.getComponent(index);
+            assertEquals(labels[index], item.getText(), "menu item label should match");
+            assertNotNull(item.getIcon(), "project menu item should have an icon");
         }
     }
 }

@@ -12,7 +12,9 @@ public final class UiIcons {
     private static final String SETTINGS = "settings";
     private static final Map<String, String> ACTION_ICONS =
             Map.ofEntries(
-                    Map.entry("new-project", "plus"),
+                    Map.entry("initialize-project", "plus"),
+                    Map.entry("new-project", FOLDER_OPEN),
+                    Map.entry("import-project", "download"),
                     Map.entry("new-session", "plus"),
                     Map.entry("open-terminal", "terminal"),
                     Map.entry("open-project", FOLDER_OPEN),
