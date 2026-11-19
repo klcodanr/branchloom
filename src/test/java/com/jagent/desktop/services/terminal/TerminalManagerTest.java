@@ -8,6 +8,7 @@ import com.jagent.desktop.test.AsyncTestSupport;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
@@ -78,7 +79,7 @@ class TerminalManagerTest {
                                 historyFile,
                                 new FakePtyProcess(pid.incrementAndGet())));
         final TerminalRuntime runtime = manager.create("sleep 1", TEMP_DIRECTORY, RESOURCE);
-        runtime.start(ignored -> {}, exception -> {});
+        runtime.start(ignored -> {}, exception -> {}, Map.of());
 
         AsyncTestSupport.await(
                 () -> runtime.process() != null, "runtime should expose its started process");
@@ -108,7 +109,7 @@ class TerminalManagerTest {
         final TerminalRuntime runtime = manager.create(TRUE_COMMAND, TEMP_DIRECTORY, RESOURCE);
         createdProcess.get().emit("ready");
         final var connector = new AtomicReference<com.jediterm.terminal.TtyConnector>();
-        runtime.start(connector::set, exception -> {});
+        runtime.start(connector::set, exception -> {}, Map.of());
 
         AsyncTestSupport.await(() -> runtime.process() != null, "runtime process should start");
         AsyncTestSupport.await(() -> connector.get() != null, "runtime connector should attach");

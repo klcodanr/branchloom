@@ -139,7 +139,8 @@ class StubTerminalRuntime extends TerminalRuntime {
     }
 
     @Override
-    protected PtyProcess launchProcess() throws IOException {
+    protected PtyProcess launchProcess(final java.util.Map<String, String> environment)
+            throws IOException {
         if (launchFailure != null) {
             throw launchFailure;
         }

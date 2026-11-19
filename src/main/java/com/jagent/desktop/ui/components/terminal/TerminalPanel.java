@@ -1,8 +1,12 @@
 package com.jagent.desktop.ui.components.terminal;
 
 import com.jagent.desktop.async.BackgroundOperations;
+import com.jagent.desktop.models.Project;
+import com.jagent.desktop.models.ProjectId;
+import com.jagent.desktop.models.SessionId;
 import com.jagent.desktop.models.Terminal;
 import com.jagent.desktop.models.TerminalId;
+import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.TerminalResources;
 import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.services.terminal.TerminalManager;
@@ -13,6 +17,7 @@ import com.jagent.desktop.ui.components.UiConstants;
 import com.jediterm.terminal.ui.JediTermWidget;
 import java.awt.BorderLayout;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -28,18 +33,24 @@ public final class TerminalPanel extends JPanel {
     private static final ConcurrentMap<TerminalId, TerminalPanel> RETAINED_PANELS =
             new ConcurrentHashMap<>();
     private final transient TerminalManager manager = TerminalManager.get();
+    private final transient AppState appState;
     private final transient TerminalRuntime runtime;
+    private final transient Terminal definition;
     private final transient @Nullable TerminalId retainedId;
     private final JediTermWidget terminal;
     private volatile Consumer<String> titleChanged = ignored -> {};
 
     private TerminalPanel(
             final TerminalRuntime runtime,
+            final AppState appState,
+            final Terminal definition,
             final @Nullable TerminalId retainedId,
             final Consumer<TerminalState> stateChanged,
             final DialogService dialogService) {
         super(new BorderLayout());
         this.runtime = runtime;
+        this.appState = appState;
+        this.definition = definition;
         this.retainedId = retainedId;
         setOpaque(false);
         setBorder(
@@ -62,6 +73,7 @@ public final class TerminalPanel extends JPanel {
             final Terminal definition,
             final Path directory,
             final String resourceName,
+            final AppState appState,
             final DialogService dialogService) {
         return RETAINED_PANELS.computeIfAbsent(
                 id,
@@ -69,6 +81,8 @@ public final class TerminalPanel extends JPanel {
                         new TerminalPanel(
                                 TerminalManager.get()
                                         .retained(id, definition, directory, resourceName),
+                                appState,
+                                definition,
                                 id,
                                 null,
                                 dialogService));
@@ -102,7 +116,8 @@ public final class TerminalPanel extends JPanel {
                                     add(failure, BorderLayout.NORTH);
                                     revalidate();
                                     repaint();
-                                }));
+                                }),
+                project().environment());
     }
 
     public void focusTerminal() {
@@ -165,5 +180,18 @@ public final class TerminalPanel extends JPanel {
             return;
         }
         SwingUtilities.invokeLater(() -> titleChanged.accept(title.trim()));
+    }
+
+    private Project project() {
+        if (definition.owner() instanceof ProjectId projectId) {
+            return Optional.ofNullable(appState.projects().get(projectId))
+                    .orElseThrow(() -> new IllegalStateException("Terminal project not found"));
+        }
+        if (definition.owner() instanceof SessionId sessionId) {
+            return Optional.ofNullable(appState.sessions().get(sessionId))
+                    .map(session -> appState.projects().get(session.projectId()))
+                    .orElseThrow(() -> new IllegalStateException("Terminal project not found"));
+        }
+        throw new IllegalStateException("Terminal project not found");
     }
 }

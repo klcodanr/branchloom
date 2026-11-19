@@ -155,6 +155,7 @@ class TerminalPanelUiTest {
                                         definition,
                                         TEMP_DIRECTORY,
                                         "Session",
+                                        null,
                                         new com.jagent.desktop.services.dialog
                                                 .HeadlessDialogService()));
 
@@ -322,7 +323,10 @@ class TerminalPanelUiTest {
         }
 
         @Override
-        public void start(final Consumer<TtyConnector> attach, final Consumer<Exception> failed) {
+        public void start(
+                final Consumer<TtyConnector> attach,
+                final Consumer<Exception> failed,
+                final java.util.Map<String, String> environment) {
             state = TerminalState.FAILED;
             listener.accept(state);
             failed.accept(new IllegalStateException("startup failed"));

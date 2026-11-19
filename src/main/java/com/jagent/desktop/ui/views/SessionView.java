@@ -248,6 +248,7 @@ public final class SessionView extends AbstractWorkspaceView {
                                     + session.name()
                                     + " > "
                                     + persistedTerminal.title(),
+                            appState,
                             dialogService);
         }
         if (terminal.getParent() != null) {

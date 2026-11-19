@@ -38,7 +38,8 @@ class AgentContextTest {
                         List.of(),
                         List.of(),
                         CONTEXT_PATH,
-                        "Use the repository conventions.");
+                        "Use the repository conventions.",
+                        null);
         final Session session =
                 Session.create(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
@@ -81,6 +82,7 @@ class AgentContextTest {
                         List.of(),
                         List.of(),
                         "./.cursor-notes/BRANCHLOOM_CONTEXT.md",
+                        null,
                         null);
         final Session session =
                 Session.create(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
@@ -127,6 +129,7 @@ class AgentContextTest {
                         List.of(),
                         List.of(),
                         ".cursor-notes/agent-start.md",
+                        null,
                         null);
         final Session session =
                 Session.create(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
@@ -160,7 +163,8 @@ class AgentContextTest {
                         List.of(),
                         List.of(),
                         CONTEXT_PATH,
-                        "Use the repository conventions.");
+                        "Use the repository conventions.",
+                        null);
         final Session session =
                 Session.create(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
 
@@ -186,6 +190,7 @@ class AgentContextTest {
                         List.of(),
                         List.of(),
                         CONTEXT_PATH,
+                        null,
                         null);
         final Session session =
                 Session.create(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());
@@ -240,6 +245,7 @@ class AgentContextTest {
                         List.of(),
                         List.of(),
                         ".project-context.md",
+                        null,
                         null);
         final Session session =
                 Session.create(null, SESSION_NAME, AGENT_NAME, FIX_PROMPT, worktree.toString());

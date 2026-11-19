@@ -196,7 +196,10 @@ class WorkspaceTabMenuTest {
         }
 
         @Override
-        public void start(final Consumer<TtyConnector> attach, final Consumer<Exception> failed) {}
+        public void start(
+                final Consumer<TtyConnector> attach,
+                final Consumer<Exception> failed,
+                final java.util.Map<String, String> environment) {}
 
         @Override
         public void onStateChanged(final Consumer<TerminalState> listener) {}

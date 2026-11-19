@@ -38,6 +38,7 @@
 - Make the smallest change that satisfies the request. Do not broaden a file-level request into an architectural refactor.
 - Do not introduce indirection unless the request explicitly calls for it.
 - Prefer direct concrete dependencies and direct method calls over string IDs, maps, factories, and intermediary objects.
+- Prefer `Optional` for nullable value transformations instead of null-checking ternary expressions.
 - Keep simple transformations inline. Add a helper only when it is genuinely reused or makes a complex operation clearer.
 - Do not add pass-through helpers with a single call site unless they remove meaningful complexity or are expected to be reused immediately.
 - Prefer existing extension points and APIs before introducing new overloads or methods. Prefer compsing methods to adding new single-use methods. Only add new APIs when existing ones cannot satisfy the requirement cleanly.

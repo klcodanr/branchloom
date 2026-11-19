@@ -141,7 +141,8 @@ class ProjectSettingsViewTest {
                         List.of(STARTUP_ORIGINAL),
                         List.of(),
                         CONTEXT_PATH_ORIGINAL,
-                        CONTEXT_TEXT_ORIGINAL);
+                        CONTEXT_TEXT_ORIGINAL,
+                        null);
         final ProjectId projectId = ProjectId.create();
         final AppState state =
                 new AppState(

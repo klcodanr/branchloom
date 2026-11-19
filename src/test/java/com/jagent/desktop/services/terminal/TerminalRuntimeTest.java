@@ -9,6 +9,7 @@ import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.TtyConnector;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -43,7 +44,7 @@ class TerminalRuntimeTest {
         final var failure = new AtomicReference<Exception>();
         runtime.stop();
 
-        runtime.start(ignored -> {}, failure::set);
+        runtime.start(ignored -> {}, failure::set, Map.of());
         runtime.stop();
 
         assertEquals(TerminalState.STOPPED, runtime.state(), "stopping should update state");
@@ -69,8 +70,9 @@ class TerminalRuntimeTest {
                     connector.set(tty);
                     attached.countDown();
                 },
-                failure::set);
-        runtime.start(ignored -> {}, failure::set);
+                failure::set,
+                Map.of());
+        runtime.start(ignored -> {}, failure::set, Map.of());
 
         assertTrue(attached.await(2, TimeUnit.SECONDS), "PTY should attach");
         runtime.submitCommand();
@@ -107,7 +109,7 @@ class TerminalRuntimeTest {
                         new FakePtyProcess(104),
                         new IOException("boom"));
         final var failure = new AtomicReference<Exception>();
-        failed.start(ignored -> {}, failure::set);
+        failed.start(ignored -> {}, failure::set, Map.of());
 
         AsyncTestSupport.await(
                 () -> failed.state() == TerminalState.FAILED, "runtime should reach failed state");
@@ -119,7 +121,7 @@ class TerminalRuntimeTest {
         final var running =
                 new StubTerminalRuntime("sleep 10", TEMP_DIRECTORY, HISTORY_FILE, runningProcess);
         final var attached = new CountDownLatch(1);
-        running.start(ignored -> attached.countDown(), failure::set);
+        running.start(ignored -> attached.countDown(), failure::set, Map.of());
         assertTrue(attached.await(2, TimeUnit.SECONDS), "PTY should attach");
         running.stop();
 
@@ -157,7 +159,8 @@ class TerminalRuntimeTest {
                     successfulConnector.set(connector);
                     successfulAttached.countDown();
                 },
-                exception -> {});
+                exception -> {},
+                Map.of());
         assertTrue(successfulAttached.await(2, TimeUnit.SECONDS), "terminal should attach");
         successful.submitCommand();
         successfulConnector.get().read(new char[32], 0, 32);
@@ -173,7 +176,8 @@ class TerminalRuntimeTest {
                     failedConnector.set(connector);
                     failedAttached.countDown();
                 },
-                exception -> {});
+                exception -> {},
+                Map.of());
         assertTrue(failedAttached.await(2, TimeUnit.SECONDS), "terminal should attach");
         failed.submitCommand();
         failedConnector.get().read(new char[32], 0, 32);
@@ -191,7 +195,7 @@ class TerminalRuntimeTest {
                         "sleep 10", TEMP_DIRECTORY, HISTORY_FILE, new FakePtyProcess(109));
         final var attached = new CountDownLatch(1);
         try {
-            runtime.start(ignored -> attached.countDown(), ignored -> {});
+            runtime.start(ignored -> attached.countDown(), ignored -> {}, Map.of());
 
             assertTrue(attached.await(2, TimeUnit.SECONDS), "PTY should attach");
             AsyncTestSupport.await(
