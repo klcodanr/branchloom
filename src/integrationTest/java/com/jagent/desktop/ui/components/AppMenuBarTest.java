@@ -47,15 +47,20 @@ class AppMenuBarTest {
         assertFalse(hasMenu(bar, "Session"), ASSERTION_MESSAGE);
 
         final JMenu file = bar.getMenu(0);
+        final JMenuItem newProject = findItem(file, "Create new project");
         final JMenuItem addLocalProject = findItem(file, "Add local project");
         final JMenuItem cloneRemoteProject = findItem(file, "Clone remote project");
         final JMenuItem settings = findItem(file, "Open Settings");
+        assertNotNull(newProject, ASSERTION_MESSAGE);
         assertNotNull(addLocalProject, ASSERTION_MESSAGE);
         assertNotNull(cloneRemoteProject, ASSERTION_MESSAGE);
+        assertNotNull(newProject.getIcon(), "new project should have an icon");
+        assertNotNull(addLocalProject.getIcon(), "local import should have an icon");
+        assertNotNull(cloneRemoteProject.getIcon(), "remote clone should have an icon");
         assertNotNull(settings, ASSERTION_MESSAGE);
         assertNotNull(findItem(file, "Refresh Settings"), ASSERTION_MESSAGE);
         assertTrue(addLocalProject.isEnabled(), ASSERTION_MESSAGE);
-        assertTrue(file.getMenuComponent(2) instanceof JSeparator, ASSERTION_MESSAGE);
+        assertTrue(file.getMenuComponent(3) instanceof JSeparator, ASSERTION_MESSAGE);
         if (SystemInfo.isMacOS) {
             assertFalse(hasItem(file, "Exit"), ASSERTION_MESSAGE);
         } else {
@@ -86,15 +91,15 @@ class AppMenuBarTest {
         assertEquals("Help", bar.getMenu(4).getText(), ASSERTION_MESSAGE);
 
         final JMenu file = bar.getMenu(0);
-        final JMenuItem addProject = findItem(file, "Add local project");
+        final JMenuItem newProject = findItem(file, "Create new project");
         final JMenuItem startSession = findItem(file, "Start agent session");
         final JMenuItem newTerminal = findItem(file, "New Terminal Tab");
-        assertNotNull(addProject, ASSERTION_MESSAGE);
+        assertNotNull(newProject, ASSERTION_MESSAGE);
         assertNotNull(startSession, ASSERTION_MESSAGE);
         assertNotNull(newTerminal, ASSERTION_MESSAGE);
         assertTrue(startSession.isEnabled(), ASSERTION_MESSAGE);
         assertTrue(newTerminal.isEnabled(), ASSERTION_MESSAGE);
-        assertEquals(shortcut(KeyEvent.VK_N, true), addProject.getAccelerator(), ASSERTION_MESSAGE);
+        assertEquals(shortcut(KeyEvent.VK_N, true), newProject.getAccelerator(), ASSERTION_MESSAGE);
         assertEquals(
                 shortcut(KeyEvent.VK_N, false), startSession.getAccelerator(), ASSERTION_MESSAGE);
         assertEquals(

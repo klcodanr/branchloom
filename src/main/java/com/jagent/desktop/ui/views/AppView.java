@@ -11,6 +11,7 @@ import com.jagent.desktop.ui.actions.CreateSessionAction;
 import com.jagent.desktop.ui.actions.CreateTerminalAction;
 import com.jagent.desktop.ui.actions.FindAction;
 import com.jagent.desktop.ui.actions.ImportProjectAction;
+import com.jagent.desktop.ui.actions.NewProjectAction;
 import com.jagent.desktop.ui.actions.OpenSettingsAction;
 import com.jagent.desktop.ui.actions.ProblemsAction;
 import com.jagent.desktop.ui.actions.RefreshSettingsAction;
@@ -70,6 +71,7 @@ public final class AppView extends JPanel {
             final FindAction findAction,
             final CreateProjectAction createProjectAction,
             final ImportProjectAction importProjectAction,
+            final NewProjectAction newProjectAction,
             final CreateSessionAction createSessionAction,
             final CreateTerminalAction createTerminalAction,
             final OpenSettingsAction openSettingsAction,
@@ -88,6 +90,7 @@ public final class AppView extends JPanel {
         this.commandPaletteActions =
                 List.of(
                         findAction,
+                        newProjectAction,
                         createProjectAction,
                         importProjectAction,
                         createSessionAction,

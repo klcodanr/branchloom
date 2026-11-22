@@ -3,6 +3,7 @@ package com.jagent.desktop.ui.actions;
 import com.google.inject.Inject;
 import com.jagent.desktop.api.Action;
 import com.jagent.desktop.services.dialog.DialogService;
+import com.jagent.desktop.ui.dialogs.NewProjectDialog;
 
 public final class ShortcutsAction implements Action {
     private final DialogService dialogService;
@@ -27,7 +28,8 @@ public final class ShortcutsAction implements Action {
 
         dialogService.message(
                 "Find: Cmd/Ctrl+F\nCommand palette: Cmd/Ctrl+K\nNew session: Cmd/Ctrl+N\n"
-                        + "Add local project: Cmd/Ctrl+Shift+N\nNew terminal: Cmd/Ctrl+T\n"
+                        + NewProjectDialog.TITLE
+                        + ": Cmd/Ctrl+Shift+N\nNew terminal: Cmd/Ctrl+T\n"
                         + "Close terminal: Cmd/Ctrl+W\n"
                         + "Rename terminal: Cmd/Ctrl+Shift+R\nTerminal 1-9: Cmd/Ctrl+1-9",
                 "Keyboard shortcuts",

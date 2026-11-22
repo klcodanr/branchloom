@@ -3,9 +3,7 @@ package com.jagent.desktop.ui.components.tree.items;
 import com.jagent.desktop.services.AppState;
 import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.services.dialog.DialogService;
-import com.jagent.desktop.ui.actions.CreateProjectAction;
-import com.jagent.desktop.ui.actions.ImportProjectAction;
-import javax.swing.JMenuItem;
+import com.jagent.desktop.ui.components.ProjectAddMenu;
 import javax.swing.JPopupMenu;
 
 public class GroupTreeItem implements TreeItem {
@@ -44,21 +42,7 @@ public class GroupTreeItem implements TreeItem {
     @Override
     public JPopupMenu getMenu() {
 
-        final JPopupMenu menu = new JPopupMenu();
-
-        final JMenuItem addLocal = new JMenuItem("Add local project to " + groupName);
-        addLocal.addActionListener(
-                event ->
-                        new CreateProjectAction(viewController, appState, dialogService, groupName)
-                                .execute());
-        menu.add(addLocal);
-        final JMenuItem cloneRemote = new JMenuItem("Clone remote project to " + groupName);
-        cloneRemote.addActionListener(
-                event ->
-                        new ImportProjectAction(viewController, appState, dialogService, groupName)
-                                .execute());
-        menu.add(cloneRemote);
-        return menu;
+        return new ProjectAddMenu(viewController, appState, dialogService, groupName);
     }
 
     @Override

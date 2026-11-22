@@ -2,15 +2,39 @@ package com.jagent.desktop.ui.actions;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jagent.desktop.api.Action;
 import com.jagent.desktop.services.AppState;
+import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.test.TestAppState;
+import java.lang.reflect.Proxy;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class ActionMetadataTest {
     private static final String ASSERTION_MESSAGE = "action metadata should be populated";
+
+    @Test
+    void shortcutsShowProjectCreationLabel() {
+        final AtomicReference<String> message = new AtomicReference<>();
+        final var dialogs =
+                (DialogService)
+                        Proxy.newProxyInstance(
+                                Thread.currentThread().getContextClassLoader(),
+                                new Class<?>[] {DialogService.class},
+                                (proxy, method, args) -> {
+                                    message.set((String) args[0]);
+                                    return null;
+                                });
+
+        new ShortcutsAction(dialogs).execute();
+
+        assertTrue(
+                message.get().contains("Create new project: Cmd/Ctrl+Shift+N"),
+                "shortcut help should match the project creation item");
+    }
 
     @Test
     void actionMetadataIsStable() {

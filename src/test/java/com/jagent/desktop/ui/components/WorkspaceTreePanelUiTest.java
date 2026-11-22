@@ -301,14 +301,19 @@ class WorkspaceTreePanelUiTest {
                                                 openedPath.set(path);
                                                 openedFiltered.set(filtered);
                                             }));
-            waitForFile(panel, FILE);
             waitForLabel(panel, "~1");
-            final var node = findNode(root(panel), FILE);
-            GuiActionRunner.execute(
-                    () -> tree(panel).setSelectionPath(new TreePath(node.getPath())));
-            waitForSelection(panel, FILE);
-            GuiActionRunner.execute(
-                    () -> tree(panel).getActionMap().get(OPEN_SELECTED_FILE).actionPerformed(null));
+            SwingTestSupport.await(
+                    () -> {
+                        final var node = findNode(root(panel), FILE);
+                        if (node == null) {
+                            return false;
+                        }
+                        final var workspaceTree = tree(panel);
+                        workspaceTree.setSelectionPath(new TreePath(node.getPath()));
+                        workspaceTree.getActionMap().get(OPEN_SELECTED_FILE).actionPerformed(null);
+                        return true;
+                    },
+                    "workspace file did not load after the Git status refresh: " + FILE);
 
             assertEquals(
                     workspace.resolve(FILE).toAbsolutePath().normalize(),

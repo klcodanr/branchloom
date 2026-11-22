@@ -11,6 +11,7 @@ import com.jagent.desktop.services.ViewController;
 import com.jagent.desktop.services.dialog.DialogService;
 import com.jagent.desktop.ui.actions.CreateProjectAction;
 import com.jagent.desktop.ui.actions.ImportProjectAction;
+import com.jagent.desktop.ui.actions.NewProjectAction;
 import com.jagent.desktop.ui.components.BaseButton;
 import com.jagent.desktop.ui.components.SessionMonitoringPanel;
 import com.jagent.desktop.ui.components.Theme;
@@ -157,12 +158,17 @@ public final class HomeView extends JPanel implements RefreshableView {
     private JPanel getStartedCard() {
         final JPanel card = card("Get started");
         final JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        final var newProject = new NewProjectAction(viewController, appState, dialogService);
+        final JButton newButton = new BaseButton(newProject.label(), UiIcons.forAction(newProject));
+        newButton.addActionListener(event -> newProject.execute());
+        actions.add(newButton);
         final var create = new CreateProjectAction(viewController, appState, dialogService);
-        final JButton addProject = new BaseButton(create.label(), UiIcons.plus());
+        final JButton addProject = new BaseButton(create.label(), UiIcons.forAction(create));
         addProject.addActionListener(event -> create.execute());
         actions.add(addProject);
         final var importProject = new ImportProjectAction(viewController, appState, dialogService);
-        final JButton importButton = new BaseButton(importProject.label());
+        final JButton importButton =
+                new BaseButton(importProject.label(), UiIcons.forAction(importProject));
         importButton.addActionListener(event -> importProject.execute());
         actions.add(importButton);
         card.add(actions, BorderLayout.CENTER);
