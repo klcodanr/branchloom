@@ -6,7 +6,9 @@ import com.jagent.desktop.ui.utils.ClipboardImagePaster;
 import com.jediterm.terminal.HyperlinkStyle;
 import com.jediterm.terminal.TerminalCopyPasteHandler;
 import com.jediterm.terminal.TerminalStarter;
+import com.jediterm.terminal.model.SelectionUtil;
 import com.jediterm.terminal.model.StyleState;
+import com.jediterm.terminal.model.TerminalSelection;
 import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.jediterm.terminal.ui.settings.SettingsProvider;
 import java.awt.Point;
@@ -15,6 +17,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.function.Consumer;
+import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.TransferHandler;
 
@@ -24,6 +27,9 @@ public final class AppTerminalPanel extends com.jediterm.terminal.ui.TerminalPan
     private final transient Consumer<Boolean> modifiedClickLinkActivationChanged;
     private final transient Consumer<Boolean> contextMenuLinkActivationChanged;
     private transient DialogService dialogService;
+    private transient TerminalCopyPasteHandler copyPasteHandler;
+    private volatile String lastSelectedText;
+    private final String copyActionName;
 
     public AppTerminalPanel(
             final SettingsProvider settings,
@@ -34,6 +40,8 @@ public final class AppTerminalPanel extends com.jediterm.terminal.ui.TerminalPan
         super(settings, textBuffer, styleState);
         this.modifiedClickLinkActivationChanged = modifiedClickLinkActivationChanged;
         this.contextMenuLinkActivationChanged = contextMenuLinkActivationChanged;
+        copyActionName = settings.getCopyActionPresentation().getName();
+        addSelectionListener(this::selectionChanged);
         setTransferHandler(
                 new TransferHandler() {
                     @Override
@@ -81,6 +89,10 @@ public final class AppTerminalPanel extends com.jediterm.terminal.ui.TerminalPan
     @Override
     protected void processMouseEvent(final java.awt.event.MouseEvent event) {
         lastMousePoint = event.getPoint();
+        if (event.getID() == java.awt.event.MouseEvent.MOUSE_PRESSED
+                && event.getButton() == java.awt.event.MouseEvent.BUTTON1) {
+            lastSelectedText = null;
+        }
         modifiedClickLinkActivationChanged.accept(isModifiedLinkActivationEvent(event));
         super.processMouseEvent(event);
         modifiedClickLinkActivationChanged.accept(false);
@@ -92,6 +104,7 @@ public final class AppTerminalPanel extends com.jediterm.terminal.ui.TerminalPan
         final String link = linkAt(lastMousePoint);
         contextMenuLinkActivationChanged.accept(link != null);
         final JPopupMenu menu = super.createPopupMenu(actionProvider);
+        installSelectionCopy(menu);
         UiPopupMenus.install(
                 menu,
                 this,
@@ -101,6 +114,44 @@ public final class AppTerminalPanel extends com.jediterm.terminal.ui.TerminalPan
                     }
                 });
         return menu;
+    }
+
+    private void selectionChanged(final TerminalSelection selection) {
+        if (selection != null && selection.getEnd() != null) {
+            final String selectedText =
+                    SelectionUtil.getSelectionText(selection, getTerminalTextBuffer());
+            lastSelectedText = selectedText.isEmpty() ? null : selectedText;
+        }
+    }
+
+    private void installSelectionCopy(final JPopupMenu menu) {
+        final String selectedText = lastSelectedText;
+        if (selectedText == null) {
+            return;
+        }
+        for (final java.awt.Component component : menu.getComponents()) {
+            if (component instanceof JMenuItem item && copyActionName.equals(item.getText())) {
+                for (final var listener : item.getActionListeners()) {
+                    item.removeActionListener(listener);
+                }
+                item.setEnabled(true);
+                item.addActionListener(ignored -> copyText(selectedText));
+                return;
+            }
+        }
+    }
+
+    /* default */ boolean copyLastSelection() {
+        final String selectedText = lastSelectedText;
+        if (selectedText == null) {
+            return false;
+        }
+        copyText(selectedText);
+        return true;
+    }
+
+    private void copyText(final String text) {
+        copyPasteHandler.setContents(text, false);
     }
 
     private String linkAt(final Point point) {
@@ -131,23 +182,26 @@ public final class AppTerminalPanel extends com.jediterm.terminal.ui.TerminalPan
     @Override
     protected TerminalCopyPasteHandler createCopyPasteHandler() {
         final TerminalCopyPasteHandler delegate = super.createCopyPasteHandler();
-        return new TerminalCopyPasteHandler() {
-            @Override
-            public void setContents(final String text, final boolean useSystemSelection) {
-                delegate.setContents(text, useSystemSelection);
-            }
+        copyPasteHandler =
+                new TerminalCopyPasteHandler() {
+                    @Override
+                    public void setContents(final String text, final boolean useSystemSelection) {
+                        delegate.setContents(text, useSystemSelection);
+                    }
 
-            @Override
-            public String getContents(final boolean useSystemSelection) {
-                final var imagePath = new java.util.concurrent.atomic.AtomicReference<String>();
-                final boolean handled =
-                        ClipboardImagePaster.paste(
-                                imagePath::set,
-                                message ->
-                                        dialogService.errorMessage(
-                                                message, "Clipboard image paste failed"));
-                return handled ? imagePath.get() : delegate.getContents(useSystemSelection);
-            }
-        };
+                    @Override
+                    public String getContents(final boolean useSystemSelection) {
+                        final var imagePath =
+                                new java.util.concurrent.atomic.AtomicReference<String>();
+                        final boolean handled =
+                                ClipboardImagePaster.paste(
+                                        imagePath::set,
+                                        message ->
+                                                dialogService.errorMessage(
+                                                        message, "Clipboard image paste failed"));
+                        return handled ? imagePath.get() : delegate.getContents(useSystemSelection);
+                    }
+                };
+        return copyPasteHandler;
     }
 }
