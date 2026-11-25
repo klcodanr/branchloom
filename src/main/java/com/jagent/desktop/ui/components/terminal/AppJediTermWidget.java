@@ -1,5 +1,6 @@
 package com.jagent.desktop.ui.components.terminal;
 
+import com.formdev.flatlaf.util.SystemInfo;
 import com.jagent.desktop.async.BackgroundOperations;
 import com.jagent.desktop.models.Tool;
 import com.jagent.desktop.services.EditorCommands;
@@ -48,28 +49,61 @@ public final class AppJediTermWidget extends JediTermWidget {
                         new KeyAdapter() {
                             @Override
                             public void keyPressed(final KeyEvent event) {
-                                if (event.isControlDown()
-                                        && event.getKeyCode() == KeyEvent.VK_C
-                                        && getTerminalPanel().getSelection() == null) {
-                                    final var starter = getTerminalStarter();
-                                    if (starter != null) {
-                                        starter.sendBytes(new byte[] {0x03}, true);
-                                        event.consume();
-                                    }
-                                } else if (isLiteralNewlineShortcut(event)) {
-                                    final var starter = getTerminalStarter();
-                                    if (starter != null) {
-                                        starter.sendBytes(new byte[] {0x0A}, true);
-                                        event.consume();
-                                    }
-                                }
+                                handleKeyPressed(event);
                             }
                         });
+    }
+
+    private void handleKeyPressed(final KeyEvent event) {
+        if (copyLastSelection(event)) {
+            return;
+        }
+        if (sendInterrupt(event)) {
+            return;
+        }
+        if (isLiteralNewlineShortcut(event)) {
+            sendBytes(event, 0x0A);
+        }
+    }
+
+    private boolean copyLastSelection(final KeyEvent event) {
+        if (event.getKeyCode() != KeyEvent.VK_C
+                || getTerminalPanel().getSelection() != null
+                || !isMenuCopyShortcut(event)
+                || !(getTerminalPanel() instanceof AppTerminalPanel terminalPanel)
+                || !terminalPanel.copyLastSelection()) {
+            return false;
+        }
+        event.consume();
+        return true;
+    }
+
+    private boolean sendInterrupt(final KeyEvent event) {
+        if (!event.isControlDown()
+                || event.getKeyCode() != KeyEvent.VK_C
+                || getTerminalPanel().getSelection() != null) {
+            return false;
+        }
+        return sendBytes(event, 0x03);
+    }
+
+    private boolean sendBytes(final KeyEvent event, final int value) {
+        final var starter = getTerminalStarter();
+        if (starter == null) {
+            return false;
+        }
+        starter.sendBytes(new byte[] {(byte) value}, true);
+        event.consume();
+        return true;
     }
 
     private boolean isLiteralNewlineShortcut(final KeyEvent event) {
         return event.getKeyCode() == KeyEvent.VK_ENTER
                 && (event.isControlDown() || event.isShiftDown());
+    }
+
+    private boolean isMenuCopyShortcut(final KeyEvent event) {
+        return SystemInfo.isMacOS ? event.isMetaDown() : event.isControlDown();
     }
 
     public void open(final TerminalFileLink link) {
